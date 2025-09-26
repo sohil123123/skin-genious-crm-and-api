@@ -15,9 +15,18 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+
+        if ($this->command->confirm('Do you wish to refresh migration before seeding, it will clear all old data ?')) {
+            $this->command->call('migrate:refresh');
+            $this->command->warn("Data cleared, starting from blank database.");
+
+            $this->call(PermissionSeeder::class);
+            $this->call(RoleSeeder::class);
+            $this->call(UserSeeder::class);
+        }
     }
 }

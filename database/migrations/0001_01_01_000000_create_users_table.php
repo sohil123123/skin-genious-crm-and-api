@@ -12,13 +12,65 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
+            $table->id()->comment('Primary key, auto-increment user ID');
+
+            // Basic Personal Information
+            $table->string('first_name')->comment('User first name');
+            $table->string('last_name')->comment('User last name');
+            $table->enum('gender', ['Male', 'Female', 'Other'])->nullable()->comment('User gender selection');
+            $table->date('date_of_birth')->nullable()->comment('User date of birth');
+
+            // Contact Information
+            $table->string('mobile')->unique()->comment('User mobile number');
+            $table->string('email')->unique()->nullable()->comment('User email address');
+            $table->string('occupation')->nullable()->comment('User occupation');
+
+            // Address Information
+            $table->text('address_line_1')->nullable()->comment('Primary address line');
+            $table->text('address_line_2')->nullable()->comment('Secondary address line');
+            $table->string('pincode', 10)->nullable()->comment('Postal/ZIP code');
+            $table->string('city')->nullable()->comment('City name');
+
+            // Referral and Marketing Information
+            $table->string('referral_code')->unique()->nullable()->comment('Unique referral code for this user to share with others');
+            $table->foreignId('referred_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->comment('User ID who referred this user (self-join)');
+
+            $table->boolean('opt_for_loyalty')->default(false)->comment('Whether user opted for loyalty program (true/false)');
+            $table->enum('how_did_you_hear', [
+                'Skin Genius',
+                'Social Media',
+                'Friend Referral',
+                'Google Search',
+                'Practo/Lybrate',
+                'By Doctor',
+                'Other'
+            ])->nullable()->comment('How user heard about our skincare website');
+
+            // Referral Statistics
+            $table->integer('total_referrals')->default(0)->comment('Total number of successful referrals');
+            $table->decimal('referral_earnings', 10, 2)->default(0)->comment('Total earnings from referrals');
+            $table->decimal('pending_referral_earnings', 10, 2)->default(0)->comment('Pending referral earnings');
+
+            // Authentication
+            $table->timestamp('email_verified_at')->nullable()->comment('Timestamp when email was verified');
+            $table->string('password')->comment('Encrypted password for user authentication');
+            $table->rememberToken()->comment('Remember token for "keep me logged in" functionality');
+
+            // Account Status
+            $table->boolean('is_active')->default(true)->comment('Whether user account is active (true/false)');
+
+            // Timestamps
             $table->timestamps();
+            $table->softDeletes()->comment('Soft delete timestamp for user account deletion');
+
+            // Indexes for better performance
+            $table->index('mobile');
+            $table->index('email');
+            $table->index('referred_by');
+            $table->index('opt_for_loyalty');
+            $table->index('is_active');
+
+            $table->comment('Main users table for skincare website - stores customer information and authentication details');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

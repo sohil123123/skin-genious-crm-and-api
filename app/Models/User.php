@@ -6,22 +6,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    protected $fillable = ['first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'email_verified_at', 'password', 'is_active'];
 
     /**
      * The attributes that should be hidden for serialization.
