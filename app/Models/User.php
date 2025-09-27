@@ -41,6 +41,13 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'opt_for_loyalty' => 'boolean',
         ];
+    }
+
+    public function getNameAttribute(): string
+    {
+        return trim($this->first_name . ' ' . ($this->last_name ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
     }
 }

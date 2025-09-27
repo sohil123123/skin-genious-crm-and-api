@@ -1,0 +1,21 @@
+table.shimmer-loading tbody tr {
+  pointer-events: none; /* Prevent clicks during loading */
+}
+
+table.shimmer-loading tbody td,
+table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) { /* Exclude sort icons if needed */
+  color: transparent !important; /* Hide text content */
+  background-color: #f6f7f8 !important;
+  background-image: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%) !important;
+  background-size: 800px 104px !important;
+  animation: shimmer 1.5s linear infinite !important;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -800px 0;
+  }
+  100% {
+    background-position: 800px 0;
+  }
+}
