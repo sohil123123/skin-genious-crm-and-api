@@ -26,6 +26,9 @@ use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\Vite;
 
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
+
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -72,9 +75,15 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->sidebarFullyCollapsibleOnDesktop()
             ->plugins([
-                FilamentAwinTheme::make()
-                    ->primaryColor(Color::Emerald), // Use Filament's Emerald color palette
+                FilamentAwinTheme::make()->primaryColor(Color::Emerald),
+            ])
+            ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Auth Management')
+                    ->icon('heroicon-o-academic-cap'),
+                    // ->collapsed(),
             ]);
     }
 

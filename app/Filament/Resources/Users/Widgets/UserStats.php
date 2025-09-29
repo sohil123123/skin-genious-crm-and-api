@@ -29,10 +29,17 @@ class UserStats extends BaseWidget
     protected function getStats(): array
     {
         return [
-            Stat::make('Admins', $this->getPageTableQuery()->whereHas('roles', fn ($q) => $q->where('name', 'admin'))->count()),
-            Stat::make('Therapists', $this->getPageTableQuery()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count()),
-            Stat::make('Users', $this->getPageTableQuery()->whereHas('roles', fn ($q) => $q->where('name', 'user'))->count()),
-            Stat::make('New This Month', $this->getPageTableQuery()->whereMonth('created_at', now()->month)->count()),
+            Stat::make('Active users', $this->getPageTableQuery()->where('is_active', true)->count())
+                ->icon('heroicon-m-user-group')
+                ->color('success'), // green
+
+            Stat::make('Inactive users', $this->getPageTableQuery()->where('is_active', false)->count())
+                ->icon('heroicon-m-user-minus')
+                ->color('danger'), // red
+
+            Stat::make('New This Month users', $this->getPageTableQuery()->whereMonth('created_at', now()->month)->count())
+                ->icon('heroicon-m-user-plus')
+                ->color('info'), // blue
         ];
     }
 }

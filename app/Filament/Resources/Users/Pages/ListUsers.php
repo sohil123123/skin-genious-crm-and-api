@@ -24,7 +24,7 @@ class ListUsers extends ListRecords
         ];
     }
 
-     protected function getHeaderWidgets(): array
+    protected function getHeaderWidgets(): array
     {
         return UserResource::getWidgets();
     }
@@ -32,9 +32,20 @@ class ListUsers extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'active' => Tab::make()->query(fn ($query) => $query->where('is_active', true)),
-            'inactive' => Tab::make()->query(fn ($query) => $query->where('is_active', false)),
+            'all' => Tab::make('All')
+                ->badge($this->getModel()::count()),
+
+            'admin' => Tab::make('Admins')
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'admin')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->count()),
+
+            'therapist' => Tab::make('Therapists')
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'therapist')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count()),
+
+            'user' => Tab::make('users')
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'user')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'user'))->count()),
         ];
     }
 }

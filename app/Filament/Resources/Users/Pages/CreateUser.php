@@ -50,18 +50,16 @@ class CreateUser extends CreateRecord
     //     return []; // 👈 removes default Create / Create & create another / Cancel
     // }
 
-    protected function afterCreate(): void
+    protected function getCreatedNotification(): ?Notification
     {
-        /** @var Order $order */
-        $user = $this->record;
+        return Notification::make()
+            ->title('User added 🎉')
+            ->body('The user details have been successfully added.')
+            ->success();
+    }
 
-        Notification::make()
-            ->title('New order')
-            ->icon('heroicon-o-shopping-bag')
-            ->body("**New customer ({$user->name}) has been added.**")
-            ->actions([
-                Action::make('View')->url(UserResource::getUrl('edit', ['record' => $user])),
-            ])
-            ->sendToDatabase($user);
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }

@@ -1,0 +1,97 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+use Spatie\Permission\Models\Permission;
+
+if (!function_exists('get_user_ip')) {
+    /**
+     * Get validated user IP address
+     */
+    function get_user_ip(): string
+    {
+        $request = app(Request::class);
+        $ip = $request->ip();
+
+        // Check forwarded headers
+        if ($forwarded = $request->header('HTTP_X_FORWARDED_FOR')) {
+            $ips = explode(',', $forwarded);
+            $ip = trim($ips[0]);
+        } elseif ($clientIp = $request->header('HTTP_CLIENT_IP')) {
+            $ip = $clientIp;
+        }
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : ($request->ip() ?: '127.0.0.1');
+    }
+}
+
+if (!function_exists('is_public_ip')) {
+    /**
+     * Check if IP is public (not private or reserved)
+     */
+    function is_public_ip(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    }
+}
+
+if (!function_exists('get_user_location')) {
+    /**
+     * Get user location from IP using geoplugin
+     */
+    function get_user_location(?string $ip = null): ?array
+    {
+        $ip = $ip ?? get_user_ip();
+
+        if (!is_public_ip($ip)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(10)->get('http://www.geoplugin.net/json.gp', ['ip' => $ip]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if (isset($data['geoplugin_latitude'], $data['geoplugin_longitude'])) {
+                    return [
+                        'latitude' => (float) $data['geoplugin_latitude'],
+                        'longitude' => (float) $data['geoplugin_longitude'],
+                        'country' => $data['geoplugin_countryName'] ?? null,
+                        'city' => $data['geoplugin_city'] ?? null,
+                        'ip' => $ip,
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning("Geolocation failed for IP {$ip}: {$e->getMessage()}");
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('groupedPermissions')) {
+    /**
+     * Format API response with distance data
+     */
+    function groupedPermissions(): array
+    {
+        $permissions = Permission::all()->pluck('name')->toArray();
+
+        $grouped = [];
+
+        foreach ($permissions as $permission) {
+            if (str_contains($permission, '_')) {
+                [$action, $resource] = explode('_', $permission, 2);
+                $grouped[ucfirst($resource)][$permission] = $permission;
+            } else {
+                $grouped['Other'][$permission] = $permission;
+            }
+        }
+
+        return $grouped;
+    }
+}

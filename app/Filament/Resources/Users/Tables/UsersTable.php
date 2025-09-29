@@ -17,6 +17,9 @@ use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Illuminate\Contracts\View\View;
+use Filament\Notifications\Notification;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Schemas\Components\Section;
 
 class UsersTable
 {
@@ -40,7 +43,7 @@ class UsersTable
                 TextColumn::make('mobile')->searchable(),
                 TextColumn::make('gender')->badge()->placeholder('-')->toggleable(),
                 TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
-                TextColumn::make('email')->label('Email address')->searchable()->toggleable(),
+                TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
                 ToggleColumn::make('is_active')->label('Status')->toggleable()->sortable()
                     ->action(function ($record) {
                         $record->update([
@@ -62,6 +65,7 @@ class UsersTable
             ])
             ->filters([
                 TrashedFilter::make(),
+
                 SelectFilter::make('is_active')
                     ->options([
                         1 => 'Active',
@@ -69,28 +73,55 @@ class UsersTable
                     ])
                     ->label('Status')
                     ->searchable(),
-                SelectFilter::make('roles')
-                    ->relationship('roles', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->searchable(),
-            ])
+
+                // SelectFilter::make('roles')
+                //     ->relationship('roles', 'name')
+                //     ->multiple()
+                //     ->preload()
+                //     ->searchable(),
+            ], layout: FiltersLayout::Modal)
+            ->filtersFormColumns(3)
+            // ->filtersFormSchema(fn (array $filters): array => [
+            //     Section::make('Visibility')
+            //         ->description('These filters affect the visibility of the records in the table.')
+            //         ->schema([
+            //             $filters['is_active'],
+            //             $filters['roles'],
+            //         ])
+            //         ->columns(2)
+            //         ->columnSpanFull(),
+            //     // $filters['author'],
+            // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->successNotification(function ($record) {
+                        return Notification::make()
+                            ->title('User Deleted 🎉')
+                            ->body("The User **{$record->name}** has been removed successfully.")
+                            ->success();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->successNotification(
+                            Notification::make()
+                                ->title('User Deleted 🎉')
+                                ->body('The selected users have been deleted successfully.')
+                                ->success()
+                        ),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),
             ])
             ->groups([
-                Group::make('first_name')->label('Name')->collapsible(),
+                // Group::make('roles.name')->label('Role Name')->collapsible(),
                 Group::make('gender')->label('Gender')->collapsible(),
+                Group::make('created_at')->date(),
             ])
+            // ->groupingSettingsInDropdownOnDesktop()
             ->emptyStateDescription('Once you create your first user, it will appear here.');
             // ->contentGrid([
             //     'md' => 2,

@@ -125,6 +125,25 @@ class UserForm
                                 ]),
                             ])
                             ->collapsible(),
+
+                        Section::make('Roles & Permissions')
+                            ->schema([
+                                Grid::make(2)->schema([
+                                    Select::make('roles')
+                                        ->relationship('roles', 'name')
+                                        ->multiple()
+                                        ->preload()
+                                        ->searchable()
+                                        ->required(),
+
+                                    Select::make('permissions')
+                                        ->relationship('permissions', 'name')
+                                        ->multiple()
+                                        ->preload()
+                                        ->searchable(),
+                                ]),
+
+                            ]),
                     ])
                     ->columnSpan(['lg' => fn (?User $record) => $record === null ? 3 : 2]),
 
