@@ -6,7 +6,7 @@ use App\Filament\Resources\Users\UserResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
-use App\Filament\Resources\Users\Widgets\UserStats;
+// use App\Filament\Resources\Users\Widgets\UserStats;
 use Filament\Schemas\Components\Tabs\Tab;
 
 use Filament\Pages\Concerns\ExposesTableToWidgets;

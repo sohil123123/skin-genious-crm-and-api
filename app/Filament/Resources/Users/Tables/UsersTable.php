@@ -20,6 +20,10 @@ use Illuminate\Contracts\View\View;
 use Filament\Notifications\Notification;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Schemas\Components\Section;
+use Filament\Forms\Components\CheckboxList;
+use Spatie\Permission\Models\Permission;
+
+use Str;
 
 class UsersTable
 {
@@ -41,14 +45,63 @@ class UsersTable
                     ->searchable(['first_name', 'last_name'])
                     ->formatStateUsing(fn ($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
                 TextColumn::make('mobile')->searchable(),
-                TextColumn::make('gender')->badge()->placeholder('-')->toggleable(),
+                // TextColumn::make('gender')
+                //     ->label('Gender')
+                //     ->badge()
+                //     ->icon(fn ($state) => match ($state) {
+                //         'Male'   => 'heroicon-m-user',
+                //         'Female' => 'heroicon-m-user-circle',
+                //         default  => 'heroicon-m-question-mark-circle',
+                //     })
+                //     ->color(fn ($state) => match ($state) {
+                //         'Male'   => 'info',
+                //         'Female' => 'pink',
+                //         default  => 'gray',
+                //     })
+                //     ->placeholder('-')
+                //     ->toggleable(),
+                TextColumn::make('gender')
+                    ->label('Gender')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match (strtolower($state)) {
+                        'male'   => '👨 Male',
+                        'female' => '👩 Female',
+                        default  => '❓ Unknown',
+                    })
+                    ->color(fn ($state) => match (strtolower($state)) {
+                        'male'   => 'info',
+                        'female' => 'danger',
+                        default  => 'gray',
+                    })
+                    ->placeholder('-')
+                    ->toggleable(),
                 TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
-                ToggleColumn::make('is_active')->label('Status')->toggleable()->sortable()
+                ToggleColumn::make('is_active')
+                    ->label('Status')
+                    ->toggleable()
+                    ->sortable()
+                    // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
+                    ->visible(auth()->user()->can('toggle_user_status'))
                     ->action(function ($record) {
+                        if (! auth()->user()->can('toggle_user_status')) {
+                            Notification::make()
+                                ->title('Access Denied')
+                                ->body('You do not have permission to update user status.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
                         $record->update([
                             'is_active' => ! $record->is_active,
                         ]);
+
+                        Notification::make()
+                            ->title('Status Updated')
+                            ->body("User status has been updated successfully.")
+                            ->success()
+                            ->send();
                     }),
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -65,6 +118,13 @@ class UsersTable
             ])
             ->filters([
                 TrashedFilter::make(),
+
+                SelectFilter::make('gender')
+                    ->options([
+                        'male' => 'Male',
+                        'female' => 'Female',
+                    ])
+                    ->searchable(),
 
                 SelectFilter::make('is_active')
                     ->options([
@@ -102,9 +162,83 @@ class UsersTable
                             ->body("The User **{$record->name}** has been removed successfully.")
                             ->success();
                     }),
+                Action::make('permissions')
+                    ->label('Permissions')
+                    ->icon('heroicon-o-key')
+                    ->color('success')
+                    ->slideOver() // or ->modalHeading("Manage permissions")
+                    // ->modalHeading("Manage permissions")
+                    // ->form([
+                    //     CheckboxList::make('permissions')
+                    //         ->label('Manage Permissions')
+                    //         ->options(Permission::all()->pluck('name', 'id'))
+                    //         ->columns(3)
+                    //         ->searchable()
+                    //         ->bulkToggleable()
+                    //         ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
+                    // ])
+                    ->form(function () {
+                        $permissions = Permission::all()->groupBy(function ($perm) {
+                            // detect group by suffix (after ":") if exists
+                            if (str_contains($perm->name, ':')) {
+                                return Str::after($perm->name, ':'); // e.g. "User", "Role"
+                            }
+
+                            // detect custom permissions (no separator)
+                            if (str_starts_with($perm->name, 'toggle_')) {
+                                return 'Custom Permissions';
+                            }
+
+                            // detect widgets (common naming convention: "View:Something")
+                            if (str_starts_with($perm->name, 'View:')) {
+                                return 'Widgets';
+                            }
+
+                            return 'Misc';
+                        });
+
+                        return $permissions->map(function ($group, $key) {
+                            return Section::make(ucfirst($key))
+                                ->schema([
+                                    CheckboxList::make("permissions_{$key}")
+                                        ->label("Manage {$key}")
+                                        ->options($group->pluck('name', 'id'))
+                                        ->columns(3)
+                                        ->bulkToggleable()
+                                        ->default(fn ($record) =>
+                                            $record->permissions()->pluck('id')->toArray()
+                                        ),
+                                ])
+                                ->collapsible()
+                                ->collapsed();
+                        })->values()->toArray();
+                    })
+                    ->visible(fn () => auth()->user()?->can('toggle_user_permissions'))
+                    ->action(function ($record) {
+                        if (! auth()->user()->can('toggle_user_permissions')) {
+                            Notification::make()
+                                ->title('Access Denied')
+                                ->body('You do not have permission to update user status.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        if ($record->name === 'admin')
+                            return; // Do nothing for admin role
+
+                        $record->syncPermissions($data['permissions'] ?? []);
+
+                        // ✅ Show notification after saving
+                        Notification::make()
+                            ->title('Permissions updated')
+                            ->body("Permissions for role **{$record->name}** have been saved successfully.")
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
+                // BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->successNotification(
                             Notification::make()
@@ -114,7 +248,7 @@ class UsersTable
                         ),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
-                ]),
+                // ]),
             ])
             ->groups([
                 // Group::make('roles.name')->label('Role Name')->collapsible(),

@@ -10,13 +10,15 @@ use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
+// use App\Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-use App\Filament\Resources\Users\Widgets\UserStats;
+// use App\Filament\Resources\Users\Widgets\UserStats;
+use App\Filament\Widgets\UserStats;
 
 class UserResource extends Resource
 {

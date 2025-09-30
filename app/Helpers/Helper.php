@@ -73,25 +73,3 @@ if (!function_exists('get_user_location')) {
     }
 }
 
-if (!function_exists('groupedPermissions')) {
-    /**
-     * Format API response with distance data
-     */
-    function groupedPermissions(): array
-    {
-        $permissions = Permission::all()->pluck('name')->toArray();
-
-        $grouped = [];
-
-        foreach ($permissions as $permission) {
-            if (str_contains($permission, '_')) {
-                [$action, $resource] = explode('_', $permission, 2);
-                $grouped[ucfirst($resource)][$permission] = $permission;
-            } else {
-                $grouped['Other'][$permission] = $permission;
-            }
-        }
-
-        return $grouped;
-    }
-}

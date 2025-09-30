@@ -9,6 +9,7 @@ class Role extends \Spatie\Permission\Models\Role
     public static function defaultRoles()
 	{
         return [
+            'super_admin',
             'admin',
             'therapist',
             'user'

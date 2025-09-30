@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\Users\Widgets;
+namespace App\Filament\Widgets;
 
 use Filament\Widgets\Concerns\InteractsWithPageTable;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -12,10 +12,15 @@ use Flowframe\Trend\TrendValue;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\User;
 
+// use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
+// use App\Traits\HasWidgetShield;
 
+// class UserStats extends BaseWidget implements HasShieldPermissions
 class UserStats extends BaseWidget
 {
     use InteractsWithPageTable;
+    use HasWidgetShield;
 
     protected ?string $pollingInterval = null;
 
@@ -42,4 +47,30 @@ class UserStats extends BaseWidget
                 ->color('info'), // blue
         ];
     }
+
+    // public static function canView(): bool
+    // {
+    //     $user = auth()->user();
+
+    //     return $user && (
+    //         $user->hasRole('admin') ||
+    //         $user->can('View:User')  // permission from Shield
+    //     );
+    // }
+
+    // public static function canView(): bool
+    // {
+    //     return auth()->user()?->can('View:UserStats');
+    // }
+
+    // // ⬇️ Shield will call this to decide permission name
+    // public static function getPermissionPrefixes(): array
+    // {
+    //     return ['view']; // creates "view_user_stats"
+    // }
+
+    // public static function getPermissionIdentifier(): string
+    // {
+    //     return 'user_stats'; // will become "view_user_stats"
+    // }
 }

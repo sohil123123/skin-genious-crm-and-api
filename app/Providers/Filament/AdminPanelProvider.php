@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use Filament\Http\Middleware\Authenticate;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -77,6 +78,34 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->sidebarFullyCollapsibleOnDesktop()
             ->plugins([
+                // FilamentShieldPlugin::make(),
+                FilamentShieldPlugin::make()
+                    ->gridColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'lg' => 3
+                    ])
+                    ->sectionColumnSpan(1)
+                    ->checkboxListColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'lg' => 4,
+                    ])
+                    ->resourceCheckboxListColumns([
+                        'default' => 1,
+                        'sm' => 2,
+                    ])
+                    // ->gridColumns(['default' => 1, 'sm' => 2, 'lg' => 3])  // Customize checkbox grid
+                    // ->checkboxListColumns(['default' => 1, 'sm' => 2, 'lg' => 4])  // For permission lists
+                    // ->resourceCheckboxListColumns(['default' => 1, 'sm' => 2])  // Resource-specific
+                    // ->sectionColumnSpan(1)  // Adjust section widths
+                    // ->simpleResourcePermissionView()  // Simplify permission UI
+                    ->navigationLabel('Roles')  // Change nav label
+                    ->navigationIcon('heroicon-o-shield-check')  // Custom icon
+                    ->navigationSort(2)  // Position in nav
+                    ->navigationGroup('Security'),  // Group under a label
+                    // ->showGlobalSearch(false)  // Disable search
+                    // ->showInTenancy(false),  // Hide in multi-tenant setups
                 FilamentAwinTheme::make()->primaryColor(Color::Emerald),
             ])
             ->navigationGroups([
