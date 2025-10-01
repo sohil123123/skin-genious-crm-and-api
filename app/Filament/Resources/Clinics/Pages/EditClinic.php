@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\Users\Pages;
+namespace App\Filament\Resources\Clinics\Pages;
 
-use App\Filament\Resources\Users\UserResource;
+use App\Filament\Resources\Clinics\ClinicResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -11,9 +11,9 @@ use Filament\Actions\Action;
 
 use Filament\Notifications\Notification;
 
-class EditUser extends EditRecord
+class EditClinic extends EditRecord
 {
-    protected static string $resource = UserResource::class;
+    protected static string $resource = ClinicResource::class;
 
     protected function getHeaderActions(): array
     {
@@ -28,8 +28,8 @@ class EditUser extends EditRecord
     protected function getSavedNotification(): ?Notification
     {
         return Notification::make()
-            ->title('User updated 🎉')
-            ->body('The user details have been successfully updated.')
+            ->title('Clinic updated 🎉')
+            ->body('The clinic details have been successfully updated.')
             ->success();
     }
 

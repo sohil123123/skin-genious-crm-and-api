@@ -25,6 +25,7 @@ class UserSeeder extends Seeder
             [
                 'first_name' => 'Admin',
                 'last_name' => 'User',
+                'gender' => 'Male',
                 'mobile' => '1234567890',
                 'password' => bcrypt('123456'),
                 'email_verified_at' => now(),
@@ -38,6 +39,7 @@ class UserSeeder extends Seeder
             [
                 'first_name' => 'Therapist',
                 'last_name' => 'User',
+                'gender' => 'Male',
                 'mobile' => '1234567891',
                 'password' => bcrypt('123456'),
                 'email_verified_at' => now(),
@@ -45,13 +47,42 @@ class UserSeeder extends Seeder
         )
         ->assignRole('therapist');
 
+        // Create clinic_manager user
+        User::firstOrCreate(
+            ['email' => 'clinic_manager@gmail.com'],
+            [
+                'first_name' => 'Clinic Manager',
+                'last_name' => 'User',
+                'gender' => 'Male',
+                'mobile' => '1234567892',
+                'password' => bcrypt('123456'),
+                'email_verified_at' => now(),
+            ]
+        )
+        ->assignRole('clinic_manager');
+
+        // Create doctor user
+        User::firstOrCreate(
+            ['email' => 'doctor@gmail.com'],
+            [
+                'first_name' => 'Doctor',
+                'last_name' => 'User',
+                'gender' => 'Male',
+                'mobile' => '1234567893',
+                'password' => bcrypt('123456'),
+                'email_verified_at' => now(),
+            ]
+        )
+        ->assignRole('doctor');
+
         // Create user
         User::firstOrCreate(
             ['email' => 'user@gmail.com'],
             [
                 'first_name' => 'Customer',
                 'last_name' => 'User',
-                'mobile' => '1234567892',
+                'gender' => 'Male',
+                'mobile' => '1234567894',
                 'password' => bcrypt('123456'),
                 'email_verified_at' => now(),
             ]

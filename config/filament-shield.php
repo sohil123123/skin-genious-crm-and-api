@@ -229,6 +229,7 @@ return [
     'custom_permissions' => [
         'toggle_user_status' => 'Toggle User Status',
         'toggle_user_permissions' => 'Toggle User Permissions',
+        'toggle_clinic_status' => 'Toggle Clinic Status',
     ],
 
     /*

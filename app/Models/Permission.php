@@ -10,6 +10,19 @@ class Permission extends \Spatie\Permission\Models\Permission
 	{
 	    return [
 
+            'ViewAny:Clinic',
+            'View:Clinic',
+            'Create:Clinic',
+            'Update:Clinic',
+            'Delete:Clinic',
+            'Restore:Clinic',
+            'ForceDelete:Clinic',
+            'ForceDeleteAny:Clinic',
+            'RestoreAny:Clinic',
+            'Replicate:Clinic',
+            'Reorder:Clinic',
+            'DeleteAny:Clinic',
+
             'ViewAny:User',
             'View:User',
             'Create:User',

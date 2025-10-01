@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\CheckboxList;
 use Spatie\Permission\Models\Permission;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\BadgeColumn;
 
 use Str;
 
@@ -77,7 +78,26 @@ class UsersTable
                     })
                     ->placeholder('-')
                     ->toggleable(),
-                TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
+                // TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
+                BadgeColumn::make('roles.name')
+                    ->label('Roles')
+                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->icon(fn ($state) => match ($state) {
+                        'admin'          => 'heroicon-o-shield-check',
+                        'therapist'      => 'heroicon-o-hand-raised',
+                        'clinic_manager' => 'heroicon-o-building-office',
+                        'doctor'         => 'heroicon-o-user-circle',
+                        'user'           => 'heroicon-o-user',
+                        default          => 'heroicon-o-user',
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'admin'          => 'danger',
+                        'therapist'      => 'success',
+                        'clinic_manager' => 'info',
+                        'doctor'         => 'warning',
+                        'user'           => 'gray',
+                        default          => 'gray',
+                    }),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
                 // ToggleColumn::make('is_active')
                 //     ->label('Status')

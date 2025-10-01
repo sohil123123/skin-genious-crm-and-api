@@ -14,6 +14,9 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id()->comment('Primary key, auto-increment user ID');
 
+            // Temporarily add clinic_id as a plain column (no foreign key yet)
+            $table->unsignedBigInteger('clinic_id')->nullable()->comment('ID of the clinic the user is assigned to');
+
             // Basic Personal Information
             $table->string('first_name')->comment('User first name');
             $table->string('last_name')->comment('User last name');

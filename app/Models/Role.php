@@ -12,6 +12,8 @@ class Role extends \Spatie\Permission\Models\Role
             'super_admin',
             'admin',
             'therapist',
+            'clinic_manager',
+            'doctor',
             'user'
         ];
     }
