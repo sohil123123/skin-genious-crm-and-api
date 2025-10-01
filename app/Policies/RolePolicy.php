@@ -37,6 +37,11 @@ class RolePolicy
         return $authUser->can('Delete:Role');
     }
 
+    public function deleteAny(AuthUser $authUser): bool
+    {
+        return $authUser->can('DeleteAny:Role');
+    }
+
     public function restore(AuthUser $authUser, Role $role): bool
     {
         return $authUser->can('Restore:Role');

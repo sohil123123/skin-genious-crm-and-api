@@ -36,15 +36,19 @@ class UserStats extends BaseWidget
         return [
             Stat::make('Active users', $this->getPageTableQuery()->where('is_active', true)->count())
                 ->icon('heroicon-m-user-group')
-                ->color('success'), // green
+                ->color('success'),
 
             Stat::make('Inactive users', $this->getPageTableQuery()->where('is_active', false)->count())
                 ->icon('heroicon-m-user-minus')
-                ->color('danger'), // red
+                ->color('danger'),
+
+            Stat::make('Deleted users', $this->getPageTableQuery()->onlyTrashed()->count())
+                ->icon('heroicon-m-user-plus')
+                ->color('info'),
 
             Stat::make('New This Month users', $this->getPageTableQuery()->whereMonth('created_at', now()->month)->count())
                 ->icon('heroicon-m-user-plus')
-                ->color('info'), // blue
+                ->color('info'),
         ];
     }
 

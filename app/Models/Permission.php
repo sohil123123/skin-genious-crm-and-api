@@ -20,6 +20,8 @@ class Permission extends \Spatie\Permission\Models\Permission
             'ForceDeleteAny:User',
             'RestoreAny:User',
             'Replicate:User',
+            'Reorder:User',
+            'DeleteAny:User',
 
             'ViewAny:Role',
             'View:Role',
@@ -31,6 +33,8 @@ class Permission extends \Spatie\Permission\Models\Permission
             'ForceDeleteAny:Role',
             'RestoreAny:Role',
             'Replicate:Role',
+            'Reorder:Role',
+            'DeleteAny:Role',
 
             // 'ViewAny:Permission',
             // 'View:Permission',

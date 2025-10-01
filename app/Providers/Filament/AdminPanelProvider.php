@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Vite;
 
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Filament\Support\Facades\FilamentColor;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -43,10 +44,17 @@ class AdminPanelProvider extends PanelProvider
             ->unsavedChangesAlerts()
             ->profile()
             ->sidebarCollapsibleOnDesktop()
+            // ->font('Poppins')
+            // ->brandName('Filament Demo')
+            // ->brandLogo(asset('images/skin_care_logo.jpg'))
+            // ->brandLogoHeight('6rem')
             ->colors([
+                'dark-danger' => [
+                    700 => 'oklch(0.514 0.222 16.935)',
+                ],
                 // 'primary' => Color::Amber,
-                'danger' => Color::Rose,
-                'gray' => Color::Gray,
+                'danger' => Color::Red,
+                'gray' => Color::Zinc,
                 'info' => Color::Blue,
                 'primary' => Color::Indigo,
                 'success' => Color::Emerald,

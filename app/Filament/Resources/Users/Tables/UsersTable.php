@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
@@ -22,6 +23,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\CheckboxList;
 use Spatie\Permission\Models\Permission;
+use Filament\Support\Icons\Heroicon;
 
 use Str;
 
@@ -77,25 +79,59 @@ class UsersTable
                     ->toggleable(),
                 TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
+                // ToggleColumn::make('is_active')
+                //     ->label('Status')
+                //     ->toggleable()
+                //     ->sortable()
+                //     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
+                //     // ->visible(auth()->user()->can('toggle_user_status'))
+                //     ->action(function ($record) {
+                //         if (! auth()->user()->can('toggle_user_status')) {
+                //             Notification::make()
+                //                 ->title('Access Denied')
+                //                 ->body('You do not have permission to update user status.')
+                //                 ->danger()
+                //                 ->send();
+                //             return;
+                //         }
+
+                //         $record->update([
+                //             'is_active' => ! $record->is_active,
+                //         ]);
+
+                //         Notification::make()
+                //             ->title('Status Updated')
+                //             ->body("User status has been updated successfully.")
+                //             ->success()
+                //             ->send();
+                //     }),
                 ToggleColumn::make('is_active')
                     ->label('Status')
-                    ->toggleable()
+                    ->onIcon('heroicon-o-bolt')
+                    ->offIcon('heroicon-o-power')
+                    ->offColor('dark-danger')
                     ->sortable()
                     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
-                    ->visible(auth()->user()->can('toggle_user_status'))
-                    ->action(function ($record) {
+                    // ->visible(auth()->user()->can('toggle_user_status'))
+                    ->afterStateUpdated(function ($state, $record) {
+                        // This runs whenever toggle is changed
                         if (! auth()->user()->can('toggle_user_status')) {
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update user status.')
                                 ->danger()
                                 ->send();
+
+                            // revert change
+                            $record->is_active = ! $state;
+                            $record->save();
+
                             return;
                         }
 
-                        $record->update([
-                            'is_active' => ! $record->is_active,
-                        ]);
+                        // Save the new state
+                        $record->is_active = $state;
+                        $record->save();
 
                         Notification::make()
                             ->title('Status Updated')
@@ -155,6 +191,13 @@ class UsersTable
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
                 EditAction::make(),
+                RestoreAction::make()
+                    ->successNotification(
+                        Notification::make()
+                            ->title('User Restored 🎉')
+                            ->body('The selected users have been restored successfully.')
+                            ->success()
+                    ),
                 DeleteAction::make()
                     ->successNotification(function ($record) {
                         return Notification::make()
@@ -238,17 +281,18 @@ class UsersTable
                     }),
             ])
             ->toolbarActions([
-                // BulkActionGroup::make([
+                BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        // ->visible(fn () => auth()->user()?->can('DeleteAny:User'))
                         ->successNotification(
                             Notification::make()
-                                ->title('User Deleted 🎉')
+                                ->title('Users Deleted 🎉')
                                 ->body('The selected users have been deleted successfully.')
                                 ->success()
                         ),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
-                // ]),
+                ]),
             ])
             ->groups([
                 // Group::make('roles.name')->label('Role Name')->collapsible(),
