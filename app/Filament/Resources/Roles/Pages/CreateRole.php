@@ -10,6 +10,9 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+
 class CreateRole extends CreateRecord
 {
     protected static string $resource = RoleResource::class;
@@ -42,5 +45,25 @@ class CreateRole extends CreateRecord
         });
 
         $this->record->syncPermissions($permissionModels);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('back')->label('Back to List')->url(static::getResource()::getUrl('index'))->color('gray'),
+        ];
+    }
+
+    protected function getCreatedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->title('Role added 🎉')
+            ->body('The role details have been successfully added.')
+            ->success();
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }

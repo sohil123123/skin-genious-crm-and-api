@@ -25,8 +25,15 @@ use Filament\Forms\Components\CheckboxList;
 use Spatie\Permission\Models\Permission;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\BadgeColumn;
+use Illuminate\Database\Eloquent\Builder;
 
 use Str;
+use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+use Filament\Infolists\Infolist;
+use Filament\Actions\ViewAction;
+
+use App\Models\User;
+use App\Models\Clinic;
 
 class UsersTable
 {
@@ -42,6 +49,25 @@ class UsersTable
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->columns([
+                // BadgeColumn::make('clinic.name')
+                //     ->badge()
+                //     ->label('Clinic')
+                //     ->placeholder('Unassigned')
+                //     ->toggleable()
+                //     ->searchable()
+                //     ->sortable(),
+                TextColumn::make('clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->sortable()
+                    ->searchable()
+                    ->action(
+                        ViewAction::make('view_clinic')
+                            ->record(fn (User $record) => $record->clinic)
+                            ->modal()
+                            ->modalHeading(fn ($record) => $record?->name ?? 'No Clinic Assigned')
+                            ->visible(fn (User $record) => $record->clinic !== null)
+                    ),
                 TextColumn::make('name')
                     ->label('Name')
                     ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
@@ -210,6 +236,10 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
+                // Action::make('details')
+                //     ->label('Details')
+                //     ->infolist(fn ($record) => ClinicInfolist::make(Infolist::make()->record($record)))
+                //     ->modalSubmitAction(false),
                 EditAction::make(),
                 RestoreAction::make()
                     ->successNotification(
@@ -288,11 +318,10 @@ class UsersTable
                         }
 
                         if ($record->name === 'admin')
-                            return; // Do nothing for admin role
+                            return;
 
                         $record->syncPermissions($data['permissions'] ?? []);
 
-                        // ✅ Show notification after saving
                         Notification::make()
                             ->title('Permissions updated')
                             ->body("Permissions for role **{$record->name}** have been saved successfully.")
@@ -315,6 +344,11 @@ class UsersTable
                 ]),
             ])
             ->groups([
+                Group::make('clinic_id')
+                    ->label('Clinic Name')
+                    ->collapsible()
+                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
+                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
                 // Group::make('roles.name')->label('Role Name')->collapsible(),
                 Group::make('gender')->label('Gender')->collapsible(),
                 Group::make('created_at')->date(),

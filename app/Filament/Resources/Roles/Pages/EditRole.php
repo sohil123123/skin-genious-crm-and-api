@@ -11,6 +11,9 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+
 class EditRole extends EditRecord
 {
     protected static string $resource = RoleResource::class;
@@ -20,6 +23,7 @@ class EditRole extends EditRecord
     protected function getActions(): array
     {
         return [
+            Action::make('back')->label('Back to List')->url(static::getResource()::getUrl('index'))->color('gray'),
             DeleteAction::make(),
         ];
     }
@@ -51,5 +55,18 @@ class EditRole extends EditRecord
 
         // @phpstan-ignore-next-line
         $this->record->syncPermissions($permissionModels);
+    }
+
+    protected function getSavedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->title('Role updated 🎉')
+            ->body('The role details have been successfully updated.')
+            ->success();
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }

@@ -29,6 +29,8 @@ use Filament\Tables\Table;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
 
+use Filament\Notifications\Notification;
+
 class RoleResource extends Resource
 {
     use Essentials\BelongsToParent;
@@ -120,11 +122,17 @@ class RoleResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
-            ])
-            ->toolbarActions([
-                DeleteBulkAction::make(),
+                DeleteAction::make()
+                    ->successNotification(function ($record) {
+                        return Notification::make()
+                            ->title('Role Deleted 🎉')
+                            ->body("The role **{$record->name}** has been removed successfully.")
+                            ->success();
+                    }),
             ]);
+            // ->toolbarActions([
+            //     DeleteBulkAction::make(),
+            // ]);
     }
 
     public static function getRelations(): array

@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\Vite;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Support\Facades\FilamentColor;
+use Filament\Support\Enums\Width;
+use Filament\Actions\Action;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -37,6 +39,15 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
+            // ->domain('admin.skin-genious-crm-and-api.test')
+            ->maxContentWidth(Width::Full)
+            ->spa()
+            ->unsavedChangesAlerts()
+            ->databaseTransactions()
+            // ->topNavigation()
+            // ->userMenuItems([
+            //     'profile' => fn (Action $action) => $action->label('Edit profile'),
+            // ])
             ->id('admin')
             ->path('admin')
             ->login(Login::class)

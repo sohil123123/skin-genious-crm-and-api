@@ -14,6 +14,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
+use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+
 class ClinicResource extends Resource
 {
     protected static ?string $model = Clinic::class;
@@ -51,5 +53,10 @@ class ClinicResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return ClinicInfolist::configure($schema);
     }
 }

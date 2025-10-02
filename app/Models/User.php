@@ -50,4 +50,9 @@ class User extends Authenticatable
     {
         return trim($this->first_name . ' ' . ($this->last_name ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
     }
+
+    public function clinic()
+    {
+        return $this->belongsTo(Clinic::class);
+    }
 }

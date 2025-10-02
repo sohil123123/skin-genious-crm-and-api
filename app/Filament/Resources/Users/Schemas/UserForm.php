@@ -22,6 +22,8 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Support\Icons\Heroicon;
 
 use App\Models\User;
+use App\Models\Role;
+use Filament\Forms\Get;
 
 class UserForm
 {
@@ -36,9 +38,10 @@ class UserForm
                         'Male' => 'Male',
                         'Female' => 'Female',
                         'Other' => 'Other',
-                    ]),
+                    ])
+                    ->required(),
                 DatePicker::make('date_of_birth'),
-            ])
+            ]),
         ];
     }
 
@@ -134,14 +137,40 @@ class UserForm
                                         ->multiple()
                                         ->preload()
                                         ->searchable()
-                                        ->required(),
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(function ($set, ?array $state) {
+                                            if (!empty($state)) {
+                                                $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
+                                                if (!(in_array('Clinic_manager', $selectedRoles) || in_array('User', $selectedRoles))) {
+                                                    $set('clinic_id', null);
+                                                }
+                                            } else {
+                                                $set('clinic_id', null);
+                                            }
+                                        }),
 
-                                    Select::make('permissions')
-                                        ->relationship('permissions', 'name')
-                                        ->multiple()
+                                    Select::make('clinic_id')
+                                        ->label('Assigned Clinic')
+                                        ->relationship('clinic', 'name')
+                                        ->searchable()
                                         ->preload()
-                                        ->searchable(),
+                                        ->placeholder('Select a clinic')
+                                        ->native(false)
+                                        ->visible(function ($get) {
+                                            $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
+                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles);
+                                        })
+                                        ->required(function ($get) {
+                                            $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
+                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles);
+                                        })
                                 ]),
+                                Select::make('permissions')
+                                    ->relationship('permissions', 'name')
+                                    ->multiple()
+                                    ->preload()
+                                    ->searchable(),
 
                             ]),
                     ])

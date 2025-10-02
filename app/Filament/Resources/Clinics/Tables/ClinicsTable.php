@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Clinics\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
@@ -13,11 +14,13 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
+use Filament\Support\Enums\FontFamily;
 use Filament\Tables\Table;
 
 use Filament\Support\Icons\Heroicon;
@@ -28,6 +31,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Model;
 
 use App\Models\Clinic;
 
@@ -89,20 +93,32 @@ class ClinicsTable
                             ->modalSubmitAction(false)
                             ->modalCancelActionLabel('Close')
                     ),
-                // ImageColumn::make('logo')
-                //     ->disk('public')
-                //     ->circular()
-                //     ->defaultImageUrl(asset('images/clinic_plaseholder.png'))
-                //     ->sortable(false),
                 TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable(),
+                BadgeColumn::make('users_count')
+                    ->label('Users')
+                    ->counts('users')
+                    ->icon('heroicon-o-user-group')
+                    ->iconPosition('before')
+                    ->color(fn ($state) => match (true) {
+                        $state >= 50 => 'success',
+                        $state >= 20 => 'warning',
+                        default      => 'danger',
+                    }),
                 TextColumn::make('name')->weight(FontWeight::Bold)->searchable()->sortable(),
                 TextColumn::make('full_address')
                     ->label('Address')
-                    ->formatStateUsing(fn (string $state): string => Str::limit($state, 35, '...'))
                     ->searchable(['address_line1', 'address_line2', 'city', 'pincode'])
                     ->toggleable()
-                    ->extraAttributes(['class' => 'w-40 truncate'])
-                    ->tooltip(fn ($record) => $record->full_address),
+                    ->fontFamily(FontFamily::Mono)
+                    ->wrap(),
+                    // ->limit(35)
+                    // ->tooltip(function (TextColumn $column): ?string {
+                    //     $state = $column->getState();
+                    //     if (strlen($state) <= $column->getCharacterLimit()) {
+                    //         return null;
+                    //     }
+                    //     return $state;
+                    // }),
                 TextColumn::make('gst_number')->searchable()->sortable()->toggleable(),
                 TextColumn::make('first_sale_share')->numeric()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sale_share')->numeric()->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -121,6 +137,7 @@ class ClinicsTable
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update clinic status.')
+                                ->color('danger')
                                 ->danger()
                                 ->send();
 
@@ -139,6 +156,7 @@ class ClinicsTable
                             ->title('Status Updated')
                             ->body("User status has been updated successfully.")
                             ->success()
+                            ->color('success')
                             ->send();
                     }),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -159,6 +177,7 @@ class ClinicsTable
             ->filtersFormColumns(3)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
                 RestoreAction::make()
                     ->successNotification(
@@ -174,6 +193,19 @@ class ClinicsTable
                             ->body("The User **{$record->name}** has been removed successfully.")
                             ->success();
                     }),
+                // Action::make('view_clinic_details')
+                //     ->label('Clinic Details')
+                //     ->button()
+                //     ->color('info')
+                //     // ->modalHeading(fn (Clinic $record): string => $record->clinic->name ?? 'No Clinic Assigned')
+                //     ->modalContent(fn (Clinic $record) => view('filament.modals.clinic-details', ['clinic' => $record]))
+                //     // ->visible(fn (Clinic $record): bool => $record->clinic !== null),
+                // Action::make('view_details')
+                //     ->label('View')
+                //     ->button()
+                //     ->color('info')
+                //     ->modalHeading(fn (Clinic $record): string => $record->name)
+                //     ->modalContent(fn (Clinic $record) => view('filament.modals.clinic-details', ['record' => $record])),
             ])
             // ->toolbarActions([
             //     BulkActionGroup::make([
