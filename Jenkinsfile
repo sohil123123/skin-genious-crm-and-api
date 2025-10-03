@@ -9,7 +9,8 @@ pipeline {
                 sh 'node -v'
                 sh 'npm -v'
                 sh 'composer install -n'
-                // sh 'npm install'
+                sh 'npm install'
+                sh 'npm run build'
             }
         }
         stage("Populate .env file") {
