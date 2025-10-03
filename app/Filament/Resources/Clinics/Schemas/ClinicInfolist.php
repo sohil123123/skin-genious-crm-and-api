@@ -15,27 +15,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-
 class ClinicInfolist
 {
-    // public static function configure(Schema $schema): Schema
-    // {
-    //     return $schema
-    //         ->components([
-    //             TextEntry::make('name'),
-    //             TextEntry::make('slug'),
-    //             TextEntry::make('description'),
-    //             IconEntry::make('is_active')
-    //                 ->label('Visibility'),
-    //             TextEntry::make('updated_at')
-    //                 ->label('Last modified at')
-    //                 ->dateTime(),
-    //         ])
-    //         ->columns(1)
-    //         ->inlineLabel();
-    // }
-
-
     public static function configure(Schema $schema): Schema
     {
         return $schema

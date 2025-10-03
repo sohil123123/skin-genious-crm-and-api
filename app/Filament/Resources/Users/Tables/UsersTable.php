@@ -31,6 +31,7 @@ use Str;
 use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
 use Filament\Infolists\Infolist;
 use Filament\Actions\ViewAction;
+use Filament\Schemas\Schema;
 
 use App\Models\User;
 use App\Models\Clinic;
@@ -49,23 +50,20 @@ class UsersTable
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->columns([
-                // BadgeColumn::make('clinic.name')
-                //     ->badge()
-                //     ->label('Clinic')
-                //     ->placeholder('Unassigned')
-                //     ->toggleable()
-                //     ->searchable()
-                //     ->sortable(),
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
+                    ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
                             ->record(fn (User $record) => $record->clinic)
+                            ->infolist(
+                                fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
+                            )
                             ->modal()
-                            ->modalHeading(fn ($record) => $record?->name ?? 'No Clinic Assigned')
+                            ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
                             ->visible(fn (User $record) => $record->clinic !== null)
                     ),
                 TextColumn::make('name')
@@ -74,21 +72,6 @@ class UsersTable
                     ->searchable(['first_name', 'last_name'])
                     ->formatStateUsing(fn ($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
                 TextColumn::make('mobile')->searchable(),
-                // TextColumn::make('gender')
-                //     ->label('Gender')
-                //     ->badge()
-                //     ->icon(fn ($state) => match ($state) {
-                //         'Male'   => 'heroicon-m-user',
-                //         'Female' => 'heroicon-m-user-circle',
-                //         default  => 'heroicon-m-question-mark-circle',
-                //     })
-                //     ->color(fn ($state) => match ($state) {
-                //         'Male'   => 'info',
-                //         'Female' => 'pink',
-                //         default  => 'gray',
-                //     })
-                //     ->placeholder('-')
-                //     ->toggleable(),
                 TextColumn::make('gender')
                     ->label('Gender')
                     ->badge()
@@ -104,7 +87,6 @@ class UsersTable
                     })
                     ->placeholder('-')
                     ->toggleable(),
-                // TextColumn::make('roles.name')->badge()->color('primary')->searchable()->sortable()->toggleable(),
                 BadgeColumn::make('roles.name')
                     ->label('Roles')
                     ->formatStateUsing(fn ($state) => ucfirst($state))
