@@ -29,7 +29,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 use Str;
 use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
-use Filament\Infolists\Infolist;
 use Filament\Actions\ViewAction;
 use Filament\Schemas\Schema;
 
@@ -107,32 +106,6 @@ class UsersTable
                         default          => 'gray',
                     }),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
-                // ToggleColumn::make('is_active')
-                //     ->label('Status')
-                //     ->toggleable()
-                //     ->sortable()
-                //     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
-                //     // ->visible(auth()->user()->can('toggle_user_status'))
-                //     ->action(function ($record) {
-                //         if (! auth()->user()->can('toggle_user_status')) {
-                //             Notification::make()
-                //                 ->title('Access Denied')
-                //                 ->body('You do not have permission to update user status.')
-                //                 ->danger()
-                //                 ->send();
-                //             return;
-                //         }
-
-                //         $record->update([
-                //             'is_active' => ! $record->is_active,
-                //         ]);
-
-                //         Notification::make()
-                //             ->title('Status Updated')
-                //             ->body("User status has been updated successfully.")
-                //             ->success()
-                //             ->send();
-                //     }),
                 ToggleColumn::make('is_active')
                     ->label('Status')
                     ->onIcon('heroicon-o-bolt')
@@ -142,7 +115,6 @@ class UsersTable
                     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))
                     ->afterStateUpdated(function ($state, $record) {
-                        // This runs whenever toggle is changed
                         if (! auth()->user()->can('toggle_user_status')) {
                             Notification::make()
                                 ->title('Access Denied')
@@ -150,14 +122,12 @@ class UsersTable
                                 ->danger()
                                 ->send();
 
-                            // revert change
                             $record->is_active = ! $state;
                             $record->save();
 
                             return;
                         }
 
-                        // Save the new state
                         $record->is_active = $state;
                         $record->save();
 
@@ -218,10 +188,6 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
-                // Action::make('details')
-                //     ->label('Details')
-                //     ->infolist(fn ($record) => ClinicInfolist::make(Infolist::make()->record($record)))
-                //     ->modalSubmitAction(false),
                 EditAction::make(),
                 RestoreAction::make()
                     ->successNotification(

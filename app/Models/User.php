@@ -19,7 +19,11 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = ['clinic_id', 'first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'email_verified_at', 'password', 'is_active'];
+    protected $fillable = ['clinic_id', 'first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'loyalty_points', 'has_diabetes', 'has_high_bp', 'has_cholesterol', 'has_asthma',
+        'has_heart_disease', 'has_anaemia', 'has_pcos', 'has_thyroid',
+        'other_diseases', 'current_medications', 'allergies', 'skin_type', 'facials_history', 'skin_quality', 'goal_less_tired', 'goal_less_angry', 'goal_less_sad', 'goal_less_saggy',
+        'goal_youthful', 'goal_attractive', 'goal_soft_features', 'goal_slim_face',
+        'skin_improvement', 'email_verified_at', 'password', 'is_active'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -43,6 +47,22 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'opt_for_loyalty' => 'boolean',
+            'has_diabetes' => 'boolean',
+            'has_high_bp' => 'boolean',
+            'has_cholesterol' => 'boolean',
+            'has_asthma' => 'boolean',
+            'has_heart_disease' => 'boolean',
+            'has_anaemia' => 'boolean',
+            'has_pcos' => 'boolean',
+            'has_thyroid' => 'boolean',
+            'goal_less_tired' => 'boolean',
+            'goal_less_angry' => 'boolean',
+            'goal_less_sad' => 'boolean',
+            'goal_less_saggy' => 'boolean',
+            'goal_youthful' => 'boolean',
+            'goal_attractive' => 'boolean',
+            'goal_soft_features' => 'boolean',
+            'goal_slim_face' => 'boolean',
         ];
     }
 

@@ -27,6 +27,14 @@ class DatabaseSeeder extends Seeder
             $this->call(PermissionSeeder::class);
             $this->call(RoleSeeder::class);
             $this->call(UserSeeder::class);
+
+            $this->command->call('shield:generate', [
+                '--panel' => 'admin',
+                '--all' => true,
+                '--option' => 'policies_and_permissions',
+                '--no-interaction' => true,
+            ]);
+            $this->command->info('Database was refreshed.');
         }
     }
 }

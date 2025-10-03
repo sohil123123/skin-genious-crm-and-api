@@ -54,6 +54,46 @@ return new class extends Migration
             $table->decimal('referral_earnings', 10, 2)->default(0)->comment('Total earnings from referrals');
             $table->decimal('pending_referral_earnings', 10, 2)->default(0)->comment('Pending referral earnings');
 
+            // Loyalty Program Information
+            $table->integer('loyalty_points')->default(0)->comment('User loyalty points');
+
+            // ==================== MEDICAL BACKGROUND ====================
+            $table->boolean('has_diabetes')->default(false)->comment('Diabetes medical condition');
+            $table->boolean('has_high_bp')->default(false)->comment('High Blood Pressure medical condition');
+            $table->boolean('has_cholesterol')->default(false)->comment('High Cholesterol medical condition');
+            $table->boolean('has_asthma')->default(false)->comment('Asthma medical condition');
+            $table->boolean('has_heart_disease')->default(false)->comment('Heart Disease medical condition');
+            $table->boolean('has_anaemia')->default(false)->comment('Anaemia medical condition');
+            $table->boolean('has_pcos')->default(false)->comment('PCOS (Polycystic Ovary Syndrome) medical condition');
+            $table->boolean('has_thyroid')->default(false)->comment('Thyroid medical condition');
+            $table->text('other_diseases')->nullable()->comment('Other medical conditions not listed');
+            $table->text('current_medications')->nullable()->comment('Current medications being taken');
+            $table->text('allergies')->nullable()->comment('Known allergies to medications or products');
+
+            // ==================== SKIN PROFILE ====================
+            $table->enum('skin_type', [
+                'Normal',
+                'Dry',
+                'Oily',
+                'Combination',
+                'Sensitive'
+            ])->nullable()->comment('User skin type for personalized recommendations');
+
+            $table->text('facials_history')->nullable()->comment('History of previous facials and treatments');
+            $table->enum('skin_quality', ['Poor', 'Fair', 'Good', 'Excellent'])->nullable()->comment('Overall skin quality assessment');
+
+            // ==================== AESTHETIC GOALS - "I Want To Look" ====================
+            $table->boolean('goal_less_tired')->default(false)->comment('Aesthetic goal: Look less tired');
+            $table->boolean('goal_less_angry')->default(false)->comment('Aesthetic goal: Look less angry');
+            $table->boolean('goal_less_sad')->default(false)->comment('Aesthetic goal: Look less sad');
+            $table->boolean('goal_less_saggy')->default(false)->comment('Aesthetic goal: Look less saggy');
+            $table->boolean('goal_youthful')->default(false)->comment('Aesthetic goal: Look more youthful');
+            $table->boolean('goal_attractive')->default(false)->comment('Aesthetic goal: Look more attractive');
+            $table->boolean('goal_soft_features')->default(false)->comment('Aesthetic goal: Have softer features');
+            $table->boolean('goal_slim_face')->default(false)->comment('Aesthetic goal: Have slimmer face');
+
+            $table->enum('skin_improvement', ['Hydration', 'Smoothness', 'Elasticity'])->nullable()->comment('Skin improvement goals');
+
             // Authentication
             $table->timestamp('email_verified_at')->nullable()->comment('Timestamp when email was verified');
             $table->string('password')->comment('Encrypted password for user authentication');
