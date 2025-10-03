@@ -3,14 +3,14 @@ pipeline {
     tools {nodejs "nodejs22"}
     stages {
         stage("build"){
-            steps {
+           steps {
                 sh 'composer --version'
                 sh 'php --version'
                 sh 'node -v'
                 sh 'npm -v'
-                sh 'composer install -n'
-                sh 'npm install'
-                sh 'npm run build'
+                sh 'npm ci'  // Changed: Use ci for CI; installs from package-lock.json
+                sh 'npm run build'  // Builds Vite assets (manifest.json)
+                sh 'composer install -n'  // Now runs after manifest exists
             }
         }
         stage("Populate .env file") {
