@@ -22,8 +22,10 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Pages\Auth\Login;
 
 use Resma\FilamentAwinTheme\FilamentAwinTheme;
+use Andreia\FilamentNordTheme\FilamentNordThemePlugin;
 
 use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\Vite;
 
@@ -40,9 +42,9 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             // ->domain('admin.skin-genious-crm-and-api.test')
-            ->maxContentWidth(Width::Full)
+            // ->maxContentWidth(Width::Full)
             ->spa()
-            ->unsavedChangesAlerts()
+            // ->unsavedChangesAlerts()
             ->databaseTransactions()
             // ->topNavigation()
             // ->userMenuItems([
@@ -52,7 +54,6 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login(Login::class)
             // ->login()
-            ->unsavedChangesAlerts()
             ->profile()
             ->sidebarCollapsibleOnDesktop()
             // ->font('Poppins')
@@ -125,7 +126,9 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationGroup('Security'),  // Group under a label
                     // ->showGlobalSearch(false)  // Disable search
                     // ->showInTenancy(false),  // Hide in multi-tenant setups
-                FilamentAwinTheme::make()->primaryColor(Color::Emerald),
+
+                // FilamentAwinTheme::make()->primaryColor(Color::Emerald),
+                FilamentNordThemePlugin::make()
             ])
             ->navigationGroups([
                 NavigationGroup::make()
@@ -139,6 +142,7 @@ class AdminPanelProvider extends PanelProvider
     {
         FilamentAsset::register([
             Css::make('custom-styles', Vite::asset('resources/css/custom.css')),
+            // Js::make('awin-hotfix', resource_path('js/awin-hotfix.js')),
         ]);
     }
 }

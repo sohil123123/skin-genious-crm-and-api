@@ -9,6 +9,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'vendor/resma/filament-awin-theme/resources/css/theme.css',
+                'vendor/andreia/filament-nord-theme/resources/css/theme.css',
                 'resources/css/custom.css',
             ],
             refresh: true,

@@ -76,6 +76,129 @@ class UserForm
         ];
     }
 
+    public static function getMedicalBackgroundComponents(): array
+    {
+        return [
+            Grid::make(3)->schema([
+                Toggle::make('has_diabetes')
+                    ->label('Has Diabetes')
+                    ->default(false),
+                Toggle::make('has_high_bp')
+                    ->label('Has High Blood Pressure')
+                    ->default(false),
+                Toggle::make('has_cholesterol')
+                    ->label('Has High Cholesterol')
+                    ->default(false),
+            ]),
+            Grid::make(3)->schema([
+                Toggle::make('has_asthma')
+                    ->label('Has Asthma')
+                    ->default(false),
+                Toggle::make('has_heart_disease')
+                    ->label('Has Heart Disease')
+                    ->default(false),
+                Toggle::make('has_anaemia')
+                    ->label('Has Anaemia')
+                    ->default(false),
+            ]),
+            Grid::make(3)->schema([
+                Toggle::make('has_pcos')
+                    ->label('Has PCOS')
+                    ->default(false),
+                Toggle::make('has_thyroid')
+                    ->label('Has Thyroid Condition')
+                    ->default(false),
+            ]),
+            Textarea::make('other_diseases')
+                ->label('Other Diseases')
+                ->placeholder('Describe any other medical conditions')
+                ->nullable(),
+            Textarea::make('current_medications')
+                ->label('Current Medications')
+                ->placeholder('List any current medications')
+                ->nullable(),
+            Textarea::make('allergies')
+                ->label('Allergies')
+                ->placeholder('List any known allergies')
+                ->nullable(),
+        ];
+    }
+
+    public static function getSkinProfileComponents(): array
+    {
+        return [
+            Grid::make(3)->schema([
+                Select::make('skin_type')
+                    ->label('Skin Type')
+                    ->options([
+                        'Normal' => 'Normal',
+                        'Dry' => 'Dry',
+                        'Oily' => 'Oily',
+                        'Combination' => 'Combination',
+                        'Sensitive' => 'Sensitive',
+                    ])
+                    ->nullable(),
+                Select::make('skin_quality')
+                    ->label('Skin Quality')
+                    ->options([
+                        'Poor' => 'Poor',
+                        'Fair' => 'Fair',
+                        'Good' => 'Good',
+                        'Excellent' => 'Excellent',
+                    ])
+                    ->nullable(),
+                Select::make('skin_improvement')
+                    ->label('Skin Improvement Goal')
+                    ->options([
+                        'Hydration' => 'Hydration',
+                        'Smoothness' => 'Smoothness',
+                        'Elasticity' => 'Elasticity',
+                    ])
+                    ->nullable(),
+            ]),
+            Textarea::make('facials_history')
+                ->label('Facials History')
+                ->placeholder('History of previous facials and treatments')
+                ->nullable(),
+        ];
+    }
+
+    public static function getAestheticGoalsComponents(): array
+    {
+        return [
+            Grid::make(3)->schema([
+                Toggle::make('goal_less_tired')
+                    ->label('Look Less Tired')
+                    ->default(false),
+                Toggle::make('goal_less_angry')
+                    ->label('Look Less Angry')
+                    ->default(false),
+                Toggle::make('goal_less_sad')
+                    ->label('Look Less Sad')
+                    ->default(false),
+            ]),
+            Grid::make(3)->schema([
+                Toggle::make('goal_less_saggy')
+                    ->label('Look Less Saggy')
+                    ->default(false),
+                Toggle::make('goal_youthful')
+                    ->label('Look More Youthful')
+                    ->default(false),
+                Toggle::make('goal_attractive')
+                    ->label('Look More Attractive')
+                    ->default(false),
+            ]),
+            Grid::make(3)->schema([
+                Toggle::make('goal_soft_features')
+                    ->label('Have Softer Features')
+                    ->default(false),
+                Toggle::make('goal_slim_face')
+                    ->label('Have Slimmer Face')
+                    ->default(false),
+            ]),
+        ];
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -88,6 +211,18 @@ class UserForm
 
                         Section::make('Contact Details')
                             ->schema(static::getContactDetailsComponents())
+                            ->collapsible(),
+
+                        Section::make('Medical Background')
+                            ->schema(static::getMedicalBackgroundComponents())
+                            ->collapsible(),
+
+                        Section::make('Skin Profile')
+                            ->schema(static::getSkinProfileComponents())
+                            ->collapsible(),
+
+                        Section::make('Aesthetic Goals')
+                            ->schema(static::getAestheticGoalsComponents())
                             ->collapsible(),
 
                         Section::make('Account Settings')
