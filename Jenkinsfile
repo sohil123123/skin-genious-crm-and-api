@@ -9,8 +9,8 @@ pipeline {
                 sh 'node -v'
                 sh 'npm -v'
                 sh 'npm ci'  // Changed: Use ci for CI; installs from package-lock.json
-                sh 'npm run build'  // Builds Vite assets (manifest.json)
                 sh 'composer install -n'  // Now runs after manifest exists
+                sh 'npm run build'  // Builds Vite assets (manifest.json)
             }
         }
         stage("Populate .env file") {
