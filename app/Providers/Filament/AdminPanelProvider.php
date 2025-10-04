@@ -42,7 +42,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             // ->domain('admin.skin-genious-crm-and-api.test')
-            // ->maxContentWidth(Width::Full)
+            ->maxContentWidth(Width::Full)
             ->spa()
             // ->unsavedChangesAlerts()
             ->databaseTransactions()
