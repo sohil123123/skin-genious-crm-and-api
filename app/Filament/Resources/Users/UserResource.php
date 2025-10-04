@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 // use App\Filament\Resources\Users\Widgets\UserStats;
 use App\Filament\Widgets\UserStats;
 
+use App\Filament\Resources\Users\RelationManagers\HolidaysRelationManager;
+
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
@@ -42,7 +44,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            HolidaysRelationManager::class,
         ];
     }
 

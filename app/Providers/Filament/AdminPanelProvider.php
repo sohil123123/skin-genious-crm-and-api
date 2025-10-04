@@ -135,6 +135,10 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Auth Management')
                     ->icon('heroicon-o-academic-cap'),
                     // ->collapsed(),
+
+                NavigationGroup::make()
+                    ->label('Therapist Management')
+                    ->icon('heroicon-o-hand-raised'),
             ]);
     }
 

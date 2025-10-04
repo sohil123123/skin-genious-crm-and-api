@@ -277,7 +277,7 @@ class UserForm
                                         ->afterStateUpdated(function ($set, ?array $state) {
                                             if (!empty($state)) {
                                                 $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
-                                                if (!(in_array('Clinic_manager', $selectedRoles) || in_array('User', $selectedRoles))) {
+                                                if (!(in_array('Clinic_manager', $selectedRoles) || in_array('User', $selectedRoles) || in_array('therapist', $selectedRoles))) {
                                                     $set('clinic_id', null);
                                                 }
                                             } else {
@@ -294,11 +294,11 @@ class UserForm
                                         ->native(false)
                                         ->visible(function ($get) {
                                             $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
-                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles);
+                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles) || in_array('therapist', $selectedRoles);
                                         })
                                         ->required(function ($get) {
                                             $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
-                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles);
+                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles) || in_array('therapist', $selectedRoles);
                                         })
                                 ]),
                                 Select::make('permissions')

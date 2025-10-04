@@ -75,4 +75,8 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Clinic::class);
     }
+
+    public function holidays() {
+        return $this->hasMany(Holiday::class);
+    }
 }
