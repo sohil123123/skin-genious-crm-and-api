@@ -28,6 +28,7 @@ use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
 
 use App\Models\Holiday;
 use App\Models\User;
+use App\Models\Clinic;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
@@ -149,8 +150,21 @@ class HolidaysTable
                         Section::make('Date Range')
                             ->icon('heroicon-o-calendar')
                             ->schema([
-                                DatePicker::make('from')->label('From Date')->minDate(Carbon::today())->closeOnDateSelection()->native(false)->placeholder('From Date'),
-                                DatePicker::make('to')->label('To Date')->afterOrEqual('from')->closeOnDateSelection()->native(false)->placeholder('To Date'),
+                                DatePicker::make('from')
+                                    ->label('From Date')
+                                    ->minDate(Carbon::today())
+                                    ->maxDate(fn ($get) => $get('to'))
+                                    ->closeOnDateSelection()
+                                    ->native(false)
+                                    ->placeholder('From Date')
+                                    ->reactive(),
+                                DatePicker::make('to')
+                                    ->label('To Date')
+                                    ->minDate(fn ($get) => $get('from') ?? Carbon::today())
+                                    ->closeOnDateSelection()
+                                    ->native(false)
+                                    ->placeholder('To Date')
+                                    ->reactive(),
                             ])
                             ->columns(1)
                     ])
@@ -197,9 +211,6 @@ class HolidaysTable
                                         ->options(function (callable $get) {
                                             $clinicId = $get('clinic_id');
                                             if (!$clinicId) {
-                                                // return User::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))
-                                                //     ->get()
-                                                //     ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                                                 return [];
                                             }
                                             return User::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))
@@ -208,11 +219,6 @@ class HolidaysTable
                                                     ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
 
                                         })
-                                        // ->options(fn () =>
-                                        //     User::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))
-                                        //         ->get()
-                                        //         ->mapWithKeys(fn ($u) => [$u->id => $u->name])
-                                        // )
                                         ->reactive()
                                         ->searchable()
                                         ->placeholder('All Therapists')
@@ -232,12 +238,36 @@ class HolidaysTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
+                            ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
                             ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
                             ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
                     })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['clinic_id'] ?? null) {
+                            $clinic = Clinic::find($data['clinic_id']);
+                            if ($clinic) {
+                                $indicators[] = Indicator::make('Clinic: ' . $clinic->name)->removeField('clinic_id');
+                            }
+                        }
+
+                        if ($data['user_id'] ?? null) {
+                            $user = User::find($data['user_id']);
+                            if ($user) {
+                                $indicators[] = Indicator::make('Therapist: ' . $user->name)->removeField('user_id');
+                            }
+                        }
+
+                        if ($data['status'] ?? null) {
+                            $indicators[] = Indicator::make('Status: ' . ucfirst($data['status']))->removeField('status');
+                        }
+
+                        return $indicators;
+                    })
             ],
             layout: FiltersLayout::Modal)
-            ->filtersFormColumns(2)
+            ->filtersFormColumns(3)
             ->filtersTriggerAction(
                 fn (Action $action) => $action
                     ->button()
