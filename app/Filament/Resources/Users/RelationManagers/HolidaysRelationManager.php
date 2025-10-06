@@ -107,12 +107,12 @@ class HolidaysRelationManager extends RelationManager
                 Action::make('approve')
                     ->icon('heroicon-o-key')
                     ->color('success')
-                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('admin')))
+                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
                     ->action(fn (Holiday $record) => $record->update(['status' => 'approved', 'approved_by' => auth()->id()])),
                 Action::make('reject')
                     ->icon('heroicon-o-key')
                     ->color('danger')
-                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('admin')))
+                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
                     ->action(fn (Holiday $record) => $record->update(['status' => 'rejected', 'approved_by' => auth()->id()])),
             ])
             ->toolbarActions([

@@ -23,7 +23,7 @@ class UserSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'admin@gmail.com'],
             [
-                'first_name' => 'Admin',
+                'first_name' => 'Super Admin',
                 'last_name' => 'User',
                 'gender' => 'Male',
                 'mobile' => '1234567890',
@@ -31,7 +31,7 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         )
-        ->assignRole('admin');
+        ->assignRole('super_admin');
 
         // Create therapist user
         User::firstOrCreate(
@@ -60,20 +60,6 @@ class UserSeeder extends Seeder
             ]
         )
         ->assignRole('clinic_manager');
-
-        // Create doctor user
-        User::firstOrCreate(
-            ['email' => 'doctor@gmail.com'],
-            [
-                'first_name' => 'Doctor',
-                'last_name' => 'User',
-                'gender' => 'Male',
-                'mobile' => '1234567893',
-                'password' => bcrypt('123456'),
-                'email_verified_at' => now(),
-            ]
-        )
-        ->assignRole('doctor');
 
         // Create user
         User::firstOrCreate(

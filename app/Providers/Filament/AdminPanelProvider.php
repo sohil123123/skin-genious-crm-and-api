@@ -7,11 +7,11 @@ use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages\Dashboard;
+// use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
+// use Filament\Widgets\AccountWidget;
 // use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -35,6 +35,8 @@ use Filament\Support\Facades\FilamentColor;
 use Filament\Support\Enums\Width;
 use Filament\Actions\Action;
 
+use App\Filament\Pages\Dashboard;
+
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -55,11 +57,16 @@ class AdminPanelProvider extends PanelProvider
             ->login(Login::class)
             // ->login()
             ->profile()
+            // ->dashboard(Dashboard::class)
             ->sidebarCollapsibleOnDesktop()
             // ->font('Poppins')
             // ->brandName('Filament Demo')
             // ->brandLogo(asset('images/skin_care_logo.jpg'))
             // ->brandLogoHeight('6rem')
+            ->userMenuItems([
+                'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
+                // 'logout' => fn (Action $action) => $action->label('Log out'),
+            ])
             ->colors([
                 'dark-danger' => [
                     700 => 'oklch(0.514 0.222 16.935)',
@@ -78,10 +85,10 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->widgets([
-                AccountWidget::class,
-                // FilamentInfoWidget::class,
-            ])
+            // ->widgets([
+            //     AccountWidget::class,
+            //     // FilamentInfoWidget::class,
+            // ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

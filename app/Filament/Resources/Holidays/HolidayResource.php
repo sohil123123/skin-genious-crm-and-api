@@ -73,18 +73,18 @@ class HolidayResource extends Resource
     }
 
     // Global query scoping: Ensures therapists only see their own holidays in ALL pages (list, view, edit)
-    // public static function getEloquentQuery(): Builder
-    // {
-    //     $query = parent::getEloquentQuery();
-    //     $user = auth()->user();
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
 
-    //     if ($user->hasRole('therapist')) {
-    //         $query->where('user_id', $user->id); // Only their own
-    //     } elseif ($user->hasRole('clinic_manager')) {
-    //         $query->where('clinic_id', $user->clinic_id); // Assuming User has 'clinic_id' field for their clinic
-    //     }
-    //     // Superadmin sees all
+        if ($user->hasRole('therapist')) {
+            $query->where('user_id', $user->id); // Only their own
+        } elseif ($user->hasRole('clinic_manager')) {
+            $query->where('clinic_id', $user->clinic_id); // Assuming User has 'clinic_id' field for their clinic
+        }
+        // Superadmin sees all
 
-    //     return $query;
-    // }
+        return $query;
+    }
 }

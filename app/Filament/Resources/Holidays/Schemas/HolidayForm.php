@@ -45,15 +45,18 @@ class HolidayForm
                                         ->required()
                                         ->closeOnDateSelection()
                                         ->native(false)
-                                        ->minDate(Carbon::today())  // Disables dates before today
+                                        ->minDate(Carbon::today())
+                                        ->maxDate(fn ($get) => $get('end_date'))
+                                        ->reactive()
                                         ->placeholder('Select start date'),
 
                                     DatePicker::make('end_date')
                                         ->required()
-                                        ->minDate(Carbon::today())  // Disables dates before today
+                                        ->minDate(fn ($get) => $get('start_date') ?? Carbon::today())
                                         ->closeOnDateSelection()
                                         ->native(false)
-                                        ->afterOrEqual('start_date')  // Ensures end_date >= start_date
+                                        ->afterOrEqual('start_date')
+                                        ->reactive()
                                         ->placeholder('Select end date'),
 
                                     // Dynamically add status component based on role
