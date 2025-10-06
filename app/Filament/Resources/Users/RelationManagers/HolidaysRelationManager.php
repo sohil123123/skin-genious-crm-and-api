@@ -21,7 +21,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 use Filament\Actions\Action;
-use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use Filament\Actions\ViewAction;
 
 use App\Models\User;

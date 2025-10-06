@@ -24,7 +24,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
 use App\Models\Holiday;
 use App\Models\User;

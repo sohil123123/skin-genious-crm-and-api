@@ -14,7 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
 class ClinicResource extends Resource
 {

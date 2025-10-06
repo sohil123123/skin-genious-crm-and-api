@@ -28,7 +28,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Builder;
 
 use Str;
-use App\Filament\Resources\Clinic\Schemas\ClinicInfolist;
+use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use Filament\Actions\ViewAction;
 use Filament\Schemas\Schema;
 
