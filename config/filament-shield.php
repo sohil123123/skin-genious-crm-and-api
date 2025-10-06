@@ -172,7 +172,7 @@ return [
             ],
         ],
         'exclude' => [
-            \App\Filament\Resources\HolidayResource::class,
+            //
         ],
     ],
 
