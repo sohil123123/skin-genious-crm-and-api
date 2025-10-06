@@ -14,12 +14,12 @@ class HolidayPolicy
 
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:Holiday') && auth()->user()->hasAnyRole(['therapist', 'clinic_manager', 'admin']);
+        return $authUser->can('ViewAny:Holiday') && auth()->user()->hasAnyRole(['therapist', 'clinic_manager', 'super_admin']);
     }
 
     public function view(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('View:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('admin');
+        return ($authUser->can('View:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
     }
 
     public function create(AuthUser $authUser): bool
@@ -29,12 +29,12 @@ class HolidayPolicy
 
     public function update(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Update:Holiday') && $authUser->id === $holiday->user_id && $holiday->status === 'pending') || $authUser->hasRole('admin');
+        return ($authUser->can('Update:Holiday') && $authUser->id === $holiday->user_id && $holiday->status === 'pending') || $authUser->hasRole('super_admin');
     }
 
     public function delete(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Delete:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('admin');
+        return ($authUser->can('Delete:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
     }
 
     public function deleteAny(AuthUser $authUser): bool
@@ -44,12 +44,12 @@ class HolidayPolicy
 
     public function restore(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Restore:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('admin');
+        return ($authUser->can('Restore:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
     }
 
     public function forceDelete(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('ForceDelete:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('admin');
+        return ($authUser->can('ForceDelete:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
     }
 
     public function forceDeleteAny(AuthUser $authUser): bool
@@ -64,7 +64,7 @@ class HolidayPolicy
 
     public function replicate(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Replicate:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('admin');
+        return ($authUser->can('Replicate:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
     }
 
     public function reorder(AuthUser $authUser): bool
