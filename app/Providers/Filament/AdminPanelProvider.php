@@ -51,7 +51,7 @@ class AdminPanelProvider extends PanelProvider
             //     'profile' => fn (Action $action) => $action->label('Edit profile'),
             // ])
             ->id('admin')
-            ->path('admin')
+            ->path('')
             ->login(Login::class)
             // ->login()
             ->profile()
