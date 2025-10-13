@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
                 '--all' => true,
                 '--option' => 'policies_and_permissions',
                 '--no-interaction' => true,
+                '--ignore-existing-policies' => true,
             ]);
             $this->command->info('Database was refreshed.');
         }
