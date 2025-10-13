@@ -21,12 +21,12 @@ pipeline {
                 sh 'php artisan test'
             }
         }
-        stage("test perform")
-        {
-            steps{
-                sh './vendor/bin/pest'
-            }
-        }
+        // stage("test perform")
+        // {
+        //     steps{
+        //         sh './vendor/bin/pest'
+        //     }
+        // }
         stage("Verify SSH connection to server") {
             steps {
                 sshagent(credentials: ['jenkins']) {
