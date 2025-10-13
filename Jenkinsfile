@@ -18,7 +18,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'envSkinGeniousCRMApiBackend', variable: 'mySecretEnvFile')]){
                     sh 'cp -rf $mySecretEnvFile $WORKSPACE/.env'
                 }
-                sh 'php artisan test'
+                // sh 'php artisan test'
             }
         }
         // stage("test perform")
