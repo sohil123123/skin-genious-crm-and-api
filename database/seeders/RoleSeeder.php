@@ -18,7 +18,7 @@ class RoleSeeder extends Seeder
         $roles = Role::defaultRoles();
         foreach ($roles as $role) {
             $role_obj = Role::updateOrCreate(['name' => trim($role)]);
-            if(in_array($role, ['admin']))
+            if(in_array($role, ['super_admin']))
                 $role_obj->syncPermissions(Permission::all());
         }
     }

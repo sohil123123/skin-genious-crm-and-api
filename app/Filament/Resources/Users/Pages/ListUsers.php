@@ -65,10 +65,10 @@ class ListUsers extends ListRecords
                 ->badge($this->getModel()::count())
                 ->badgeColor('gray'),
 
-            'admin' => Tab::make('Admins')
+            'super_admin' => Tab::make('Super Admins')
                 ->icon('heroicon-o-shield-check')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'admin')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->count())
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'super_admin')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
                 ->badgeColor('danger'),
 
             'therapist' => Tab::make('Therapists')
@@ -83,11 +83,11 @@ class ListUsers extends ListRecords
                 ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count())
                 ->badgeColor('info'),
 
-            'doctor' => Tab::make('Doctors')
-                ->icon('heroicon-o-user-circle')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'doctor')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'doctor'))->count())
-                ->badgeColor('warning'),
+            // 'doctor' => Tab::make('Doctors')
+            //     ->icon('heroicon-o-user-circle')
+            //     ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'doctor')))
+            //     ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'doctor'))->count())
+            //     ->badgeColor('warning'),
 
             'user' => Tab::make('Users')
                 ->icon('heroicon-o-user')
