@@ -14,6 +14,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Filament\Actions\Action;
+// use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
@@ -28,6 +29,8 @@ use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Builder;
 
 use Str;
+// use Laravel\Sanctum\PersonalAccessToken;
+
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use Filament\Actions\ViewAction;
 use Filament\Schemas\Schema;
@@ -90,7 +93,7 @@ class UsersTable
                     ->label('Roles')
                     ->formatStateUsing(fn ($state) => ucfirst($state))
                     ->icon(fn ($state) => match ($state) {
-                        'admin'          => 'heroicon-o-shield-check',
+                        'super_admin'    => 'heroicon-o-shield-check',
                         'therapist'      => 'heroicon-o-hand-raised',
                         'clinic_manager' => 'heroicon-o-building-office',
                         'doctor'         => 'heroicon-o-user-circle',
@@ -98,7 +101,7 @@ class UsersTable
                         default          => 'heroicon-o-user',
                     })
                     ->color(fn ($state) => match ($state) {
-                        'admin'          => 'danger',
+                        'super_admin'    => 'danger',
                         'therapist'      => 'success',
                         'clinic_manager' => 'info',
                         'doctor'         => 'warning',
@@ -188,6 +191,27 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
             ->recordActions([
+                Action::make('assessment')
+                    ->label('Assessment')
+                    ->visible(fn ($record) => $record->hasRole('user'))
+                    ->icon('heroicon-s-user')
+                    ->color('info')
+                    ->action(function (User $record) {
+                        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
+                        $token = $record->createToken(
+                            'assessment-token-' . Str::random(10),
+                            ['assessment'], // Abilities/scopes
+                            now()->addHour() // Expiration
+                        )->plainTextToken;
+
+                        // Optional: Store token-patient link if needed (e.g., in a temp table for "restart")
+                        // For restart, you could clear previous assessment data here via your API/storage.
+
+                        // Redirect to Assessment App with token and patient ID
+                        $assessmentUrl = config('project.frontend_url').'/assessment?token=' . $token . '&user_id=' . $record->id;
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
                 EditAction::make(),
                 RestoreAction::make()
                     ->successNotification(

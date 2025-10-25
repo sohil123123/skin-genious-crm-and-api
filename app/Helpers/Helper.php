@@ -73,3 +73,8 @@ if (!function_exists('get_user_location')) {
     }
 }
 
+if (!function_exists('remove_empty_value')) {
+    function remove_empty_value($array){
+        return array_values(array_filter($array));
+    }
+}
