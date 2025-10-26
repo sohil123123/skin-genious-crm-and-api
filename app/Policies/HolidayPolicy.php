@@ -29,7 +29,7 @@ class HolidayPolicy
 
     public function update(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Update:Holiday') && $authUser->id === $holiday->user_id && $holiday->status === 'pending') || $authUser->hasRole('super_admin');
+        return ($authUser->can('Update:Holiday') && $authUser->id === $holiday->user_id && $holiday->status->value === 'pending') || $authUser->hasRole('super_admin');
     }
 
     public function delete(AuthUser $authUser, Holiday $holiday): bool
