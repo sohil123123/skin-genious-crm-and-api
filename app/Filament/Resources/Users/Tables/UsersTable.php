@@ -208,7 +208,7 @@ class UsersTable
                         // For restart, you could clear previous assessment data here via your API/storage.
 
                         // Redirect to Assessment App with token and patient ID
-                        $assessmentUrl = config('project.frontend_url').'/assessment?token=' . $token . '&user_id=' . $record->id;
+                        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $record->id;
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
