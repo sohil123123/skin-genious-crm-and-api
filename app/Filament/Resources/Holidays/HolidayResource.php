@@ -23,7 +23,7 @@ class HolidayResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $recordTitleAttribute = 'holiday';
+    protected static ?string $recordTitleAttribute = 'user_id';
 
     // protected static string | UnitEnum | null $navigationGroup = 'Therapist Management';
 
