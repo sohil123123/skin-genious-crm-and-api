@@ -48,11 +48,10 @@ class HolidaysRelationManager extends RelationManager
 {
     protected static string $relationship = 'holidays';
 
-    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
-    {
-        // return auth()->check() && auth()->user()->hasRole('therapist');
-        return $ownerRecord->hasRole('therapist');
-    }
+    // public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    // {
+    //     return $ownerRecord->hasRole('therapist');
+    // }
 
     public function form(Schema $schema): Schema
     {

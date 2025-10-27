@@ -6,6 +6,7 @@ use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Filament\Resources\Users\Pages\ManageHolidays;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 
@@ -55,7 +56,7 @@ class UserResource extends Resource
         return $page->generateNavigationItems([
             ViewUser::class,
             EditUser::class,
-            // HolidaysRelationManager::class,
+            ManageHolidays::class,
         ]);
     }
 
@@ -63,7 +64,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            HolidaysRelationManager::class,
+            // HolidaysRelationManager::class,
         ];
     }
 
@@ -74,6 +75,7 @@ class UserResource extends Resource
             'create' => CreateUser::route('/create'),
             'edit' => EditUser::route('/{record}/edit'),
             'view' => ViewUser::route('/{record}'),
+            'holidays' => ManageHolidays::route('/{record}/holidays'),
         ];
     }
 
