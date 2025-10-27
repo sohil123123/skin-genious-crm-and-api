@@ -144,8 +144,8 @@ class AdminPanelProvider extends PanelProvider
                 //     // ->collapsed(),
 
                 NavigationGroup::make()
-                    ->label('Therapist Management')
-                    ->icon('heroicon-o-hand-raised'),
+                    ->label('Therapist Management'),
+                    // ->icon('heroicon-o-hand-raised'),
             ]);
     }
 

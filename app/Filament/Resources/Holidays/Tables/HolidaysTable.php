@@ -20,6 +20,7 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Support\Icons\Heroicon;
+use Filament\Schemas\Schema;
 
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
@@ -53,13 +54,13 @@ class HolidaysTable
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn (User $record) => $record->clinic)
+                            ->record(fn (Holiday $record) => $record->clinic)
                             ->infolist(
                                 fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
                             ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn (User $record) => $record->clinic !== null)
+                            ->visible(fn (Holiday $record) => $record->clinic !== null)
                     )
                     ->toggleable(),
                 TextColumn::make('user.name')->label('Therapist')

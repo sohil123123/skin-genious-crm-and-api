@@ -20,6 +20,16 @@ class ManageHolidays extends ManageRelatedRecords
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public function getTitle(): string
+    {
+        return 'Manage Holidays for "' . $this->record->name.'"';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Holidays';
+    }
+
     public function getRelationManagers(): array
     {
         return [
@@ -37,12 +47,4 @@ class ManageHolidays extends ManageRelatedRecords
 
         return $record->hasRole('therapist');
     }
-
-
-    public static function getNavigationLabel(): string
-    {
-        return __('Holidays'); // Customize label (use translation if needed)
-    }
-
-
 }

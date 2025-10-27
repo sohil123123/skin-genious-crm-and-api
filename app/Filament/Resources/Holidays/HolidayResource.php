@@ -25,9 +25,11 @@ class HolidayResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'holiday';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Therapist Management';
+    // protected static string | UnitEnum | null $navigationGroup = 'Therapist Management';
 
-    // protected static ?int $navigationSort = 1;
+    protected static ?string $navigationBadgeTooltip = 'The number of holidays booked';
+
+    protected static ?int $navigationSort = 4;
 
     public static function form(Schema $schema): Schema
     {
