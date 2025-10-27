@@ -268,14 +268,20 @@ abstract class BaseApiController extends Controller
     protected function handleIndexResponse($result)
     {
         if ($result instanceof \Illuminate\Pagination\LengthAwarePaginator) {
-            $resource = $this->resourceClass::collection($result);
-            $transformed = $resource->response()->getData(true);
-            // dd($transformed);
+            $result = array_merge(
+                $result->toArray(),
+                ['data' => $this->resourceClass::collection($result->items())->resolve()]
+            );
+            return $this->success('Records retrieved successfully', $result);
 
-            return $this->success('Records retrieved successfully', [
-                'data' => $transformed['data'],
-                'pagination' => $transformed['meta'] ?? null
-            ]);
+            // $resource = $this->resourceClass::collection($result);
+            // $transformed = $resource->response()->getData(true);
+            // // dd($transformed);
+
+            // return $this->success('Records retrieved successfully', [
+            //     'data' => $transformed['data'],
+            //     'pagination' => $transformed['meta'] ?? null
+            // ]);
         }
 
         $collection = $this->resourceClass::collection($result);

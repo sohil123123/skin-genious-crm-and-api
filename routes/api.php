@@ -11,7 +11,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 // ----------------- public (Frontend) -------------------------
 Route::namespace('App\Http\Controllers\Api')->group(function () {
 
-    Route::post('/login', 'AuthController@login');
+    // Route::post('/login', 'AuthController@login');
 
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -19,6 +19,10 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: User CRUD Route
         Route::apiResource('users', 'UserController')->only(['index', 'show']);
+
+        // INFO: Assessment CRUD Route
+        Route::delete('/assessments/{assessment}/images/{media}', 'AssessmentController@deleteImage');
+        Route::apiResource('assessments', 'AssessmentController')->only(['index', 'store', 'update', 'show', 'destroy']);
     });
 
 });
@@ -37,9 +41,9 @@ Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (R
         return response()->json(['valid' => false], 403);
     }
 
-    // Return user/patient details if needed (e.g., for fetching patient data)
     return response()->json([
         'valid' => true,
-        'user_id' => $personalToken->tokenable->id,
+        'access_token' => $token,
+        'auth_user_id' => $personalToken->tokenable->id,
     ]);
 });

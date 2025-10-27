@@ -198,10 +198,11 @@ class UsersTable
                     ->color('info')
                     ->action(function (User $record) {
                         // Generate short-lived Sanctum token (e.g., expires in 1 hour)
-                        $token = $record->createToken(
+                        $user = auth()->user();
+                        $token = $user->createToken(
                             'assessment-token-' . Str::random(10),
                             ['assessment'], // Abilities/scopes
-                            now()->addHour() // Expiration
+                            // now()->addHour() // Expiration
                         )->plainTextToken;
 
                         // Optional: Store token-patient link if needed (e.g., in a temp table for "restart")
@@ -212,6 +213,7 @@ class UsersTable
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
+                ViewAction::make(),
                 EditAction::make(),
                 RestoreAction::make()
                     ->successNotification(

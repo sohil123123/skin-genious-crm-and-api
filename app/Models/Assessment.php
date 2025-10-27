@@ -11,6 +11,8 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
+use App\Models\User;
+
 class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
@@ -42,6 +44,31 @@ class Assessment extends Model implements HasMedia
         'treatment_plan' => 'array',
         'is_pregnant' => 'boolean',
     ];
+
+    protected static function booted() {
+        static::creating(function ($assessment) {
+            $selectedUser = User::find($assessment->user_id);
+            if ($selectedUser && $selectedUser->clinic_id) {
+                $assessment->clinic_id = $selectedUser->clinic_id;
+            }
+        });
+    }
+
+    protected $appends = ['images'];
+    
+    public function getImagesAttribute()
+    {
+        return $this->getMedia('assessment_images')->map(function (Media $media) {
+            return [
+                'id' => $media->id,
+                'url' => $media->getUrl(),
+                // 'thumb_url' => $media->getUrl('thumb'), // If conversions are defined
+                'name' => $media->name,
+                // 'mime_type' => $media->mime_type,
+                // 'size' => $media->size,
+            ];
+        });
+    }
 
      /**
      * Relationships
