@@ -41,7 +41,7 @@ class ListHolidays extends ListRecords
             'rejected' => Tab::make('Rejected')
                 ->icon('heroicon-m-x-circle')
                 ->query(fn ($query) => $query->where('status', 'rejected'))
-                ->badge($this->getModel()::where('status', 'penrejectedding')->count())
+                ->badge($this->getModel()::where('status', 'rejected')->count())
                 ->badgeColor('danger'),
         ];
     }

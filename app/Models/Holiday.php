@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
+use App\Models\User;
+
 use App\Enums\HolidayStatus;
 
 class Holiday extends Model
@@ -41,6 +43,12 @@ class Holiday extends Model
 
     // Hook for auto-adjusting schedules (integrate with your Appointment model)
     protected static function booted() {
+        static::creating(function ($holiday) {
+            $selectedUser = User::find($holiday->user_id);
+            if ($selectedUser && $selectedUser->clinic_id) {
+                $holiday->clinic_id = $selectedUser->clinic_id;
+            }
+        });
         static::updating(function ($holiday) {
             if ($holiday->status === 'approved' && $holiday->isDirty('status')) {
                 // Logic to auto-adjust appointments: e.g., reschedule or notify

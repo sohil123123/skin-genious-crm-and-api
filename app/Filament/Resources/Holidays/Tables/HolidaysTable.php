@@ -20,6 +20,7 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Support\Icons\Heroicon;
+use Filament\Schemas\Schema;
 
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
@@ -46,22 +47,24 @@ class HolidaysTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn (User $record) => $record->clinic)
+                            ->record(fn (Holiday $record) => $record->clinic)
                             ->infolist(
                                 fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
                             ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn (User $record) => $record->clinic !== null)
+                            ->visible(fn (Holiday $record) => $record->clinic !== null)
                     )
                     ->toggleable(),
                 TextColumn::make('user.name')->label('Therapist')
-                    ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name']),
                 TextColumn::make('start_date')->date()->searchable()->sortable(),
                 TextColumn::make('end_date')->date()->searchable()->sortable(),
@@ -73,7 +76,7 @@ class HolidaysTable
                     ->icon(Heroicon::User)
                     ->iconColor('success')
                     ->color('success')
-                    ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
                     ->toggleable(),
                 TextColumn::make('reason')->limit(50)->searchable()->toggleable(),
@@ -287,19 +290,41 @@ class HolidaysTable
                     }),
                 // Custom approve/reject actions for managers
                 Action::make('approve')
-                    ->icon('heroicon-o-key')
+                    ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
-                    ->action(fn (Holiday $record) => $record->update(['status' => 'approved', 'approved_by' => auth()->id()])),
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve record')
+                    ->modalSubheading('Are you sure you want to approve this item?')
+                    ->visible(fn (Holiday $record) => $record->status->value === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
+                    ->action(function ($record) {
+                        $record->update(['status' => 'approved', 'approved_by' => auth()->id()]);
+                        Notification::make()
+                            ->success()
+                            ->title('Approved')
+                            ->body('Record approved successfully.')
+                            ->send();
+                    }),
+                    // ->action(fn (Holiday $record) => $record->update(['status' => 'approved', 'approved_by' => auth()->id()])),
                 Action::make('reject')
-                    ->icon('heroicon-o-key')
+                    ->icon('heroicon-o-x-mark')
                     ->color('danger')
-                    ->visible(fn (Holiday $record) => $record->status === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
-                    ->action(fn (Holiday $record) => $record->update(['status' => 'rejected', 'approved_by' => auth()->id()])),
+                    ->requiresConfirmation()
+                    ->modalHeading('Reject record')
+                    ->modalSubheading('Please confirm rejection. This action can be recorded.')
+                    ->visible(fn (Holiday $record) => $record->status->value === 'pending' && (auth()->user()->hasRole('clinic_manager') || auth()->user()->hasRole('super_admin')))
+                    ->action(function ($record) {
+                        $record->update(['status' => 'rejected', 'approved_by' => auth()->id()]);
+                        Notification::make()
+                            ->danger()
+                            ->title('Rejected')
+                            ->body('Record rejected.')
+                            ->send();
+                    }),
+                    // ->action(fn (Holiday $record) => $record->update(['status' => 'rejected', 'approved_by' => auth()->id()])),
             ])
             ->groups([
                 Group::make('clinic_id')
-                    ->label('Clinic Name')
+                    ->label('Clinic')
                     ->collapsible()
                     ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
                     ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),

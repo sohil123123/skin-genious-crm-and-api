@@ -48,11 +48,10 @@ class HolidaysRelationManager extends RelationManager
 {
     protected static string $relationship = 'holidays';
 
-    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
-    {
-        // return auth()->check() && auth()->user()->hasRole('therapist');
-        return $ownerRecord->hasRole('therapist');
-    }
+    // public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    // {
+    //     return $ownerRecord->hasRole('therapist');
+    // }
 
     public function form(Schema $schema): Schema
     {
@@ -64,15 +63,7 @@ class HolidaysRelationManager extends RelationManager
                             // ->description('Location and mapping information.')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
-                                Grid::make(3)->schema([
-                                    // Dynamically add user_id component based on role
-                                    auth()->user()->hasRole('therapist')
-                                        ? Hidden::make('user_id')->default(auth()->id())
-                                        : Select::make('user_id')
-                                            ->label('Therapist')
-                                            ->relationship('therapists', 'first_name')
-                                            ->required(), // No default for admins/managers
-
+                                Grid::make(2)->schema([
                                     DatePicker::make('start_date')
                                         ->required()
                                         ->closeOnDateSelection()
@@ -91,17 +82,14 @@ class HolidaysRelationManager extends RelationManager
                                         ->reactive()
                                         ->placeholder('Select end date'),
 
-                                    // Dynamically add status component based on role
-                                    auth()->user()->hasRole('therapist')
-                                        ? Hidden::make('status')->default('pending')
-                                        : ToggleButtons::make('status')
-                                            ->inline()
-                                            ->options(HolidayStatus::class)
-                                            ->default('pending')
-                                            ->required()
-                                            ->columnSpan(['lg' => 2]),
+                                    ToggleButtons::make('status')
+                                        ->inline()
+                                        ->options(HolidayStatus::class)
+                                        ->default('pending')
+                                        ->required()
+                                        ->columnSpan(['lg' => 2]),
                                 ]),
-                                Grid::make(2)->schema([
+                                Grid::make(1)->schema([
                                     Textarea::make('reason')->rows(4)->placeholder('Reason for holiday')->required(),
                                 ])
                             ]),
@@ -134,19 +122,22 @@ class HolidaysRelationManager extends RelationManager
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn (User $record) => $record->clinic)
+                            ->record(fn (Holiday $record) => $record->clinic)
                             ->infolist(
                                 fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
                             ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn (User $record) => $record->clinic !== null)
-                    ),
+                            ->visible(fn (Holiday $record) => $record->clinic !== null)
+                    )
+                    ->toggleable(),
                 TextColumn::make('start_date')->date()->searchable()->sortable(),
                 TextColumn::make('end_date')->date()->searchable()->sortable(),
                 TextColumn::make('status')->badge(),

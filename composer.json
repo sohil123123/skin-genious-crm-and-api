@@ -15,6 +15,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "resma/filament-awin-theme": "^1.1",
+        "spatie/laravel-medialibrary": "^11.17",
         "spatie/laravel-permission": "^6.21"
     },
     "require-dev": {

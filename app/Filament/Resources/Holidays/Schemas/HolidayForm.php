@@ -19,6 +19,7 @@ use App\Enums\HolidayStatus;
 use Illuminate\Support\Carbon;
 
 use App\Models\Holiday;
+use App\Models\User;
 
 class HolidayForm
 {
@@ -39,7 +40,15 @@ class HolidayForm
                                         : Select::make('user_id')
                                             ->label('Therapist')
                                             ->relationship('therapists', 'first_name')
-                                            ->required(), // No default for admins/managers
+                                            ->required(),
+                                            // ->afterStateUpdated(function ($state, callable $set) {
+                                            //     if ($state) {
+                                            //         $user = User::find($state);
+                                            //         if ($user && $user->clinic_id) {
+                                            //             $set('clinic_id', $user->clinic_id); // Auto-set clinic_id based on selected user
+                                            //         }
+                                            //     }
+                                            // }),
 
                                     DatePicker::make('start_date')
                                         ->required()

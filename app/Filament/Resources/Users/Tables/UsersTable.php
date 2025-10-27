@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
@@ -32,7 +33,6 @@ use Str;
 // use Laravel\Sanctum\PersonalAccessToken;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
-use Filament\Actions\ViewAction;
 use Filament\Schemas\Schema;
 
 use App\Models\User;
@@ -49,7 +49,7 @@ class UsersTable
             //     'rows' => 5,
             //     'widths' => ['w-24', 'w-16', 'w-32', 'w-20', 'w-12', 'w-28', 'w-20'],
             // ]))
-            ->recordUrl(null)
+            // ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('clinic.name')

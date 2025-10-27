@@ -138,14 +138,14 @@ class AdminPanelProvider extends PanelProvider
                 FilamentNordThemePlugin::make()
             ])
             ->navigationGroups([
-                NavigationGroup::make()
-                    ->label('Auth Management')
-                    ->icon('heroicon-o-academic-cap'),
-                    // ->collapsed(),
+                // NavigationGroup::make()
+                //     ->label('Auth Management')
+                //     ->icon('heroicon-o-academic-cap'),
+                //     // ->collapsed(),
 
                 NavigationGroup::make()
-                    ->label('Therapist Management')
-                    ->icon('heroicon-o-hand-raised'),
+                    ->label('Therapist Management'),
+                    // ->icon('heroicon-o-hand-raised'),
             ]);
     }
 
