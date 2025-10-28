@@ -52,9 +52,6 @@ class AdminPanelProvider extends PanelProvider
             // ->unsavedChangesAlerts()
             ->databaseTransactions()
             // ->topNavigation()
-            // ->userMenuItems([
-            //     'profile' => fn (Action $action) => $action->label('Edit profile'),
-            // ])
             ->id('admin')
             ->path('')
             ->login(Login::class)
@@ -88,10 +85,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
-            // ->pages([
-            //     Dashboard::class,
-            //     // Profile::class
-            // ])
+            ->pages([
+                Dashboard::class,
+                Profile::class
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             // ->widgets([
             //     AccountWidget::class,

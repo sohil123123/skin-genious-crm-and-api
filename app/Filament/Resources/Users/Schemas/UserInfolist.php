@@ -24,7 +24,6 @@ class UserInfolist
     {
         return $schema
             ->schema([
-
                 Section::make('Personal Information')
                     ->schema([
                         Grid::make(4)->schema([

@@ -2,11 +2,12 @@
     <div class="space-y-6">
         {{ $this->schema }}
     </div>
-    {{-- ✅ Manual Save button rendering (appears only in Edit tab) --}}
-    @if ($activeTab == 2)
-        <div class="mt-6 flex justify-end">
-            <x-filament::button color="primary" wire:click="submit">
-                Save Changes
+    @if ($activeTab === 2)
+        <div class="mt-6">
+            <x-filament::button
+                tag="a"
+                href="{{ \App\Filament\Resources\Users\UserResource::getUrl('holidays', ['record' => $user]) }}">
+                Manage Holidays
             </x-filament::button>
         </div>
     @endif
