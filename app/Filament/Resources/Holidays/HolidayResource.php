@@ -17,13 +17,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 use UnitEnum;
 
+use App\Filament\Resources\Holidays\Schemas\HolidayInfolist;
+
 class HolidayResource extends Resource
 {
     protected static ?string $model = Holiday::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $recordTitleAttribute = 'user_id';
+    protected static ?string $recordTitleAttribute = null;
 
     // protected static string | UnitEnum | null $navigationGroup = 'Therapist Management';
 
@@ -46,6 +48,11 @@ class HolidayResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return HolidayInfolist::configure($schema);
     }
 
     public static function getPages(): array
