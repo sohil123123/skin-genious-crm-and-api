@@ -36,6 +36,9 @@ use Filament\Support\Enums\Width;
 use Filament\Actions\Action;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Profile;
+
+use Filament\Navigation\MenuItem;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -56,7 +59,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('')
             ->login(Login::class)
             // ->login()
-            ->profile()
+            // ->profile(Profile::class)
             // ->dashboard(Dashboard::class)
             ->sidebarCollapsibleOnDesktop()
             // ->font('Poppins')
@@ -64,8 +67,12 @@ class AdminPanelProvider extends PanelProvider
             // ->brandLogo(asset('images/skin_care_logo.jpg'))
             // ->brandLogoHeight('6rem')
             ->userMenuItems([
-                'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
+                // 'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
                 // 'logout' => fn (Action $action) => $action->label('Log out'),
+                'profile' => MenuItem::make()
+                    ->label('My Profile')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn (): string => route('filament.admin.pages.profile')),
             ])
             ->colors([
                 'dark-danger' => [
@@ -81,9 +88,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
-            ->pages([
-                Dashboard::class,
-            ])
+            // ->pages([
+            //     Dashboard::class,
+            //     // Profile::class
+            // ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             // ->widgets([
             //     AccountWidget::class,
