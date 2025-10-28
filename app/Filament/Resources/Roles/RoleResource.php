@@ -31,6 +31,8 @@ use Illuminate\Validation\Rules\Unique;
 
 use Filament\Notifications\Notification;
 
+use Illuminate\Database\Eloquent\Model;
+
 class RoleResource extends Resource
 {
     use Essentials\BelongsToParent;
@@ -40,7 +42,17 @@ class RoleResource extends Resource
     use Essentials\HasNavigation;
     use HasShieldFormComponents;
 
-    protected static ?string $recordTitleAttribute = 'name';
+    // protected static ?string $recordTitleAttribute = 'name';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name;
+    }
 
     public static function form(Schema $schema): Schema
     {
