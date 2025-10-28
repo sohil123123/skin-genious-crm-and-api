@@ -22,6 +22,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Assessment CRUD Route
         Route::delete('/assessments/{assessment}/images/{media}', 'AssessmentController@deleteImage');
+        Route::post('/assessments/{assessment}/images', 'AssessmentController@storeImage');
         Route::apiResource('assessments', 'AssessmentController')->only(['index', 'store', 'update', 'show', 'destroy']);
     });
 

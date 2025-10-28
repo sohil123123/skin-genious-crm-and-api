@@ -86,6 +86,25 @@ class AssessmentController extends BaseApiController
     //     //
     // }
 
+    public function storeImage(Request $request, Assessment $assessment)
+    {
+        // Validate the request (adjust as needed)
+        $request->validate([
+            'images' => 'required|array|min:1',
+            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
+        ]);
+
+        $assessment->addMultipleMediaFromRequest(['images'])
+                    ->each(function ($fileAdder) {
+                        $fileAdder->toMediaCollection('assessment_images', 'user_assessment_images');
+                    });
+
+        // Wrap in resource for clean, formatted API output
+        $resource = new AssessmentResource($assessment);
+
+        return $this->success('Assessment user images added successfully', $resource);
+    }
+
     public function deleteImage(Assessment $assessment, $mediaId)
     {
         $mediaItem = $assessment->getMedia('assessment_images')->where('id', $mediaId)->first();
