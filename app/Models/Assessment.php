@@ -47,6 +47,7 @@ class Assessment extends Model implements HasMedia
 
     protected static function booted() {
         static::creating(function ($assessment) {
+            $assessment->created_by = auth()->user()->id;
             $selectedUser = User::find($assessment->user_id);
             if ($selectedUser && $selectedUser->clinic_id) {
                 $assessment->clinic_id = $selectedUser->clinic_id;
@@ -55,7 +56,7 @@ class Assessment extends Model implements HasMedia
     }
 
     protected $appends = ['images'];
-    
+
     public function getImagesAttribute()
     {
         return $this->getMedia('assessment_images')->map(function (Media $media) {

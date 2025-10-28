@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\BaseApiController;
 use Illuminate\Http\Request;
 
+use App\Http\Requests\AssessmentRequest;
+
+use App\Http\Resources\AssessmentResource;
+
 use App\Models\Assessment;
 
 class AssessmentController extends BaseApiController
@@ -25,18 +29,10 @@ class AssessmentController extends BaseApiController
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(AssessmentRequest $request)
     {
-        // Validate the request (adjust as needed)
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
-        ]);
-
         // Create the assessment record
-        $assessment = $this->model->create([
-            'user_id' => $validated['user_id'],
-        ]);
+        $assessment = $this->model->create($request->validated());
 
         // Upload multiple images to the 'assessment_images' collection
         if ($request->hasFile('images')) {
@@ -46,7 +42,10 @@ class AssessmentController extends BaseApiController
                        });
         }
 
-        return $this->success('Assessment created successfully', $assessment);
+        // Wrap in resource for clean, formatted API output
+        $resource = new AssessmentResource($assessment);
+
+        return $this->success('Assessment created successfully', $resource);
     }
 
     /**
@@ -60,18 +59,10 @@ class AssessmentController extends BaseApiController
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Assessment $assessment)
+    public function update(AssessmentRequest $request, Assessment $assessment)
     {
-        // Validate the request (adjust as needed)
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
-        ]);
-
         // Create the assessment record
-        $assessment->update([
-            'user_id' => $validated['user_id'],
-        ]);
+        $assessment->update($request->validated());
 
         // Upload multiple images to the 'assessment_images' collection
         if ($request->hasFile('images')) {
@@ -81,7 +72,10 @@ class AssessmentController extends BaseApiController
                        });
         }
 
-        return $this->success('Assessment updated successfully', $assessment);
+        // Wrap in resource for clean, formatted API output
+        $resource = new AssessmentResource($assessment);
+
+        return $this->success('Assessment updated successfully', $resource);
     }
 
     /**

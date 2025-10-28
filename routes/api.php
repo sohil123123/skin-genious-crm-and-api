@@ -32,7 +32,8 @@ Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (R
     $token = $request->bearerToken();
     $personalToken = PersonalAccessToken::findToken($token);
 
-    if (!$personalToken || !$personalToken->tokenable || $personalToken->expires_at->isPast()) {
+    // if (!$personalToken || !$personalToken->tokenable || $personalToken->expires_at->isPast()) {
+    if (!$personalToken || !$personalToken->tokenable) {
         return response()->json(['valid' => false], 401);
     }
 
