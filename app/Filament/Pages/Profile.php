@@ -64,37 +64,41 @@ class Profile extends Page implements HasSchemas
                             ->icon(Heroicon::Eye)
                             ->schema([
                                 Section::make('Personal Information')
+                                    ->icon('heroicon-o-user-circle')
                                     ->schema([
                                         Grid::make(5)->schema([
                                             TextEntry::make('first_name')->placeholder('N/A'),
                                             TextEntry::make('last_name')->placeholder('N/A'),
                                             TextEntry::make('gender')->placeholder('N/A'),
                                             TextEntry::make('date_of_birth')->date()->placeholder('N/A'),
-                                            TextEntry::make('clinic.name')->label('Assigned Clinic')->placeholder('N/A'),
+                                            TextEntry::make('clinic.name')->label('Assigned Clinic')->placeholder('N/A')
+                                                ->visible(fn () => (auth()->user()->hasRole('user') || auth()->user()->hasRole('therapist'))),
                                         ]),
                                     ])
                                     ->collapsible(),
 
                                 Section::make('Contact Details')
+                                    ->icon('heroicon-o-chat-bubble-left-right')
                                     ->schema([
-                                        Grid::make(3)->schema([
+                                        Grid::make(4)->schema([
                                             TextEntry::make('mobile')->placeholder('N/A'),
                                             TextEntry::make('email')->label('Email address')->placeholder('N/A'),
                                             TextEntry::make('occupation')->placeholder('N/A'),
-                                        ]),
-                                        Grid::make(3)->schema([
                                             TextEntry::make('city')->placeholder('N/A'),
+
+                                        ]),
+                                        Grid::make(4)->schema([
                                             TextEntry::make('pincode')->placeholder('N/A'),
                                             TextEntry::make('referral_code')->placeholder('N/A'),
-                                        ]),
-                                        Grid::make(2)->schema([
                                             TextEntry::make('address_line_1')->placeholder('N/A'),
                                             TextEntry::make('address_line_2')->placeholder('N/A'),
                                         ]),
+
                                     ])
                                     ->collapsible(),
 
                                 Section::make('Medical Background')
+                                    ->icon('heroicon-o-heart')
                                     ->schema([
                                         Grid::make(4)->schema([
                                             IconEntry::make('has_diabetes')
@@ -145,9 +149,11 @@ class Profile extends Page implements HasSchemas
                                                 ->placeholder('No known allergies listed'),
                                         ]),
                                     ])
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
                                 Section::make('Skin Profile')
+                                    ->icon('heroicon-o-face-smile')
                                     ->schema([
                                         Grid::make(4)->schema([
                                             TextEntry::make('skin_type')->label('Skin Type')->placeholder('N/A'),
@@ -157,9 +163,11 @@ class Profile extends Page implements HasSchemas
                                         ]),
 
                                     ])
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
                                 Section::make('Aesthetic Goals')
+                                    ->icon('heroicon-o-sparkles')
                                     ->schema([
                                         Grid::make(4)->schema([
                                             IconEntry::make('goal_less_tired')
@@ -198,12 +206,14 @@ class Profile extends Page implements HasSchemas
                                                 ->placeholder('N/A'),
                                         ]),
                                     ])
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
                                 Section::make('Account Settings')
+                                    ->icon('heroicon-o-cog-6-tooth')
                                     ->schema([
                                         Grid::make(3)->schema([
-                                            TextEntry::make('how_did_you_hear')->placeholder('N/A'),
+                                            TextEntry::make('how_did_you_hear')->placeholder('N/A')->visible(auth()->user()->hasRole('user')),
                                             IconEntry::make('opt_for_loyalty')
                                                 ->label('Opted for Loyalty Program?')
                                                 ->boolean()
@@ -215,7 +225,6 @@ class Profile extends Page implements HasSchemas
 
 
                                 Section::make('Record Information')
-                                    ->description('Timestamps for creation, update, and deletion.')
                                     ->icon('heroicon-o-clock')
                                     ->schema([
                                         TextEntry::make('created_at')
@@ -224,10 +233,6 @@ class Profile extends Page implements HasSchemas
                                         TextEntry::make('updated_at')
                                             ->label('Updated At')
                                             ->dateTime('Y-m-d H:i:s'),
-                                        TextEntry::make('deleted_at')
-                                            ->label('Deleted At')
-                                            ->dateTime('Y-m-d H:i:s')
-                                            ->placeholder('Not deleted'),
                                     ])
                                     ->columns(3)
                                     ->collapsible(),
@@ -239,26 +244,37 @@ class Profile extends Page implements HasSchemas
                             ->icon(Heroicon::Pencil)
                             ->schema([
                                 Section::make('Personal Information')
+                                    ->icon('heroicon-o-user-circle')
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->schema(static::getPersonalInformationComponents())
                                     ->collapsible(),
 
                                 Section::make('Contact Details')
+                                    ->icon('heroicon-o-chat-bubble-left-right')
                                     ->schema(static::getContactDetailsComponents())
                                     ->collapsible(),
 
                                 Section::make('Medical Background')
+                                    ->icon('heroicon-o-heart')
                                     ->schema(static::getMedicalBackgroundComponents())
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
                                 Section::make('Skin Profile')
+                                    ->icon('heroicon-o-face-smile')
                                     ->schema(static::getSkinProfileComponents())
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
                                 Section::make('Aesthetic Goals')
+                                    ->icon('heroicon-o-sparkles')
                                     ->schema(static::getAestheticGoalsComponents())
+                                    ->visible(auth()->user()->hasRole('user'))
                                     ->collapsible(),
 
+
                                 Section::make('Account Settings')
+                                    ->icon('heroicon-o-cog-6-tooth')
                                     ->schema([
                                         Grid::make(3)->schema([
                                             Select::make('how_did_you_hear')
@@ -270,13 +286,15 @@ class Profile extends Page implements HasSchemas
                                                     'Practo/Lybrate' => 'Practo/lybrate',
                                                     'By Doctor' => 'By doctor',
                                                     'Other' => 'Other',
-                                                ]),
+                                                ])
+                                                ->visible(auth()->user()->hasRole('user')),
 
                                             ToggleButtons::make('opt_for_loyalty')
                                                 ->inline()
                                                 ->label('Opted for Loyalty Program?')
                                                 ->default(false)
-                                                ->boolean(),
+                                                ->boolean()
+                                                ->visible(auth()->user()->hasRole('user')),
 
                                             TextInput::make('password')
                                                 ->password()
@@ -284,7 +302,7 @@ class Profile extends Page implements HasSchemas
                                                 ->placeholder('Password')
                                                 ->required(fn (string $context): bool => $context === 'create')
                                                 ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
-                                                ->dehydrated(fn ($state) => filled($state))
+                                                ->dehydrated(fn ($state) => filled($state)),
                                         ]),
 
 
