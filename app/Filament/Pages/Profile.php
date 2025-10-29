@@ -27,6 +27,10 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+
 use Filament\Support\Icons\Heroicon;
 
 class Profile extends Page implements HasSchemas
@@ -322,6 +326,35 @@ class Profile extends Page implements HasSchemas
     public function submit(): void
     {
         $data = $this->data;
+
+        try {
+            // ✅ Validate user data
+            Validator::make($data, [
+                'first_name' => ['required', 'string', 'max:255'],
+                'last_name'  => ['nullable', 'string', 'max:255'],
+                'email'      => [
+                    'required',
+                    'email',
+                    'max:255',
+                    Rule::unique('users', 'email')->ignore($this->user->id),
+                ],
+                'mobile'     => [
+                    'required',
+                    'string',
+                    'max:20',
+                    Rule::unique('users', 'mobile')->ignore($this->user->id),
+                ],
+                'password'   => ['nullable', 'min:6'],
+            ])->validate();
+        } catch (ValidationException $e) {
+            // 🔴 Show a danger notification with all error messages
+            Notification::make()
+                ->title('Validation failed')
+                ->danger()
+                ->body(collect($e->errors())->flatten()->join(', '))
+                ->send();
+            return;
+        }
 
         $this->user->fill($data);
 
