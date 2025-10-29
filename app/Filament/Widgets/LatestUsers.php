@@ -54,6 +54,7 @@ class LatestUsers extends TableWidget
             ->columns([
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
+                    ->color('info')
                     ->badge()
                     ->placeholder('Unassigned')
                     ->sortable()
@@ -87,9 +88,8 @@ class LatestUsers extends TableWidget
                         'female' => 'danger',
                         default  => 'gray',
                     })
-                    ->placeholder('-')
-                    ->toggleable(),
-                TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
+                    ->placeholder('-'),
+                TextColumn::make('email')->label('Email')->searchable()->placeholder('-'),
                 ToggleColumn::make('is_active')
                     ->label('Status')
                     ->onIcon('heroicon-o-bolt')
@@ -123,13 +123,8 @@ class LatestUsers extends TableWidget
                             ->send();
                     }),
                 TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->dateTime('d M Y, h:i A')
+                    ->sortable(),
             ])
             ->filters([
                 //
@@ -141,6 +136,7 @@ class LatestUsers extends TableWidget
                 ViewAction::make()
                     ->url(fn (User $record): string => UserResource::getUrl('view', ['record' => $record])),
                 EditAction::make()
+                    ->color('success')
                     ->url(fn (User $record): string => UserResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([

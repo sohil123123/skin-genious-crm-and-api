@@ -17,7 +17,7 @@ use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 
 class Dashboard extends BaseDashboard
 {
-    use HasFiltersForm;
+    // use HasFiltersForm;
 
     // protected string $view = 'filament.pages.dashboard';
 
@@ -31,22 +31,22 @@ class Dashboard extends BaseDashboard
     //     ];
     // }
 
-    public function filtersForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                Section::make()
-                    ->schema([
-                        Select::make('businessCustomersOnly')
-                            ->boolean(),
-                        DatePicker::make('startDate')
-                            ->maxDate(fn (Get $get) => $get('endDate') ?: now()),
-                        DatePicker::make('endDate')
-                            ->minDate(fn (Get $get) => $get('startDate') ?: now())
-                            ->maxDate(now()),
-                    ])
-                    ->columns(3)
-                    ->columnSpanFull(),
-            ]);
-    }
+    // public function filtersForm(Schema $schema): Schema
+    // {
+    //     return $schema
+    //         ->components([
+    //             Section::make()
+    //                 ->schema([
+    //                     Select::make('businessCustomersOnly')
+    //                         ->boolean(),
+    //                     DatePicker::make('startDate')
+    //                         ->maxDate(fn (Get $get) => $get('endDate') ?: now()),
+    //                     DatePicker::make('endDate')
+    //                         ->minDate(fn (Get $get) => $get('startDate') ?: now())
+    //                         ->maxDate(now()),
+    //                 ])
+    //                 ->columns(3)
+    //                 ->columnSpanFull(),
+    //         ]);
+    // }
 }

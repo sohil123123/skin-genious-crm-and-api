@@ -14,7 +14,7 @@ class UserChart extends ChartWidget
 {
     use InteractsWithPageFilters, HasWidgetShield;
 
-    protected ?string $heading = 'Total users chart';
+    protected ?string $heading = 'Total users this year';
 
     protected static ?int $sort = 3;
 
