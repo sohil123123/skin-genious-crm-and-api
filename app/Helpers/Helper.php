@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 use Spatie\Permission\Models\Permission;
+use App\Models\Role;
 
 if (!function_exists('get_user_ip')) {
     /**
@@ -76,5 +77,28 @@ if (!function_exists('get_user_location')) {
 if (!function_exists('remove_empty_value')) {
     function remove_empty_value($array){
         return array_values(array_filter($array));
+    }
+}
+
+
+// ---------------------------------- Filament Functions ------------------------------
+
+if (!function_exists('has_clinic_related_role')) {
+    function has_clinic_related_role(?array $roleIds): bool
+    {
+        $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
+
+        return in_array('clinic_manager', $roles)
+            || in_array('user', $roles)
+            || in_array('therapist', $roles);
+    }
+}
+
+if (!function_exists('has_user_related_role')) {
+    function has_user_related_role(?array $roleIds): bool
+    {
+        $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
+
+        return in_array('user', $roles);
     }
 }

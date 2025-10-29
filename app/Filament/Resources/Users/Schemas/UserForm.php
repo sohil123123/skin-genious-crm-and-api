@@ -127,17 +127,17 @@ class UserForm
     public static function getSkinProfileComponents(): array
     {
         return [
-            Grid::make(3)->schema([
-                Select::make('skin_type')
-                    ->label('Skin Type')
-                    ->options([
-                        'Normal' => 'Normal',
-                        'Dry' => 'Dry',
-                        'Oily' => 'Oily',
-                        'Combination' => 'Combination',
-                        'Sensitive' => 'Sensitive',
-                    ])
-                    ->nullable(),
+            Grid::make(8)->schema([
+                // Select::make('skin_type')
+                //     ->label('Skin Type')
+                //     ->options([
+                //         'Normal' => 'Normal',
+                //         'Dry' => 'Dry',
+                //         'Oily' => 'Oily',
+                //         'Combination' => 'Combination',
+                //         'Sensitive' => 'Sensitive',
+                //     ])
+                //     ->nullable(),
                 Select::make('skin_quality')
                     ->label('Skin Quality')
                     ->options([
@@ -146,7 +146,9 @@ class UserForm
                         'Good' => 'Good',
                         'Excellent' => 'Excellent',
                     ])
-                    ->nullable(),
+                    ->nullable()
+                    ->columnSpan(2),
+
                 Select::make('skin_improvement')
                     ->label('Skin Improvement Goal')
                     ->options([
@@ -154,12 +156,16 @@ class UserForm
                         'Smoothness' => 'Smoothness',
                         'Elasticity' => 'Elasticity',
                     ])
-                    ->nullable(),
+                    ->nullable()
+                    ->columnSpan(2),
+
+                Textarea::make('facials_history')
+                    ->label('Facials History')
+                    ->placeholder('History of previous facials and treatments')
+                    ->nullable()
+                    ->columnSpan(4),
             ]),
-            Textarea::make('facials_history')
-                ->label('Facials History')
-                ->placeholder('History of previous facials and treatments')
-                ->nullable(),
+
         ];
     }
 
@@ -206,65 +212,17 @@ class UserForm
                 Group::make()
                     ->schema([
                         Section::make('Personal Information')
+                            ->icon('heroicon-o-user-circle')
                             ->schema(static::getPersonalInformationComponents())
                             ->collapsible(),
 
                         Section::make('Contact Details')
+                            ->icon('heroicon-o-chat-bubble-left-right')
                             ->schema(static::getContactDetailsComponents())
                             ->collapsible(),
 
-                        Section::make('Medical Background')
-                            ->schema(static::getMedicalBackgroundComponents())
-                            ->collapsible(),
-
-                        Section::make('Skin Profile')
-                            ->schema(static::getSkinProfileComponents())
-                            ->collapsible(),
-
-                        Section::make('Aesthetic Goals')
-                            ->schema(static::getAestheticGoalsComponents())
-                            ->collapsible(),
-
-                        Section::make('Account Settings')
-                            ->schema([
-                                Grid::make(3)->schema([
-                                    Select::make('how_did_you_hear')
-                                        ->options([
-                                            'Skin Genius' => 'Skin genius',
-                                            'Social Media' => 'Social media',
-                                            'Friend Referral' => 'Friend referral',
-                                            'Google Search' => 'Google search',
-                                            'Practo/Lybrate' => 'Practo/lybrate',
-                                            'By Doctor' => 'By doctor',
-                                            'Other' => 'Other',
-                                        ]),
-
-                                    ToggleButtons::make('opt_for_loyalty')
-                                        ->inline()
-                                        ->label('Opted for Loyalty Program?')
-                                        ->default(false)
-                                        ->boolean(),
-
-                                    ToggleButtons::make('is_active')
-                                        ->inline()
-                                        ->boolean()
-                                        ->default(fn ($record) => $record?->is_active ?? true)
-                                        ->required(),
-                                ]),
-
-                                Grid::make(2)->schema([
-                                    TextInput::make('password')
-                                        ->password()
-                                        ->revealable()
-                                        ->placeholder('Password')
-                                        ->required(fn (string $context): bool => $context === 'create')
-                                        ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
-                                        ->dehydrated(fn ($state) => filled($state))
-                                ]),
-                            ])
-                            ->collapsible(),
-
                         Section::make('Roles & Permissions')
+                            ->icon('heroicon-o-shield-check')
                             ->schema([
                                 Grid::make(2)->schema([
                                     Select::make('roles')
@@ -292,14 +250,9 @@ class UserForm
                                         ->preload()
                                         ->placeholder('Select a clinic')
                                         ->native(false)
-                                        ->visible(function ($get) {
-                                            $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
-                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles) || in_array('therapist', $selectedRoles);
-                                        })
-                                        ->required(function ($get) {
-                                            $selectedRoles = Role::whereIn('id', $get('roles') ?? [])->pluck('name')->toArray();
-                                            return in_array('clinic_manager', $selectedRoles) || in_array('user', $selectedRoles) || in_array('therapist', $selectedRoles);
-                                        })
+                                        ->visible(fn ($get) => has_clinic_related_role($get('roles')))
+                                        ->required(fn ($get) => has_clinic_related_role($get('roles')))
+
                                 ]),
                                 Select::make('permissions')
                                     ->relationship('permissions', 'name')
@@ -308,10 +261,73 @@ class UserForm
                                     ->searchable(),
 
                             ]),
+
+                        Section::make('Medical Background')
+                            ->icon('heroicon-o-heart')
+                            ->schema(static::getMedicalBackgroundComponents())
+                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->collapsible(),
+
+                        Section::make('Skin Profile')
+                            ->icon('heroicon-o-face-smile')
+                            ->schema(static::getSkinProfileComponents())
+                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->collapsible(),
+
+                        Section::make('Aesthetic Goals')
+                            ->icon('heroicon-o-sparkles')
+                            ->schema(static::getAestheticGoalsComponents())
+                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->collapsible(),
+
+                        Section::make('Account Settings')
+                            ->icon('heroicon-o-cog-6-tooth')
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    Select::make('how_did_you_hear')
+                                        ->visible(fn ($get) => has_user_related_role($get('roles')))
+                                        ->options([
+                                            'Skin Genius' => 'Skin genius',
+                                            'Social Media' => 'Social media',
+                                            'Friend Referral' => 'Friend referral',
+                                            'Google Search' => 'Google search',
+                                            'Practo/Lybrate' => 'Practo/lybrate',
+                                            'By Doctor' => 'By doctor',
+                                            'Other' => 'Other',
+                                        ]),
+
+                                    ToggleButtons::make('opt_for_loyalty')
+                                        ->visible(fn ($get) => has_user_related_role($get('roles')))
+                                        ->inline()
+                                        ->label('Opted for Loyalty Program?')
+                                        ->default(false)
+                                        ->boolean(),
+
+                                    ToggleButtons::make('is_active')
+                                        ->inline()
+                                        ->boolean()
+                                        ->default(fn ($record) => $record?->is_active ?? true)
+                                        ->required(),
+                                ]),
+
+                                Grid::make(2)->schema([
+                                    TextInput::make('password')
+                                        ->password()
+                                        ->revealable()
+                                        ->placeholder('Password')
+                                        ->required(fn (string $context): bool => $context === 'create')
+                                        ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
+                                        ->dehydrated(fn ($state) => filled($state))
+                                ]),
+                            ])
+                            ->collapsible(),
+
+
                     ])
                     ->columnSpan(['lg' => fn (?User $record) => $record === null ? 3 : 2]),
 
                 Section::make()
+                    ->icon('heroicon-o-clock')
                     ->schema([
                         TextEntry::make('created_at')
                             ->label('User created date')
