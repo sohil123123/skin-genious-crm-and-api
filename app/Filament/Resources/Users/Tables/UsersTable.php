@@ -114,6 +114,7 @@ class UsersTable
                     ->onIcon('heroicon-o-bolt')
                     ->offIcon('heroicon-o-power')
                     ->offColor('dark-danger')
+                    ->onColor('success')
                     ->sortable()
                     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))

@@ -49,8 +49,8 @@ class UserForm
     {
         return [
             Grid::make(3)->schema([
-                TextInput::make('mobile')->required()->tel()->placeholder('Mobile Number'),
-                TextInput::make('email')->label('Email address')->email()->placeholder('Email Address'),
+                TextInput::make('mobile')->required()->tel()->unique(ignoreRecord: true)->placeholder('Mobile Number'),
+                TextInput::make('email')->label('Email address')->email()->unique(ignoreRecord: true)->placeholder('Email Address'),
                 TextInput::make('occupation')->placeholder('Occupation'),
             ]),
             Grid::make(3)->schema([

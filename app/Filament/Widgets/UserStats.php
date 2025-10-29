@@ -5,8 +5,8 @@ namespace App\Filament\Widgets;
 use Filament\Widgets\Concerns\InteractsWithPageTable;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Flowframe\Trend\Trend;
-use Flowframe\Trend\TrendValue;
+// use Flowframe\Trend\Trend;
+// use Flowframe\Trend\TrendValue;
 
 
 use App\Filament\Resources\Users\Pages\ListUsers;
@@ -22,9 +22,14 @@ class UserStats extends BaseWidget
     use InteractsWithPageTable;
     use HasWidgetShield;
 
-    protected ?string $pollingInterval = null;
+    protected ?string $heading = 'User States Overview';
+    // protected ?string $description = 'An overview of some analytics.';
+
+    protected ?string $pollingInterval = '5s';
 
     protected static bool $isLazy = false;
+
+    protected static ?int $sort = 1;
 
     protected function getTablePage(): string
     {
