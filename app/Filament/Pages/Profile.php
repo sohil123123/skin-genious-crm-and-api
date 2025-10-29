@@ -245,7 +245,6 @@ class Profile extends Page implements HasSchemas
                             ->schema([
                                 Section::make('Personal Information')
                                     ->icon('heroicon-o-user-circle')
-                                    ->visible(auth()->user()->hasRole('user'))
                                     ->schema(static::getPersonalInformationComponents())
                                     ->collapsible(),
 
@@ -363,8 +362,8 @@ class Profile extends Page implements HasSchemas
     {
         return [
             Grid::make(3)->schema([
-                TextInput::make('mobile')->required()->tel()->placeholder('Mobile Number'),
-                TextInput::make('email')->label('Email address')->email()->placeholder('Email Address'),
+                TextInput::make('mobile')->required()->tel()->unique(ignoreRecord: true)->placeholder('Mobile Number'),
+                TextInput::make('email')->label('Email address')->email()->unique(ignoreRecord: true)->placeholder('Email Address'),
                 TextInput::make('occupation')->placeholder('Occupation'),
             ]),
             Grid::make(3)->schema([
