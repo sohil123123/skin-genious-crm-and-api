@@ -132,7 +132,7 @@ class HolidayResource extends Resource
                     ->title('Leave Limit Exceeded')
                     ->body("You only have {$remaining} {$type} days remaining.")
                     ->danger()
-                    // ->persistent()
+                    ->persistent()
                     // ->actions([
                     //     Action::make('subscribe')
                     //         ->button()
