@@ -27,8 +27,8 @@ class AssessmentRequest extends FormRequest
         return [
             'assessment_id' => 'sometimes|integer|exists:assessments,id',
             'user_id' => 'required|exists:users,id',
-            'age' => 'required|integer|min:0|max:120',
-            'daily_sun_exposure_hours' => 'required|string',
+            'age' => 'nullable|integer|min:0|max:120',
+            'daily_sun_exposure_hours' => 'nullable|string',
             'social_event' => 'nullable|in:yes,no',
             'upcoming_travel' => 'nullable|in:yes,no',
             'medical_history' => 'nullable|array',
@@ -39,8 +39,9 @@ class AssessmentRequest extends FormRequest
             'parameters_with_abnormal_scores' => 'nullable|array',
             'treatment_plan_type' => 'nullable|string',
             'treatment_plan' => 'nullable|array',
-            'images' => 'required|array|min:1',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
+            'therapist_notes' => 'nullable|string',
+            // 'images' => 'required|array|min:1',
+            // 'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
         ];
     }
 

@@ -16,9 +16,9 @@ return new class extends Migration
 
             $table->foreignId('assessment_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Parent assessment ID if applicable');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the user whose assessment is to be created');
-            $table->foreignId('clinic_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Clinic associated with this assessment');
+            $table->foreignId('clinic_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Clinic associated with this assessment');
             $table->foreignId('created_by')->nullable()->constrained('users')->cascadeOnDelete()->cascadeOnUpdate()->comment('Who created the assessment');
-            
+
             $table->integer('age')->nullable()->comment('Patient age in years');
             $table->string('daily_sun_exposure_hours')->nullable()->comment('Average daily sun exposure in hours');
             $table->enum('social_event', ['yes', 'no'])->default('no')->comment('Whether the patient has recent or upcoming social events');
@@ -31,6 +31,8 @@ return new class extends Migration
             $table->json('parameters_with_abnormal_scores')->nullable()->comment('Parameters with abnormal scores (JSON array or object)');
             $table->string('treatment_plan_type')->nullable()->comment('Type of treatment plan (e.g., basic, advanced, customized)');
             $table->json('treatment_plan')->nullable()->comment('Treatment plan details in JSON format');
+            $table->enum('status', ['in_progress', 'pending', 'completed', 'incomplete', 'cancelled', 'overdue'])->default('in_progress')->comment('Status of the assessment');
+            $table->text('therapist_notes')->nullable()->comment('Additional notes from the therapist');
 
             $table->softDeletes();
             $table->timestamps();
