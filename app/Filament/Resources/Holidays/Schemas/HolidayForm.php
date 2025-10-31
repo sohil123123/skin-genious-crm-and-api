@@ -15,8 +15,11 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 
 use Illuminate\Support\Facades\Auth;
-use App\Enums\HolidayStatus;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
+
+use App\Enums\HolidayStatus;
+use App\Enums\HolidayType;
 
 use App\Models\Holiday;
 use App\Models\User;
@@ -33,7 +36,7 @@ class HolidayForm
                             // ->description('Location and mapping information.')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
-                                Grid::make(3)->schema([
+                                Grid::make(4)->schema([
                                     // Dynamically add user_id component based on role
                                     auth()->user()->hasRole('therapist')
                                         ? Hidden::make('user_id')->default(auth()->id())
@@ -68,20 +71,44 @@ class HolidayForm
                                         ->reactive()
                                         ->placeholder('Select end date'),
 
-                                    // Dynamically add status component based on role
-                                    auth()->user()->hasRole('therapist')
-                                        ? Hidden::make('status')->default('pending')
-                                        : ToggleButtons::make('status')
-                                            ->inline()
-                                            ->options(HolidayStatus::class)
-                                            ->default('pending')
-                                            ->required()
-                                            ->columnSpan(['lg' => 2]),
+                                    Select::make('type')
+                                        ->label('Holiday Type')
+                                        ->options(HolidayType::class)
+                                        ->required(),
+
+                                    ToggleButtons::make('status')
+                                        ->visible(!auth()->user()->hasRole('therapist'))
+                                        ->inline()
+                                        ->options(HolidayStatus::class)
+                                        ->default('pending')
+                                        ->required()
+                                        ->columnSpan(['lg' => 2]),
                                 ]),
                                 Grid::make(2)->schema([
                                     Textarea::make('reason')->rows(4)->placeholder('Reason for holiday')->required(),
                                 ])
                             ])
+                            ->afterStateUpdated(function ($state, $set, $get, $operation) {
+                                // Custom validation hook for limits (runs on create/edit)
+                                if ($operation === 'create' || $operation === 'edit') {
+                                    $userId = $get('user_id');
+                                    $type = $get('type');
+                                    $startDate = $get('start_date');
+                                    $endDate = $get('end_date');
+
+                                    if ($userId && $type && $startDate && $endDate) {
+                                        $user = User::find($userId);
+                                        $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
+                                        $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+
+                                        if ($days > $remaining) {
+                                            throw ValidationException::withMessages([
+                                                'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
+                                            ]);
+                                        }
+                                    }
+                                }
+                            })
                             ->collapsible(),
                     ])
                     ->columnSpan(['lg' => fn (?Holiday $record) => $record === null ? 3 : 2]),

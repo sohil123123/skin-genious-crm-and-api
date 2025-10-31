@@ -175,7 +175,7 @@ class ClinicsTable
                     ->searchable(),
             ], layout: FiltersLayout::Modal)
             ->filtersFormColumns(3)
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
+            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

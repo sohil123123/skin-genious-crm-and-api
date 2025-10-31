@@ -6,6 +6,8 @@ use App\Filament\Resources\Holidays\HolidayResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Tables\Table;
+
 
 class ListHolidays extends ListRecords
 {
@@ -16,6 +18,11 @@ class ListHolidays extends ListRecords
         return [
             CreateAction::make(),
         ];
+    }
+
+    public function getTable(): Table
+    {
+        return parent::getTable()->poll('5s');
     }
 
     public function getTabs(): array

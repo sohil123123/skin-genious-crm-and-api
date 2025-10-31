@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Users\RelationManagers;
 
-use App\Enums\HolidayStatus;
+
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -43,6 +43,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
+
+use App\Enums\HolidayStatus;
+use App\Enums\HolidayType;
 
 class HolidaysRelationManager extends RelationManager
 {
@@ -81,7 +85,12 @@ class HolidaysRelationManager extends RelationManager
                                         ->afterOrEqual('start_date')
                                         ->reactive()
                                         ->placeholder('Select end date'),
-
+                                ]),
+                                Grid::make(2)->schema([
+                                    Select::make('type')
+                                        ->label('Holiday Type')
+                                        ->options(HolidayType::class)
+                                        ->required(),
                                     ToggleButtons::make('status')
                                         ->inline()
                                         ->options(HolidayStatus::class)
@@ -95,6 +104,27 @@ class HolidaysRelationManager extends RelationManager
                             ]),
                             // ->collapsible(),
                     ])
+                    ->afterStateUpdated(function ($state, $set, $get, $operation) {
+                            // Custom validation hook for limits (runs on create/edit)
+                            if ($operation === 'create' || $operation === 'edit') {
+                                $userId = $get('user_id');
+                                $type = $get('type');
+                                $startDate = $get('start_date');
+                                $endDate = $get('end_date');
+
+                                if ($userId && $type && $startDate && $endDate) {
+                                    $user = User::find($userId);
+                                    $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
+                                    $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+
+                                    if ($days > $remaining) {
+                                        throw ValidationException::withMessages([
+                                            'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
+                                        ]);
+                                    }
+                                }
+                            }
+                        })
                     ->columnSpan(['lg' => fn (?Holiday $record) => $record === null ? 3 : 2]),
 
                 Section::make()
@@ -141,6 +171,7 @@ class HolidaysRelationManager extends RelationManager
                 TextColumn::make('start_date')->date()->searchable()->sortable(),
                 TextColumn::make('end_date')->date()->searchable()->sortable(),
                 TextColumn::make('status')->badge(),
+                TextColumn::make('type')->badge(),
                 TextColumn::make('approver.name')
                     ->label('Approver')
                     ->placeholder('-')

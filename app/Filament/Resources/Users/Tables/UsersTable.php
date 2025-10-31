@@ -190,7 +190,7 @@ class UsersTable
             //         ->columnSpanFull(),
             //     // $filters['author'],
             // ])
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
+            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 Action::make('assessment')
                     ->label('Assessment')

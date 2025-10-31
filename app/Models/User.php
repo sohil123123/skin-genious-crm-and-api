@@ -9,6 +9,8 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -80,5 +82,44 @@ class User extends Authenticatable
 
     public function holidays() {
         return $this->hasMany(Holiday::class);
+    }
+
+    public function leaveEntitlements(): HasMany
+    {
+        return $this->hasMany(UserLeaveEntitlement::class);
+    }
+
+    /**
+     * Get remaining days for a leave type in the current year.
+     */
+    public function remainingLeaveDays(string $type, int $year = null): int
+    {
+        $year = $year ?? date('Y');
+        $entitlement = $this->leaveEntitlements()
+            ->where('year', $year)
+            ->where('leave_type', $type)
+            ->first();
+
+        if (!$entitlement) {
+            return 0; // Or throw an exception if no entitlement set
+        }
+
+        return $entitlement->entitlement - $entitlement->taken;
+    }
+
+    /**
+     * Increment taken days after approval.
+     */
+    public function incrementTakenLeave(string $type, int $days, int $year = null): void
+    {
+        $year = $year ?? date('Y');
+        $entitlement = $this->leaveEntitlements()
+            ->where('year', $year)
+            ->where('leave_type', $type)
+            ->first();
+
+        if ($entitlement) {
+            $entitlement->increment('taken', $days);
+        }
     }
 }

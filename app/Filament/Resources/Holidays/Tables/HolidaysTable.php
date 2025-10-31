@@ -69,6 +69,7 @@ class HolidaysTable
                 TextColumn::make('start_date')->date()->searchable()->sortable(),
                 TextColumn::make('end_date')->date()->searchable()->sortable(),
                 TextColumn::make('status')->badge(),
+                TextColumn::make('type')->badge(),
                 TextColumn::make('approver.name')
                     ->label('Approver')
                     ->placeholder('-')
@@ -275,7 +276,7 @@ class HolidaysTable
                 fn (Action $action) => $action
                     ->button()
                     ->color('primary')
-                    ->label('Advanced Filters')
+                    ->label('Filters')
                     ->icon('heroicon-o-funnel')
             )
             ->recordActions([

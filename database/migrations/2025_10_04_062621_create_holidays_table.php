@@ -21,6 +21,8 @@ return new class extends Migration
             $table->text('reason')->nullable()->comment('Reason for holiday request');
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending')->comment('Approval status of holiday request');
             $table->foreignId('approved_by')->nullable()->constrained('users')->comment('Clinic manager who approved/rejected the holiday');
+            $table->enum('type', ['paid', 'unpaid', 'sick', 'other'])->default('paid')->comment('Type of holiday');
+            $table->integer('days')->default(1)->comment('Number of days for the holiday'); // Calculated days for the holiday (e.g., end_date - start_date + 1)
 
             $table->index('user_id', 'idx_holidays_user_id'); // Faster lookups by user
             $table->index('clinic_id', 'idx_holidays_clinic_id'); // Faster clinic-based filters
