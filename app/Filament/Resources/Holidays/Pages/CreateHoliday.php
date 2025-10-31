@@ -31,4 +31,10 @@ class CreateHoliday extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        HolidayResource::validateLeaveLimit($data);
+        return $data;
+    }
 }

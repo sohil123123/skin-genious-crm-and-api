@@ -88,27 +88,32 @@ class HolidayForm
                                     Textarea::make('reason')->rows(4)->placeholder('Reason for holiday')->required(),
                                 ])
                             ])
-                            ->afterStateUpdated(function ($state, $set, $get, $operation) {
-                                // Custom validation hook for limits (runs on create/edit)
-                                if ($operation === 'create' || $operation === 'edit') {
-                                    $userId = $get('user_id');
-                                    $type = $get('type');
-                                    $startDate = $get('start_date');
-                                    $endDate = $get('end_date');
+                            // ->afterStateUpdated(function ($state, $set, $get, $operation) {
+                            //     // Custom validation hook for limits (runs on create/edit)
+                            //     if ($operation === 'create' || $operation === 'edit') {
+                            //         $userId = $get('user_id');
+                            //         $type = $get('type');
+                            //         $startDate = $get('start_date');
+                            //         $endDate = $get('end_date');
 
-                                    if ($userId && $type && $startDate && $endDate) {
-                                        $user = User::find($userId);
-                                        $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
-                                        $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+                            //         if ($userId && $type && $startDate && $endDate) {
+                            //             $user = User::find($userId);
+                            //             $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
+                            //             $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+                            //             // dd($remaining);
+                            //             // exit;
 
-                                        if ($days > $remaining) {
-                                            throw ValidationException::withMessages([
-                                                'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
-                                            ]);
-                                        }
-                                    }
-                                }
-                            })
+                            //             if ($days > $remaining) {
+                            //                 // dd('d');
+                            //                 throw ValidationException::withMessages([
+                            //                     'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
+                            //                 ]);
+                            //             }
+                            //             dd('esle');
+                            //             exit;
+                            //         }
+                            //     }
+                            // })
                             ->collapsible(),
                     ])
                     ->columnSpan(['lg' => fn (?Holiday $record) => $record === null ? 3 : 2]),

@@ -33,4 +33,10 @@ class EditHoliday extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        HolidayResource::validateLeaveLimit($data);
+        return $data;
+    }
 }

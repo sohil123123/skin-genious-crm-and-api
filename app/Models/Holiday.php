@@ -53,9 +53,9 @@ class Holiday extends Model
             $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
         });
         static::updating(function ($holiday) {
-            $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
-            if ($holiday->isDirty('status') && $holiday->status === 'approved') {
-                $holiday->user->incrementTakenLeave($holiday->type, $holiday->days, date('Y', strtotime($holiday->start_date)));
+            // $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
+            if ($holiday->isDirty('status') && $holiday->status->value === 'approved') {
+                $holiday->user->incrementTakenLeave($holiday->type->value, $holiday->days, date('Y', strtotime($holiday->start_date)));
                 // Trigger auto-adjust for appointments (implement your logic here, e.g., dispatch a job)
                 // dispatch(new AdjustTherapistSchedule($holiday));
             }
