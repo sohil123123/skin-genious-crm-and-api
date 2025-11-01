@@ -15,9 +15,12 @@ use Filament\Schemas\Schema;
 
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 
+use App\Models\UserLeaveEntitlement;
+use Illuminate\Support\Facades\Auth;
+
 class Dashboard extends BaseDashboard
 {
-    // use HasFiltersForm;
+    use HasFiltersForm;
 
     // protected string $view = 'filament.pages.dashboard';
 
@@ -31,22 +34,37 @@ class Dashboard extends BaseDashboard
     //     ];
     // }
 
-    // public function filtersForm(Schema $schema): Schema
-    // {
-    //     return $schema
-    //         ->components([
-    //             Section::make()
-    //                 ->schema([
-    //                     Select::make('businessCustomersOnly')
-    //                         ->boolean(),
-    //                     DatePicker::make('startDate')
-    //                         ->maxDate(fn (Get $get) => $get('endDate') ?: now()),
-    //                     DatePicker::make('endDate')
-    //                         ->minDate(fn (Get $get) => $get('startDate') ?: now())
-    //                         ->maxDate(now()),
-    //                 ])
-    //                 ->columns(3)
-    //                 ->columnSpanFull(),
-    //         ]);
-    // }
+    public function filtersForm(Schema $schema): Schema
+    {
+        // Show filters only for authenticated users with 'therapist' role
+        // Assumes User model has a method like hasRole('therapist') - adjust as per your implementation
+        // e.g., if using Spatie Permission: auth()->user()->hasRole('therapist')
+        // or if role column: auth()->user()->role === 'therapist'
+        if (!Auth::user()->hasRole('therapist')) {
+            return $schema; // Returns empty schema, hiding the form
+        }
+
+        $years = UserLeaveEntitlement::select('year')
+            ->distinct()
+            ->orderByDesc('year')
+            ->pluck('year', 'year')
+            ->toArray();
+
+        $years = $years ?: [now()->year => now()->year];
+        return $schema
+            ->components([
+                Section::make()
+                    ->schema([
+                        Select::make('selectedYear')
+                            ->label('Year')
+                            ->options($years)
+                            ->live()       // triggers re-render
+                            ->searchable(false)
+                            ->native(false)
+                            ->default(now()->year),
+                    ])
+                    ->columns(4)
+                    ->columnSpanFull(),
+            ]);
+    }
 }
