@@ -142,6 +142,7 @@ class AdminPanelProvider extends PanelProvider
                 // FilamentAwinTheme::make()->primaryColor(Color::Emerald),
                 FilamentNordThemePlugin::make()
             ])
+            ->databaseNotifications()
             ->navigationGroups([
                 // NavigationGroup::make()
                 //     ->label('Auth Management')
