@@ -32,10 +32,11 @@ class UserLeaveEntitlementsTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('user.name')->searchable(['first_name', 'last_name']),
-                TextColumn::make('year')->sortable(),
+                TextColumn::make('year')->badge()->color('info')->sortable(),
                 TextColumn::make('leave_type')->badge(),
-                TextColumn::make('entitlement')->numeric()->sortable(),
-                TextColumn::make('taken')->numeric()->sortable(),
+                TextColumn::make('total_allowed')->badge()->color('success')->sortable(),
+                TextColumn::make('used')->badge()->color('danger')->sortable(),
+                TextColumn::make('remaining')->badge()->color('warning')->sortable(),
 
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -47,6 +48,15 @@ class UserLeaveEntitlementsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('user')
+                    ->relationship(
+                        name: 'user',
+                        titleAttribute: 'first_name',
+                        modifyQueryUsing: fn ($query) =>
+                            $query->whereHas('roles', fn ($q) => $q->where('name', 'therapist'))
+                    ),
+                    // ->searchable()
+                    // ->preload(),
                 SelectFilter::make('leave_type')
                     ->label('Leave Type')
                     ->options(HolidayType::class)
@@ -57,7 +67,7 @@ class UserLeaveEntitlementsTable
                     ->placeholder('All'),
             ],
             layout: FiltersLayout::Modal)
-            ->filtersFormColumns(2)
+            ->filtersFormColumns(3)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 EditAction::make(),

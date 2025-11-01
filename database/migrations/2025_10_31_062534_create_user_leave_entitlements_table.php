@@ -14,10 +14,11 @@ return new class extends Migration
         Schema::create('user_leave_entitlements', function (Blueprint $table) {
             $table->id()->comment('Primary key: Unique leave entitlement ID');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the clinic_manager/therapist');
-            $table->integer('year')->default(date('Y'))->comment('Leave entitlement year'); // e.g., 2025
+            $table->integer('year')->default(date('Y'))->comment('Leave entitlement year');
             $table->enum('leave_type', ['paid', 'unpaid', 'sick', 'other'])->comment('Type of leave entitlement');
-            $table->integer('entitlement')->default(0)->comment('Entitlement for the leave type'); // Max allowed days, e.g., 15 for paid
-            $table->integer('taken')->default(0)->comment('Days taken so far'); // Days used so far
+            $table->integer('total_allowed')->default(0)->comment('Total allowed days');
+            $table->integer('remaining')->default(0)->comment('Remaining days');
+            $table->integer('used')->default(0)->comment('Days used');
 
             $table->timestamps();
 

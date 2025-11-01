@@ -9,6 +9,8 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Table;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Artisan;
+use Filament\Actions\Action;
 
 class ListUserLeaveEntitlements extends ListRecords
 {
@@ -25,6 +27,17 @@ class ListUserLeaveEntitlements extends ListRecords
                         ->title('Leave Entitlement added 🎉')
                         ->body('The leave entitlement details have been successfully added.')
                 ),
+             Action::make('Generate New Year Entitlements')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->action(function () {
+                    Artisan::call('leaves:generate-new-year');
+                    Notification::make()
+                        ->title('New year entitlements created successfully!')
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 

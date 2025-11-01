@@ -40,6 +40,7 @@ class UserResource extends Resource
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
+    protected static ?string $navigationBadgeTooltip = 'The number of users created this month';
 
     public static function form(Schema $schema): Schema
     {
@@ -106,5 +107,21 @@ class UserResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return UserInfolist::configure($schema);
+    }
+
+    public static function saved(User $record, array $data): void
+    {
+        // Check if therapist role is selected
+        dd($record->hasRole('therapist'));
+        if ($record->hasRole('therapist')) {
+            $record->createDefaultLeaveEntitlementsIfTherapist();
+
+            // Optional: success toast for admin feedback
+            Notification::make()
+                ->title('Leave entitlements created')
+                ->body("Default leave entitlements added for Therapist: {$record->name}")
+                ->success()
+                ->send();
+        }
     }
 }

@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 use Laravel\Sanctum\HasApiTokens;
 
+// use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+// use App\Observers\UserObserver;
+
+// #[ObservedBy([UserObserver::class])]
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -70,11 +74,41 @@ class User extends Authenticatable
         ];
     }
 
+    public function createDefaultLeaveEntitlementsIfTherapist(): void
+    {
+        $currentYear = now()->year;
+
+        $defaults = [
+            ['leave_type' => 'paid',   'total_allowed' => 12],
+            ['leave_type' => 'unpaid', 'total_allowed' => 0],
+            ['leave_type' => 'sick',   'total_allowed' => 8],
+            ['leave_type' => 'other',  'total_allowed' => 0],
+        ];
+
+        foreach ($defaults as $item) {
+            $exists = $this->leaveEntitlements()
+                ->where('year', $currentYear)
+                ->whereRaw('LOWER(leave_type) = ?', [strtolower($item['leave_type'])])
+                ->exists();
+
+            if (! $exists) {
+                $this->leaveEntitlements()->create([
+                    'leave_type'     => strtolower($item['leave_type']),
+                    'total_allowed'  => $item['total_allowed'],
+                    'used'           => 0,
+                    'remaining'      => $item['total_allowed'],
+                    'year'           => $currentYear,
+                ]);
+            }
+        }
+    }
+
     public function getNameAttribute(): string
     {
         return trim($this->first_name . ' ' . ($this->last_name ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
     }
 
+    // -------------- Relationships ----------------------
     public function clinic()
     {
         return $this->belongsTo(Clinic::class);
@@ -89,37 +123,20 @@ class User extends Authenticatable
         return $this->hasMany(UserLeaveEntitlement::class);
     }
 
+    // -------------- Custom Functions ----------------
     /**
      * Get remaining days for a leave type in the current year.
      */
-    public function remainingLeaveDays(string $type, int $year = null): int
+    public function remainingLeaveDays(string $leaveType, int $year = null): int
     {
         $year = $year ?? date('Y');
         $entitlement = $this->leaveEntitlements()
             ->where('year', $year)
-            ->where('leave_type', $type)
+            ->where('leave_type', $leaveType)
             ->first();
 
-        if (!$entitlement) {
-            return 0; // Or throw an exception if no entitlement set
-        }
+        if (!$entitlement) return 0;
 
-        return $entitlement->entitlement - $entitlement->taken;
-    }
-
-    /**
-     * Increment taken days after approval.
-     */
-    public function incrementTakenLeave(string $type, int $days, int $year = null): void
-    {
-        $year = $year ?? date('Y');
-        $entitlement = $this->leaveEntitlements()
-            ->where('year', $year)
-            ->where('leave_type', $type)
-            ->first();
-
-        if ($entitlement) {
-            $entitlement->increment('taken', $days);
-        }
+        return $entitlement->remaining;
     }
 }

@@ -42,7 +42,7 @@ class HolidaysTable
         return $table
             ->deferLoading()
             ->recordUrl(null)
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('start_date', 'desc')
             ->columns([
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
@@ -68,6 +68,7 @@ class HolidaysTable
                     ->searchable(['first_name', 'last_name']),
                 TextColumn::make('start_date')->date()->searchable()->sortable(),
                 TextColumn::make('end_date')->date()->searchable()->sortable(),
+                TextColumn::make('days')->badge()->color('info')->searchable()->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('type')->badge(),
                 TextColumn::make('approver.name')

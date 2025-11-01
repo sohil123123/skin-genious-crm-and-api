@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Enums\HolidayStatus;
 use App\Enums\HolidayType;
 
+use Carbon\Carbon;
+
 class Holiday extends Model
 {
     protected $fillable = ['user_id', 'clinic_id', 'start_date', 'end_date', 'reason', 'status', 'approved_by', 'type', 'days'];
@@ -26,6 +28,40 @@ class Holiday extends Model
         'type' => HolidayType::class,
     ];
 
+    protected static function booted() {
+
+        static::creating(function ($holiday) {
+            $selectedUser = User::find($holiday->user_id);
+            if ($selectedUser && $selectedUser->clinic_id) {
+                $holiday->clinic_id = $selectedUser->clinic_id;
+            }
+
+            // $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
+
+            $holiday->updateEntitlementUsage();
+        });
+
+        // static::updating(function ($holiday) {
+        //     // if ($holiday->isDirty('status') && $holiday->status->value === 'approved') {
+        //     //     $holiday->user->incrementTakenLeave($holiday->type->value, $holiday->days, date('Y', strtotime($holiday->start_date)));
+        //     //     // Trigger auto-adjust for appointments (implement your logic here, e.g., dispatch a job)
+        //     //     // dispatch(new AdjustTherapistSchedule($holiday));
+        //     // }
+
+        //     // if ($holiday->status === 'approved' && $holiday->isDirty('status')) {
+        //     //     // Logic to auto-adjust appointments: e.g., reschedule or notify
+        //     //     // Query appointments for this therapist between start_date and end_date
+        //     //     Appointment::where('therapist_id', $holiday->user_id)->whereBetween('date', [$holiday->start_date, $holiday->end_date])->update(['status' => 'rescheduled']);
+        //     //     // Or dispatch a job/event for more complex logic
+        //     // }
+        // });
+
+        static::deleted(function ($holiday) {
+            $holiday->updateEntitlementUsage(true);
+        });
+    }
+
+    // ---------------------- Relationships -------------------
     public function user() {
         return $this->belongsTo(User::class);
     }
@@ -43,28 +79,26 @@ class Holiday extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    // Hook for auto-adjusting schedules (integrate with your Appointment model)
-    protected static function booted() {
-        static::creating(function ($holiday) {
-            $selectedUser = User::find($holiday->user_id);
-            if ($selectedUser && $selectedUser->clinic_id) {
-                $holiday->clinic_id = $selectedUser->clinic_id;
+    // ---------------------- Custom Function -------------------
+    public function updateEntitlementUsage($isReversal = false)
+    {
+        $days = Carbon::parse($this->start_date)->diffInDays(Carbon::parse($this->end_date)) + 1;
+        $entitlement = $this->user->leaveEntitlements()
+            ->where('year', date('Y', strtotime($this->start_date)))
+            ->where('leave_type', $this->type->value)
+            ->first();
+
+        if ($entitlement) {
+            if ($isReversal) {
+                $entitlement->used -= $days;
+            } else {
+                $entitlement->used += $days;
             }
-            $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
-        });
-        static::updating(function ($holiday) {
-            // $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
-            if ($holiday->isDirty('status') && $holiday->status->value === 'approved') {
-                $holiday->user->incrementTakenLeave($holiday->type->value, $holiday->days, date('Y', strtotime($holiday->start_date)));
-                // Trigger auto-adjust for appointments (implement your logic here, e.g., dispatch a job)
-                // dispatch(new AdjustTherapistSchedule($holiday));
-            }
-            // if ($holiday->status === 'approved' && $holiday->isDirty('status')) {
-            //     // Logic to auto-adjust appointments: e.g., reschedule or notify
-            //     // Query appointments for this therapist between start_date and end_date
-            //     Appointment::where('therapist_id', $holiday->user_id)->whereBetween('date', [$holiday->start_date, $holiday->end_date])->update(['status' => 'rescheduled']);
-            //     // Or dispatch a job/event for more complex logic
-            // }
-        });
+            $entitlement->remaining = max($entitlement->total_allowed - $entitlement->used, 0);
+            $entitlement->save();
+        }
+
+        $this->days = $days;
     }
+
 }

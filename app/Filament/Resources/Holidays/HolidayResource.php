@@ -107,37 +107,21 @@ class HolidayResource extends Resource
     public static function validateLeaveLimit(array $data): void
     {
         $userId = $data['user_id'] ?? auth()->id();
-        $type = $data['type']?->value ?? null;
+        $leaveType = $data['type']?->value ?? null;
         $startDate = $data['start_date'] ?? null;
         $endDate = $data['end_date'] ?? null;
 
-        if ($userId && $type && $startDate && $endDate) {
+        if ($userId && $leaveType && $startDate && $endDate) {
             $user = User::find($userId);
-            if (! $user) {
-                Notification::make()
-                    ->title('User not found')
-                    ->body("Invalid user selected.")
-                    ->danger()
-                    ->send();
-            }
-
             $days = (new DateTime($endDate))->diff(new DateTime($startDate))->days + 1;
-            $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+            $remaining = $user->remainingLeaveDays($leaveType, date('Y', strtotime($startDate)));
 
             if ($days > $remaining) {
-                // throw ValidationException::withMessages([
-                //     'type' => "You requested {$days} days, but only {$remaining} {$type} leave days remain this year.",
-                // ]);
                 Notification::make()
                     ->title('Leave Limit Exceeded')
-                    ->body("You only have {$remaining} {$type} days remaining.")
+                    ->body("You only have {$remaining} {$leaveType} days remaining.")
                     ->danger()
                     ->persistent()
-                    // ->actions([
-                    //     Action::make('subscribe')
-                    //         ->button()
-                    //         ->url(route('subscribe'), shouldOpenInNewTab: true),
-                    // ])
                     ->send();
                 throw new Halt("Leave limit exceeded — form not saved.");
             }

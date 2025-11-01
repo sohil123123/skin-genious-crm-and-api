@@ -15,6 +15,24 @@ class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
+    protected array $oldRoles = [];
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $this->oldRoles = $this->record->roles->pluck('name')->toArray();
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->refresh();
+        $newRoles = $this->record->roles()->pluck('name')->toArray();
+
+        if(in_array('therapist', $newRoles) && !in_array('therapist', $this->oldRoles)) {
+            $this->record->createDefaultLeaveEntitlementsIfTherapist();
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [

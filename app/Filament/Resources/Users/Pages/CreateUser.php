@@ -19,6 +19,15 @@ class CreateUser extends CreateRecord
 
     protected static string $resource = UserResource::class;
 
+    protected function afterCreate(): void
+    {
+        $user = $this->record;
+
+        if ($user->hasRole('therapist')) {
+            $user->createDefaultLeaveEntitlementsIfTherapist();
+        }
+    }
+
     // protected function getSteps(): array
     // {
     //     return [

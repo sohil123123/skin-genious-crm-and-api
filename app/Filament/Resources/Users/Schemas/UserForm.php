@@ -211,16 +211,6 @@ class UserForm
             ->components([
                 Group::make()
                     ->schema([
-                        Section::make('Personal Information')
-                            ->icon('heroicon-o-user-circle')
-                            ->schema(static::getPersonalInformationComponents())
-                            ->collapsible(),
-
-                        Section::make('Contact Details')
-                            ->icon('heroicon-o-chat-bubble-left-right')
-                            ->schema(static::getContactDetailsComponents())
-                            ->collapsible(),
-
                         Section::make('Roles & Permissions')
                             ->icon('heroicon-o-shield-check')
                             ->schema([
@@ -258,9 +248,20 @@ class UserForm
                                     ->relationship('permissions', 'name')
                                     ->multiple()
                                     ->preload()
-                                    ->searchable(),
+                                    ->searchable()
+                                    ->hidden(fn ($record) => ($record === null || $record->hasRole('user'))),
 
                             ]),
+
+                        Section::make('Personal Information')
+                            ->icon('heroicon-o-user-circle')
+                            ->schema(static::getPersonalInformationComponents())
+                            ->collapsible(),
+
+                        Section::make('Contact Details')
+                            ->icon('heroicon-o-chat-bubble-left-right')
+                            ->schema(static::getContactDetailsComponents())
+                            ->collapsible(),
 
                         Section::make('Medical Background')
                             ->icon('heroicon-o-heart')

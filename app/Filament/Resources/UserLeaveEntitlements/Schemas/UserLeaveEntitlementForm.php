@@ -42,10 +42,10 @@ class UserLeaveEntitlementForm
                                         ->placeholder('Enter Year')
                                         ->default(now()->year),
 
-                                    TextInput::make('entitlement')
+                                    TextInput::make('total_allowed')
                                         ->required()
                                         ->numeric()
-                                        ->placeholder('Enter Entitlement')
+                                        ->placeholder('Enter Total Allowed Days')
                                         ->default(0),
                                 ])
                             ])

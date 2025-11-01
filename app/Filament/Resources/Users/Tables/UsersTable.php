@@ -8,6 +8,7 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\IconColumn;
@@ -216,6 +217,7 @@ class UsersTable
                     ->requiresConfirmation(),
                 ViewAction::make(),
                 EditAction::make(),
+                ForceDeleteAction::make(),
                 RestoreAction::make()
                     ->successNotification(
                         Notification::make()
