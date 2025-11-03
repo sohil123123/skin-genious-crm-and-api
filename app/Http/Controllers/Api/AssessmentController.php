@@ -11,6 +11,8 @@ use App\Http\Resources\AssessmentResource;
 
 use App\Models\Assessment;
 
+use Carbon\Carbon;
+
 class AssessmentController extends BaseApiController
 {
     public function __construct(Assessment $model, Request $request)
@@ -116,5 +118,18 @@ class AssessmentController extends BaseApiController
         $mediaItem->delete();
 
         return $this->success('Image deleted successfully');
+    }
+
+    public function getInProgressAssessment(Request $request, $user_id){
+        $yesterday = Carbon::yesterday();
+        $assessment = $this->model->whereBetween('created_at', [$yesterday, now()])
+            ->where('user_id', $user_id)
+            ->where('status', 'in_progress')
+            ->latest()
+            ->first();
+        if(!$assessment)
+            return $this->error('No in progress assessment found', null, config('constants.NOT_FOUND'));
+        else
+            return $this->success('In Progress Assessment get successfully', ['assessment_id' => $assessment->id, 'created_at' => $assessment->created_at]);
     }
 }

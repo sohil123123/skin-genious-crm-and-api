@@ -34,6 +34,8 @@ class Assessment extends Model implements HasMedia
         'parameters_with_abnormal_scores',
         'treatment_plan_type',
         'treatment_plan',
+        'status',
+        'therapist_notes'
     ];
 
     protected $casts = [
