@@ -25,9 +25,7 @@ class LeaveStatsWidget extends StatsOverviewWidget
             return [];
         }
 
-        $year = ! is_null($this->pageFilters['selectedYear'] ?? now()->year) ?
-            $this->pageFilters['selectedYear'] :
-            now()->year;
+        $year = isset($this->pageFilters['selectedYear']) ? $this->pageFilters['selectedYear'] : now()->year;
 
         // Fetch leave data for the logged-in user for the current year
         $entitlements = UserLeaveEntitlement::where('user_id', $user->id)

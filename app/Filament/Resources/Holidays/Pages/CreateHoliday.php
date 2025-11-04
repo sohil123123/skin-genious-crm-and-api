@@ -51,7 +51,9 @@ class CreateHoliday extends CreateRecord
 
         $recipients = User::role('super_admin')->get();
         $clinic_manager = $holiday->user->clinic?->manager;
-        $recipients->push($clinic_manager);
+        if($clinic_manager)
+            $recipients->push($clinic_manager);
+        // dd($recipients);
 
         Notification::make()
             ->title('New Leave Request')

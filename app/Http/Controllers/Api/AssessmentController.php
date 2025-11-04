@@ -20,17 +20,6 @@ class AssessmentController extends BaseApiController
         parent::__construct($model, $request, 'Assessment', 'Api');
     }
 
-    /**
-     * Display a listing of the resource.
-     */
-    // public function index()
-    // {
-    //     //
-    // }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(AssessmentRequest $request)
     {
         // Create the assessment record
@@ -50,21 +39,36 @@ class AssessmentController extends BaseApiController
         return $this->success('Assessment created successfully', $resource);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    // public function show(string $id)
-    // {
-    //     //
-    // }
-
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(AssessmentRequest $request, Assessment $assessment)
     {
         // Create the assessment record
-        $assessment->update($request->validated());
+        $update_input = $request->validated();
+        unset($update_input['treatment_plans']);
+        
+        if($request->has('selected_plan_type') && $request->selected_plan_type == 'single'){
+            $update_input['total_time'] = $request->treatment_plans['treatment_plan']['total_time'] ?? NULL;
+            $update_input['recommended_full_plan'] = !empty($request->treatment_plans['recommended_full_plan']) ? $request->treatment_plans['recommended_full_plan'] : NULL;
+        }
+
+        $assessment->update($update_input);
+
+        // Create treatment planes record
+        if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plan']['treatments'])){
+            foreach ($request->treatment_plans['treatment_plan']['treatments'] as $treatment) {
+                $assessment->treatmentPlans()->updateOrCreate(
+                    ['assessment_id' => $assessment->id, 'session_number' => $treatment['session_number']],
+                    [
+                    'user_id' => $assessment->user_id,
+                    'plan_type' => $assessment->selected_plan_type,
+                    'title' => $treatment['title'] ?? '',
+                    'treatment_time' => $treatment['treatment_time'] ?? null,
+                    'week' => $treatment['week'] ?? null,
+                    'preparations_checklist_for_therapist' => $treatment['preparations_checklist_for_therapist'] ?? [],
+                    'concerns_addressed' => $treatment['concerns_addressed'] ?? [],
+                    'steps' => $treatment['steps'] ?? [],
+                ]);
+            }
+        }
 
         // Upload multiple images to the 'assessment_images' collection
         if ($request->hasFile('images')) {
@@ -79,14 +83,6 @@ class AssessmentController extends BaseApiController
 
         return $this->success('Assessment updated successfully', $resource);
     }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    // public function destroy(string $id)
-    // {
-    //     //
-    // }
 
     public function storeImage(Request $request, Assessment $assessment)
     {

@@ -117,4 +117,9 @@ class Assessment extends Model implements HasMedia
     {
         return $this->hasMany(self::class, 'assessment_id');
     }
+
+    public function treatmentPlans()
+    {
+        return $this->hasMany(TreatmentPlan::class);
+    }
 }

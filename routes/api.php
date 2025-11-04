@@ -24,7 +24,10 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::get('/assessments/get-in-progress-assessment/{user_id}', 'AssessmentController@getInProgressAssessment');
         Route::delete('/assessments/{assessment}/images/{media}', 'AssessmentController@deleteImage');
         Route::post('/assessments/{assessment}/images', 'AssessmentController@storeImage');
-        Route::apiResource('assessments', 'AssessmentController')->only(['index', 'store', 'update', 'show', 'destroy']);
+        Route::apiResource('assessments', 'AssessmentController');
+
+        // INFO: Treatment Plan CRUD Route
+        Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
     });
 
 });
