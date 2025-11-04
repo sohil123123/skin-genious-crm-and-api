@@ -39,6 +39,7 @@ class AssessmentRequest extends FormRequest
             'parameters_with_abnormal_scores' => 'nullable|array',
             'treatment_plan_type' => 'nullable|string',
             'treatment_plan' => 'nullable|array',
+            'status' => 'nullable|in:in_progress,pending,completed,incomplete,cancelled,overdue',
             'therapist_notes' => 'nullable|string',
             // 'images' => 'required|array|min:1',
             // 'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
