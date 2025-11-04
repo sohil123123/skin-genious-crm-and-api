@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
 
             $this->call(PermissionSeeder::class);
             $this->call(RoleSeeder::class);
+            $this->call(ClinicsTableSeeder::class);
             $this->call(UserSeeder::class);
 
             $this->command->call('shield:generate', [
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
                 '--ignore-existing-policies' => true,
             ]);
             $this->command->info('Database was refreshed.');
-        }
+            
+    }
     }
 }

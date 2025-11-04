@@ -16,7 +16,7 @@ return new class extends Migration
 
             $table->foreignId('assessment_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Parent assessment ID if applicable');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the user whose assessment is to be created');
-            $table->foreignId('clinic_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Clinic associated with this assessment');
+            $table->foreignId('clinic_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Clinic associated with this assessment');
             $table->foreignId('created_by')->nullable()->constrained('users')->cascadeOnDelete()->cascadeOnUpdate()->comment('Who created the assessment');
 
             $table->integer('age')->nullable()->comment('Patient age in years');
@@ -29,8 +29,9 @@ return new class extends Migration
             $table->enum('breastfeeding', ['yes', 'no'])->nullable()->comment('Whether the patient is currently breastfeeding');
             $table->json('diagnosis')->nullable()->comment('Diagnosis details in JSON format');
             $table->json('parameters_with_abnormal_scores')->nullable()->comment('Parameters with abnormal scores (JSON array or object)');
-            $table->string('treatment_plan_type')->nullable()->comment('Type of treatment plan (e.g., basic, advanced, customized)');
-            $table->json('treatment_plan')->nullable()->comment('Treatment plan details in JSON format');
+            $table->enum('selected_plan_type', ['single', 'multiple'])->nullable()->index()->comment('Indicates which treatment plan type (single or multiple) was selected by the user');
+            $table->string('total_time')->nullable()->comment('Total duration of selected plan (e.g., 12 weeks)');
+            $table->json('recommended_full_plan')->nullable()->comment('Stores the reference recommended full plan only when user selects a single plan');
             $table->enum('status', ['in_progress', 'pending', 'completed', 'incomplete', 'cancelled', 'overdue'])->default('in_progress')->comment('Status of the assessment');
             $table->text('therapist_notes')->nullable()->comment('Additional notes from the therapist');
 
@@ -39,7 +40,7 @@ return new class extends Migration
 
             // Indexes
             $table->index('user_id', 'idx_assessments_user_id');
-            $table->index('treatment_plan_type', 'idx_assessments_treatment_plan_type');
+            $table->index('selected_plan_type', 'idx_assessments_selected_plan_type');
         });
     }
 

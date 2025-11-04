@@ -32,8 +32,9 @@ class Assessment extends Model implements HasMedia
         'breastfeeding',
         'diagnosis',
         'parameters_with_abnormal_scores',
-        'treatment_plan_type',
-        'treatment_plan',
+        'selected_plan_type',
+        'total_time',
+        'recommended_full_plan',
         'status',
         'therapist_notes'
     ];
@@ -43,7 +44,7 @@ class Assessment extends Model implements HasMedia
         'allergies' => 'array',
         'diagnosis' => 'array',
         'parameters_with_abnormal_scores' => 'array',
-        'treatment_plan' => 'array',
+        'recommended_full_plan' => 'array',
         'is_pregnant' => 'boolean',
     ];
 

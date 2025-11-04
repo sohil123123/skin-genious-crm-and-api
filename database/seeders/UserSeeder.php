@@ -37,6 +37,7 @@ class UserSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'therapist@gmail.com'],
             [
+                'clinic_id' => 1,
                 'first_name' => 'Therapist',
                 'last_name' => 'User',
                 'gender' => 'Male',
@@ -51,6 +52,7 @@ class UserSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'clinic_manager@gmail.com'],
             [
+                'clinic_id' => 1,
                 'first_name' => 'Clinic Manager',
                 'last_name' => 'User',
                 'gender' => 'Male',
@@ -65,6 +67,7 @@ class UserSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'user@gmail.com'],
             [
+                'clinic_id' => 1,
                 'first_name' => 'Customer',
                 'last_name' => 'User',
                 'gender' => 'Male',
