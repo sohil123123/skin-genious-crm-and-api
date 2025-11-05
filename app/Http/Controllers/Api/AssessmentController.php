@@ -44,9 +44,9 @@ class AssessmentController extends BaseApiController
         // Create the assessment record
         $update_input = $request->validated();
         unset($update_input['treatment_plans']);
-        
+        $update_input['total_time'] = $request->treatment_plans['treatment_plan']['total_time'] ?? NULL;
+
         if($request->has('selected_plan_type') && $request->selected_plan_type == 'single'){
-            $update_input['total_time'] = $request->treatment_plans['treatment_plan']['total_time'] ?? NULL;
             $update_input['recommended_full_plan'] = !empty($request->treatment_plans['recommended_full_plan']) ? $request->treatment_plans['recommended_full_plan'] : NULL;
         }
 

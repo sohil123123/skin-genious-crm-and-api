@@ -18,7 +18,7 @@ class Assessment extends Model implements HasMedia
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
     protected $fillable = [
-        'assessment_id',
+        'parent_id',
         'user_id',
         'clinic_id',
         'created_by',
@@ -74,16 +74,13 @@ class Assessment extends Model implements HasMedia
         });
     }
 
-     /**
-     * Relationships
-     */
-
+    // ---------------------------- Relationships --------------------------------
     /**
      * Parent Assessment (if applicable)
      */
     public function parentAssessment()
     {
-        return $this->belongsTo(self::class, 'assessment_id');
+        return $this->belongsTo(self::class, 'parent_id');
     }
 
     /**
@@ -115,8 +112,9 @@ class Assessment extends Model implements HasMedia
      */
     public function children()
     {
-        return $this->hasMany(self::class, 'assessment_id');
+        return $this->hasMany(self::class, 'parent_id');
     }
+    
 
     public function treatmentPlans()
     {

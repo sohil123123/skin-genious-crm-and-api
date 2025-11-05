@@ -108,20 +108,4 @@ class UserResource extends Resource
     {
         return UserInfolist::configure($schema);
     }
-
-    public static function saved(User $record, array $data): void
-    {
-        // Check if therapist role is selected
-        dd($record->hasRole('therapist'));
-        if ($record->hasRole('therapist')) {
-            $record->createDefaultLeaveEntitlementsIfTherapist();
-
-            // Optional: success toast for admin feedback
-            Notification::make()
-                ->title('Leave entitlements created')
-                ->body("Default leave entitlements added for Therapist: {$record->name}")
-                ->success()
-                ->send();
-        }
-    }
 }

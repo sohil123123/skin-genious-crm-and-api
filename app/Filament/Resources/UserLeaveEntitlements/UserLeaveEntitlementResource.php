@@ -18,7 +18,7 @@ class UserLeaveEntitlementResource extends Resource
 {
     protected static ?string $model = UserLeaveEntitlement::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
     protected static ?string $recordTitleAttribute = 'UserLeaveEntitlement';
 

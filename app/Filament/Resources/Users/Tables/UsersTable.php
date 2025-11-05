@@ -193,8 +193,15 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
+                Action::make('holiday')
+                    ->visible(fn ($record) => $record->hasRole('therapist'))
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Holidays')
+                    ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
                 Action::make('assessment')
-                    ->label('Assessment')
+                    ->label('New Assessment')
                     ->visible(fn ($record) => $record->hasRole('user'))
                     ->icon('heroicon-s-user')
                     ->color('info')
