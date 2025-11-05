@@ -18,7 +18,7 @@ use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Tabs;
-
+use Filament\Infolists\Components\ViewEntry;
 
 class AssessmentInfolist
 {
@@ -150,19 +150,23 @@ class AssessmentInfolist
 
                                         Tabs::make('Treatment Details')->tabs([
                                             // 🧰 Therapist Preparation
-                                            Tab::make('Therapist Prep')
+                                            Tab::make('Therapist Checklist Checklist')
                                                 ->icon('heroicon-o-user')
                                                 ->schema([
-                                                    TextEntry::make('preparations_checklist_for_therapist')
+                                                    ViewEntry::make('preparations_checklist_for_therapist')
                                                         ->label('Preparation Checklist')
-                                                        ->state(function ($record) {
-                                                            $items = $record->preparations_checklist_for_therapist;
-                                                            if (is_array($items)) {
-                                                                return implode(', ', $items);
-                                                            }
-                                                            return $items ?: '—';
-                                                        })
+                                                        ->view('filament.infolists.entries.prep-checklist')
                                                         ->columnSpanFull(),
+                                                    // TextEntry::make('preparations_checklist_for_therapist')
+                                                    //     ->label('Preparation Checklist')
+                                                    //     ->state(function ($record) {
+                                                    //         $items = $record->preparations_checklist_for_therapist;
+                                                    //         if (is_array($items)) {
+                                                    //             return implode(', ', $items);
+                                                    //         }
+                                                    //         return $items ?: '—';
+                                                    //     })
+                                                    //     ->columnSpanFull(),
                                                 ]),
                                             
                                             // 💆 Concerns Addressed

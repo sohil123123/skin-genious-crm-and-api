@@ -349,7 +349,7 @@ class HolidaysRelationManager extends RelationManager
                 fn (Action $action) => $action
                     ->button()
                     ->color('primary')
-                    ->label('Advanced Filters')
+                    ->label('Filters')
                     ->icon('heroicon-o-funnel')
             )
             ->headerActions([

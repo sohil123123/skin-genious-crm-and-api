@@ -7,33 +7,34 @@ use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Tables\Table;
 use BackedEnum;
+use Filament\Actions\Action;
 
-use App\Filament\Resources\Users\RelationManagers\HolidaysRelationManager;
+use App\Filament\Resources\Users\RelationManagers\AssessmentsRelationManager;
 
-class ManageHolidays extends ManageRelatedRecords
+class ManageAssessments extends ManageRelatedRecords
 {
     protected static string $resource = UserResource::class;
 
-    protected static string $relationship = 'holidays';
+    protected static string $relationship = 'assessments';
 
     protected static ?string $relatedResource = null;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document';
 
     public function getTitle(): string
     {
-        return 'Manage Holidays for "' . $this->record->name.'"';
+        return 'Manage assessments for "' . $this->record->name.'"';
     }
 
     public static function getNavigationLabel(): string
     {
-        return 'Holidays';
+        return 'Assessments';
     }
 
     public function getRelationManagers(): array
     {
         return [
-            HolidaysRelationManager::class,
+            AssessmentsRelationManager::class,
         ];
     }
 
@@ -57,6 +58,6 @@ class ManageHolidays extends ManageRelatedRecords
             return false;
         }
 
-        return $record->hasRole('therapist');
+        return $record->hasRole('user');
     }
 }

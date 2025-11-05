@@ -222,6 +222,13 @@ class UsersTable
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
+                Action::make('assessment')
+                    ->visible(fn ($record) => $record->hasRole('user'))
+                    ->icon('heroicon-o-clipboard-document')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Assessments')
+                    ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
                 ViewAction::make(),
                 EditAction::make(),
                 ForceDeleteAction::make(),

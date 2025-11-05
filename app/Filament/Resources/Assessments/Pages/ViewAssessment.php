@@ -1,25 +1,24 @@
 <?php
 
-namespace App\Filament\Resources\Users\Pages;
+namespace App\Filament\Resources\Assessments\Pages;
 
-use App\Filament\Resources\Users\UserResource;
+use App\Filament\Resources\Assessments\AssessmentResource;
 
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Contracts\Support\Htmlable;
+
 use Filament\Actions\Action;
 
-use App\Models\User;
-
-class ViewUser extends ViewRecord
+class ViewAssessment extends ViewRecord
 {
-    protected static string $resource = UserResource::class;
+    protected static string $resource = AssessmentResource::class;
 
     public function getTitle(): string | Htmlable
     {
         /** @var User */
         $record = $this->getRecord();
 
-        return $record->name;
+        return 'View assessment for "' . $this->record->user->name.'"';
     }
 
     protected function getActions(): array
@@ -35,7 +34,7 @@ class ViewUser extends ViewRecord
                 ->icon('heroicon-o-arrow-left')
                 ->color('gray')
                 ->outlined()
-                ->url(UserResource::getUrl('index')),
+                ->url(AssessmentResource::getUrl('index')),
         ];
     }
 }

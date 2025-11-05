@@ -118,6 +118,10 @@ class User extends Authenticatable
         return $this->hasMany(Holiday::class);
     }
 
+    public function assessments() {
+        return $this->hasMany(Assessment::class);
+    }
+
     public function leaveEntitlements(): HasMany
     {
         return $this->hasMany(UserLeaveEntitlement::class);

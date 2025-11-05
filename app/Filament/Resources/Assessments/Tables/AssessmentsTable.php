@@ -164,6 +164,14 @@ class AssessmentsTable
             )
             ->recordActions([
                 ViewAction::make(),
+                Action::make('treatment-plans')
+                    ->label('Treatment Plans')
+                    // ->visible(fn ($record) => $record->hasRole('therapist'))
+                    ->icon('heroicon-s-clipboard-document-list')
+                    // ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Treatment Plnas')
+                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
             ])
             ->groups([
                 Group::make('parent_id')
@@ -188,6 +196,7 @@ class AssessmentsTable
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->emptyStateDescription('Once you create your first assessment, it will appear here.');;
     }
 }

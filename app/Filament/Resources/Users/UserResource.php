@@ -7,6 +7,7 @@ use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Pages\ManageHolidays;
+use App\Filament\Resources\Users\Pages\ManageAssessments;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 
@@ -27,7 +28,7 @@ use App\Filament\Widgets\UserStats;
 
 use App\Models\User;
 
-use App\Filament\Resources\Users\RelationManagers\HolidaysRelationManager;
+// use App\Filament\Resources\Users\RelationManagers\HolidaysRelationManager;
 use App\Filament\Resources\Users\Schemas\UserInfolist;
 
 class UserResource extends Resource
@@ -58,6 +59,7 @@ class UserResource extends Resource
             ViewUser::class,
             EditUser::class,
             ManageHolidays::class,
+            ManageAssessments::class,
         ]);
     }
 
@@ -77,6 +79,7 @@ class UserResource extends Resource
             'edit' => EditUser::route('/{record}/edit'),
             'view' => ViewUser::route('/{record}'),
             'holidays' => ManageHolidays::route('/{record}/holidays'),
+            'assessments' => ManageAssessments::route('/{record}/assessments'),
         ];
     }
 
