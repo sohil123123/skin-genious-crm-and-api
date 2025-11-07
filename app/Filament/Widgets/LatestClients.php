@@ -31,7 +31,7 @@ use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 use App\Filament\Resources\Users\UserResource;
 
-class LatestUsers extends TableWidget
+class LatestClients extends TableWidget
 {
     use InteractsWithPageFilters, HasWidgetShield;
 
@@ -48,7 +48,7 @@ class LatestUsers extends TableWidget
         return $table
             ->deferLoading()
             // ->query(fn (): Builder => User::query())
-            ->query(UserResource::getEloquentQuery()->role('user'))
+            ->query(UserResource::getEloquentQuery()->role('client'))
             ->defaultPaginationPageOption(5)
             ->defaultSort('created_at', 'desc')
             ->columns([

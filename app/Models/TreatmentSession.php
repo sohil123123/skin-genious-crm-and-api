@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class TreatmentPlan extends Model
+class TreatmentSession extends Model
 {
     use HasFactory;
 
@@ -33,7 +33,7 @@ class TreatmentPlan extends Model
     // ---------------------- Relationship ----------------------
 
     /**
-     * Relationship: TreatmentPlan belongs to a User.
+     * Relationship: TreatmentSession belongs to a User.
      */
     public function user()
     {
@@ -41,7 +41,7 @@ class TreatmentPlan extends Model
     }
 
     /**
-     * Relationship: TreatmentPlan belongs to an Assessment.
+     * Relationship: TreatmentSession belongs to an Assessment.
      * (Assuming each plan is tied to an assessment record)
      */
     public function assessment()

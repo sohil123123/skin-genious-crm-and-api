@@ -219,13 +219,13 @@ class UserForm
                                         ->relationship('roles', 'name')
                                         ->multiple()
                                         ->preload()
-                                        ->searchable()
+                                        // ->searchable()
                                         ->required()
                                         ->live()
                                         ->afterStateUpdated(function ($set, ?array $state) {
                                             if (!empty($state)) {
                                                 $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
-                                                if (!(in_array('Clinic_manager', $selectedRoles) || in_array('User', $selectedRoles) || in_array('therapist', $selectedRoles))) {
+                                                if (!(in_array('clinic_manager', $selectedRoles) || in_array('client', $selectedRoles) || in_array('therapist', $selectedRoles))) {
                                                     $set('clinic_id', null);
                                                 }
                                             } else {
@@ -249,7 +249,7 @@ class UserForm
                                     ->multiple()
                                     ->preload()
                                     ->searchable()
-                                    ->hidden(fn ($record) => ($record === null || $record->hasRole('user'))),
+                                    ->hidden(fn ($record) => ($record === null || $record->hasRole('client'))),
 
                             ]),
 

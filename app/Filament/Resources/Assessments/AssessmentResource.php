@@ -22,7 +22,7 @@ use Filament\Resources\Pages\Page;
 
 use App\Filament\Resources\Assessments\Schemas\AssessmentInfolist;
 
-use App\Filament\Resources\Assessments\Pages\ManageTreatmentPlans;
+use App\Filament\Resources\Assessments\Pages\ManageTreatmentSessions;
 
 class AssessmentResource extends Resource
 {
@@ -52,7 +52,7 @@ class AssessmentResource extends Resource
     {
         return $page->generateNavigationItems([
             ViewAssessment::class,
-            ManageTreatmentPlans::class,
+            ManageTreatmentSessions::class,
         ]);
     }
 
@@ -68,7 +68,7 @@ class AssessmentResource extends Resource
         return [
             'index' => ListAssessments::route('/'),
             'view' => ViewAssessment::route('/{record}'),
-            'treatment-plans' => ManageTreatmentPlans::route('/{record}/treatment-plans'),
+            'treatment-plans' => ManageTreatmentSessions::route('/{record}/treatment-plans'),
             // 'create' => CreateAssessment::route('/create'),
             // 'edit' => EditAssessment::route('/{record}/edit'),
         ];

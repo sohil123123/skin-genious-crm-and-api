@@ -23,7 +23,7 @@ class UserController extends BaseApiController
     public function index(Request $request)
     {
         $query = $this->model;
-        $query = $query->role('user');
+        $query = $query->role('client');
 
         $query = $this->addWhere($query);
         $query = $this->joinTable($query);
@@ -36,7 +36,7 @@ class UserController extends BaseApiController
 
     public function show(string $id)
     {
-        $query = $this->model->role('user');
+        $query = $this->model->role('client');
         $query = $this->addWhere($query);
         $result = $this->addJoin($query)->find($id);
 

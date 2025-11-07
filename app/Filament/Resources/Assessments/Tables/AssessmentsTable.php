@@ -164,13 +164,13 @@ class AssessmentsTable
             )
             ->recordActions([
                 ViewAction::make(),
-                Action::make('treatment-plans')
-                    ->label('Treatment Plans')
+                Action::make('treatment-sessions')
+                    ->label('Treatment Sessions')
                     // ->visible(fn ($record) => $record->hasRole('therapist'))
                     ->icon('heroicon-s-clipboard-document-list')
                     // ->iconButton()
                     ->color('info')
-                    ->tooltip('Manage Treatment Plnas')
+                    ->tooltip('Manage Treatment Sessions')
                     ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
             ])
             ->groups([

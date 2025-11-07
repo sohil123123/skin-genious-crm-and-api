@@ -38,7 +38,7 @@ class AuthController extends BaseApiController
     //         ? User::where('email', $login)->first()
     //         : User::where('mobile', $login)->first();
 
-    //     if(!$user->hasRole('user')) {
+    //     if(!$user->hasRole('client')) {
     //         return $this->error('Login Failed. Invalid role', [], HTTP_UNAUTHORIZED);
     //     }
 

@@ -14,7 +14,7 @@ class UserChart extends ChartWidget
 {
     use InteractsWithPageFilters, HasWidgetShield;
 
-    protected ?string $heading = 'Total users this year';
+    protected ?string $heading = 'Total Clients this year';
 
     protected static ?int $sort = 3;
 
@@ -30,7 +30,7 @@ class UserChart extends ChartWidget
         $sum = 0;
 
         for ($i = 1; $i <= 12; $i++) {
-            $count = User::role('user')
+            $count = User::role('client')
                 ->whereMonth('created_at', $i)
                 ->whereYear('created_at', Carbon::now()->year)
                 ->count();
@@ -42,7 +42,7 @@ class UserChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Users',
+                    'label' => 'Clients',
                     'data' => $cumulative,
                     'fill' => 'start',
                 ],

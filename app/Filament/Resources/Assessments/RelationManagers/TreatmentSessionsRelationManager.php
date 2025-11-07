@@ -20,9 +20,9 @@ use Filament\Infolists\Components\ViewEntry;
 
 use Filament\Resources\RelationManagers\RelationManager;
 
-class TreatmentPlansRelationManager extends RelationManager
+class TreatmentSessionsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'treatmentPlans';
+    protected static string $relationship = 'treatmentSessions';
 
     public function infolist(Schema $schema): Schema
     {
@@ -107,16 +107,16 @@ class TreatmentPlansRelationManager extends RelationManager
                                 ->schema([
                                     RepeatableEntry::make('steps')
                                         ->label('Treatment Steps')
-                                        ->columns(1)
+                                        ->columns(4)
                                         ->schema([
-                                            Section::make('Treatment Step')
-                                                ->icon('heroicon-o-sparkles')
-                                                ->schema([
+                                            // Section::make('Treatment Step')
+                                            //     ->icon('heroicon-o-sparkles')
+                                            //     ->schema([
                                                     TextEntry::make('step_number')
                                                         ->label('Step #')
                                                         ->badge()
                                                         ->color('primary'),
-                                                    Grid::make(3)->schema([
+                                                    // Grid::make(3)->schema([
                                                         TextEntry::make('duration')
                                                             ->label('Duration')
                                                             ->suffix(' mins'),
@@ -124,14 +124,14 @@ class TreatmentPlansRelationManager extends RelationManager
                                                         TextEntry::make('ingredients_equipments')
                                                             ->label('Ingredients & Equipments')
                                                             ->columnSpan(2),
-                                                    ]),
+                                                    // ]),
 
                                                     TextEntry::make('how_to_do')
                                                         ->label('How To Do')
                                                         ->columnSpanFull()
                                                         ->markdown()
                                                         ->placeholder('—'),
-                                                ]),
+                                                // ]),
                                         ])
                                         ->placeholder('No treatment steps listed.')
                                         ->columnSpanFull(),
@@ -161,6 +161,7 @@ class TreatmentPlansRelationManager extends RelationManager
     {
         return $table
             ->deferLoading()
+            ->defaultSort('session_number', 'asc')
             // ->recordTitleAttribute('treatment plans')
             ->columns([
                 TextColumn::make('plan_type')

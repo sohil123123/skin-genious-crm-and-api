@@ -37,7 +37,7 @@ class EditUser extends EditRecord
     {
         return [
             Action::make('back')->label('Back to List')->icon('heroicon-o-arrow-left')->outlined()->url(static::getResource()::getUrl('index'))->color('gray'),
-            DeleteAction::make(),
+            DeleteAction::make()->icon('heroicon-o-trash'),
             ForceDeleteAction::make(),
             RestoreAction::make(),
         ];

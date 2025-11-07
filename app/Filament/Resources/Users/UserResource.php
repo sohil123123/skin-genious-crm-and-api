@@ -43,6 +43,8 @@ class UserResource extends Resource
 
     protected static ?string $navigationBadgeTooltip = 'The number of users created this month';
 
+    protected static ?string $modelLabel = 'Clients And Staffs';
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

@@ -23,7 +23,7 @@ class StatsOverview extends StatsOverviewWidget
 
     protected static bool $isLazy = false;
 
-    protected ?string $heading = 'States Overview';
+    protected ?string $heading = 'Client States Overview';
 
     protected function getStats(): array
     {
@@ -31,12 +31,12 @@ class StatsOverview extends StatsOverviewWidget
         $currentMonth = now()->startOfMonth();
         $previousMonth = now()->subMonth()->startOfMonth();
 
-        // 👥 New Users
-        $currentCustomers = User::role('user')
+        // 👥 New Clients
+        $currentCustomers = User::role('client')
             ->where('created_at', '>=', $currentMonth)
             ->count();
 
-        $previousCustomers = User::role('user')
+        $previousCustomers = User::role('client')
             ->whereBetween('created_at', [$previousMonth, $currentMonth])
             ->count();
 
@@ -44,8 +44,8 @@ class StatsOverview extends StatsOverviewWidget
         $customerTrend = $this->generateTrend('created_at');
 
         return [
-            // 👥 New Users
-            Stat::make('New users', $currentCustomers)
+            // 👥 New Clients
+            Stat::make('New Clients', $currentCustomers)
                 ->description($this->getChangeText($customerChange))
                 ->descriptionIcon($this->getTrendIcon($customerChange))
                 ->chart($customerTrend)
@@ -60,7 +60,7 @@ class StatsOverview extends StatsOverviewWidget
         for ($i = 6; $i >= 0; $i--) {
             $day = Carbon::today()->subDays($i);
 
-            $value = User::role('user')
+            $value = User::role('client')
                 ->whereDate($dateColumn, $day)
                 ->when($sumColumn, fn($q) => $q->sum($sumColumn), fn($q) => $q->count());
 

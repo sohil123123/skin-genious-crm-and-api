@@ -63,20 +63,20 @@ class UserSeeder extends Seeder
         )
         ->assignRole('clinic_manager');
 
-        // Create user
+        // Create client
         User::firstOrCreate(
-            ['email' => 'user@gmail.com'],
+            ['email' => 'client@gmail.com'],
             [
                 'clinic_id' => 1,
                 'first_name' => 'Customer',
-                'last_name' => 'User',
+                'last_name' => 'client',
                 'gender' => 'Male',
                 'mobile' => '1234567894',
                 'password' => bcrypt('123456'),
                 'email_verified_at' => now(),
             ]
         )
-        ->assignRole('user');
+        ->assignRole('client');
 
     }
 }

@@ -376,6 +376,7 @@ class HolidaysRelationManager extends RelationManager
                     // DissociateBulkAction::make(),
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->emptyStateDescription('Once you create your first holiday, it will appear here.');
     }
 }

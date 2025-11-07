@@ -36,6 +36,7 @@ class AssessmentRequest extends FormRequest
             'is_pregnant' => 'nullable|boolean',
             'breastfeeding' => 'nullable|in:yes,no',
             'diagnosis' => 'nullable|array',
+            'post_diagnosis' => 'nullable|array',
             'parameters_with_abnormal_scores' => 'nullable|array',
             'selected_plan_type' => 'nullable|string|in:single,multiple',
             'treatment_plans' => 'nullable|array',
@@ -54,8 +55,8 @@ class AssessmentRequest extends FormRequest
             if ($userId) {
                 $user = User::find($userId);
 
-                // Check if user exists and role is "user"
-                if (! $user || $user->hasRole('user') === false) {
+                // Check if user exists and role is "client"
+                if (! $user || $user->hasRole('client') === false) {
                     $validator->errors()->add('user_id', 'The selected user must have the user role.');
                 }
             }

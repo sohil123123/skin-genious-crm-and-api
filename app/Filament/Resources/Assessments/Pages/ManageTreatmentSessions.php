@@ -9,13 +9,13 @@ use Filament\Tables\Table;
 use BackedEnum;
 use Filament\Actions\Action;
 
-use App\Filament\Resources\Assessments\RelationManagers\TreatmentPlansRelationManager;
+use App\Filament\Resources\Assessments\RelationManagers\TreatmentSessionsRelationManager;
 
-class ManageTreatmentPlans extends ManageRelatedRecords
+class ManageTreatmentSessions extends ManageRelatedRecords
 {
     protected static string $resource = AssessmentResource::class;
 
-    protected static string $relationship = 'treatmentPlans';
+    protected static string $relationship = 'treatmentSessions';
 
     protected static ?string $relatedResource = null;
 
@@ -23,18 +23,18 @@ class ManageTreatmentPlans extends ManageRelatedRecords
 
     public function getTitle(): string
     {
-        return 'Manage treatment planes for "' . $this->record->user->name.'"';
+        return 'Manage treatment sessions for "' . $this->record->user->name.'"';
     }
 
     public static function getNavigationLabel(): string
     {
-        return 'Treatment Plans';
+        return 'Treatment Sessions';
     }
 
     public function getRelationManagers(): array
     {
         return [
-            TreatmentPlansRelationManager::class,
+            TreatmentSessionsRelationManager::class,
         ];
     }
 
@@ -58,6 +58,6 @@ class ManageTreatmentPlans extends ManageRelatedRecords
     //         return false;
     //     }
 
-    //     return $record->user->hasRole('user');
+    //     return $record->user->hasRole('client');
     // }
 }

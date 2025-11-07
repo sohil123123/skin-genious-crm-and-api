@@ -20,7 +20,7 @@ class ListUsers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            CreateAction::make()->icon('heroicon-o-user-plus'),
         ];
     }
 
@@ -29,34 +29,6 @@ class ListUsers extends ListRecords
         return UserResource::getWidgets();
     }
 
-    // public function getTabs(): array
-    // {
-    //     return [
-    //         'all' => Tab::make('All')
-    //             ->badge($this->getModel()::count()),
-
-    //         'admin' => Tab::make('Admins')
-    //             ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'admin')))
-    //             ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'admin'))->count()),
-
-    //         'therapist' => Tab::make('Therapists')
-    //             ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'therapist')))
-    //             ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count()),
-
-    //         'clinic_manager' => Tab::make('Clinic Managers')
-    //             ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager')))
-    //             ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count()),
-
-    //         'doctor' => Tab::make('Doctors')
-    //             ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'doctor')))
-    //             ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'doctor'))->count()),
-
-    //         'user' => Tab::make('Users')
-    //             ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'user')))
-    //             ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'user'))->count()),
-    //     ];
-    // }
-
     public function getTabs(): array
     {
         return [
@@ -64,12 +36,12 @@ class ListUsers extends ListRecords
                 ->icon('heroicon-o-users')
                 ->badge($this->getModel()::count())
                 ->badgeColor('gray'),
-
-            'super_admin' => Tab::make('Super Admins')
-                ->icon('heroicon-o-shield-check')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'super_admin')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
-                ->badgeColor('danger'),
+            
+            'client' => Tab::make('Clients')
+                ->icon('heroicon-o-user')
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'client')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'client'))->count())
+                ->badgeColor('gray'),
 
             'therapist' => Tab::make('Therapists')
                 ->icon('heroicon-o-hand-raised') // alt: heroicon-o-heart
@@ -83,17 +55,18 @@ class ListUsers extends ListRecords
                 ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count())
                 ->badgeColor('info'),
 
-            // 'doctor' => Tab::make('Doctors')
-            //     ->icon('heroicon-o-user-circle')
-            //     ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'doctor')))
-            //     ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'doctor'))->count())
-            //     ->badgeColor('warning'),
+            'super_admin' => Tab::make('Super Admins')
+                ->icon('heroicon-o-shield-check')
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'super_admin')))
+                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
+                ->badgeColor('danger'),
 
-            'user' => Tab::make('Users')
-                ->icon('heroicon-o-user')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'user')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'user'))->count())
-                ->badgeColor('gray'),
+            
         ];
+    }
+
+    public function getDefaultActiveTab(): string | int | null
+    {
+        return 'client'; // Default selected tab
     }
 }

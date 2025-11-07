@@ -76,7 +76,7 @@ class Profile extends Page implements HasSchemas
                                             TextEntry::make('gender')->placeholder('N/A'),
                                             TextEntry::make('date_of_birth')->date()->placeholder('N/A'),
                                             TextEntry::make('clinic.name')->label('Assigned Clinic')->placeholder('N/A')
-                                                ->visible(fn () => (auth()->user()->hasRole('user') || auth()->user()->hasRole('therapist'))),
+                                                ->visible(fn () => (auth()->user()->hasRole('client') || auth()->user()->hasRole('therapist'))),
                                         ]),
                                     ])
                                     ->collapsible(),
@@ -153,7 +153,7 @@ class Profile extends Page implements HasSchemas
                                                 ->placeholder('No known allergies listed'),
                                         ]),
                                     ])
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
                                 Section::make('Skin Profile')
@@ -167,7 +167,7 @@ class Profile extends Page implements HasSchemas
                                         ]),
 
                                     ])
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
                                 Section::make('Aesthetic Goals')
@@ -210,14 +210,14 @@ class Profile extends Page implements HasSchemas
                                                 ->placeholder('N/A'),
                                         ]),
                                     ])
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
                                 Section::make('Account Settings')
                                     ->icon('heroicon-o-cog-6-tooth')
                                     ->schema([
                                         Grid::make(3)->schema([
-                                            TextEntry::make('how_did_you_hear')->placeholder('N/A')->visible(auth()->user()->hasRole('user')),
+                                            TextEntry::make('how_did_you_hear')->placeholder('N/A')->visible(auth()->user()->hasRole('client')),
                                             IconEntry::make('opt_for_loyalty')
                                                 ->label('Opted for Loyalty Program?')
                                                 ->boolean()
@@ -260,19 +260,19 @@ class Profile extends Page implements HasSchemas
                                 Section::make('Medical Background')
                                     ->icon('heroicon-o-heart')
                                     ->schema(static::getMedicalBackgroundComponents())
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
                                 Section::make('Skin Profile')
                                     ->icon('heroicon-o-face-smile')
                                     ->schema(static::getSkinProfileComponents())
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
                                 Section::make('Aesthetic Goals')
                                     ->icon('heroicon-o-sparkles')
                                     ->schema(static::getAestheticGoalsComponents())
-                                    ->visible(auth()->user()->hasRole('user'))
+                                    ->visible(auth()->user()->hasRole('client'))
                                     ->collapsible(),
 
 
@@ -290,14 +290,14 @@ class Profile extends Page implements HasSchemas
                                                     'By Doctor' => 'By doctor',
                                                     'Other' => 'Other',
                                                 ])
-                                                ->visible(auth()->user()->hasRole('user')),
+                                                ->visible(auth()->user()->hasRole('client')),
 
                                             ToggleButtons::make('opt_for_loyalty')
                                                 ->inline()
                                                 ->label('Opted for Loyalty Program?')
                                                 ->default(false)
                                                 ->boolean()
-                                                ->visible(auth()->user()->hasRole('user')),
+                                                ->visible(auth()->user()->hasRole('client')),
 
                                             TextInput::make('password')
                                                 ->password()

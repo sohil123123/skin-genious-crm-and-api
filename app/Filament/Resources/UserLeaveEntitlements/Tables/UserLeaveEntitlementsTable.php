@@ -89,7 +89,8 @@ class UserLeaveEntitlementsTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->emptyStateDescription('Once you create your first user leave entitlements, it will appear here.');
     }
 
 }

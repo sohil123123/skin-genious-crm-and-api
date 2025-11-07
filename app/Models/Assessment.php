@@ -31,6 +31,7 @@ class Assessment extends Model implements HasMedia
         'is_pregnant',
         'breastfeeding',
         'diagnosis',
+        'post_diagnosis',
         'parameters_with_abnormal_scores',
         'selected_plan_type',
         'total_time',
@@ -43,6 +44,7 @@ class Assessment extends Model implements HasMedia
         'medical_history' => 'array',
         'allergies' => 'array',
         'diagnosis' => 'array',
+        'post_diagnosis' => 'array',
         'parameters_with_abnormal_scores' => 'array',
         'recommended_full_plan' => 'array',
         'is_pregnant' => 'boolean',
@@ -58,7 +60,7 @@ class Assessment extends Model implements HasMedia
         });
     }
 
-    protected $appends = ['images'];
+    protected $appends = ['images', 'recommended_total_time', 'recommended_treatments_list'];
 
     public function getImagesAttribute()
     {
@@ -72,6 +74,20 @@ class Assessment extends Model implements HasMedia
                 // 'size' => $media->size,
             ];
         });
+    }
+
+    // 🧠 Virtual attribute for total_time
+    public function getRecommendedTotalTimeAttribute()
+    {
+        $plan = $this->recommended_full_plan ?? [];
+        return $plan['total_time'] ?? null;
+    }
+
+    // 🧠 Virtual attribute for treatments
+    public function getRecommendedTreatmentsListAttribute()
+    {
+        $plan = $this->recommended_full_plan ?? [];
+        return $plan['treatments'] ?? [];
     }
 
     // ---------------------------- Relationships --------------------------------
@@ -116,8 +132,8 @@ class Assessment extends Model implements HasMedia
     }
     
 
-    public function treatmentPlans()
+    public function treatmentSessions()
     {
-        return $this->hasMany(TreatmentPlan::class);
+        return $this->hasMany(TreatmentSession::class);
     }
 }

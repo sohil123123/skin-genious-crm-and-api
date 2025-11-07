@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('treatment_plans', function (Blueprint $table) {
+        Schema::create('treatment_sessions', function (Blueprint $table) {
             $table->id()->comment('Primary key: Unique treatment plan ID');
 
             $table->foreignId('assessment_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Assessment ID if applicable');
@@ -42,6 +42,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('treatment_plans');
+        Schema::dropIfExists('treatment_sessions');
     }
 };

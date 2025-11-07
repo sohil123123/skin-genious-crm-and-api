@@ -22,7 +22,7 @@ class UserStats extends BaseWidget
     use InteractsWithPageTable;
     use HasWidgetShield;
 
-    protected ?string $heading = 'User States Overview';
+    protected ?string $heading = 'Clients States Overview';
     // protected ?string $description = 'An overview of some analytics.';
 
     protected ?string $pollingInterval = '5s';
@@ -39,19 +39,19 @@ class UserStats extends BaseWidget
     protected function getStats(): array
     {
         return [
-            Stat::make('Active users', $this->getPageTableQuery()->where('is_active', true)->count())
-                ->icon('heroicon-m-user-group')
+            Stat::make('Active Clients', $this->getPageTableQuery()->role('client')->where('is_active', true)->count())
+                ->icon('heroicon-m-users')
                 ->color('success'),
 
-            Stat::make('Inactive users', $this->getPageTableQuery()->where('is_active', false)->count())
+            Stat::make('Deactive Clients', $this->getPageTableQuery()->role('client')->where('is_active', false)->count())
                 ->icon('heroicon-m-user-minus')
+                ->color('gray'),
+
+            Stat::make('Deleted Clients', $this->getPageTableQuery()->role('client')->onlyTrashed()->count())
+                ->icon('heroicon-m-trash')
                 ->color('danger'),
 
-            Stat::make('Deleted users', $this->getPageTableQuery()->onlyTrashed()->count())
-                ->icon('heroicon-m-user-plus')
-                ->color('info'),
-
-            Stat::make('New This Month users', $this->getPageTableQuery()->whereMonth('created_at', now()->month)->count())
+            Stat::make('New This Month Clients', $this->getPageTableQuery()->role('client')->whereMonth('created_at', now()->month)->count())
                 ->icon('heroicon-m-user-plus')
                 ->color('info'),
         ];

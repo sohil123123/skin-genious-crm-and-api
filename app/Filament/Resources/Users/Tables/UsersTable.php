@@ -29,9 +29,7 @@ use Spatie\Permission\Models\Permission;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Database\Eloquent\Builder;
-
 use Str;
-// use Laravel\Sanctum\PersonalAccessToken;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use Filament\Schemas\Schema;
@@ -193,6 +191,17 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
+                Action::make('new_assessment')
+                    ->label('New Assessment')
+                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+
                 Action::make('holiday')
                     ->visible(fn ($record) => $record->hasRole('therapist'))
                     ->icon('heroicon-o-rectangle-stack')
@@ -200,35 +209,15 @@ class UsersTable
                     ->color('info')
                     ->tooltip('Manage Holidays')
                     ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
-                Action::make('assessment')
-                    ->label('New Assessment')
-                    ->visible(fn ($record) => $record->hasRole('user'))
-                    ->icon('heroicon-s-user')
-                    ->color('info')
-                    ->action(function (User $record) {
-                        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
-                        $user = auth()->user();
-                        $token = $user->createToken(
-                            'assessment-token-' . Str::random(10),
-                            ['assessment'], // Abilities/scopes
-                            // now()->addHour() // Expiration
-                        )->plainTextToken;
 
-                        // Optional: Store token-patient link if needed (e.g., in a temp table for "restart")
-                        // For restart, you could clear previous assessment data here via your API/storage.
-
-                        // Redirect to Assessment App with token and patient ID
-                        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $record->id;
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
                 Action::make('assessment')
-                    ->visible(fn ($record) => $record->hasRole('user'))
+                    ->visible(fn ($record) => $record->hasRole('client'))
                     ->icon('heroicon-o-clipboard-document')
                     ->iconButton()
                     ->color('info')
                     ->tooltip('Manage Assessments')
                     ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
+
                 ViewAction::make(),
                 EditAction::make(),
                 ForceDeleteAction::make(),
@@ -298,7 +287,7 @@ class UsersTable
                         })->values()->toArray();
                     })
                     ->visible(fn () => auth()->user()?->can('toggle_user_permissions'))
-                    ->action(function ($record) {
+                    ->action(function (array $data, $record) {
                         if (! auth()->user()->can('toggle_user_permissions')) {
                             Notification::make()
                                 ->title('Access Denied')
@@ -307,11 +296,24 @@ class UsersTable
                                 ->send();
                             return;
                         }
-
-                        if ($record->name === 'admin')
+                        
+                        if ($record->hasRole('super_admin'))
+                        {
+                            Notification::make()
+                                ->title('Super Admin Permissions Locked')
+                                ->body('You cannot modify permissions for Super Admin.')
+                                ->warning()
+                                ->send();
                             return;
+                        }
 
-                        $record->syncPermissions($data['permissions'] ?? []);
+                        $permissions = collect($data)
+                            ->filter(fn ($value, $key) => str_starts_with($key, 'permissions_')) // check the key, not the value
+                            ->flatten()
+                            ->filter()
+                            ->toArray();
+                        
+                        $record->syncPermissions($permissions ?? []);
 
                         Notification::make()
                             ->title('Permissions updated')

@@ -34,7 +34,7 @@ class HolidayPolicy
 
     public function delete(AuthUser $authUser, Holiday $holiday): bool
     {
-        return ($authUser->can('Delete:Holiday') && $authUser->id === $holiday->user_id) || $authUser->hasRole('super_admin');
+        return ($authUser->can('Delete:Holiday') && $authUser->id === $holiday->user_id && $holiday->status->value === 'pending') || $authUser->hasRole('super_admin');
     }
 
     public function deleteAny(AuthUser $authUser): bool

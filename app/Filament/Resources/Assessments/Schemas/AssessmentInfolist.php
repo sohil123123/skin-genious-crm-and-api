@@ -65,6 +65,24 @@ class AssessmentInfolist
                             TextEntry::make('breastfeeding')
                                 ->badge()
                                 ->color(fn ($state) => $state === 'yes' ? 'warning' : 'gray'),
+                            
+                            TextEntry::make('status')
+                                ->label('Status')
+                                ->badge()
+                                ->color(fn ($state) => match ($state) {
+                                    'in_progress' => 'info',
+                                    'pending' => 'gray',
+                                    'completed' => 'success',
+                                    'incomplete' => 'warning',
+                                    'cancelled' => 'danger',
+                                    'overdue' => 'danger',
+                                    default => 'gray',
+                                }),
+
+                            TextEntry::make('therapist_notes')
+                                ->label('Therapist Notes')
+                                ->columnSpanFull()
+                                ->placeholder('No notes added'),
                         ]),
                     ])
                     ->collapsible(),
@@ -101,7 +119,128 @@ class AssessmentInfolist
                     ])
                     ->collapsible(),
 
-                Section::make('Treatment Plans')
+                Section::make('Recommended Full Plans')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->schema([
+                        Grid::make(2)->schema([
+                            TextEntry::make('selected_plan_type')
+                                ->badge()
+                                ->color(fn ($state) => match ($state) {
+                                    'single' => 'success',
+                                    'multiple' => 'warning',
+                                    default => 'gray',
+                                })
+                                ->label('Plan Type'),
+
+                            TextEntry::make('recommended_total_time')
+                                ->label('Total Time')
+                                ->placeholder('—'),
+                        ]),
+                        RepeatableEntry::make('recommended_treatments_list')
+                            ->label('')
+                            ->columns(1)
+                            ->schema([
+                                // Header: Session Title and Meta
+                                Section::make('Session Details')
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->icon('heroicon-o-sparkles')
+                                    ->schema([
+                                        Grid::make(4)->schema([
+                                            TextEntry::make('session_number')
+                                                ->label('Session Number')
+                                                ->placeholder('—'),
+
+                                            TextEntry::make('title')
+                                                ->label('Title')
+                                                ->placeholder('—'),
+                                            
+                                            TextEntry::make('week')
+                                                ->label('Week')
+                                                ->suffix(fn ($state) => $state ? ' week' : null)
+                                                ->placeholder('—'),
+
+                                            TextEntry::make('treatment_time')
+                                                ->label('Duration')
+                                                ->placeholder('—'),
+                                        ]),
+
+                                        Tabs::make('Treatment Details')->tabs([
+                                            // 💆 Concerns Addressed
+                                            Tab::make('Concerns')
+                                                ->icon('heroicon-o-heart')
+                                                ->schema([
+                                                    RepeatableEntry::make('concerns_addressed')
+                                                        ->label('Concerns Addressed')
+                                                        ->columns(3)
+                                                        ->schema([
+                                                            TextEntry::make('concern')
+                                                                ->label('Concern')
+                                                                ->color('primary')
+                                                                ->weight('bold'),
+
+                                                            TextEntry::make('current_value')
+                                                                ->label('Current Value')
+                                                                ->icon('heroicon-o-arrow-trending-down')
+                                                                ->color('danger')
+                                                                ->placeholder('—'),
+
+                                                            TextEntry::make('target_value')
+                                                                ->label('Target Value')
+                                                                ->icon('heroicon-o-arrow-trending-up')
+                                                                ->color('success')
+                                                                ->placeholder('—'),
+                                                        ])
+                                                        ->placeholder('No concerns listed.')
+                                                        ->columnSpanFull(),
+                                                ]),
+
+                                            // ⚙️ Treatment Steps
+                                            Tab::make('Steps')
+                                                ->icon('heroicon-o-clipboard-document-check')
+                                                ->schema([
+                                                    RepeatableEntry::make('steps')
+                                                        ->label('Treatment Steps')
+                                                        ->columns(4)
+                                                        ->schema([
+                                                            // Section::make('Treatment Step')
+                                                            //     ->icon('heroicon-o-sparkles')
+                                                            //     ->schema([
+                                                                    // Grid::make(3)->schema([
+                                                                        TextEntry::make('step_number')
+                                                                            ->label('Step #')
+                                                                            ->badge()
+                                                                            ->color('primary'),
+
+                                                                        TextEntry::make('duration')
+                                                                            ->label('Duration')
+                                                                            ->suffix(' mins'),
+                                                                        
+                                                                        TextEntry::make('ingredients_equipments')
+                                                                            ->label('Ingredients & Equipments')
+                                                                            ->columnSpan(2),
+                                                                    // ]),
+
+                                                                    TextEntry::make('how_to_do')
+                                                                        ->label('How To Do')
+                                                                        ->columnSpanFull()
+                                                                        ->markdown()
+                                                                        ->placeholder('—'),
+                                                                // ]),
+                                                        ])
+                                                        ->placeholder('No treatment steps listed.')
+                                                        ->columnSpanFull(),
+                                                ]),
+                                        ]),
+                                        
+                                    ]),
+                            ])
+                            ->placeholder('No treatment plans found for this assessment.'),
+                    ])
+                    ->collapsed()
+                    ->collapsible(),
+
+                Section::make('Treatment Sessions')
                     ->icon('heroicon-o-clipboard-document-list')
                     ->schema([
                         Grid::make(2)->schema([
@@ -118,7 +257,7 @@ class AssessmentInfolist
                                 ->label('Total Time')
                                 ->placeholder('—'),
                         ]),
-                        RepeatableEntry::make('treatmentPlans')
+                        RepeatableEntry::make('treatmentSessions')
                             ->label('')
                             ->columns(1)
                             ->schema([
@@ -204,31 +343,25 @@ class AssessmentInfolist
                                                 ->schema([
                                                     RepeatableEntry::make('steps')
                                                         ->label('Treatment Steps')
-                                                        ->columns(1)
+                                                        ->columns(4)
                                                         ->schema([
-                                                            Section::make('Treatment Step')
-                                                                ->icon('heroicon-o-sparkles')
-                                                                ->schema([
-                                                                    TextEntry::make('step_number')
-                                                                        ->label('Step #')
-                                                                        ->badge()
-                                                                        ->color('primary'),
-                                                                    Grid::make(3)->schema([
-                                                                        TextEntry::make('duration')
-                                                                            ->label('Duration')
-                                                                            ->suffix(' mins'),
-                                                                        
-                                                                        TextEntry::make('ingredients_equipments')
-                                                                            ->label('Ingredients & Equipments')
-                                                                            ->columnSpan(2),
-                                                                    ]),
+                                                                TextEntry::make('step_number')
+                                                                    ->label('Step #')
+                                                                    ->badge()
+                                                                    ->color('primary'),
+                                                                TextEntry::make('duration')
+                                                                    ->label('Duration')
+                                                                    ->suffix(' mins'),
+                                                                
+                                                                TextEntry::make('ingredients_equipments')
+                                                                    ->label('Ingredients & Equipments')
+                                                                    ->columnSpan(2),
 
-                                                                    TextEntry::make('how_to_do')
-                                                                        ->label('How To Do')
-                                                                        ->columnSpanFull()
-                                                                        ->markdown()
-                                                                        ->placeholder('—'),
-                                                                ]),
+                                                                TextEntry::make('how_to_do')
+                                                                    ->label('How To Do')
+                                                                    ->columnSpanFull()
+                                                                    ->markdown()
+                                                                    ->placeholder('—'),
                                                         ])
                                                         ->placeholder('No treatment steps listed.')
                                                         ->columnSpanFull(),
@@ -239,7 +372,8 @@ class AssessmentInfolist
                             ])
                             ->placeholder('No treatment plans found for this assessment.'),
                     ])
-                ->collapsible(),
+                    ->collapsed()
+                    ->collapsible(),
 
                 // 📈 Parameters / Scores
                 Section::make('Parameters With Abnormal Scores')
@@ -248,30 +382,6 @@ class AssessmentInfolist
                         KeyValueEntry::make('parameters_with_abnormal_scores')
                             ->columnSpanFull()
                             ->placeholder('No abnormal parameters'),
-                    ])
-                    ->collapsible(),
-
-                // 🧾 Therapist Notes & Status
-                Section::make('Summary')
-                    ->icon('heroicon-o-document-text')
-                    ->schema([
-                        TextEntry::make('status')
-                            ->label('Status')
-                            ->badge()
-                            ->color(fn ($state) => match ($state) {
-                                'in_progress' => 'info',
-                                'pending' => 'gray',
-                                'completed' => 'success',
-                                'incomplete' => 'warning',
-                                'cancelled' => 'danger',
-                                'overdue' => 'danger',
-                                default => 'gray',
-                            }),
-
-                        TextEntry::make('therapist_notes')
-                            ->label('Therapist Notes')
-                            ->columnSpanFull()
-                            ->placeholder('No notes added'),
                     ])
                     ->collapsible(),
 
