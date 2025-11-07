@@ -7,7 +7,7 @@ use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Table;
-
+use Filament\Support\Icons\Heroicon;
 
 class ListHolidays extends ListRecords
 {
@@ -29,24 +29,24 @@ class ListHolidays extends ListRecords
     {
         return [
             'all' => Tab::make('All')
-                ->icon('heroicon-o-users')
+                ->icon(Heroicon::CalendarDays)
                 ->badge($this->getModel()::count())
                 ->badgeColor('gray'),
 
             'pending' => Tab::make('Pending')
-                ->icon('heroicon-m-sparkles')
+                ->icon(Heroicon::Clock)
                 ->query(fn ($query) => $query->where('status', 'pending'))
                 ->badge($this->getModel()::where('status', 'pending')->count())
                 ->badgeColor('info'),
 
             'approved' => Tab::make('Approved')
-                ->icon('heroicon-m-arrow-path')
+                ->icon(Heroicon::CheckCircle)
                 ->query(fn ($query) => $query->where('status', 'approved'))
                 ->badge($this->getModel()::where('status', 'approved')->count())
                 ->badgeColor('success'),
 
             'rejected' => Tab::make('Rejected')
-                ->icon('heroicon-m-x-circle')
+                ->icon(Heroicon::XCircle)
                 ->query(fn ($query) => $query->where('status', 'rejected'))
                 ->badge($this->getModel()::where('status', 'rejected')->count())
                 ->badgeColor('danger'),

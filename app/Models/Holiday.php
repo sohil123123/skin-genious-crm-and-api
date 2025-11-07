@@ -36,8 +36,10 @@ class Holiday extends Model
                 $holiday->clinic_id = $selectedUser->clinic_id;
             }
 
-            // $holiday->days = (new \DateTime($holiday->end_date))->diff(new \DateTime($holiday->start_date))->days + 1;
+            $holiday->updateEntitlementUsage();
+        });
 
+        static::updating(function ($holiday) {
             $holiday->updateEntitlementUsage();
         });
 

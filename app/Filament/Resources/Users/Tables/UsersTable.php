@@ -241,51 +241,58 @@ class UsersTable
                     ->color('success')
                     ->slideOver() // or ->modalHeading("Manage permissions")
                     // ->modalHeading("Manage permissions")
-                    // ->form([
-                    //     CheckboxList::make('permissions')
-                    //         ->label('Manage Permissions')
-                    //         ->options(Permission::all()->pluck('name', 'id'))
-                    //         ->columns(3)
-                    //         ->searchable()
-                    //         ->bulkToggleable()
-                    //         ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
-                    // ])
-                    ->form(function () {
-                        $permissions = Permission::all()->groupBy(function ($perm) {
-                            // detect group by suffix (after ":") if exists
-                            if (str_contains($perm->name, ':')) {
-                                return Str::after($perm->name, ':'); // e.g. "User", "Role"
-                            }
+                    ->form([
+                        CheckboxList::make('permissions')
+                            ->label('Manage Permissions')
+                            ->options(Permission::all()->pluck('name', 'id'))
+                            ->columns(3)
+                            ->searchable()
+                            ->bulkToggleable()
+                            ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
+                    ])
+                    // ->form(function () {
+                    //     $permissions = Permission::all()->groupBy(function ($perm) {
+                    //         // detect group by suffix (after ":") if exists
+                    //         if (str_contains($perm->name, ':')) {
+                    //             return Str::after($perm->name, ':'); // e.g. "User", "Role"
+                    //         }
 
-                            // detect custom permissions (no separator)
-                            if (str_starts_with($perm->name, 'toggle_')) {
-                                return 'Custom Permissions';
-                            }
+                    //         // detect custom permissions (no separator)
+                    //         if (str_starts_with($perm->name, 'toggle_')) {
+                    //             return 'Custom Permissions';
+                    //         }
 
-                            // detect widgets (common naming convention: "View:Something")
-                            if (str_starts_with($perm->name, 'View:')) {
-                                return 'Widgets';
-                            }
+                    //         // detect widgets (common naming convention: "View:Something")
+                    //         if (str_starts_with($perm->name, 'View:')) {
+                    //             return 'Widgets';
+                    //         }
 
-                            return 'Misc';
-                        });
+                    //         return 'Misc';
+                    //     });
 
-                        return $permissions->map(function ($group, $key) {
-                            return Section::make(ucfirst($key))
-                                ->schema([
-                                    CheckboxList::make("permissions_{$key}")
-                                        ->label("Manage {$key}")
-                                        ->options($group->pluck('name', 'id'))
-                                        ->columns(3)
-                                        ->bulkToggleable()
-                                        ->default(fn ($record) =>
-                                            $record->permissions()->pluck('id')->toArray()
-                                        ),
-                                ])
-                                ->collapsible()
-                                ->collapsed();
-                        })->values()->toArray();
-                    })
+                    //     return $permissions->map(function ($group, $key) {
+                            
+                    //         return Section::make(ucfirst($key))
+                    //             ->schema([
+                    //                 CheckboxList::make("permissions_{$key}")
+                    //                     ->label('Manage Permissions')
+                    //                     ->options($group->pluck('name', 'id'))
+                    //                     ->columns(3)
+                    //                     ->bulkToggleable()
+                    //                     ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
+                    //                 // CheckboxList::make("permissions_{$key}")
+                    //                 //     ->label("Manage {$key}")
+                    //                 //     ->options($group->pluck('name', 'id'))
+                    //                 //     ->columns(3)
+                    //                 //     ->bulkToggleable()
+                    //                 //     ->default(fn ($record) =>
+                    //                 //         $record->permissions()->pluck('id')->toArray()
+                    //                 //     ),
+                    //             ])
+                    //             ->collapsible()
+                    //             ->collapsed();
+                    //     })->values()->toArray();
+                    // })
                     ->visible(fn () => auth()->user()?->can('toggle_user_permissions'))
                     ->action(function (array $data, $record) {
                         if (! auth()->user()->can('toggle_user_permissions')) {
@@ -308,7 +315,7 @@ class UsersTable
                         }
 
                         $permissions = collect($data)
-                            ->filter(fn ($value, $key) => str_starts_with($key, 'permissions_')) // check the key, not the value
+                            ->filter(fn ($value, $key) => str_starts_with($key, 'permissions_'))
                             ->flatten()
                             ->filter()
                             ->toArray();

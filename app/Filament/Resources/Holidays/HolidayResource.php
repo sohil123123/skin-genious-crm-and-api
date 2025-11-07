@@ -106,7 +106,7 @@ class HolidayResource extends Resource
 
     public static function validateLeaveLimit(array $data): void
     {
-        $userId = $data['user_id'] ?? auth()->id();
+        $userId = $data['user_id'] ?? null;
         $leaveType = $data['type']?->value ?? null;
         $startDate = $data['start_date'] ?? null;
         $endDate = $data['end_date'] ?? null;

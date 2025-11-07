@@ -32,9 +32,9 @@ class AssessmentsRelationManager extends RelationManager
         return $table
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
-            ->recordTitleAttribute('holiday')
+            ->recordTitleAttribute('assessment')
             ->columns([
-                TextColumn::make('parent_id')->label('Parent Assessment ID')->numeric()->placeholder('Parent')->sortable(),
+                // TextColumn::make('parent_id')->label('Parent Assessment ID')->numeric()->placeholder('Parent')->sortable(),
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
@@ -58,10 +58,7 @@ class AssessmentsRelationManager extends RelationManager
                 TextColumn::make('selected_plan_type')->badge(),
                 TextColumn::make('total_time')->searchable(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

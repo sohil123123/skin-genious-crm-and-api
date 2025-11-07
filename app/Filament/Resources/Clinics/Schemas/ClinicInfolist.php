@@ -112,13 +112,13 @@ class ClinicInfolist
                     ->schema([
                         TextEntry::make('created_at')
                             ->label('Created At')
-                            ->dateTime('Y-m-d H:i:s'),
+                            ->dateTime('d M Y, h:i A'),
                         TextEntry::make('updated_at')
                             ->label('Updated At')
-                            ->dateTime('Y-m-d H:i:s'),
+                            ->dateTime('d M Y, h:i A'),
                         TextEntry::make('deleted_at')
                             ->label('Deleted At')
-                            ->dateTime('Y-m-d H:i:s')
+                            ->dateTime('d M Y, h:i A')
                             ->placeholder('Not deleted'),
                     ])
                     ->columns(3)

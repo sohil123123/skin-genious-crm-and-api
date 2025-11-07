@@ -37,7 +37,7 @@ class AssessmentsTable
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('parent_id')->label('Parent Assessment ID')->numeric()->placeholder('Parent')->sortable(),
+                // TextColumn::make('parent_id')->label('Parent Assessment ID')->numeric()->placeholder('Parent')->sortable(),
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
@@ -62,26 +62,23 @@ class AssessmentsTable
                 TextColumn::make('selected_plan_type')->badge(),
                 TextColumn::make('total_time')->searchable(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('d M Y, h:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TrashedFilter::make(),
-                SelectFilter::make('parent_id')
-                    ->label('Parent Assessment')
-                    ->relationship(
-                        name: 'parentAssessment',
-                        titleAttribute: 'id',
-                        modifyQueryUsing: fn ($query) => $query->whereNull('parent_id')
-                    )
-                    ->searchable()
-                    ->preload(),
+                // SelectFilter::make('parent_id')
+                //     ->label('Parent Assessment')
+                //     ->relationship(
+                //         name: 'parentAssessment',
+                //         titleAttribute: 'id',
+                //         modifyQueryUsing: fn ($query) => $query->whereNull('parent_id')
+                //     )
+                //     ->searchable()
+                //     ->preload(),
 
                 SelectFilter::make('status')
                     ->options([
@@ -174,11 +171,11 @@ class AssessmentsTable
                     ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
             ])
             ->groups([
-                Group::make('parent_id')
-                    ->label('Assessment')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->parent_id ?? 'no_assessment')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->parentAssessment?->id ?? 'Parent'),
+                // Group::make('parent_id')
+                //     ->label('Assessment')
+                //     ->collapsible()
+                //     ->getKeyFromRecordUsing(fn ($record) => $record->parent_id ?? 'no_assessment')
+                //     ->getTitleFromRecordUsing(fn ($record) => $record->parentAssessment?->id ?? 'Parent'),
                 Group::make('user.first_name')
                     ->label('User')
                     ->collapsible(),

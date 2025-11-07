@@ -31,10 +31,12 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Enums\FiltersLayout;
+use Filament\Schemas\Components\Tabs\Tab;
 
 use Filament\Actions\Action;
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use Filament\Actions\ViewAction;
+use App\Filament\Resources\Holidays\HolidayResource;
 
 use App\Models\User;
 use App\Models\Holiday;
@@ -52,10 +54,60 @@ class HolidaysRelationManager extends RelationManager
 {
     protected static string $relationship = 'holidays';
 
-    // public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    protected function mutateHolidayData(array $data): array
+    {   
+        $data['user_id'] = $this->getOwnerRecord()->id ?? null;
+        HolidayResource::validateLeaveLimit($data);
+        return $data;
+    }
+
+    // public function getDefaultActiveTab(): string | int | null
     // {
-    //     return $ownerRecord->hasRole('therapist');
+    //     return 'pending'; // Default selected tab
     // }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All')
+                ->icon(Heroicon::CalendarDays)
+                ->badge(fn () => $this->ownerRecord->holidays()->count())
+                ->badgeColor('gray'),
+
+            'pending' => Tab::make('Pending')
+                ->icon(Heroicon::Clock)
+                ->badge(fn () => $this->ownerRecord->holidays()
+                    ->where('status', HolidayStatus::Pending->value)
+                    ->count()
+                )
+                ->badgeColor('info')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', HolidayStatus::Pending->value)
+                ),
+
+            'approved' => Tab::make('Approved')
+                ->icon(Heroicon::CheckCircle)
+                ->badge(fn () => $this->ownerRecord->holidays()
+                    ->where('status', HolidayStatus::Approved->value)
+                    ->count()
+                )
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', HolidayStatus::Approved->value)
+                ),
+
+            'rejected' => Tab::make('Rejected')
+                ->icon(Heroicon::XCircle)
+                ->badge(fn () => $this->ownerRecord->holidays()
+                    ->where('status', HolidayStatus::Rejected->value)
+                    ->count()
+                )
+                ->badgeColor('danger')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', HolidayStatus::Rejected->value)
+                ),
+        ];
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -104,27 +156,27 @@ class HolidaysRelationManager extends RelationManager
                             ]),
                             // ->collapsible(),
                     ])
-                    ->afterStateUpdated(function ($state, $set, $get, $operation) {
-                            // Custom validation hook for limits (runs on create/edit)
-                            if ($operation === 'create' || $operation === 'edit') {
-                                $userId = $get('user_id');
-                                $type = $get('type');
-                                $startDate = $get('start_date');
-                                $endDate = $get('end_date');
+                    // ->afterStateUpdated(function ($state, $set, $get, $operation) {
+                    //         // Custom validation hook for limits (runs on create/edit)
+                    //         if ($operation === 'create' || $operation === 'edit') {
+                    //             $userId = $get('user_id');
+                    //             $type = $get('type');
+                    //             $startDate = $get('start_date');
+                    //             $endDate = $get('end_date');
 
-                                if ($userId && $type && $startDate && $endDate) {
-                                    $user = User::find($userId);
-                                    $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
-                                    $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
+                    //             if ($userId && $type && $startDate && $endDate) {
+                    //                 $user = User::find($userId);
+                    //                 $days = (new \DateTime($endDate))->diff(new \DateTime($startDate))->days + 1;
+                    //                 $remaining = $user->remainingLeaveDays($type, date('Y', strtotime($startDate)));
 
-                                    if ($days > $remaining) {
-                                        throw ValidationException::withMessages([
-                                            'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
-                                        ]);
-                                    }
-                                }
-                            }
-                        })
+                    //                 if ($days > $remaining) {
+                    //                     throw ValidationException::withMessages([
+                    //                         'type' => "User has only {$remaining} days remaining for {$type} leave this year.",
+                    //                     ]);
+                    //                 }
+                    //             }
+                    //         }
+                    //     })
                     ->columnSpan(['lg' => fn (?Holiday $record) => $record === null ? 3 : 2]),
 
                 Section::make()
@@ -176,23 +228,20 @@ class HolidaysRelationManager extends RelationManager
                     ->label('Approver')
                     ->placeholder('-')
                     ->badge()
-                    ->icon(Heroicon::User)
+                    ->icon('heroicon-o-user')
                     ->iconColor('success')
                     ->color('success')
                     ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
                     ->toggleable(),
                 TextColumn::make('reason')->limit(50)->searchable()->toggleable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-             ->filters([
+            ->filters([
                 // 1) ✅ Quick checkboxes (single filter with a CheckboxList)
                 Filter::make('quick')
                     ->label('Quick Filters')
@@ -353,11 +402,23 @@ class HolidaysRelationManager extends RelationManager
                     ->icon('heroicon-o-funnel')
             )
             ->headerActions([
-                CreateAction::make(),
+                // CreateAction::make(),
                 // AssociateAction::make(),
+
+                CreateAction::make()
+                    ->mutateFormDataUsing(fn(array $data) => $this->mutateHolidayData($data)),
+                    // ->using(function (array $data, RelationManager $livewire): Model {
+                    //     return $livewire->getOwnerRecord()->holidays()->create($data);
+                    // }),
             ])
             ->recordActions([
-                EditAction::make(),
+                // EditAction::make(),
+                EditAction::make()
+                    ->mutateFormDataUsing(fn(array $data) => $this->mutateHolidayData($data)),
+                    // ->using(function (Model $record, array $data): Model {
+                    //     $record->update($data);
+                    //     return $record;
+                    // }),
                 // DissociateAction::make(),
                 DeleteAction::make(),
                 Action::make('approve')
