@@ -9,6 +9,8 @@ use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Actions\Action;
 
+use App\Models\Role;
+
 use Filament\Notifications\Notification;
 
 class EditUser extends EditRecord
@@ -16,6 +18,16 @@ class EditUser extends EditRecord
     protected static string $resource = UserResource::class;
 
     protected array $oldRoles = [];
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $user = $this->record;
+
+        $role = $user->roles()->first();
+        $data['role_id'] = $role?->id;
+
+        return $data;
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
@@ -30,6 +42,11 @@ class EditUser extends EditRecord
 
         if(in_array('therapist', $newRoles) && !in_array('therapist', $this->oldRoles)) {
             $this->record->createDefaultLeaveEntitlementsIfTherapist();
+        }
+
+        if ($this->record && $this->data['role_id']) {
+            $role = Role::find($this->data['role_id']);
+            $this->record->syncRoles([$role->name]);
         }
     }
 

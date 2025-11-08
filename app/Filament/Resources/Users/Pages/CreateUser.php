@@ -11,6 +11,8 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
+use App\Models\Role;
+
 use App\Filament\Resources\Users\Schemas\UserForm;
 
 class CreateUser extends CreateRecord
@@ -25,6 +27,11 @@ class CreateUser extends CreateRecord
 
         if ($user->hasRole('therapist')) {
             $user->createDefaultLeaveEntitlementsIfTherapist();
+        }
+
+        if ($this->record && $this->data['role_id']) {
+            $role = Role::find($this->data['role_id']);
+            $this->record->syncRoles([$role->name]);
         }
     }
 

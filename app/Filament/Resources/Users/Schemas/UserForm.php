@@ -215,17 +215,60 @@ class UserForm
                             ->icon('heroicon-o-shield-check')
                             ->schema([
                                 Grid::make(2)->schema([
-                                    Select::make('roles')
-                                        ->relationship('roles', 'name')
-                                        ->multiple()
+                                    // Select::make('roles')
+                                    //     ->relationship('roles', 'name')
+                                    //     ->multiple()
+                                    //     ->preload()
+                                    //     // ->searchable()
+                                    //     ->required()
+                                    //     ->live()
+                                    //     ->afterStateUpdated(function ($set, ?array $state) {
+                                    //         if (!empty($state)) {
+                                    //             $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
+                                    //             if (!(in_array('clinic_manager', $selectedRoles) || in_array('client', $selectedRoles) || in_array('therapist', $selectedRoles))) {
+                                    //                 $set('clinic_id', null);
+                                    //             }
+                                    //         } else {
+                                    //             $set('clinic_id', null);
+                                    //         }
+                                    //     }),
+                                    // Select::make('roles')
+                                    //     ->relationship('roles', 'name')
+                                    //     // ->multiple()
+                                    //     ->preload()
+                                    //     // ->searchable()
+                                    //     ->required()
+                                    //     ->live()
+                                    //     ->afterStateUpdated(function ($set, ?int $state) {
+                                    //         // if ($state && in_array('super_admin', Role::whereIn('id', [$state])->pluck('name')->toArray())) {
+                                    //         //     $set('clinic_id', null);
+                                    //         // } else {
+                                    //         //     $set('clinic_id', null);
+                                    //         // }
+                                    //         if ($state) {
+                                    //             // dump($state);
+                                    //             $selectedRole = Role::findOrFail($state);
+                                    //             $selectedRoleName = $selectedRole->name;
+                                    //             // dd($selectedRoleName);
+                                    //             if ($selectedRoleName == 'super_admin') {
+                                    //                 $set('clinic_id', null);
+                                    //             }
+                                    //         } else {
+                                    //             $set('clinic_id', null);
+                                    //         }
+                                    //     }),
+
+                                    Select::make('role_id')
+                                        ->label('Role')
+                                        ->options(Role::pluck('name', 'id'))
                                         ->preload()
-                                        // ->searchable()
+                                        ->searchable()
                                         ->required()
                                         ->live()
-                                        ->afterStateUpdated(function ($set, ?array $state) {
-                                            if (!empty($state)) {
-                                                $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
-                                                if (!(in_array('clinic_manager', $selectedRoles) || in_array('client', $selectedRoles) || in_array('therapist', $selectedRoles))) {
+                                        ->afterStateUpdated(function ($set, ?int $state) {
+                                            if ($state) {
+                                                $selectedRole = Role::find($state);
+                                                if ($selectedRole?->name === 'super_admin') {
                                                     $set('clinic_id', null);
                                                 }
                                             } else {
@@ -240,8 +283,8 @@ class UserForm
                                         ->preload()
                                         ->placeholder('Select a clinic')
                                         ->native(false)
-                                        ->visible(fn ($get) => has_clinic_related_role($get('roles')))
-                                        ->required(fn ($get) => has_clinic_related_role($get('roles')))
+                                        ->visible(fn ($get) => has_clinic_related_role($get('role_id')))
+                                        ->required(fn ($get) => has_clinic_related_role($get('role_id')))
 
                                 ]),
                                 Select::make('permissions')
@@ -266,19 +309,19 @@ class UserForm
                         Section::make('Medical Background')
                             ->icon('heroicon-o-heart')
                             ->schema(static::getMedicalBackgroundComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Skin Profile')
                             ->icon('heroicon-o-face-smile')
                             ->schema(static::getSkinProfileComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Aesthetic Goals')
                             ->icon('heroicon-o-sparkles')
                             ->schema(static::getAestheticGoalsComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('roles')))
+                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Account Settings')
@@ -286,7 +329,7 @@ class UserForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     Select::make('how_did_you_hear')
-                                        ->visible(fn ($get) => has_user_related_role($get('roles')))
+                                        ->visible(fn ($get) => has_user_related_role($get('role_id')))
                                         ->options([
                                             'Skin Genius' => 'Skin genius',
                                             'Social Media' => 'Social media',
@@ -298,7 +341,7 @@ class UserForm
                                         ]),
 
                                     ToggleButtons::make('opt_for_loyalty')
-                                        ->visible(fn ($get) => has_user_related_role($get('roles')))
+                                        ->visible(fn ($get) => has_user_related_role($get('role_id')))
                                         ->inline()
                                         ->label('Opted for Loyalty Program?')
                                         ->default(false)

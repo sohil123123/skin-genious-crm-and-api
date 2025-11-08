@@ -18,23 +18,51 @@ if (!function_exists('remove_empty_value')) {
 
 // ---------------------------------- Filament Functions ------------------------------
 
-if (!function_exists('has_clinic_related_role')) {
-    function has_clinic_related_role(?array $roleIds): bool
-    {
-        $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
+// if (!function_exists('has_clinic_related_role')) {
+//     function has_clinic_related_role(?array $roleIds): bool
+//     {
+//         $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
 
-        return in_array('clinic_manager', $roles)
-            || in_array('client', $roles)
-            || in_array('therapist', $roles);
+//         return in_array('clinic_manager', $roles)
+//             || in_array('client', $roles)
+//             || in_array('therapist', $roles);
+//     }
+// }
+
+if (!function_exists('has_clinic_related_role')) {
+    function has_clinic_related_role(?int $roleId): bool
+    {
+        // $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
+        $selectedRole = Role::find($roleId);
+        if($selectedRole)
+            $selectedRoleName = $selectedRole->name;
+        else
+            $selectedRoleName = null;
+        
+        return in_array($selectedRoleName, ['clinic_manager', 'client', 'therapist']);
+        
     }
 }
 
-if (!function_exists('has_user_related_role')) {
-    function has_user_related_role(?array $roleIds): bool
-    {
-        $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
+// if (!function_exists('has_user_related_role')) {
+//     function has_user_related_role(?array $roleIds): bool
+//     {
+//         $roles = Role::whereIn('id', $roleIds ?? [])->pluck('name')->toArray();
 
-        return in_array('client', $roles);
+//         return in_array('client', $roles);
+//     }
+// }
+
+if (!function_exists('has_user_related_role')) {
+    function has_user_related_role(?int $roleId): bool
+    {
+        $selectedRole = Role::find($roleId);
+        if($selectedRole)
+            $selectedRoleName = $selectedRole->name;
+        else
+            $selectedRoleName = null;
+
+        return $selectedRoleName == 'client';
     }
 }
 
