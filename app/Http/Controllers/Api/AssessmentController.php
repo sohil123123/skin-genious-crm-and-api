@@ -117,6 +117,13 @@ class AssessmentController extends BaseApiController
         return $this->success('Image deleted successfully');
     }
 
+    public function deleteAllImage(Assessment $assessment)
+    {
+        $assessment->clearMediaCollection('assessment_images');
+
+        return $this->success('All Image deleted successfully');
+    }
+
     public function getInProgressAssessment(Request $request, $user_id){
         $yesterday = Carbon::yesterday();
         $assessment = $this->model->whereBetween('created_at', [$yesterday, now()])
