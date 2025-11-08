@@ -79,6 +79,14 @@ class AssessmentController extends BaseApiController
                        });
         }
 
+        // Upload multiple images to the 'post_assessment_images' collection
+        if ($request->hasFile('post_images')) {
+            $assessment->addMultipleMediaFromRequest(['post_images'])
+                       ->each(function ($fileAdder) {
+                           $fileAdder->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
+                       });
+        }
+
         // Wrap in resource for clean, formatted API output
         $resource = new AssessmentResource($assessment);
 
@@ -90,13 +98,23 @@ class AssessmentController extends BaseApiController
         // Validate the request (adjust as needed)
         $request->validate([
             'images' => 'required|array|min:1',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:5120', // Each image: max 2MB
+            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:5120',
+            'assessment_type' => 'required|in:pre,post'
         ]);
 
-        $assessment->addMultipleMediaFromRequest(['images'])
-                    ->each(function ($fileAdder) {
-                        $fileAdder->toMediaCollection('assessment_images', 'user_assessment_images');
-                    });
+        if($request->assessment_type == 'pre'){
+            $assessment->addMultipleMediaFromRequest(['images'])
+                        ->each(function ($fileAdder) {
+                            $fileAdder->toMediaCollection('assessment_images', 'user_assessment_images');
+                        });
+        }else{
+            if ($request->hasFile('images')) {
+                $assessment->addMultipleMediaFromRequest(['images'])
+                        ->each(function ($fileAdder) {
+                            $fileAdder->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
+                        });
+            }
+        }
 
         // Wrap in resource for clean, formatted API output
         $resource = new AssessmentResource($assessment);
@@ -104,9 +122,11 @@ class AssessmentController extends BaseApiController
         return $this->success('Assessment user images added successfully', $resource);
     }
 
-    public function deleteImage(Assessment $assessment, $mediaId)
+    public function deleteImage(Assessment $assessment, $mediaId, $assessment_type)
     {
-        $mediaItem = $assessment->getMedia('assessment_images')->where('id', $mediaId)->first();
+        $collection_name = $assessment_type == 'pre' ? 'assessment_images' : 'post_assessment_images';
+
+        $mediaItem = $assessment->getMedia($collection_name)->where('id', $mediaId)->first();
 
         if (!$mediaItem) {
             return $this->error('Not Found Error.', ['Image not found'], HTTP_NOT_FOUND);
@@ -117,9 +137,11 @@ class AssessmentController extends BaseApiController
         return $this->success('Image deleted successfully');
     }
 
-    public function deleteAllImage(Assessment $assessment)
+    public function deleteAllImage(Assessment $assessment, $assessment_type)
     {
-        $assessment->clearMediaCollection('assessment_images');
+        $collection_name = $assessment_type == 'pre' ? 'assessment_images' : 'post_assessment_images';
+
+        $assessment->clearMediaCollection($collection_name);
 
         return $this->success('All Image deleted successfully');
     }

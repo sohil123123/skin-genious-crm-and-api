@@ -22,8 +22,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Assessment CRUD Route
         Route::get('/assessments/get-in-progress-assessment/{user_id}', 'AssessmentController@getInProgressAssessment');
-        Route::delete('/assessments/{assessment}/images', 'AssessmentController@deleteAllImage');
-        Route::delete('/assessments/{assessment}/images/{media}', 'AssessmentController@deleteImage');
+        Route::delete('/assessments/{assessment}/images/{assessment_type}', 'AssessmentController@deleteAllImage');
+        Route::delete('/assessments/{assessment}/images/{media}/{assessment_type}', 'AssessmentController@deleteImage');
         Route::post('/assessments/{assessment}/images', 'AssessmentController@storeImage');
         Route::apiResource('assessments', 'AssessmentController');
 

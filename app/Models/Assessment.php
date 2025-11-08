@@ -60,11 +60,25 @@ class Assessment extends Model implements HasMedia
         });
     }
 
-    protected $appends = ['images', 'recommended_total_time', 'recommended_treatments_list'];
+    protected $appends = ['images', 'post_images', 'recommended_total_time', 'recommended_treatments_list'];
 
     public function getImagesAttribute()
     {
         return $this->getMedia('assessment_images')->map(function (Media $media) {
+            return [
+                'id' => $media->id,
+                'url' => $media->getUrl(),
+                // 'thumb_url' => $media->getUrl('thumb'), // If conversions are defined
+                'name' => $media->name,
+                // 'mime_type' => $media->mime_type,
+                // 'size' => $media->size,
+            ];
+        });
+    }
+
+    public function getPostImagesAttribute()
+    {
+        return $this->getMedia('post_assessment_images')->map(function (Media $media) {
             return [
                 'id' => $media->id,
                 'url' => $media->getUrl(),
