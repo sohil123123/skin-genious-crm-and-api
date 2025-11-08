@@ -44,6 +44,13 @@ class AssessmentResource extends BaseResource
                     'name' => $media->name,
                 ];
             })->toArray(),
+            'post_images' => $this->getMedia('post_assessment_images')->map(function (Media $media) {
+                return [
+                    'id' => $media->id,
+                    'url' => $media->getUrl(),
+                    'name' => $media->name,
+                ];
+            })->toArray(),
             'user' => new UserResource($this->whenLoaded('user')),
             'createdBy' => new UserResource($this->whenLoaded('createdBy')),
             'parentAssessment' => new AssessmentResource($this->whenLoaded('parentAssessment')),

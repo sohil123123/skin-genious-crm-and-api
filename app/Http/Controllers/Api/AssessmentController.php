@@ -44,17 +44,17 @@ class AssessmentController extends BaseApiController
         // Create the assessment record
         $update_input = $request->validated();
         unset($update_input['treatment_plans']);
-        $update_input['total_time'] = $request->treatment_plans['treatment_plan']['total_time'] ?? NULL;
+        $update_input['total_time'] = $request->treatment_plans['treatment_plans']['total_time'] ?? NULL;
 
         if($request->has('selected_plan_type') && $request->selected_plan_type == 'single'){
             $update_input['recommended_full_plan'] = !empty($request->treatment_plans['recommended_full_plan']) ? $request->treatment_plans['recommended_full_plan'] : NULL;
         }
 
         $assessment->update($update_input);
-
+        \Log::info($request->all());
         // Create treatment planes record
-        if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plan']['treatments'])){
-            foreach ($request->treatment_plans['treatment_plan']['treatments'] as $key => $treatment) {
+        if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plans']['treatments'])){
+            foreach ($request->treatment_plans['treatment_plans']['treatments'] as $key => $treatment) {
                 if($assessment->selected_plan_type == 'single' && $key > 0) continue;
                 $assessment->treatmentSessions()->updateOrCreate(
                     ['assessment_id' => $assessment->id, 'session_number' => $treatment['session_number']],
