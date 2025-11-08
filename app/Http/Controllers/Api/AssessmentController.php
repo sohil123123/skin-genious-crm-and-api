@@ -90,7 +90,7 @@ class AssessmentController extends BaseApiController
         // Validate the request (adjust as needed)
         $request->validate([
             'images' => 'required|array|min:1',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
+            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:5120', // Each image: max 2MB
         ]);
 
         $assessment->addMultipleMediaFromRequest(['images'])
