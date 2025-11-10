@@ -23,3 +23,12 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+<IfModule mod_headers.c>
+    # Allow Quasar frontend to load images from storage
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+        Header set Access-Control-Allow-Origin "http://localhost:9000"
+        Header set Access-Control-Allow-Methods "GET, OPTIONS"
+        Header set Access-Control-Allow-Headers "Origin"
+    </FilesMatch>
+</IfModule>
