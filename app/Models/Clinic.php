@@ -78,6 +78,16 @@ class Clinic extends Model
         return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));
     }
 
+    public function therapists()
+    {
+        return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'));
+    }
+
+    public function clients()
+    {
+        return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'client'));
+    }
+
     /**
      * Scope a query to only include active clinics.
      *

@@ -155,11 +155,11 @@ class AdminPanelProvider extends PanelProvider
             ]);
     }
 
-    public function boot(): void
-    {
-        FilamentAsset::register([
-            Css::make('custom-styles', Vite::asset('resources/css/custom.css')),
-            // Js::make('awin-hotfix', resource_path('js/awin-hotfix.js')),
-        ]);
-    }
+    // public function boot(): void
+    // {
+    //     FilamentAsset::register([
+    //         Css::make('custom-styles', Vite::asset('resources/css/custom.css')),
+    //         // Js::make('awin-hotfix', resource_path('js/awin-hotfix.js')),
+    //     ]);
+    // }
 }

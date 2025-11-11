@@ -94,9 +94,19 @@ class ClinicsTable
                             ->modalCancelActionLabel('Close')
                     ),
                 TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable(),
-                BadgeColumn::make('users_count')
-                    ->label('Users')
-                    ->counts('users')
+                BadgeColumn::make('therapists_count')
+                    ->label('Therapists')
+                    ->counts('therapists')
+                    ->icon('heroicon-o-user-group')
+                    ->iconPosition('before')
+                    ->color(fn ($state) => match (true) {
+                        $state >= 50 => 'success',
+                        $state >= 20 => 'warning',
+                        default      => 'danger',
+                    }),
+                BadgeColumn::make('clients_count')
+                    ->label('Clients')
+                    ->counts('clients')
                     ->icon('heroicon-o-user-group')
                     ->iconPosition('before')
                     ->color(fn ($state) => match (true) {
