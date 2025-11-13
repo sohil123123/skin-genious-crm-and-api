@@ -93,7 +93,7 @@ class ClinicsTable
                             ->modalSubmitAction(false)
                             ->modalCancelActionLabel('Close')
                     ),
-                TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable(),
+                TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable()->placeholder('Not Assigned'),
                 BadgeColumn::make('therapists_count')
                     ->label('Therapists')
                     ->counts('therapists')

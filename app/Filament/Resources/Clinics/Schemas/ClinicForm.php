@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Grid;
 use Illuminate\Http\UploadedFile;
+use Filament\Forms\Components\RichEditor;
 
 use App\Models\Clinic;
 
@@ -43,15 +44,15 @@ class ClinicForm
                                     //     fn (UploadedFile $file): string =>
                                     //         'photo_' . time() . '_' . $file->getClientOriginalName()
                                     // )
-                                Grid::make(2)->schema([
+                                Grid::make(1)->schema([
                                     TextInput::make('name')->required()->maxLength(255)->placeholder('Enter clinic name'),
-                                    Select::make('manager_id')
-                                        ->relationship('managers', 'first_name')
-                                        ->searchable()
-                                        ->preload()
-                                        ->placeholder('Select clinic manager'),
+                                    // Select::make('manager_id')
+                                    //     ->relationship('managers', 'first_name')
+                                    //     ->searchable()
+                                    //     ->preload()
+                                    //     ->placeholder('Select clinic manager'),
                                 ]),
-                                Textarea::make('description')->rows(4)->placeholder('Describe the clinic services and specialties'),
+                                RichEditor::make('description')->columnSpan('full')->placeholder('Describe the clinic services and specialties'),
 
                             ])
                             ->collapsible(),

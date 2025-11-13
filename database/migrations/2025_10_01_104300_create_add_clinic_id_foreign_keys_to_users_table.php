@@ -14,10 +14,6 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->foreign('clinic_id')->references('id')->on('clinics')->nullOnDelete()->cascadeOnUpdate();
         });
-
-        Schema::table('clinics', function (Blueprint $table) {
-            $table->foreign('manager_id')->references('id')->on('users')->nullOnDelete()->cascadeOnUpdate();
-        });
     }
 
     /**
@@ -27,10 +23,6 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->dropForeign(['clinic_id']);
-        });
-
-        Schema::table('clinics', function (Blueprint $table) {
-            $table->dropForeign(['manager_id']);
         });
     }
 };

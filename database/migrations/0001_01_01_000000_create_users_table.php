@@ -103,8 +103,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true)->comment('Whether user account is active (true/false)');
 
             // Timestamps
-            $table->timestamps();
             $table->softDeletes()->comment('Soft delete timestamp for user account deletion');
+            $table->timestamps();
 
             // Indexes for better performance
             $table->index('mobile');

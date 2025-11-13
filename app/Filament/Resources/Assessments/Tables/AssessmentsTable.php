@@ -114,7 +114,7 @@ class AssessmentsTable
                                             if (!$clinicId) {
                                                 return [];
                                             }
-                                            return User::whereHas('roles', fn ($q) => $q->where('name', 'user'))
+                                            return User::whereHas('roles', fn ($q) => $q->where('name', 'client'))
                                                     ->where('clinic_id', $clinicId)
                                                     ->get()
                                                     ->mapWithKeys(fn ($u) => [$u->id => $u->name]);

@@ -44,6 +44,7 @@ class ClinicInfolist
                             ->label('Description')
                             ->html()
                             ->placeholder('N/A')
+                            ->columnSpan('full')
                     ])
                     ->columns(3)
                     ->collapsible(),

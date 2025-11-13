@@ -34,6 +34,8 @@ class Clinic extends Model
         'email',
         'website',
         'description',
+        'start_time',
+        'end_time',
         'is_active',
     ];
 
@@ -57,26 +59,20 @@ class Clinic extends Model
         ];
     }
 
-    /**
-     * Get the manager of the clinic.
-     */
     public function manager()
     {
-        return $this->belongsTo(User::class, 'manager_id');
+        return $this->hasOne(User::class);
     }
 
-    /**
-     * Get the users assigned to the clinic.
-     */
     public function users()
     {
         return $this->hasMany(User::class);
     }
 
-    public function managers()
-    {
-        return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));
-    }
+    // public function managers()
+    // {
+    //     return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));
+    // }
 
     public function therapists()
     {

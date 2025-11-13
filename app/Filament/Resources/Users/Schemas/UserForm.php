@@ -23,7 +23,8 @@ use Filament\Support\Icons\Heroicon;
 
 use App\Models\User;
 use App\Models\Role;
-use Filament\Forms\Get;
+
+use Closure;
 
 class UserForm
 {
@@ -215,49 +216,6 @@ class UserForm
                             ->icon('heroicon-o-shield-check')
                             ->schema([
                                 Grid::make(2)->schema([
-                                    // Select::make('roles')
-                                    //     ->relationship('roles', 'name')
-                                    //     ->multiple()
-                                    //     ->preload()
-                                    //     // ->searchable()
-                                    //     ->required()
-                                    //     ->live()
-                                    //     ->afterStateUpdated(function ($set, ?array $state) {
-                                    //         if (!empty($state)) {
-                                    //             $selectedRoles = Role::whereIn('id', $state)->pluck('name')->toArray();
-                                    //             if (!(in_array('clinic_manager', $selectedRoles) || in_array('client', $selectedRoles) || in_array('therapist', $selectedRoles))) {
-                                    //                 $set('clinic_id', null);
-                                    //             }
-                                    //         } else {
-                                    //             $set('clinic_id', null);
-                                    //         }
-                                    //     }),
-                                    // Select::make('roles')
-                                    //     ->relationship('roles', 'name')
-                                    //     // ->multiple()
-                                    //     ->preload()
-                                    //     // ->searchable()
-                                    //     ->required()
-                                    //     ->live()
-                                    //     ->afterStateUpdated(function ($set, ?int $state) {
-                                    //         // if ($state && in_array('super_admin', Role::whereIn('id', [$state])->pluck('name')->toArray())) {
-                                    //         //     $set('clinic_id', null);
-                                    //         // } else {
-                                    //         //     $set('clinic_id', null);
-                                    //         // }
-                                    //         if ($state) {
-                                    //             // dump($state);
-                                    //             $selectedRole = Role::findOrFail($state);
-                                    //             $selectedRoleName = $selectedRole->name;
-                                    //             // dd($selectedRoleName);
-                                    //             if ($selectedRoleName == 'super_admin') {
-                                    //                 $set('clinic_id', null);
-                                    //             }
-                                    //         } else {
-                                    //             $set('clinic_id', null);
-                                    //         }
-                                    //     }),
-
                                     Select::make('role_id')
                                         ->label('Role')
                                         ->options(Role::pluck('name', 'id'))
@@ -283,8 +241,38 @@ class UserForm
                                         ->preload()
                                         ->placeholder('Select a clinic')
                                         ->native(false)
+                                        ->reactive()
                                         ->visible(fn ($get) => has_clinic_related_role($get('role_id')))
                                         ->required(fn ($get) => has_clinic_related_role($get('role_id')))
+                                        ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                            $livewire->validateOnly('clinic_id');
+                                        })
+                                        ->rules([
+                                            fn ($get, ?User $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                                if (!$value)
+                                                    return;
+
+                                                $selectedRoleId = $get('role_id');
+                                                if (!$selectedRoleId)
+                                                    return;
+
+                                                $selectedRole = Role::find($selectedRoleId);
+
+                                                // Validate only if role is clinic_manager
+                                                if (!$selectedRole || $selectedRole->name !== 'clinic_manager')
+                                                    return;
+                                                
+                                                // Check if ANY user at this clinic has clinic_manager role
+                                                $exists = User::where('clinic_id', $value)
+                                                    ->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))
+                                                    ->when($record, fn($q) => $q->where('id', '!=', $record->id))
+                                                    ->exists();
+
+                                                if ($exists) {
+                                                    $fail('This clinic already has a Clinic Manager assigned.');
+                                                }
+                                            }
+                                        ])
 
                                 ]),
                                 Select::make('permissions')
