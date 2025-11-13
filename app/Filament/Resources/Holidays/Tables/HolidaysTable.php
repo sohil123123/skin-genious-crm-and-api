@@ -83,11 +83,11 @@ class HolidaysTable
                     ->toggleable(),
                 TextColumn::make('reason')->limit(50)->searchable()->toggleable(),
                 TextColumn::make('created_at')
-                    ->dateTime()
+                    ->dateTime('d M Y, h:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('d M Y, h:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -337,6 +337,7 @@ class HolidaysTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->emptyStateDescription('Once you create your first holiday, it will appear here.');;
     }
 }

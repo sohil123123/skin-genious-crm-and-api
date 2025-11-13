@@ -102,10 +102,9 @@ class UserResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        /** @var class-string<Model> $modelClass */
         $modelClass = static::$model;
 
-        return (string) $modelClass::whereMonth('created_at', now()->month)->count();
+        return (string) $modelClass::whereMonth('created_at', now()->month)->role('client')->count();
         // return static::getModel()::count();
     }
 

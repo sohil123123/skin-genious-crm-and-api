@@ -105,7 +105,11 @@ class User extends Authenticatable
 
     public function getNameAttribute(): string
     {
-        return trim($this->first_name . ' ' . ($this->last_name ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
+        return trim(ucfirst($this->first_name) . ' ' . (ucfirst($this->last_name) ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
+    }
+
+    public function scopeActive($query) {
+        return $query->where('is_active', 1);
     }
 
     // -------------- Relationships ----------------------

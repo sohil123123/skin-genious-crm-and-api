@@ -24,6 +24,12 @@ use App\Filament\Pages\Auth\Login;
 use Resma\FilamentAwinTheme\FilamentAwinTheme;
 use Andreia\FilamentNordTheme\FilamentNordThemePlugin;
 
+// use Filament\View\PanelsRenderHook;
+// use Illuminate\Contracts\View\View;
+
+use App\Livewire\Topbar\UserInfo;
+use Filament\Topbar\TopbarItem;
+
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
@@ -39,6 +45,9 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Profile;
 
 use Filament\Navigation\MenuItem;
+use Filament\View\PanelsRenderHook;
+
+use Illuminate\Support\Facades\Auth;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -63,14 +72,14 @@ class AdminPanelProvider extends PanelProvider
             // ->brandName('Filament Demo')
             // ->brandLogo(asset('images/skin_care_logo.jpg'))
             // ->brandLogoHeight('6rem')
-            ->userMenuItems([
-                // 'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
-                // 'logout' => fn (Action $action) => $action->label('Log out'),
-                'profile' => MenuItem::make()
-                    ->label('My Profile')
-                    ->icon('heroicon-o-user-circle')
-                    ->url(fn (): string => route('filament.admin.pages.profile')),
-            ])
+            // ->userMenuItems([
+            //     // 'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
+            //     // 'logout' => fn (Action $action) => $action->label('Log out'),
+            //     'profile' => MenuItem::make()
+            //         ->label('My Profile')
+            //         ->icon('heroicon-o-user-circle')
+            //         ->url(fn (): string => route('filament.admin.pages.profile')),
+            // ])
             ->colors([
                 'dark-danger' => [
                     700 => 'oklch(0.514 0.222 16.935)',
@@ -143,6 +152,51 @@ class AdminPanelProvider extends PanelProvider
                 FilamentNordThemePlugin::make()
             ])
             ->databaseNotifications()
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                function (): string {
+                    $user = Auth::user();
+
+                    if (! $user) {
+                        return '';
+                    }
+
+                    // Adjust this according to how you store roles
+                    $role = method_exists($user, 'roles')
+                        ? $user->roles()->pluck('name')->first()
+                        : '';
+
+                    $name = e($user->name);
+                    $roleText = ucwords(str_replace('_', ' ', e($role ?? '')));
+
+                    return <<<HTML
+                        <div class="cb-topbar-center"
+                            style="
+                                position: absolute;
+                                left: 50%;
+                                top: 50%;
+                                transform: translate(-50%, -50%);
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: #111827;
+                                pointer-events: none;
+                            "
+                        >
+                            {$name}
+                            <span style="font-size: 13px; color: #6b7280; font-weight: 400;">
+                                ({$roleText})
+                            </span>
+                        </div>
+                        <style>
+                            @media (max-width: 1024px) {
+                                .cb-topbar-center {
+                                    display: none;
+                                }
+                            }
+                        </style>
+                    HTML;
+                }
+            )
             ->navigationGroups([
                 // NavigationGroup::make()
                 //     ->label('Auth Management')
