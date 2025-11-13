@@ -76,19 +76,6 @@ class AppointmentForm
                 // ->columnSpan(['lg' => 3]),
                 // ->columnSpanFull(),
         ];
-        // return [
-        //     Grid::make()
-        //         ->schema([
-        //         ToggleButtons::make('type')
-        //             ->inline()
-        //             ->options(AppointmentType::class)
-        //             ->default('treatment')
-        //             ->live()
-        //             ->required()
-        //             ->extraAttributes(['class' => 'flex flex-col items-center space-y-2']),
-        //             // ->columnSpanFull(),
-        //         ]),
-        // ];
     }
 
     public static function getClientAndTherapistComponents()

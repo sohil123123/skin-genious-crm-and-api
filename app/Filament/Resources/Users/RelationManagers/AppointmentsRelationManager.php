@@ -1,47 +1,274 @@
 <?php
 
-namespace App\Filament\Resources\Appointments\Tables;
+namespace App\Filament\Resources\Users\RelationManagers;
+
+use Filament\Resources\RelationManagers\RelationManager;
 
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\RestoreAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Table;
-use Filament\Schemas\Schema;
-use Filament\Tables\Grouping\Group;
-use Filament\Actions\Action;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\Hidden;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Group as FromGroup;
+use Filament\Tables\Grouping\Group;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Filters\Indicator;
-use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\ToggleButtons;
-use Filament\Forms\Components\Select;
-use Filament\Notifications\Notification;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Actions\Action;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
-// use App\Enums\AppointmentStatus;
-// use App\Enums\AppointmentType;
+use App\Filament\Resources\Appointments\AppointmentResource;
 
 use App\Models\TreatmentSession;
-use App\Models\User;
 use App\Models\Assessment;
+use App\Models\User;
+use App\Models\Holiday;
 
 use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 
-class AppointmentsTable
+use App\Enums\AppointmentStatus;
+use App\Enums\AppointmentType;
+use App\Rules\AppointmentAvailability;
+
+class AppointmentsRelationManager extends RelationManager
 {
-    public static function configure(Table $table): Table
+    protected static string $relationship = 'appointments';
+
+    // public function getDefaultActiveTab(): string | int | null
+    // {
+    //     return 'pending'; // Default selected tab
+    // }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All')
+                ->icon('heroicon-o-calendar-days')
+                ->badge(fn () => $this->ownerRecord->appointments()->count())
+                ->badgeColor('gray'),
+
+            'scheduled' => Tab::make('Scheduled')
+                ->icon('heroicon-o-clock')
+                ->badge(fn () => $this->ownerRecord->appointments()
+                    ->where('status', AppointmentStatus::Scheduled->value)
+                    ->count()
+                )
+                ->badgeColor('gray')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', AppointmentStatus::Scheduled->value)
+                ),
+
+            'confirmed' => Tab::make('Confirmed')
+                ->icon('heroicon-o-check-circle')
+                ->badge(fn () => $this->ownerRecord->appointments()
+                    ->where('status', AppointmentStatus::Confirmed->value)
+                    ->count()
+                )
+                ->badgeColor('info')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', AppointmentStatus::Confirmed->value)
+                ),
+
+            'in_progress' => Tab::make('In Progress')
+                ->icon('heroicon-o-arrow-path')
+                ->badge(fn () => $this->ownerRecord->appointments()
+                    ->where('status', AppointmentStatus::InProgress->value)
+                    ->count()
+                )
+                ->badgeColor('warning')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', AppointmentStatus::InProgress->value)
+                ),
+
+            'completed' => Tab::make('Completed')
+                ->icon('heroicon-o-check-badge')
+                ->query(fn (Builder $query) => $applyRoleScope($query)->where('status', 'completed'))
+                ->badge(fn () => $this->ownerRecord->appointments()
+                    ->where('status', AppointmentStatus::Completed->value)
+                    ->count()
+                )
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', AppointmentStatus::Completed->value)
+                ),
+
+            'cancelled' => Tab::make('Cancelled')
+                ->icon('heroicon-o-x-circle')
+                ->badge(fn () => $this->ownerRecord->appointments()
+                    ->where('status', AppointmentStatus::Cancelled->value)
+                    ->count()
+                )
+                ->badgeColor('danger')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->where('status', AppointmentStatus::Cancelled->value)
+                ),
+        ];
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                FromGroup::make()
+                    ->schema([
+                        Section::make('Appointment Type')
+                            ->schema([
+                                ToggleButtons::make('type')
+                                    ->inline()
+                                    ->options(AppointmentType::class)
+                                    ->default('treatment')
+                                    ->live()
+                                    ->required(),
+                            ])
+                            ->columns(2),
+
+                        Section::make('Choose Client, Therapist and Date')
+                            ->schema([
+                                Hidden::make('clinic_id')->default($this->getOwnerRecord()->clinic_id),
+
+                                Select::make('therapist_id')
+                                    ->label('Therapist')
+                                    ->options(function (callable $get) {
+                                        $clinicId = $this->getOwnerRecord()->clinic_id;
+                                        return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                    })
+                                    ->searchable()
+                                    ->required()
+                                    ->placeholder('Select Therapist')
+                                    ->afterStateUpdated(fn ($state, callable $set) => $set('appointment_datetime', null))
+                                    ->live(),
+
+                                Select::make('assessment_id')
+                                    ->label('Assessment')
+                                    ->options(fn (callable $get) =>
+                                        Assessment::where('user_id', $this->getOwnerRecord()->id)->pluck('id', 'id')
+                                    )
+                                    ->visible(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->required(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->placeholder('Select Assessment'),
+
+                                Select::make('treatment_session_id')
+                                    ->label('Treatment Session')
+                                    ->options(fn (callable $get) =>
+                                        $get('assessment_id')
+                                            ? TreatmentSession::where('assessment_id', $get('assessment_id'))
+                                                ->pluck('name', 'id')
+                                            : []
+                                    )
+                                    ->visible(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->required(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->placeholder('Select Treatment Session'),
+
+                                DateTimePicker::make('appointment_datetime')
+                                    ->label('Appointment Date & Time')
+                                    ->native(false)
+                                    ->placeholder('Select Appointment Date & Time')
+                                    ->minDate(Carbon::today())
+                                    ->displayFormat('M d, Y h:i A')  // 12-hour AM/PM
+                                    ->format('Y-m-d h:i A')
+                                    ->minutesStep(5)
+                                    ->closeOnDateSelection(false)
+                                    ->reactive()
+                                    ->afterStateHydrated(function (callable $set, $record) {
+                                        if ($record && $record->therapist_id) {
+                                            $set('therapist_id', $record->therapist_id);
+                                        }
+                                    })
+                                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                        $livewire->validateOnly('appointment_datetime'); // ✅ triggers instant revalidation
+                                    })
+                                    ->disabledDates(function (callable $get) {
+                                        $therapistId = $get('therapist_id');
+                                        $type = $get('type')->value;
+                                        if (!$therapistId || $type == 'consult') {
+                                            return [];
+                                        }
+
+                                        $holidays = Holiday::where('user_id', $therapistId)
+                                            // ->where('status', 'approved')
+                                            ->get(['start_date', 'end_date']);
+
+                                        return $holidays->flatMap(function ($holiday) {
+                                            $dates = [];
+                                            $start = Carbon::parse($holiday->start_date);
+                                            $end = Carbon::parse($holiday->end_date);
+
+                                            while ($start->lte($end)) {
+                                                $dates[] = $start->toDateString();
+                                                $start->addDay();
+                                            }
+
+                                            return $dates;
+                                        })->toArray();
+                                    })
+                                    ->required()
+                                    ->rules([
+                                        fn (callable $get, $record) => new AppointmentAvailability(
+                                            therapistId: $get('therapist_id'),
+                                            clinicId: $get('clinic_id'),
+                                            start: Carbon::parse($get('appointment_datetime')),
+                                            end: Carbon::parse($get('appointment_datetime')),
+                                            excludeId: $record?->id,
+                                        ),
+                                    ])
+                                    ->allowHtmlValidationMessages(),
+
+                                // STEP 4: STATUS
+                                ToggleButtons::make('status')
+                                    ->inline()
+                                    ->options(AppointmentStatus::class)
+                                    ->default('confirmed')
+                                    ->required()
+                                    ->columnSpanFull(),
+                                    // ->columnSpan(['lg' => fn ($record) => $record === null ? 3 : 2]),
+
+                                // STEP 5: NOTES
+                                Textarea::make('notes')
+                                    ->placeholder('Enter notes here...')
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2),
+                    ])
+                    ->columnSpan(['lg' => fn ($record) => $record === null ? 3 : 2]),
+
+                Section::make()
+                    ->schema([
+                        TextEntry::make('created_at')
+                            ->label('Appointment created')
+                            ->state(fn ($record): ?string => $record->created_at?->diffForHumans()),
+
+                        TextEntry::make('updated_at')
+                            ->label('Last modified')
+                            ->state(fn ($record): ?string => $record->updated_at?->diffForHumans()),
+                    ])
+                    ->columnSpan(['lg' => 1])
+                    ->hidden(fn ($record) => $record === null),
+            ])
+            ->columns(3);
+    }
+
+    public function table(Table $table): Table
     {
         return $table
             ->deferLoading()
@@ -126,8 +353,6 @@ class AppointmentsTable
                                                 'cancelled' => 'Cancelled',
                                             ])
                                             ->placeholder('All Statuses'),
-
-                                        
                                     ]),
                             ])
                             ->columns(1)
@@ -221,21 +446,21 @@ class AppointmentsTable
                             ->schema([
                                 Grid::make(2) // 2-column layout for compact design
                                     ->schema([
-                                    DatePicker::make('from')
-                                        ->label('From Date')
-                                        ->minDate(Carbon::today())
-                                        ->maxDate(fn ($get) => $get('to'))
-                                        ->closeOnDateSelection()
-                                        ->native(false)
-                                        ->placeholder('From Date')
-                                        ->reactive(),
-                                    DatePicker::make('to')
-                                        ->label('To Date')
-                                        ->minDate(fn ($get) => $get('from') ?? Carbon::today())
-                                        ->closeOnDateSelection()
-                                        ->native(false)
-                                        ->placeholder('To Date')
-                                        ->reactive(),
+                                        DatePicker::make('from')
+                                            ->label('From Date')
+                                            ->minDate(Carbon::today())
+                                            ->maxDate(fn ($get) => $get('to'))
+                                            ->closeOnDateSelection()
+                                            ->native(false)
+                                            ->placeholder('From Date')
+                                            ->reactive(),
+                                        DatePicker::make('to')
+                                            ->label('To Date')
+                                            ->minDate(fn ($get) => $get('from') ?? Carbon::today())
+                                            ->closeOnDateSelection()
+                                            ->native(false)
+                                            ->placeholder('To Date')
+                                            ->reactive(),
                                     ])
                             ])
                             ->columns(1)
@@ -270,39 +495,11 @@ class AppointmentsTable
                             ->schema([
                                 Grid::make(3) // 2-column grid for better space utilization
                                     ->schema([
-                                        // Clinic
-                                        Select::make('clinic_id')
-                                            ->label('Clinic')
-                                            ->relationship('clinic', 'name')
-                                            ->searchable()
-                                            ->preload()
-                                            ->placeholder('Select clinic')
-                                            ->native(false)
-                                            ->live() // Triggers reactive updates on dependents
-                                            ->visible(fn () => auth()->user()->hasRole('super_admin')),
-
-                                        // Client
-                                        Select::make('client_id')
-                                            ->label('Client')
-                                            ->options(function (callable $get) {
-                                                $clinicId = $get('clinic_id');
-                                                if (!$clinicId)
-                                                    $clinicId = auth()->user()->clinic_id;
-                                                
-                                                return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
-                                            })
-                                            ->reactive()
-                                            ->searchable()
-                                            ->placeholder('Select Client'),
-
                                         // Therapist (depends on clinic)
                                         Select::make('therapist_id')
                                             ->label('Therapist')
                                             ->options(function (callable $get) {
-                                                $clinicId = $get('clinic_id');
-                                                if (!$clinicId)
-                                                    $clinicId = auth()->user()->clinic_id;
-                                                
+                                                $clinicId = $this->getOwnerRecord()->clinic_id;
                                                 return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                                             })
                                             ->reactive()
@@ -316,10 +513,7 @@ class AppointmentsTable
                                         Select::make('assessment_id')
                                             ->label('Assessment')
                                             ->options(function (callable $get) {
-                                                $clientId = $get('client_id');
-                                                if (!$clientId)
-                                                    $clinicId = auth()->user()->clinic_id;
-                                                
+                                                $clientId = $this->getOwnerRecord()->id;
                                                 return Assessment::where('user_id', $clientId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->id]);
                                             })
                                             ->searchable()
@@ -346,27 +540,11 @@ class AppointmentsTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
-                            ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
-                            ->when($data['client_id'] ?? null, fn ($q, $id) => $q->where('client_id', $id))
                             ->when($data['therapist_id'] ?? null, fn ($q, $id) => $q->where('therapist_id', $id))
                             ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
-
-                        if ($data['clinic_id'] ?? null) {
-                            $clinic = Clinic::find($data['clinic_id']);
-                            if ($clinic) {
-                                $indicators[] = Indicator::make('Clinic: ' . $clinic->name)->removeField('clinic_id');
-                            }
-                        }
-
-                        if ($data['client_id'] ?? null) {
-                            $user = User::find($data['client_id']);
-                            if ($user) {
-                                $indicators[] = Indicator::make('Client: ' . $user->name)->removeField('client_id');
-                            }
-                        }
 
                         if ($data['therapist_id'] ?? null) {
                             $user = User::find($data['therapist_id']);
@@ -387,33 +565,18 @@ class AppointmentsTable
             ],layout: FiltersLayout::Modal)
             ->filtersFormColumns(2) // Reduced to 2 for better readability in modal; adjust as needed
             ->filtersFormWidth('md:max-w-4xl')
-
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
+            ->headerActions([
+                CreateAction::make()->icon('heroicon-o-plus'),
+            ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make()
-                    ->successNotification(function ($record) {
-                        return Notification::make()
-                            ->title('Appointment Deleted 🎉')
-                            ->body("The User **{$record->user->name}** appointment has been removed successfully.")
-                            ->success();
-                    }),
-                RestoreAction::make()
+                DeleteAction::make(),
             ])
             ->groups([
-                Group::make('clinic_id')
-                    ->label('Clinic')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
-                Group::make('client_id')
-                    ->label('Client')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->client_id ?? 'no_client')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->client?->first_name ?? 'Unassigned'),
                 Group::make('therapist_id')
                     ->label('Therapist')
                     ->collapsible()

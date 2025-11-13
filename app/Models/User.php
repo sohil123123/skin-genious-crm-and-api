@@ -131,6 +131,10 @@ class User extends Authenticatable
         return $this->hasMany(UserLeaveEntitlement::class);
     }
 
+    public function appointments() {
+        return $this->hasMany(Appointment::class, 'client_id');
+    }
+
     // -------------- Custom Functions ----------------
     /**
      * Get remaining days for a leave type in the current year.

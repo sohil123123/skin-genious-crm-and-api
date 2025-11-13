@@ -8,6 +8,7 @@ use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Pages\ManageHolidays;
 use App\Filament\Resources\Users\Pages\ManageAssessments;
+use App\Filament\Resources\Users\Pages\ManageAppointments;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 
@@ -41,7 +42,7 @@ class UserResource extends Resource
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
-    protected static ?string $navigationBadgeTooltip = 'The number of users created this month';
+    protected static ?string $navigationBadgeTooltip = 'The number of clients created this month';
 
     protected static ?string $modelLabel = 'Clients And Staffs';
 
@@ -62,6 +63,7 @@ class UserResource extends Resource
             EditUser::class,
             ManageHolidays::class,
             ManageAssessments::class,
+            ManageAppointments::class,
         ]);
     }
 
@@ -82,6 +84,7 @@ class UserResource extends Resource
             'view' => ViewUser::route('/{record}'),
             'holidays' => ManageHolidays::route('/{record}/holidays'),
             'assessments' => ManageAssessments::route('/{record}/assessments'),
+            'appointments' => ManageAppointments::route('/{record}/appointments'),
         ];
     }
 

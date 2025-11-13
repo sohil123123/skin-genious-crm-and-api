@@ -72,14 +72,14 @@ class AdminPanelProvider extends PanelProvider
             // ->brandName('Filament Demo')
             // ->brandLogo(asset('images/skin_care_logo.jpg'))
             // ->brandLogoHeight('6rem')
-            // ->userMenuItems([
-            //     // 'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
-            //     // 'logout' => fn (Action $action) => $action->label('Log out'),
-            //     'profile' => MenuItem::make()
-            //         ->label('My Profile')
-            //         ->icon('heroicon-o-user-circle')
-            //         ->url(fn (): string => route('filament.admin.pages.profile')),
-            // ])
+            ->userMenuItems([
+                // 'profile' => fn (Action $action) => $action->label('Edit profile')->icon('heroicon-o-user'),
+                // 'logout' => fn (Action $action) => $action->label('Log out'),
+                'profile' => MenuItem::make()
+                    ->label('My Profile')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn (): string => route('filament.admin.pages.profile')),
+            ])
             ->colors([
                 'dark-danger' => [
                     700 => 'oklch(0.514 0.222 16.935)',
