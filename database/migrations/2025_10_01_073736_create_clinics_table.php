@@ -34,8 +34,9 @@ return new class extends Migration
             $table->time('start_time')->nullable()->default('08:00:00')->comment('Clinic opening time');
             $table->time('end_time')->nullable()->default('22:00:00')->comment('Clinic closing time');
             $table->boolean('is_active')->default(true)->comment('Whether user account is active (true/false)');
-            $table->timestamps();
+            
             $table->softDeletes()->comment('Soft delete timestamp for user account deletion');
+            $table->timestamps();
 
             // Indexes for better performance
             $table->index('name');

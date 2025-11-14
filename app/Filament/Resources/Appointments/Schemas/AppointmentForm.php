@@ -94,7 +94,7 @@ class AppointmentForm
                     ->live()
                 : Hidden::make('clinic_id')->default(auth()->user()->clinic_id),
 
-            Select::make('client_id')
+            Select::make('user_id')
                 ->label('Client')
                 ->options(function (callable $get) {
                     $clinicId = $get('clinic_id');

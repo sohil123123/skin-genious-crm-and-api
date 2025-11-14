@@ -32,6 +32,7 @@ use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 // use App\Enums\AppointmentStatus;
 // use App\Enums\AppointmentType;
 
+use App\Models\Clinic;
 use App\Models\TreatmentSession;
 use App\Models\User;
 use App\Models\Assessment;
@@ -282,7 +283,7 @@ class AppointmentsTable
                                             ->visible(fn () => auth()->user()->hasRole('super_admin')),
 
                                         // Client
-                                        Select::make('client_id')
+                                        Select::make('user_id')
                                             ->label('Client')
                                             ->options(function (callable $get) {
                                                 $clinicId = $get('clinic_id');
@@ -361,10 +362,10 @@ class AppointmentsTable
                             }
                         }
 
-                        if ($data['client_id'] ?? null) {
-                            $user = User::find($data['client_id']);
+                        if ($data['user_id'] ?? null) {
+                            $user = User::find($data['user_id']);
                             if ($user) {
-                                $indicators[] = Indicator::make('Client: ' . $user->name)->removeField('client_id');
+                                $indicators[] = Indicator::make('Client: ' . $user->name)->removeField('user_id');
                             }
                         }
 

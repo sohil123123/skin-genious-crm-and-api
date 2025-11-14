@@ -210,6 +210,14 @@ class UsersTable
                     ->tooltip('Manage Holidays')
                     ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
 
+                Action::make('appointment')
+                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-calendar-days')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Appointments')
+                    ->url(fn ($record) => route('filament.admin.resources.users.appointments', ['record' => $record])),
+
                 Action::make('assessment')
                     ->visible(fn ($record) => $record->hasRole('client'))
                     ->icon('heroicon-o-clipboard-document')

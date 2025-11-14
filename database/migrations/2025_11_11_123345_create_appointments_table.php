@@ -19,8 +19,14 @@ return new class extends Migration
                 ->comment('Type of appointment: consult or treatment');
 
             // Foreign key columns
-            $table->foreignId('client_id')
-                ->constrained('users', indexName: 'appointments_client_id_index')
+            $table->foreignId('clinic_id')
+                ->constrained('clinics', indexName: 'appointments_clinic_id_index')
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate()
+                ->comment('Clinic where the appointment takes place');
+
+            $table->foreignId('user_id')
+                ->constrained('users', indexName: 'appointments_user_id_index')
                 ->cascadeOnDelete()
                 ->cascadeOnUpdate()
                 ->comment('Client who booked the appointment');
@@ -30,12 +36,6 @@ return new class extends Migration
                 ->cascadeOnDelete()
                 ->cascadeOnUpdate()
                 ->comment('Therapist assigned to the appointment');
-
-            $table->foreignId('clinic_id')
-                ->constrained('clinics', indexName: 'appointments_clinic_id_index')
-                ->cascadeOnDelete()
-                ->cascadeOnUpdate()
-                ->comment('Clinic where the appointment takes place');
 
             $table->foreignId('assessment_id')
                 ->nullable()
@@ -50,6 +50,12 @@ return new class extends Migration
                 ->nullOnDelete()
                 ->cascadeOnUpdate()
                 ->comment('Linked treatment plan, if any');
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate()
+                ->comment('User who created the appointment');
 
             $table->dateTime('appointment_datetime')
                 ->index()

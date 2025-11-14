@@ -17,8 +17,8 @@ class Appointment extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'type', 'client_id', 'therapist_id', 'clinic_id', 'assessment_id',
-        'treatment_plan_id', 'parent_id', 'appointment_datetime',
+        'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
+        'treatment_plan_id', 'created_by', 'appointment_datetime',
         'status', 'products_used', 'resources_used', 'notes', 'billed_at',
     ];
 
@@ -30,6 +30,12 @@ class Appointment extends Model
         'type' => AppointmentType::class,
         'status' => AppointmentStatus::class,
     ];
+
+    protected static function booted() {
+        static::creating(function ($appointment) {
+            $appointment->created_by = auth()->user()->id;
+        });
+    }
 
     // Scopes for Filament (e.g., uninvoiced)
     public function scopeUninvoiced($query) { 
@@ -62,7 +68,7 @@ class Appointment extends Model
 
     //---------------------------- Relations --------------------------
     public function client(): BelongsTo { 
-        return $this->belongsTo(User::class, 'client_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function therapist(): BelongsTo { 
