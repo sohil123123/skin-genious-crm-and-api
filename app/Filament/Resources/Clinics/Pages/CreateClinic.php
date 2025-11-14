@@ -15,7 +15,7 @@ class CreateClinic extends CreateRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('back')->label('Back to List')->url(static::getResource()::getUrl('index'))->color('gray'),
+            Action::make('back')->label('Back to List')->icon('heroicon-o-arrow-left')->url(static::getResource()::getUrl('index'))->color('gray'),
         ];
     }
 

@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Clinics\Schemas;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
@@ -18,6 +18,7 @@ use Illuminate\Http\UploadedFile;
 use Filament\Forms\Components\RichEditor;
 
 use App\Models\Clinic;
+use Filament\Support\Icons\Heroicon;
 
 class ClinicForm
 {
@@ -31,19 +32,19 @@ class ClinicForm
                             // ->description('Location and mapping information.')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
-                                FileUpload::make('logo')
-                                    ->image()
-                                    ->disk('public')
-                                    ->directory('clinic-logos')
-                                    ->maxSize(10240)
-                                    ->preserveFilenames()
-                                    ->imageEditor()
-                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
-                                    ->placeholder('Upload clinic logo'),
-                                    // ->getUploadedFileNameForStorageUsing(
-                                    //     fn (UploadedFile $file): string =>
-                                    //         'photo_' . time() . '_' . $file->getClientOriginalName()
-                                    // )
+                                // FileUpload::make('logo')
+                                //     ->image()
+                                //     ->disk('public')
+                                //     ->directory('clinic-logos')
+                                //     ->maxSize(10240)
+                                //     ->preserveFilenames()
+                                //     ->imageEditor()
+                                //     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+                                //     ->placeholder('Upload clinic logo'),
+                                //     // ->getUploadedFileNameForStorageUsing(
+                                //     //     fn (UploadedFile $file): string =>
+                                //     //         'photo_' . time() . '_' . $file->getClientOriginalName()
+                                //     // )
                                 Grid::make(1)->schema([
                                     TextInput::make('name')->required()->maxLength(255)->placeholder('Enter clinic name'),
                                     // Select::make('manager_id')
@@ -52,8 +53,26 @@ class ClinicForm
                                     //     ->preload()
                                     //     ->placeholder('Select clinic manager'),
                                 ]),
-                                RichEditor::make('description')->columnSpan('full')->placeholder('Describe the clinic services and specialties'),
+                                Grid::make(3)->schema([
+                                    TimePicker::make('start_time')
+                                        ->prefixIcon(Heroicon::Clock)
+                                        ->prefixIconColor('success')
+                                        ->prefix('Start')
+                                        ->suffix('Time')
+                                        ->label('Opening Time')
+                                        ->default('08:00')
+                                        ->seconds(false),
 
+                                    TimePicker::make('end_time')
+                                        ->prefixIcon(Heroicon::Clock)
+                                        ->prefixIconColor('success')
+                                        ->prefix('End')
+                                        ->suffix('Time')
+                                        ->label('Closing Time')
+                                        ->default('22:00')
+                                        ->seconds(false),
+                                ]),
+                                // RichEditor::make('description')->columnSpan('full')->placeholder('Describe the clinic services and specialties'),
                             ])
                             ->collapsible(),
 
@@ -85,11 +104,11 @@ class ClinicForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     TextInput::make('gst_number')->required()->maxLength(15)->placeholder('Enter GST number'),
-                                    TextInput::make('first_sale_share')
-                                        ->numeric()
-                                        ->suffix('%')
-                                        ->default(0.00)
-                                        ->placeholder('First sale share percentage'),
+                                    // TextInput::make('first_sale_share')
+                                    //     ->numeric()
+                                    //     ->suffix('%')
+                                    //     ->default(0.00)
+                                    //     ->placeholder('First sale share percentage'),
                                     TextInput::make('sale_share')
                                         ->numeric()
                                         ->suffix('%')

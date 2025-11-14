@@ -78,22 +78,23 @@ class ClinicsTable
             ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->columns([
-                ImageColumn::make('logo')
-                    ->imageSize(80)
-                    ->label('Logo')
-                    ->disk('public')
-                    ->circular()
-                    ->defaultImageUrl(asset('images/clinic_plaseholder.png'))
-                    ->action(
-                        Action::make('viewPhoto')
-                            ->modalHeading('Photo Preview')
-                            ->modalContent(fn ($record) =>
-                                view('filament.photo-preview', ['photo' => $record->logo])
-                            )
-                            ->modalSubmitAction(false)
-                            ->modalCancelActionLabel('Close')
-                    ),
+                // ImageColumn::make('logo')
+                //     ->imageSize(80)
+                //     ->label('Logo')
+                //     ->disk('public')
+                //     ->circular()
+                //     ->defaultImageUrl(asset('images/clinic_plaseholder.png'))
+                //     ->action(
+                //         Action::make('viewPhoto')
+                //             ->modalHeading('Photo Preview')
+                //             ->modalContent(fn ($record) =>
+                //                 view('filament.photo-preview', ['photo' => $record->logo])
+                //             )
+                //             ->modalSubmitAction(false)
+                //             ->modalCancelActionLabel('Close')
+                //     ),
                 TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable()->placeholder('Not Assigned'),
+                TextColumn::make('name')->weight(FontWeight::Bold)->wrap()->searchable()->sortable(),
                 BadgeColumn::make('therapists_count')
                     ->label('Therapists')
                     ->counts('therapists')
@@ -114,24 +115,23 @@ class ClinicsTable
                         $state >= 20 => 'warning',
                         default      => 'danger',
                     }),
-                TextColumn::make('name')->weight(FontWeight::Bold)->searchable()->sortable(),
-                TextColumn::make('full_address')
-                    ->label('Address')
-                    ->searchable(['address_line1', 'address_line2', 'city', 'pincode'])
-                    ->toggleable()
-                    ->fontFamily(FontFamily::Mono)
-                    ->wrap(),
-                    // ->limit(35)
-                    // ->tooltip(function (TextColumn $column): ?string {
-                    //     $state = $column->getState();
-                    //     if (strlen($state) <= $column->getCharacterLimit()) {
-                    //         return null;
-                    //     }
-                    //     return $state;
-                    // }),
-                TextColumn::make('gst_number')->searchable()->sortable()->toggleable(),
-                TextColumn::make('first_sale_share')->numeric()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('sale_share')->numeric()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                
+                // TextColumn::make('full_address')
+                //     ->label('Address')
+                //     ->searchable(['address_line1', 'address_line2', 'city', 'pincode'])
+                //     ->toggleable()
+                //     ->fontFamily(FontFamily::Mono)
+                //     ->wrap(),
+                //     // ->limit(35)
+                //     // ->tooltip(function (TextColumn $column): ?string {
+                //     //     $state = $column->getState();
+                //     //     if (strlen($state) <= $column->getCharacterLimit()) {
+                //     //         return null;
+                //     //     }
+                //     //     return $state;
+                //     // }),
+                TextColumn::make('start_time')->time('h:i A')->sortable(),
+                TextColumn::make('end_time')->time('h:i A')->sortable(),
                 TextColumn::make('google_map_link')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->placeholder('-'),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable(isToggledHiddenByDefault: true),
@@ -139,6 +139,7 @@ class ClinicsTable
                 ToggleColumn::make('is_active')
                     ->label('Status')
                     ->onIcon('heroicon-o-bolt')
+                    ->onColor('success')
                     ->offIcon('heroicon-o-power')
                     ->offColor('dark-danger')
                     // ->visible(auth()->user()->can('toggle_clinic_status'))
@@ -147,14 +148,13 @@ class ClinicsTable
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update clinic status.')
-                                ->color('danger')
+                                // ->color('danger')
                                 ->danger()
                                 ->send();
 
                             // revert change
                             $record->is_active = ! $state;
                             $record->save();
-
                             return;
                         }
 
@@ -166,7 +166,7 @@ class ClinicsTable
                             ->title('Status Updated')
                             ->body("User status has been updated successfully.")
                             ->success()
-                            ->color('success')
+                            // ->color('success')
                             ->send();
                     }),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
