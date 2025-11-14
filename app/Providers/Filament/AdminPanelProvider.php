@@ -157,21 +157,29 @@ class AdminPanelProvider extends PanelProvider
                 function (): string {
                     $user = Auth::user();
 
-                    if (! $user) {
-                        return '';
-                    }
+                    if (! $user) return '';
 
                     // Adjust this according to how you store roles
-                    $role = method_exists($user, 'roles')
-                        ? $user->roles()->pluck('name')->first()
-                        : '';
+                    $role = $user->roles()->pluck('name')->first();
 
                     $name = e($user->name);
                     $roleText = ucwords(str_replace('_', ' ', e($role ?? '')));
+                    $clinic_name = !$user->hasRole('super_admin') ? $user->clinic->name : null;
 
                     return <<<HTML
-                        <div class="cb-topbar-center"
-                            style="
+                        <div class="cb-topbar-center">
+                            <div>
+                                {$name}
+                                <span style="font-size: 13px; color: #6b7280; font-weight: 400;">
+                                    ({$roleText})
+                                </span>
+                                <br>
+                                <span style="font-size: 13px; color: #6b7280; font-weight: 400;">$clinic_name</span>
+                            </div>
+                        </div>
+                        <style>
+                            .cb-topbar-center {
+                                text-align:center;
                                 position: absolute;
                                 left: 50%;
                                 top: 50%;
@@ -180,14 +188,7 @@ class AdminPanelProvider extends PanelProvider
                                 font-weight: 600;
                                 color: #111827;
                                 pointer-events: none;
-                            "
-                        >
-                            {$name}
-                            <span style="font-size: 13px; color: #6b7280; font-weight: 400;">
-                                ({$roleText})
-                            </span>
-                        </div>
-                        <style>
+                            }
                             @media (max-width: 1024px) {
                                 .cb-topbar-center {
                                     display: none;

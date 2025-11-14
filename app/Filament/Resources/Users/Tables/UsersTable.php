@@ -232,15 +232,15 @@ class UsersTable
                 RestoreAction::make()
                     ->successNotification(
                         Notification::make()
-                            ->title('User Restored 🎉')
-                            ->body('The selected users have been restored successfully.')
+                            ->title('Client Restored 🎉')
+                            ->body('The selected client have been restored successfully.')
                             ->success()
                     ),
                 DeleteAction::make()
                     ->successNotification(function ($record) {
                         return Notification::make()
-                            ->title('User Deleted 🎉')
-                            ->body("The User **{$record->name}** has been removed successfully.")
+                            ->title('Client Deleted 🎉')
+                            ->body("The client **{$record->name}** has been removed successfully.")
                             ->success();
                     }),
                 Action::make('permissions')

@@ -54,7 +54,7 @@ class AppointmentsTable
                     ->label('Clinic')
                     ->badge()
                     ->icon('heroicon-o-building-office')
-                    ->color('info')
+                    ->color('gray')
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
@@ -76,11 +76,11 @@ class AppointmentsTable
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name']),
                 TextColumn::make('assessment.id')->searchable()->placeholder('-'),
-                TextColumn::make('treatmentSession.title')->searchable()->placeholder('-'),
+                TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-'),
                 TextColumn::make('appointment_datetime')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
-                    ->color('info')
+                    ->color('warning')
                     ->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')

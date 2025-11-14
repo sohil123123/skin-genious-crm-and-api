@@ -69,8 +69,8 @@ class CreateUser extends CreateRecord
     protected function getCreatedNotification(): ?Notification
     {
         return Notification::make()
-            ->title('User added 🎉')
-            ->body('The user details have been successfully added.')
+            ->title('Client added 🎉')
+            ->body('The client details have been successfully added.')
             ->success();
     }
 

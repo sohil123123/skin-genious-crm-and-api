@@ -70,7 +70,7 @@ class Clinic extends Model
 
     public function manager()
     {
-        return $this->hasOne(User::class);
+        return $this->hasOne(User::class)->role('clinic_manager');
     }
 
     public function users()
