@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Clinics;
 use App\Filament\Resources\Clinics\Pages\CreateClinic;
 use App\Filament\Resources\Clinics\Pages\EditClinic;
 use App\Filament\Resources\Clinics\Pages\ListClinics;
+use App\Filament\Resources\Clinics\Pages\ViewClinic;
+use App\Filament\Resources\Clinics\Pages\ManageClients;
 use App\Filament\Resources\Clinics\Schemas\ClinicForm;
 use App\Filament\Resources\Clinics\Tables\ClinicsTable;
 use App\Models\Clinic;
@@ -13,8 +15,11 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Filament\Pages\Enums\SubNavigationPosition;
+use Filament\Resources\Pages\Page;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
+use App\Filament\Resources\Clinics\RelationManagers\ClientsRelationManager;
 
 class ClinicResource extends Resource
 {
@@ -23,6 +28,8 @@ class ClinicResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office';
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     public static function form(Schema $schema): Schema
     {
@@ -34,10 +41,19 @@ class ClinicResource extends Resource
         return ClinicsTable::configure($table);
     }
 
+    public static function getRecordSubNavigation(Page $page): array
+    {
+        return $page->generateNavigationItems([
+            ViewClinic::class,
+            EditClinic::class,
+            ManageClients::class,
+        ]);
+    }
+
     public static function getRelations(): array
     {
         return [
-            //
+            // ClientsRelationManager::class,
         ];
     }
 
@@ -47,6 +63,8 @@ class ClinicResource extends Resource
             'index' => ListClinics::route('/'),
             'create' => CreateClinic::route('/create'),
             'edit' => EditClinic::route('/{record}/edit'),
+            'view' => ViewClinic::route('/{record}'),
+            'clients' => ManageClients::route('/{record}/clients'),
         ];
     }
 

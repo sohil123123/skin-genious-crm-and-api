@@ -271,6 +271,9 @@ class AppointmentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                CreateAction::make()->label('New Appointment')->icon('heroicon-o-plus'),
+            ])
             ->deferLoading()
             ->recordUrl(null)
             ->defaultSort('appointment_datetime', 'asc')
@@ -568,9 +571,7 @@ class AppointmentsRelationManager extends RelationManager
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
-            ->headerActions([
-                CreateAction::make()->icon('heroicon-o-plus'),
-            ])
+            
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

@@ -70,7 +70,7 @@ class Clinic extends Model
 
     public function manager()
     {
-        return $this->hasOne(User::class)->role('clinic_manager');
+        return $this->hasOne(User::class)->role('clinic_manager')->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));;
     }
 
     public function users()
