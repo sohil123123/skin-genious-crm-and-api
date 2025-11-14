@@ -45,8 +45,10 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Group as FromGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Hidden;
+use Illuminate\Database\Eloquent\Model;
 
 use App\Models\User;
+use App\Models\Role;
 
 class ClientsRelationManager extends RelationManager
 {
@@ -54,9 +56,15 @@ class ClientsRelationManager extends RelationManager
 
     // protected static ?string $relatedResource = ClinicResource::class;
 
-    // protected function mutateFormDataBeforeCreate(array $data): array
-    // {
+    // protected function mutateClientData(array $data): array
+    // {   
+    //     $role = Role::find($data['role_id']);
+    //     $this->record->syncRoles([$role->name]);
+
     //     dd($data);
+    //     $data['user_id'] = $this->getOwnerRecord()->id ?? null;
+    //     HolidayResource::validateLeaveLimit($data);
+    //     return $data;
     // }
 
     public function form(Schema $schema): Schema
@@ -140,7 +148,32 @@ class ClientsRelationManager extends RelationManager
     {
         return $table
             ->headerActions([
-                CreateAction::make()->label('New Client')->icon('heroicon-o-plus'),
+                // CreateAction::make()->label('New Client')->icon('heroicon-o-plus')->mutateFormDataUsing(fn(array $data) => $this->mutateClientData($data)),
+                CreateAction::make()
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['clinic_id'] = $this->ownerRecord->id;
+
+                        return $data;
+                    })
+                    ->using(function (array $data, string $model): Model {
+                        // 🔹 Extract role_id from form data
+                        $roleId = $data['role_id'] ?? null;
+
+                        // 🔹 Don't try to save role_id into users table
+                        unset($data['role_id']);
+
+                        /** @var \App\Models\User $record */
+                        $record = $model::create($data);
+
+                        // 🔹 Sync roles AFTER user is created
+                        if ($roleId) {
+                            if ($role = Role::find($roleId)) {
+                                $record->syncRoles([$role]);
+                            }
+                        }
+
+                        return $record;
+                    }),
             ])
             ->deferLoading()
             ->recordUrl(null)
