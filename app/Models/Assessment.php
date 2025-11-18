@@ -62,7 +62,29 @@ class Assessment extends Model implements HasMedia
         });
     }
 
-    protected $appends = ['images', 'post_images', 'recommended_total_time', 'recommended_treatments_list'];
+    protected $appends = ['images', 'post_images',  'treatment_sessions'];
+
+    public function getTreatmentSessionsAttribute()
+    {
+        $sessions = $this->treatmentSessions()->orderBy('session_number')->get();
+        if($sessions->isEmpty())
+            return [];
+
+        return [
+            "total_time" => $this->total_time,
+            "treatments" => $sessions->map(function ($s) {
+                return [
+                    "session_number" => $s->session_number,
+                    "title" => $s->title,
+                    "treatment_time" => $s->treatment_time,
+                    "week" => $s->week,
+                    "preparations_checklist_for_therapist" => $s->preparations_checklist_for_therapist ?? [],
+                    "concerns_addressed" => $s->concerns_addressed ?? [],
+                    "steps" => $s->steps ?? []
+                ];
+            })
+        ];
+    }
 
     public function getImagesAttribute()
     {
@@ -84,27 +106,24 @@ class Assessment extends Model implements HasMedia
             return [
                 'id' => $media->id,
                 'url' => $media->getUrl(),
-                // 'thumb_url' => $media->getUrl('thumb'), // If conversions are defined
                 'name' => $media->name,
-                // 'mime_type' => $media->mime_type,
-                // 'size' => $media->size,
             ];
         });
     }
 
-    // 🧠 Virtual attribute for total_time
-    public function getRecommendedTotalTimeAttribute()
-    {
-        $plan = $this->recommended_full_plan ?? [];
-        return $plan['total_time'] ?? null;
-    }
+    // // 🧠 Virtual attribute for total_time
+    // public function getRecommendedTotalTimeAttribute()
+    // {
+    //     $plan = $this->recommended_full_plan ?? [];
+    //     return $plan['total_time'] ?? null;
+    // }
 
-    // 🧠 Virtual attribute for treatments
-    public function getRecommendedTreatmentsListAttribute()
-    {
-        $plan = $this->recommended_full_plan ?? [];
-        return $plan['treatments'] ?? [];
-    }
+    // // 🧠 Virtual attribute for treatments
+    // public function getRecommendedTreatmentsListAttribute()
+    // {
+    //     $plan = $this->recommended_full_plan ?? [];
+    //     return $plan['treatments'] ?? [];
+    // }
 
     // ---------------------------- Relationships --------------------------------
     /**
@@ -152,4 +171,5 @@ class Assessment extends Model implements HasMedia
     {
         return $this->hasMany(TreatmentSession::class);
     }
+
 }

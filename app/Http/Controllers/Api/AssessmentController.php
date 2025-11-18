@@ -51,7 +51,8 @@ class AssessmentController extends BaseApiController
         }
 
         $assessment->update($update_input);
-        \Log::info($request->all());
+        // dd($request->treatment_plans);
+        // \Log::info($request->all());
         // Create treatment planes record
         if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plans']['treatments'])){
             foreach ($request->treatment_plans['treatment_plans']['treatments'] as $key => $treatment) {

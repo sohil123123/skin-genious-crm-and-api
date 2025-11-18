@@ -54,8 +54,8 @@ class AssessmentResource extends BaseResource
             })->toArray(),
             'user' => new UserResource($this->whenLoaded('user')),
             'createdBy' => new UserResource($this->whenLoaded('createdBy')),
-            'parentAssessment' => new AssessmentResource($this->whenLoaded('parentAssessment')),
-            'children' => AssessmentResource::collection($this->whenLoaded('children')),
+            // 'parentAssessment' => new AssessmentResource($this->whenLoaded('parentAssessment')),
+            // 'children' => AssessmentResource::collection($this->whenLoaded('children')),
         ];
     }
 }
