@@ -19,6 +19,8 @@ class Assessment extends Model implements HasMedia
 
     protected $fillable = [
         'parent_id',
+        'conversation_id',
+        'assessment_id',
         'user_id',
         'clinic_id',
         'created_by',
@@ -144,7 +146,7 @@ class Assessment extends Model implements HasMedia
     {
         return $this->hasMany(self::class, 'parent_id');
     }
-    
+
 
     public function treatmentSessions()
     {
