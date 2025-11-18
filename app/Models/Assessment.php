@@ -18,6 +18,7 @@ class Assessment extends Model implements HasMedia
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
     protected $fillable = [
+        'conversation_id',
         'assessment_id',
         'user_id',
         'clinic_id',

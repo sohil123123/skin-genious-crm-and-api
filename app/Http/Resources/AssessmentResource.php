@@ -19,6 +19,7 @@ class AssessmentResource extends BaseResource
 
         return [
             'id' => $this->id,
+            'conversation_id' => $this->conversation_id,
             'assessment_id' => $this->assessment_id,
             'user_id' => $this->user_id,
             'clinic_id' => $this->clinic_id,
