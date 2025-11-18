@@ -25,6 +25,7 @@ class AssessmentRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'conversation_id' => 'nullable|string',
             'assessment_id' => 'sometimes|integer|exists:assessments,id',
             'user_id' => 'required|exists:users,id',
             'age' => 'nullable|integer|min:0|max:120',
