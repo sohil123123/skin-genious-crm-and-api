@@ -29,6 +29,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Treatment Plan CRUD Route
         Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
+
+        // INFO: Appointment CRUD Route
+        Route::apiResource('appointments', 'AppointmentController');
     });
 
 });

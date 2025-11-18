@@ -56,17 +56,6 @@ class ClientsRelationManager extends RelationManager
 
     // protected static ?string $relatedResource = ClinicResource::class;
 
-    // protected function mutateClientData(array $data): array
-    // {   
-    //     $role = Role::find($data['role_id']);
-    //     $this->record->syncRoles([$role->name]);
-
-    //     dd($data);
-    //     $data['user_id'] = $this->getOwnerRecord()->id ?? null;
-    //     HolidayResource::validateLeaveLimit($data);
-    //     return $data;
-    // }
-
     public function form(Schema $schema): Schema
     {
         return $schema

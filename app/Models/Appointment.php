@@ -79,6 +79,10 @@ class Appointment extends Model
         return $this->belongsTo(Clinic::class); 
     }
 
+    public function createdBy(): BelongsTo { 
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function assessment(): BelongsTo {
         return $this->belongsTo(Assessment::class); 
     }
