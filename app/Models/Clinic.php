@@ -60,6 +60,11 @@ class Clinic extends Model
         ];
     }
 
+    public function scopeActive($query)
+    {
+        $query->where('is_active', true);
+    }
+
     protected function name(): Attribute
     {
         return Attribute::make(
@@ -68,6 +73,18 @@ class Clinic extends Model
         );
     }
 
+    public function getFullAddressAttribute()
+    {
+        $address = $this->address_line1;
+        if ($this->address_line2) {
+            $address .= ', ' . $this->address_line2;
+        }
+        $address .= ', ' . $this->city . ' ' . $this->pincode;
+        return $address;
+    }
+
+
+    // --------------------- Relation -------------------
     public function manager()
     {
         return $this->hasOne(User::class)->role('clinic_manager')->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));;
@@ -78,11 +95,6 @@ class Clinic extends Model
         return $this->hasMany(User::class);
     }
 
-    // public function managers()
-    // {
-    //     return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'));
-    // }
-
     public function therapists()
     {
         return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'));
@@ -91,31 +103,5 @@ class Clinic extends Model
     public function clients()
     {
         return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'client'));
-    }
-
-    /**
-     * Scope a query to only include active clinics.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return void
-     */
-    public function scopeActive($query)
-    {
-        $query->where('is_active', true);
-    }
-
-    /**
-     * Get the full address as a string.
-     *
-     * @return string
-     */
-    public function getFullAddressAttribute()
-    {
-        $address = $this->address_line1;
-        if ($this->address_line2) {
-            $address .= ', ' . $this->address_line2;
-        }
-        $address .= ', ' . $this->city . ' ' . $this->pincode;
-        return $address;
     }
 }

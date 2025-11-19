@@ -42,6 +42,8 @@
         },
         "files": [
             "app/Helpers/Helper.php",
+            "app/Helpers/FilamentHelper.php",
+            "app/Helpers/QueryHelper.php",
             "app/Support/Constants.php"
         ]
     },

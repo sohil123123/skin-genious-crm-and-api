@@ -32,6 +32,10 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Appointment CRUD Route
         Route::apiResource('appointments', 'AppointmentController');
+
+        // INFO: Common Route
+        Route::get('get-clinics', 'CommonController@getClinics');
+        Route::get('get-users', 'CommonController@getUsers');
     });
 
 });

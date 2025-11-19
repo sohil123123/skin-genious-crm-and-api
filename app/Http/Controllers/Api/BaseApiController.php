@@ -60,7 +60,8 @@ abstract class BaseApiController extends Controller
         $query = $this->joinTable($query);
         $query = $this->selectColumns($query);
         $query = $this->searchByAll($query, $this->model);
-        $query = $this->addJoin($query);
+        // $query = $this->addJoin($query);
+        $query = addJoin($query, $request);
         $result = $this->resultType($query);
         return $this->handleIndexResponse($result);
         // return $this->success($this->crud_name.'s get successfully', $result);
@@ -70,7 +71,8 @@ abstract class BaseApiController extends Controller
     {
         $query = $this->addWhere($this->model);
 
-        $result =  $this->addJoin($query)->find($id);
+        // $result =  $this->addJoin($query)->find($id);
+        $result =  addJoin($query, $this->request)->find($id);
 
         if (!$result)
             return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
@@ -188,8 +190,8 @@ abstract class BaseApiController extends Controller
 
     public function status(Request $request, $id)
     {
-        $result = $this->addJoin($this->model)->find(Helper::decodeHashids($id))
-        ?? $this->addJoin($this->model)->find($id);
+        $result = addJoin($this->model, $request)->find(Helper::decodeHashids($id))
+        ?? addJoin($this->model, $request)->find($id);
 
         if (!$result)
             return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
@@ -591,88 +593,88 @@ abstract class BaseApiController extends Controller
     //     return $query;
     // }
 
-    protected function addJoin($query)
-    {
-        if ($this->request->has('trashed') && $this->request->trashed == true)
-            $query = $query->withTrashed();
-        elseif ($this->request->has('onlyTrashed') && $this->request->onlyTrashed == true)
-            $query = $query->onlyTrashed();
+    // protected function addJoin($query)
+    // {
+    //     if ($this->request->has('trashed') && $this->request->trashed == true)
+    //         $query = $query->withTrashed();
+    //     elseif ($this->request->has('onlyTrashed') && $this->request->onlyTrashed == true)
+    //         $query = $query->onlyTrashed();
 
-        if (!$this->request->has('joinWith')) return $query;
+    //     if (!$this->request->has('joinWith')) return $query;
 
-        $relations = explode(',', str_replace(' ', '', $this->request->joinWith));
+    //     $relations = explode(',', str_replace(' ', '', $this->request->joinWith));
 
-        foreach ($relations as $relation) {
-            $joins = explode('~', $relation);
+    //     foreach ($relations as $relation) {
+    //         $joins = explode('~', $relation);
 
-            if (count($joins) > 1) {
-                // Handle relation with filters
-                $filters = [];
-                $columns = [];
+    //         if (count($joins) > 1) {
+    //             // Handle relation with filters
+    //             $filters = [];
+    //             $columns = [];
 
-                $filterParts = explode('-', $joins[1]);
+    //             $filterParts = explode('-', $joins[1]);
 
-                foreach ($filterParts as $filter) {
-                    // Check if this part specifies columns (using @ symbol)
-                    if (strpos($filter, '@') === 0) {
-                        $columns = explode('|', substr($filter, 1));
-                        continue;
-                    }
+    //             foreach ($filterParts as $filter) {
+    //                 // Check if this part specifies columns (using @ symbol)
+    //                 if (strpos($filter, '@') === 0) {
+    //                     $columns = explode('|', substr($filter, 1));
+    //                     continue;
+    //                 }
 
-                    $parts = explode(':', $filter);
-                    $filters[] = [
-                        'column' => $parts[0],
-                        'value' => $parts[1]
-                    ];
-                }
+    //                 $parts = explode(':', $filter);
+    //                 $filters[] = [
+    //                     'column' => $parts[0],
+    //                     'value' => $parts[1]
+    //                 ];
+    //             }
 
-                $query = $query->with([
-                    $joins[0] => function ($q) use ($filters, $columns) {
-                        // Apply filters
-                        foreach ($filters as $filter) {
-                            $q->where($filter['column'], $filter['value']);
-                        }
+    //             $query = $query->with([
+    //                 $joins[0] => function ($q) use ($filters, $columns) {
+    //                     // Apply filters
+    //                     foreach ($filters as $filter) {
+    //                         $q->where($filter['column'], $filter['value']);
+    //                     }
 
-                        // Select specific columns if specified
-                        if (!empty($columns)) {
-                            $q->select(array_merge(['id'], $columns));
-                        }
-                    }
-                ]);
+    //                     // Select specific columns if specified
+    //                     if (!empty($columns)) {
+    //                         $q->select(array_merge(['id'], $columns));
+    //                     }
+    //                 }
+    //             ]);
 
-            } else {
-                // Handle simple relation with optional columns
-                $relationParts = explode('@', $joins[0]);
-                $relationName = $relationParts[0];
+    //         } else {
+    //             // Handle simple relation with optional columns
+    //             $relationParts = explode('@', $joins[0]);
+    //             $relationName = $relationParts[0];
 
-                if (count($relationParts) > 1) {
-                    // Relation with specific columns
-                    $columns = explode('|', $relationParts[1]);
+    //             if (count($relationParts) > 1) {
+    //                 // Relation with specific columns
+    //                 $columns = explode('|', $relationParts[1]);
 
-                    $query = $query->with([
-                        $relationName => function ($q) use ($columns) {
-                            $q->select(array_merge(['id'], $columns));
-                        }
-                    ]);
-                } else {
-                    // Regular relation
-                    $query = $query->with($relationName);
-                }
+    //                 $query = $query->with([
+    //                     $relationName => function ($q) use ($columns) {
+    //                         $q->select(array_merge(['id'], $columns));
+    //                     }
+    //                 ]);
+    //             } else {
+    //                 // Regular relation
+    //                 $query = $query->with($relationName);
+    //             }
 
-                if ($this->request->has('request_from') && $this->request->request_from === 'dropdown' && !$this->request->has('include_join') || $this->request->include_join != false) {
-                    $query = $query->has($relationName);
-                }
-            }
-        }
+    //             if ($this->request->has('request_from') && $this->request->request_from === 'dropdown' && !$this->request->has('include_join') || $this->request->include_join != false) {
+    //                 $query = $query->has($relationName);
+    //             }
+    //         }
+    //     }
 
-        if ($this->request->has('have_not_join'))
-            $query = $query->doesntHave($this->request->have_not_join);
+    //     if ($this->request->has('have_not_join'))
+    //         $query = $query->doesntHave($this->request->have_not_join);
 
-        if ($this->request->has('has_join'))
-            $query = $query->has($this->request->has_join);
+    //     if ($this->request->has('has_join'))
+    //         $query = $query->has($this->request->has_join);
 
-        return $query;
-    }
+    //     return $query;
+    // }
 
     // -------------------INFO: Add Join ------------------------
     protected function joinTable($query, $join = [])
