@@ -10,6 +10,8 @@ use App\Models\Role;
 
 use App\Http\Requests\UserRequest;
 
+use Helper;
+
 class UserController extends BaseApiController
 {
     public function __construct(User $model, Request $request)
@@ -29,7 +31,7 @@ class UserController extends BaseApiController
         $query = $this->joinTable($query);
         $query = $this->selectColumns($query);
         $query = $this->searchByAll($query, $this->model);
-        $query = $this->addJoin($query);
+        $query = addJoin($query, $request);
         $query = $this->resultType($query);
         return $this->success($this->crud_name.'s get successfully', $query);
     }
@@ -38,7 +40,7 @@ class UserController extends BaseApiController
     {
         $query = $this->model->role('client');
         $query = $this->addWhere($query);
-        $result = $this->addJoin($query)->find($id);
+        $result = addJoin($query, $this->request)->find($id);
 
         if (!$result)
             return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
