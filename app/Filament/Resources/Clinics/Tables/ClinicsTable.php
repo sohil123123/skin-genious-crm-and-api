@@ -187,6 +187,12 @@ class ClinicsTable
             ->filtersFormColumns(3)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
+                Action::make('clients')
+                    ->icon('heroicon-o-users')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Clients')
+                    ->url(fn ($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
                 ViewAction::make(),
                 EditAction::make(),
                 RestoreAction::make()

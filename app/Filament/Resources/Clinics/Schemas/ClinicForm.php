@@ -53,7 +53,7 @@ class ClinicForm
                                     //     ->preload()
                                     //     ->placeholder('Select clinic manager'),
                                 ]),
-                                Grid::make(3)->schema([
+                                Grid::make(2)->schema([
                                     TimePicker::make('start_time')
                                         ->prefixIcon(Heroicon::Clock)
                                         ->prefixIconColor('success')
