@@ -29,6 +29,8 @@ return new class extends Migration
             $table->json('concerns_addressed')->nullable()->comment('Skin concerns addressed in this treatment');
             $table->json('steps')->nullable()->comment('Detailed steps with ingredients, duration, and how-to instructions');
 
+            $table->enum('status', ['pending', 'scheduled', 'in_progress', 'completed', 'cancelled'])->default('pending')->comment('Current status of the treatment session');
+
             $table->timestamps();
 
             // Indexes for better query performance
