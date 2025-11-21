@@ -53,6 +53,7 @@ class AppointmentsTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
+                    ->visible(fn () => auth()->user()->hasRole('super_admin'))
                     ->icon('heroicon-o-building-office')
                     ->color('gray')
                     ->placeholder('Unassigned')

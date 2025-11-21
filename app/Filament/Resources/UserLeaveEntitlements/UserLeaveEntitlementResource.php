@@ -20,7 +20,7 @@ class UserLeaveEntitlementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
-    protected static ?string $recordTitleAttribute = 'UserLeaveEntitlement';
+    // protected static ?string $recordTitleAttribute = 'UserLeaveEntitlement';
 
     protected static ?int $navigationSort = 5;
 

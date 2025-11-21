@@ -139,6 +139,8 @@ class ClientsRelationManager extends RelationManager
             ->headerActions([
                 // CreateAction::make()->label('New Client')->icon('heroicon-o-plus')->mutateFormDataUsing(fn(array $data) => $this->mutateClientData($data)),
                 CreateAction::make()
+                    ->label('Add Client')
+                    ->icon('heroicon-o-plus')
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['clinic_id'] = $this->ownerRecord->id;
 
