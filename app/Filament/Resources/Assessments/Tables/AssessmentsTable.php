@@ -59,9 +59,54 @@ class AssessmentsTable
                     ->toggleable(),
                 TextColumn::make('user.name')->label('User Name')->searchable(['first_name', 'last_name']),
                 TextColumn::make('createdBy.name')->label('Created By')->searchable(['first_name', 'last_name']),
-                TextColumn::make('selected_plan_type')->badge(),
-                TextColumn::make('total_time')->searchable(),
-                TextColumn::make('status')->badge(),
+                TextColumn::make('selected_plan_type')
+                    ->badge()
+                    ->formatStateUsing(fn (string|null $state): string => match ($state) {
+                        'single'   => 'Single Plan',
+                        'multiple' => 'Multiple Plan',
+                        default    => 'Not Selected',
+                    })
+                    ->color(fn (string|null $state): string => match ($state) {
+                        'single'   => 'info',
+                        'multiple' => 'warning',
+                        default    => 'gray',
+                    })
+                    ->icon(fn (string|null $state): string => match ($state) {
+                        'single'   => 'heroicon-o-user',
+                        'multiple' => 'heroicon-o-users',
+                        default    => 'heroicon-o-question-mark-circle',
+                    })
+                    ->placeholder('-'),
+                TextColumn::make('total_time')->searchable()->placeholder('-'),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'in_progress' => 'In Progress',
+                        'pending'     => 'Pending',
+                        'completed'   => 'Completed',
+                        'incomplete'  => 'Incomplete',
+                        'cancelled'   => 'Cancelled',
+                        'overdue'     => 'Overdue',
+                        default       => ucfirst($state),
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'in_progress' => 'warning',
+                        'pending'     => 'gray',
+                        'completed'   => 'success',
+                        'incomplete'  => 'danger',
+                        'cancelled'   => 'danger',
+                        'overdue'     => 'danger',
+                        default       => 'gray',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'in_progress' => 'heroicon-o-arrow-path',
+                        'pending'     => 'heroicon-o-clock',
+                        'completed'   => 'heroicon-o-check-circle',
+                        'incomplete'  => 'heroicon-o-x-circle',
+                        'cancelled'   => 'heroicon-o-x-mark',
+                        'overdue'     => 'heroicon-o-exclamation-triangle',
+                        default       => 'heroicon-o-question-mark-circle',
+                    }),
                 TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime('d M Y, h:i A')
@@ -160,7 +205,7 @@ class AssessmentsTable
                     ->icon('heroicon-o-funnel')
             )
             ->recordActions([
-                ViewAction::make(),
+                // ViewAction::make(),
                 Action::make('treatment-sessions')
                     ->label('Treatment Sessions')
                     // ->visible(fn ($record) => $record->hasRole('therapist'))
