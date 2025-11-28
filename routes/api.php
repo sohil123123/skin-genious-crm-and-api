@@ -13,6 +13,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     // Route::post('/login', 'AuthController@login');
 
+    Route::get('device/connect', 'AutoCaptureController@connect');
+
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/logout', 'AuthController@logout');
