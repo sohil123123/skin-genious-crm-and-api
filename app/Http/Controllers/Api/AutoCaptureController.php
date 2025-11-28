@@ -21,7 +21,7 @@ class AutoCaptureController extends BaseApiController
     
     public function connect(Request $request)
     {
-        $pythonPath = "python"; // or full path: C:\\Python311\\python.exe
+        $pythonPath = "python3";
         $scriptPath = base_path("python/adb_connect.py");
 
         // run python + capture output + errors
