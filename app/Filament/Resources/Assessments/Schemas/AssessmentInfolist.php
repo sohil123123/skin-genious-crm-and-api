@@ -375,15 +375,15 @@ class AssessmentInfolist
                     ->collapsed()
                     ->collapsible(),
 
-                // 📈 Parameters / Scores
-                Section::make('Parameters With Abnormal Scores')
-                    ->icon('heroicon-o-presentation-chart-line')
-                    ->schema([
-                        KeyValueEntry::make('parameters_with_abnormal_scores')
-                            ->columnSpanFull()
-                            ->placeholder('No abnormal parameters'),
-                    ])
-                    ->collapsible(),
+                // // 📈 Parameters / Scores
+                // Section::make('Parameters With Abnormal Scores')
+                //     ->icon('heroicon-o-presentation-chart-line')
+                //     ->schema([
+                //         KeyValueEntry::make('parameters_with_abnormal_scores')
+                //             ->columnSpanFull()
+                //             ->placeholder('No abnormal parameters'),
+                //     ])
+                //     ->collapsible(),
 
                 // 🕒 Meta Info
                 Section::make('Record Metadata')

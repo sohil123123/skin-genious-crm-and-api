@@ -75,7 +75,6 @@ class UserInfolist
                                 ->placeholder('N/A'),
                         ]),
                         Grid::make(4)->schema([
-
                             IconEntry::make('has_heart_disease')
                                 ->label('Has Heart Disease')
                                 ->boolean()
@@ -105,6 +104,8 @@ class UserInfolist
                                 ->placeholder('No known allergies listed'),
                         ]),
                     ])
+                    // ->visible(fn ($record) => $record->roles->first()?->id !== 1)
+                    ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
                     ->collapsible(),
 
                 Section::make('Skin Profile')
@@ -115,8 +116,8 @@ class UserInfolist
                             TextEntry::make('skin_improvement')->label('Skin Improvement Goal')->placeholder('N/A'),
                             TextEntry::make('facials_history')->label('Facials History')->placeholder('No facials history provided'),
                         ]),
-
                     ])
+                    ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
                     ->collapsible(),
 
                 Section::make('Aesthetic Goals')
@@ -158,28 +159,30 @@ class UserInfolist
                                 ->placeholder('N/A'),
                         ]),
                     ])
+                    ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
                     ->collapsible(),
 
                 Section::make('Account Settings')
                     ->schema([
                         Grid::make(3)->schema([
-                            TextEntry::make('how_did_you_hear')->placeholder('N/A'),
+                            TextEntry::make('how_did_you_hear')->placeholder('N/A')->visible(fn ($record) => $record->getRoleNames()->contains('client')),
                             IconEntry::make('opt_for_loyalty')
                                 ->label('Opted for Loyalty Program?')
                                 ->boolean()
+                                ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
                                 ->placeholder('N/A'),
                             IconEntry::make('is_active')->boolean()->placeholder('N/A'),
                         ]),
                     ])
                     ->collapsible(),
 
-                Section::make('Roles & Permissions')
+                Section::make('Role & Permissions')
                     ->schema([
                         Grid::make(2)->schema([
-                            TextEntry::make('roles.name')->label('Roles')->badge()->placeholder('N/A'),
-                            TextEntry::make('clinic.name')->label('Assigned Clinic')->placeholder('N/A'),
+                            TextEntry::make('roles.name')->label('Role')->badge()->placeholder('N/A'),
+                            TextEntry::make('clinic.name')->label('Assigned Clinic')->placeholder('N/A')->visible(fn ($record) => ! $record->getRoleNames()->contains('super_admin')),
                         ]),
-                        TextEntry::make('permissions.name')->label('Permissions')->badge()->placeholder('N/A'),
+                        TextEntry::make('permissions.name')->label('Specific Permissions')->badge()->placeholder('N/A'),
                     ]),
 
                 Section::make('Record Information')

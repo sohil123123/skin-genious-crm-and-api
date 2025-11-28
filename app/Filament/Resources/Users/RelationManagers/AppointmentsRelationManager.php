@@ -165,14 +165,15 @@ class AppointmentsRelationManager extends RelationManager
                                     )
                                     ->visible(fn (callable $get) => $get('type')->value === 'treatment')
                                     ->required(fn (callable $get) => $get('type')->value === 'treatment')
-                                    ->placeholder('Select Assessment'),
+                                    ->placeholder('Select Assessment')
+                                    ->live(),
 
                                 Select::make('treatment_session_id')
                                     ->label('Treatment Session')
                                     ->options(fn (callable $get) =>
                                         $get('assessment_id')
                                             ? TreatmentSession::where('assessment_id', $get('assessment_id'))
-                                                ->pluck('name', 'id')
+                                                ->pluck('title', 'id')
                                             : []
                                     )
                                     ->visible(fn (callable $get) => $get('type')->value === 'treatment')

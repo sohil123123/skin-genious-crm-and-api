@@ -76,7 +76,7 @@ class AppointmentsTable
                 TextColumn::make('therapist.name')->label('Therapist')
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name']),
-                TextColumn::make('assessment.id')->searchable()->placeholder('-'),
+                // TextColumn::make('assessment.id')->searchable()->placeholder('-'),
                 TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-'),
                 TextColumn::make('appointment_datetime')
                     ->dateTime('d M Y, h:i A')

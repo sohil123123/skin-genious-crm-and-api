@@ -105,6 +105,8 @@ class AppointmentForm
                 })
                 ->searchable()
                 ->required()
+                ->afterStateUpdated(fn ($state, callable $set) => $set('assessment_id', null))
+                ->live()
                 ->placeholder('Select Client'),
 
             auth()->user()->hasRole('therapist')
@@ -127,20 +129,21 @@ class AppointmentForm
             Select::make('assessment_id')
                 ->label('Assessment')
                 ->options(fn (callable $get) =>
-                    $get('client_id')
-                        ? Assessment::where('user_id', $get('client_id'))->pluck('id', 'id')
+                    $get('user_id')
+                        ? Assessment::where('user_id', $get('user_id'))->pluck('id', 'id')
                         : []
                 )
                 ->visible(fn (callable $get) => $get('type')->value === 'treatment')
                 ->required(fn (callable $get) => $get('type')->value === 'treatment')
+                ->afterStateUpdated(fn ($state, callable $set) => $set('treatment_session_id', null))
+                ->live()
                 ->placeholder('Select Assessment'),
 
             Select::make('treatment_session_id')
                 ->label('Treatment Session')
                 ->options(fn (callable $get) =>
                     $get('assessment_id')
-                        ? TreatmentSession::where('assessment_id', $get('assessment_id'))
-                            ->pluck('name', 'id')
+                        ? TreatmentSession::where('assessment_id', $get('assessment_id'))->pluck('title', 'id')
                         : []
                 )
                 ->visible(fn (callable $get) => $get('type')->value === 'treatment')

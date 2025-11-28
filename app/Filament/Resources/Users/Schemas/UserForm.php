@@ -54,19 +54,19 @@ class UserForm
                 TextInput::make('email')->label('Email address')->email()->unique(ignoreRecord: true)->placeholder('Email Address'),
                 TextInput::make('occupation')->placeholder('Occupation'),
             ]),
-            Grid::make(3)->schema([
+            Grid::make(2)->schema([
                 TextInput::make('city')->placeholder('City'),
                 TextInput::make('pincode')->placeholder('Pincode'),
-                TextInput::make('referral_code')
-                    ->default(fn (string $context) => $context === 'create'
-                        ? 'REF' . random_int(100000, 999999)
-                        : context()->record?->referral_code
-                    )
-                    ->disabled() // user cannot change
-                    ->dehydrated() // still save value
-                    ->required(fn (string $context) => $context === 'create') // required only on create
-                    ->maxLength(32)
-                    ->unique(User::class, 'referral_code', ignoreRecord: true),
+                // TextInput::make('referral_code')
+                //     ->default(fn (string $context) => $context === 'create'
+                //         ? 'REF' . random_int(100000, 999999)
+                //         : context()->record?->referral_code
+                //     )
+                //     ->disabled() // user cannot change
+                //     ->dehydrated() // still save value
+                //     ->required(fn (string $context) => $context === 'create') // required only on create
+                //     ->maxLength(32)
+                //     ->unique(User::class, 'referral_code', ignoreRecord: true),
             ]),
             Grid::make(2)->schema([
                 TextInput::make('address_line_1')->placeholder('Address Line 1'),
