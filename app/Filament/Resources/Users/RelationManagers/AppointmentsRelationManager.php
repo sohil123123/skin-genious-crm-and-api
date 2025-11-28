@@ -38,6 +38,7 @@ use Filament\Actions\Action;
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 use App\Filament\Resources\Appointments\AppointmentResource;
 
+use App\Models\Clinic;
 use App\Models\TreatmentSession;
 use App\Models\Assessment;
 use App\Models\User;
@@ -45,6 +46,7 @@ use App\Models\Holiday;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Closure;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\AppointmentType;
@@ -224,14 +226,70 @@ class AppointmentsRelationManager extends RelationManager
                                     })
                                     ->required()
                                     ->rules([
-                                        fn (callable $get, $record) => new AppointmentAvailability(
-                                            therapistId: $get('therapist_id'),
-                                            clinicId: $get('clinic_id'),
-                                            start: Carbon::parse($get('appointment_datetime')),
-                                            end: Carbon::parse($get('appointment_datetime')),
-                                            excludeId: $record?->id,
-                                        ),
+                                        fn (callable $get, $record) => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                            // 1️⃣ Block selecting past date/time
+                                            if (!$value) return;
+
+                                            $selectedDateTime = Carbon::parse($value);
+                                            $original = Carbon::now();
+                                            $now = $original->copy()->addMinutes(30);
+
+                                            // -----------------------------------------------------
+                                            // 1️⃣ Block selecting past date/time
+                                            // -----------------------------------------------------
+                                            if ($selectedDateTime->isToday() && $selectedDateTime->lessThan($now)) {
+                                                $fail("You cannot select a past time ({$original->format('h:i A')}) for today's date.");
+                                                return;
+                                            }
+
+                                            if ($selectedDateTime->isPast()) {
+                                                $fail("You cannot select a past date or time ({$original->format('M d, Y h:i A')}).");
+                                                return;
+                                            }
+                                                
+                                            // 2️⃣ Clinic timing logic
+                                            $clinicId = $get('clinic_id');
+                                            if (!$clinicId) return;
+
+                                            $clinic = Clinic::find($clinicId);
+                                            if (!$clinic) return;
+
+                                            $clinicStart = Carbon::parse($clinic->start_time)->addMinutes(30)->format('H:i:s');
+                                            $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes(30)->format('H:i:s');
+
+                                            if (!$value) return;
+
+                                            $time = $selectedDateTime->format('H:i:s');
+                                            
+                                            if ($time < $clinicStart || $time > $clinicEnd) {
+                                                $clinicStart = Carbon::parse($clinicStart)->format('h:i A');
+                                                $clinicEnd = Carbon::parse($clinicEnd)->format('h:i A');
+                                                $fail("Allowed time for this clinic is between {$clinicStart} and {$clinicEnd}.");
+                                                return; // Stop next rule
+                                            }
+
+                                            // 3️⃣ Availability rule
+                                            $rule = new AppointmentAvailability(
+                                                therapistId: $get('therapist_id'),
+                                                clinicId: $clinicId,
+                                                start: Carbon::parse($get('appointment_datetime')),
+                                                end: Carbon::parse($get('appointment_datetime')),
+                                                excludeId: $record?->id,
+                                            );
+
+                                            $rule->validate($attribute, $value, $fail);
+                                        }
                                     ])
+                                    ->helperText(function ($get) {
+                                        $clinic = Clinic::find($get('clinic_id'));
+
+                                        if (!$clinic) return 'Select clinic to see available timing.';
+
+                                        $start = Carbon::parse($clinic->start_time)->addMinutes(30)->format('h:i A');
+                                        $end   = Carbon::parse($clinic->end_time)->subMinutes(30)->format('h:i A');
+
+                                        return "Available time: {$start} – {$end}";
+                                    })
                                     ->allowHtmlValidationMessages(),
 
                                 // STEP 4: STATUS

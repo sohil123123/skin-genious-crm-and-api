@@ -209,18 +209,19 @@ class AppointmentForm
                         if (!$value) return;
 
                         $selectedDateTime = Carbon::parse($value);
-                        $now = Carbon::now()->addMinutes(30);
+                        $original = Carbon::now();
+                        $now = $original->copy()->addMinutes(30);
 
                         // -----------------------------------------------------
                         // 1️⃣ Block selecting past date/time
                         // -----------------------------------------------------
                         if ($selectedDateTime->isToday() && $selectedDateTime->lessThan($now)) {
-                            $fail("You cannot select a past time ({$now->format('h:i A')}) for today's date.");
+                            $fail("You cannot select a past time ({$original->format('h:i A')}) for today's date.");
                             return;
                         }
 
                         if ($selectedDateTime->isPast()) {
-                            $fail("You cannot select a past date or time ({$now->format('M d, Y h:i A')}).");
+                            $fail("You cannot select a past date or time ({$original->format('M d, Y h:i A')}).");
                             return;
                         }
                             
