@@ -64,6 +64,17 @@ class Assessment extends Model implements HasMedia
 
     protected $appends = ['images', 'post_images',  'treatment_sessions'];
 
+    public function setParametersWithAbnormalScoresAttribute($value)
+    {
+        if (isset($value['parameters_with_abnormal_scores'])) {
+            foreach ($value['parameters_with_abnormal_scores'] as &$item) {
+                $item['is_primary_concern'] = filter_var($item['is_primary_concern'], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+
+        $this->attributes['parameters_with_abnormal_scores'] = json_encode($value);
+    }
+
     public function getTreatmentSessionsAttribute()
     {
         $sessions = $this->treatmentSessions()->orderBy('session_number')->get();
