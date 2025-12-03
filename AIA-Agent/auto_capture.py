@@ -92,7 +92,7 @@ def pull_images(today, ts):
 def main():
     print("\n🚀 AIA AUTO-CAPTURE STARTED\n")
 
-    connect_device()
+    # connect_device()
     # open_camera()
     # trigger_ai_capture()
 
