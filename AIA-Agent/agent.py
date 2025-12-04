@@ -18,9 +18,13 @@ from flask import Flask, request, jsonify
 import logging
 import os
 import time
+import platform
+import subprocess
 import traceback
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
+
+IMAGES_BASE_DIR = r"C:\Users\shing\Downloads"   # YOUR FOLDER PATH
 
 # -----------------------------
 # CONFIGURATION
@@ -111,6 +115,27 @@ def before_request():
             "message": "Unauthorized"
         }), 401
 
+# @app.route("/open-folder", methods=["GET"])
+# def open_folder():
+#     folder = IMAGES_BASE_DIR
+
+#     try:
+#         if platform.system() == "Windows":
+#             os.startfile(folder)   # opens File Explorer
+#         elif platform.system() == "Darwin":  # macOS
+#             subprocess.Popen(["open", folder])
+#         else:
+#             subprocess.Popen(["xdg-open", folder])  # Linux support
+
+#         return jsonify({
+#             "status": "success",
+#             "message": f"Opened folder: {folder}"
+#         })
+#     except Exception as e:
+#         return jsonify({
+#             "status": "error",
+#             "message": str(e)
+#         }), 500
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -127,74 +152,122 @@ def health():
 
 def run_auto_capture():
     """
-    Runs auto_capture.main(), capturing all stdout/stderr.
-    Returns (success: bool, output: str).
+    Runs auto_capture.main(), capturing stdout/stderr.
+
+    - If success → returns (True, output, folder_path)
+    - If structured error from auto_capture → returns (False, error_obj, None)
+    - Auto-opens folder ONLY on success
     """
     if auto_capture is None:
-        return False, "auto_capture module not available (import failed)"
+        return False, {
+            "error": True,
+            "error_code": "IMPORT_FAILED",
+            "message": "auto_capture module missing",
+            "details": "auto_capture.py not found or import failed"
+        }, None
 
     logger.info("Starting auto_capture.main()")
 
     stdout_buffer = StringIO()
     stderr_buffer = StringIO()
 
+    folder_path = None
+    error_obj = None
+
     start_time = time.time()
 
     try:
-        # Capture print() output from your script
         with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-            # Call your script's main() function
-            auto_capture.main()
+            result = auto_capture.main()  # result = folder OR structured error dict
 
+        # ---------------------------
+        # CASE 1: Structured error returned
+        # ---------------------------
+        if isinstance(result, dict) and result.get("error"):
+            logger.error("auto_capture failed: %s", result)
+            return False, result, None
+
+        # ---------------------------
+        # CASE 2: Success →
+        # result contains folder path
+        # ---------------------------
+        folder_path = result
         success = True
         logger.info("auto_capture.main() completed successfully")
 
+        # AUTO-OPEN ONLY ON SUCCESS
+        if folder_path:
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(folder_path)
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(["open", folder_path])
+                else:
+                    subprocess.Popen(["xdg-open", folder_path])
+            except Exception as e:
+                logger.error("Failed to open folder: %s", e)
+
     except Exception as e:
+        # UNEXPECTED exception (not structured)
         success = False
-        logger.error("Error while running auto_capture.main(): %s", e)
-        logger.debug("Traceback:\n%s", traceback.format_exc())
+        error_obj = {
+            "error": True,
+            "error_code": "AGENT_EXCEPTION",
+            "message": "Agent failed unexpectedly.",
+            "details": str(e)
+        }
+        logger.error("Unexpected error: %s", e)
+        logger.debug(traceback.format_exc())
 
     duration = time.time() - start_time
 
-    # Merge stdout + stderr
-    combined_output = ""
-    out_text = stdout_buffer.getvalue()
-    err_text = stderr_buffer.getvalue()
+    # Collect stdout/stderr logs
+    output_logs = stdout_buffer.getvalue() + stderr_buffer.getvalue()
+    if output_logs.strip():
+        output_logs += f"\n[Finished in {duration:.2f} seconds]"
 
-    if out_text:
-        combined_output += "--- STDOUT ---\n" + out_text
-    if err_text:
-        combined_output += "\n--- STDERR ---\n" + err_text
+    # SUCCESS
+    if success:
+        return True, output_logs, folder_path
 
-    combined_output += f"\n\n[Finished in {duration:.2f} seconds]"
+    # FAILURE (structured or fallback)
+    if error_obj is None:
+        error_obj = {
+            "error": True,
+            "error_code": "UNKNOWN_FAILURE",
+            "message": "Unknown failure occurred.",
+            "details": output_logs
+        }
 
-    return success, combined_output
+    # Attach logs to error object for debugging
+    error_obj["logs"] = output_logs
+
+    return False, error_obj, None
 
 
 @app.route("/run-local", methods=["GET", "POST"])
 def run_local():
-    """
-    HTTP endpoint to trigger the AIA auto capture flow.
-
-    - GET  /run-local
-    - POST /run-local
-
-    No body is required. Just hit it with the correct X-API-KEY.
-    """
     logger.info("Received /run-local request from %s", request.remote_addr)
 
-    success, output = run_auto_capture()
+    success, output, folder_path = run_auto_capture()
 
+    # SUCCESS RESPONSE
     if success:
         return jsonify({
             "status": "success",
+            "folder": folder_path,
             "output": output
-        })
-    else:
-        return jsonify({
-            "status": "error",
-            "output": output
-        }), 500
+        }), 200
+
+    # ERROR RESPONSE (Structured)
+    return jsonify({
+        "status": "error",
+        "error_code": output.get("error_code"),
+        "message": output.get("message"),
+        "details": output.get("details"),
+        "logs": output.get("logs")  # Optional debugging logs
+    }), 500
+
 
 
 if __name__ == "__main__":
