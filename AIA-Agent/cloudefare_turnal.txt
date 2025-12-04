@@ -4,17 +4,35 @@ Steps:
 
 1) cloudflared tunnel login
     It will open a browser → choose your domain (example: cbphysio.in)
+
 2) cloudflared tunnel create ai-aesthetics-agent
     Created tunnel ai-aesthetics-agent with id f1f5d546-5134-4b02-bbd4-7c1109495fa8
+
 3) cloudflared tunnel route dns ai-aesthetics-agent aiaesthetics-agent.cbphysiotherapy.in
     2025-12-03T11:55:16Z INF Added CNAME aiaesthetics-agent.cbphysiotherapy.in which will route to this tunnel tunnelID=f1f5d546-5134-4b02-bbd4-7c1109495fa8
+
 4) Create Tunnel Config File => C:\cloudflared\config.yml
     past code here
-    tunnel: skin-agent
+
+    tunnel: ai-aesthetics-agent
     credentials-file: C:\Users\shing\.cloudflared\f1f5d546-5134-4b02-bbd4-7c1109495fa8.json
 
     ingress:
-    - hostname: agent.cbphysio.in
+    - hostname: aiaesthetics-agent.cbphysiotherapy.in
         service: http://127.0.0.1:5005
     - service: http_status:404
+
 5) cloudflared tunnel run ai-aesthetics-agent
+
+
+----------- auto run (agent.py) file --------
+1) make start_agent.bat file
+2) move this file to (startup) dir (win + r) (shell:startup)
+
+
+----------- auto run (cloudflared tunnel) --------
+command :
+    sc create Cloudflared binPath= "\"C:\cloudflared\cloudflared.exe\" --config \"C:/Users/shing/.cloudflared/config.yml\" tunnel run \"ai-aesthetics-agent\"" start= auto
+
+1) sc start Cloudflared
+2) sc query Cloudflared
