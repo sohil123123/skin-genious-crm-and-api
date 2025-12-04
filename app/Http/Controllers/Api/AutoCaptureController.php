@@ -54,37 +54,37 @@ class AutoCaptureController extends BaseApiController
 
     public function capturePhotos(Request $request)
     {
-        // $url = "http://127.0.0.1:5005/run-local";
-        $url = "https://aiaesthetics-agent.cbphysiotherapy.in/run-local";
+        // // $url = "http://127.0.0.1:5005/run-local";
+        // $url = "https://aiaesthetics-agent.cbphysiotherapy.in/run-local";
 
-        $response = Http::withHeaders([
-            'X-API-KEY' => '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE',
-        ])
-        ->withoutVerifying()
-        ->get($url);
+        // $response = Http::withHeaders([
+        //     'X-API-KEY' => '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE',
+        // ])
+        // ->withoutVerifying()
+        // ->get($url);
 
-        return $response->json();
+        // return $response->json();
 
-        // // Cloudflare Tunnel URL
-        // $endpoint = "https://aia.drshehlaendocrinologist.com/run";
+        // Cloudflare Tunnel URL
+        $endpoint = "https://aia.drshehlaendocrinologist.com/run";
 
-        // try {
-        //     // Send POST request to Python/ADB server
-        //     $response = Http::withoutVerifying()->post($endpoint);
+        try {
+            // Send POST request to Python/ADB server
+            $response = Http::withoutVerifying()->post($endpoint);
 
-        //     if ($response->failed()) {
-        //         return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
-        //     }
+            if ($response->failed()) {
+                return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
+            }
 
-        //     $data = $response->json();
+            $data = $response->json();
 
-        //     if ($data["status"] !== "success") {
-        //         return $this->error('error.', [$data["output"]], HTTP_NOT_FOUND);
-        //     }
+            if ($data["status"] !== "success") {
+                return $this->error('error.', [$data["output"]], HTTP_NOT_FOUND);
+            }
 
-        //     return $this->success('Capture successfully triggered!');
-        // } catch (\Exception $e) {
-        //     return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
-        // }
+            return $this->success('Capture successfully triggered!');
+        } catch (\Exception $e) {
+            return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
+        }
     }
 }
