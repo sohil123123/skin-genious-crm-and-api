@@ -66,7 +66,7 @@ class AutoCaptureController extends BaseApiController
         // return $response->json();
 
         // Cloudflare Tunnel URL
-        $endpoint = "https://aia.drshehlaendocrinologist.com/run";
+        $endpoint = "https://aia.drshehlaendocrinologist.com/auto-capture-process";
 
         try {
             // Send POST request to Python/ADB server

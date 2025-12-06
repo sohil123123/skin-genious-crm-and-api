@@ -25,12 +25,48 @@ Steps:
 5) cloudflared tunnel run ai-aesthetics-agent
 
 
------------ auto run (agent.py) file --------
+----------- auto run (agent.py) (window) --------
 1) make start_agent.bat file
 2) move this file to (startup) dir (win + r) (shell:startup)
 
+----------- auto run (agent.py) (macOS) --------
+1) Create file: /Library/LaunchDaemons/com.aia.agent.plist
+    Past Code:
 
------------ auto run (cloudflared tunnel) --------
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.aia.agent</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/usr/bin/python3</string>
+            <string>/Users/<username>/AIA-Agent/agent.py</string>
+        </array>
+
+        <key>RunAtLoad</key>
+        <true/>
+
+        <key>KeepAlive</key>
+        <true/>
+
+        <key>StandardOutPath</key>
+        <string>/Users/<username>/AIA-Agent/agent.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/Users/<username>/AIA-Agent/agent.error.log</string>
+    </dict>
+    </plist>
+
+2) sudo launchctl load /Library/LaunchDaemons/com.aia.agent.plist
+3) sudo launchctl start com.aia.agent
+
+
+----------- auto run (cloudflared tunnel) (window) --------
 command :
     sc create Cloudflared binPath= "\"C:\cloudflared\cloudflared.exe\" --config \"C:/Users/shing/.cloudflared/config.yml\" tunnel run \"ai-aesthetics-agent\"" start= auto
 
@@ -38,4 +74,21 @@ command :
 2) sc query Cloudflared
 
 
+----------- auto run (cloudflared tunnel) (macOS) --------
+command :
+    sudo cloudflared service install
+
+1) sc start Cloudflared
+2) sc query Cloudflared
+
+
+
+
+---------- live tunnel ------------
 cloudflared tunnel run aia-tunnel
+
+
+
+------ remove Cloudflared service -------------
+wmic service where name="Cloudflared" call stopservice
+wmic service where name="Cloudflared" call delete
