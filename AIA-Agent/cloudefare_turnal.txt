@@ -36,3 +36,6 @@ command :
 
 1) sc start Cloudflared
 2) sc query Cloudflared
+
+
+cloudflared tunnel run aia-tunnel

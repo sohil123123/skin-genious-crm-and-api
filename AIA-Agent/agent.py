@@ -24,7 +24,7 @@ import traceback
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
 
-IMAGES_BASE_DIR = r"C:\Users\shing\Downloads"   # YOUR FOLDER PATH
+# IMAGES_BASE_DIR = r"C:\Users\shing\Downloads"   # YOUR FOLDER PATH
 
 # -----------------------------
 # CONFIGURATION
@@ -35,7 +35,7 @@ API_KEY = "2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE"   # e.g. "cbp_92hd8hshs82hdhs8273"
 
 # Flask app host/port (Cloudflare Tunnel will point to this)
 HOST = "0.0.0.0"
-PORT = 5005
+PORT = 5000
 
 # Log file name
 LOG_FILE = "agent.log"
