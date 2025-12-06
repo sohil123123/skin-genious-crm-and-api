@@ -1,17 +1,14 @@
 """
 -------------------------------------------
-This file merges agent.py + auto_capture.py into one deployable script.
+Combined agent.py + auto_capture.py
 
-- Exposes:
-    GET  /health       → health check
-    GET  /auto-capture-process
-    POST /auto-capture-process
-
-- Security:
-    Uses X-API-KEY header. If API_KEY is None or empty, auth is disabled.
-
-- Logging:
-    Logs to console and to agent.log in the same directory."""
+Features:
+- Dynamic user home detection (works on ANY Mac)
+- Saves images to logged-in user's Desktop (not /var/root)
+- Opens folder correctly from LaunchDaemon
+- Cloudflare-ready Flask server
+-------------------------------------------
+"""
 
 from flask import Flask, request, jsonify
 import logging
@@ -25,24 +22,20 @@ from contextlib import redirect_stdout, redirect_stderr
 import subprocess as sp
 import datetime
 import pathlib
+import pathlib
 
 # ---------------------------------------------------------
 # CONFIGURATION
 # ---------------------------------------------------------
 
-# Set your API key here (use the same one in Laravel / other clients)
 API_KEY = "2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE"
-
-# Flask app host/port (Cloudflare Tunnel will point to this)
 HOST = "0.0.0.0"
 PORT = 5000
-
-# Log file name
 LOG_FILE = "auto_capture_agent.log"
 
-# -----------------------------
+# ---------------------------------------------------------
 # LOGGING SETUP
-# -----------------------------
+# ---------------------------------------------------------
 
 os.makedirs(os.path.dirname(os.path.abspath(LOG_FILE)), exist_ok=True)
 
@@ -63,7 +56,49 @@ fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 # ---------------------------------------------------------
-# AUTO_CAPTURE MODULE (MERGED HERE)
+# DYNAMIC USER HOME (works on ANY Mac)
+# ---------------------------------------------------------
+
+def get_actual_user_home():
+    """
+    Returns the home directory of the real logged-in macOS user (not root),
+    without using pwd module (supports all Python builds).
+    """
+    try:
+        # macOS: obtain current console/GUI user
+        user = subprocess.check_output(
+            "stat -f%Su /dev/console", shell=True, text=True
+        ).strip()
+
+        # Build home directory path manually
+        return pathlib.Path(f"/Users/{user}")
+    except Exception as e:
+        # Fallback to root (not ideal, but safe)
+        return pathlib.Path.home()
+
+
+USER_HOME = get_actual_user_home()
+
+LOCAL_ROOT = USER_HOME / "Desktop" / "revised AIA database"
+
+
+def open_folder_cross_platform(path):
+    try:
+        if platform.system() == "Windows":
+            # Works even when running in privileged mode
+            subprocess.Popen(['powershell', '-Command', f'Start-Process "{path}"'])
+
+        elif platform.system() == "Darwin":
+            subprocess.Popen(["open", path])
+
+        else:  # Linux
+            subprocess.Popen(["xdg-open", path])
+
+    except Exception as e:
+        logger.error(f"Failed to open folder: {e}")
+
+# ---------------------------------------------------------
+# AUTO CAPTURE MODULE
 # ---------------------------------------------------------
 
 class CaptureError(Exception):
@@ -73,17 +108,15 @@ class CaptureError(Exception):
         self.details = details
         super().__init__(message)
 
-# Main configuration
+
 DEVICE = "192.168.31.177:5555"
 PACKAGE = "com.yiyuan.skin"
 CAMERA_ACTIVITY = "com.yiyuan.skin/.ui.activity.CameraActivity"
 
 REMOTE_ROOT = "/sdcard/yiyuan/image"
-LOCAL_ROOT = pathlib.Path.home() / "Desktop" / "revised AIA database"
 
 AI_TAP_X = 539
 AI_TAP_Y = 1789
-
 CAPTURE_WAIT_SECONDS = 14
 
 
@@ -91,11 +124,7 @@ def run(cmd):
     try:
         return sp.check_output(cmd, shell=True, text=True)
     except sp.CalledProcessError as e:
-        raise CaptureError(
-            code="ADB_COMMAND_FAILED",
-            message=f"ADB failed: {cmd}",
-            details=str(e)
-        )
+        raise CaptureError("ADB_COMMAND_FAILED", f"ADB failed: {cmd}", str(e))
 
 
 def adb(cmd):
@@ -103,108 +132,62 @@ def adb(cmd):
 
 
 def connect_device():
-    try:
-        out = run(f"adb connect {DEVICE}")
-        if "connected" not in out.lower():
-            raise CaptureError(
-                code="DEVICE_CONNECTION_FAILED",
-                message="Could not connect to scanning device.",
-                details=out
-            )
-        time.sleep(1)
-    except Exception as e:
+    out = run(f"adb connect {DEVICE}")
+    if "connected" not in out.lower():
         raise CaptureError(
-            code="DEVICE_CONNECTION_FAILED",
-            message="Failed to connect to scanning device.",
-            details=str(e)
+            "DEVICE_CONNECTION_FAILED",
+            "Could not connect to scanner.",
+            out
         )
+    time.sleep(1)
 
 
 def open_camera():
-    try:
-        adb(f"shell am start -n {CAMERA_ACTIVITY}")
-        time.sleep(2)
-    except Exception as e:
-        raise CaptureError(
-            code="CAMERA_LAUNCH_FAILED",
-            message="Unable to launch camera.",
-            details=str(e)
-        )
+    adb(f"shell am start -n {CAMERA_ACTIVITY}")
+    time.sleep(2)
 
 
 def trigger_ai_capture():
-    try:
-        adb(f"shell input tap {AI_TAP_X} {AI_TAP_Y}")
-        time.sleep(CAPTURE_WAIT_SECONDS)
-    except Exception as e:
-        raise CaptureError(
-            code="CAPTURE_TRIGGER_FAILED",
-            message="Failed to trigger AI capture.",
-            details=str(e)
-        )
+    adb(f"shell input tap {AI_TAP_X} {AI_TAP_Y}")
+    time.sleep(CAPTURE_WAIT_SECONDS)
 
 
 def get_latest_timestamp(today):
-    try:
-        result = adb(f"shell ls -t {REMOTE_ROOT}/{today}")
-        files = result.strip().split("\n")
+    result = adb(f"shell ls -t {REMOTE_ROOT}/{today}")
+    files = result.strip().split("\n")
 
-        if not files or files == ['']:
-            raise CaptureError(
-                code="NO_TIMESTAMP_FOUND",
-                message="No image folder detected.",
-                details="Device returned empty list."
-            )
+    if not files or files == ['']:
+        raise CaptureError("NO_TIMESTAMP_FOUND", "No folder found", result)
 
-        ts = files[0].split("-")[0]
-        return ts
-
-    except Exception as e:
-        raise CaptureError(
-            code="TIMESTAMP_LOOKUP_FAILED",
-            message="Failed to read timestamp.",
-            details=str(e)
-        )
+    return files[0].split("-")[0]
 
 
 def pull_images(today, ts):
-    try:
-        local_dir = LOCAL_ROOT / today / ts
-        local_dir.mkdir(parents=True, exist_ok=True)
+    local_dir = LOCAL_ROOT / today / ts
+    local_dir.mkdir(parents=True, exist_ok=True)
 
-        mapping = {
-            f"{ts}-image.jpg": "white.jpg",
-            f"{ts}-image_positive.jpg": "positive.jpg",
-            f"{ts}-image_negative.jpg": "negative.jpg",
-            f"{ts}-image_uv.jpg": "uv.jpg",
-            f"{ts}-image_woods.jpg": "woods.jpg",
-            f"{ts}-image_blue.jpg": "blue.jpg"
-        }
+    mapping = {
+        f"{ts}-image.jpg": "white.jpg",
+        f"{ts}-image_positive.jpg": "positive.jpg",
+        f"{ts}-image_negative.jpg": "negative.jpg",
+        f"{ts}-image_uv.jpg": "uv.jpg",
+        f"{ts}-image_woods.jpg": "woods.jpg",
+        f"{ts}-image_blue.jpg": "blue.jpg"
+    }
 
-        for original, new in mapping.items():
-            remote_path = f"{REMOTE_ROOT}/{today}/{original}"
-            adb(f"pull {remote_path} '{local_dir}'")
+    for orig, new in mapping.items():
+        remote_path = f"{REMOTE_ROOT}/{today}/{orig}"
+        adb(f"pull {remote_path} '{local_dir}'")
 
-            old_file = local_dir / original
-            new_file = local_dir / new
+        orig_file = local_dir / orig
+        new_file = local_dir / new
 
-            if old_file.exists():
-                old_file.rename(new_file)
-            else:
-                raise CaptureError(
-                    code="IMAGE_MISSING",
-                    message=f"Missing: {original}",
-                    details=f"{remote_path} not found."
-                )
+        if orig_file.exists():
+            orig_file.rename(new_file)
+        else:
+            raise CaptureError("IMAGE_MISSING", f"{orig} missing", remote_path)
 
-        return local_dir
-
-    except Exception as e:
-        raise CaptureError(
-            code="IMAGE_PULL_FAILED",
-            message="Failed pulling images from device.",
-            details=str(e)
-        )
+    return local_dir
 
 
 def auto_capture_main():
@@ -216,152 +199,72 @@ def auto_capture_main():
         today = datetime.date.today().isoformat()
         ts = get_latest_timestamp(today)
 
-        local_folder = pull_images(today, ts)
-        return str(local_folder)
+        return str(pull_images(today, ts))
 
     except CaptureError as err:
-        return {
-            "error": True,
-            "error_code": err.code,
-            "message": err.message,
-            "details": err.details
-        }
+        return {"error": True, **err.__dict__}
 
     except Exception as e:
-        return {
-            "error": True,
-            "error_code": "UNKNOWN_ERROR",
-            "message": "Unexpected error occurred.",
-            "details": str(e)
-        }
+        return {"error": True, "error_code": "UNKNOWN", "message": str(e)}
 
 
 # ---------------------------------------------------------
-# FLASK AGENT
+# FLASK SERVER
 # ---------------------------------------------------------
 
 app = Flask(__name__)
 
 
 def check_api_key():
-    if not API_KEY:
-        return True
     key = request.headers.get("X-API-KEY")
-    return key == API_KEY
+    return (not API_KEY) or key == API_KEY
 
 
 @app.before_request
 def before_request():
-    if request.path == "/health":
-        return None
-
-    if not check_api_key():
-        return jsonify({
-            "status": "error",
-            "message": "Unauthorized"
-        }), 401
+    if request.path != "/health" and not check_api_key():
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
 
-@app.route("/health", methods=["GET"])
+@app.route("/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "message": "auto capture agent running",
-        "has_auto_capture": True
-    })
+    return jsonify({"status": "ok", "user_home": str(USER_HOME)})
 
 
 def run_auto_capture():
-    logger.info("Starting auto_capture_main()")
+    logger.info("Running auto_capture")
 
     stdout_buffer = StringIO()
     stderr_buffer = StringIO()
 
-    folder_path = None
-    error_obj = None
-    start_time = time.time()
+    with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+        result = auto_capture_main()
 
-    try:
-        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-            result = auto_capture_main()
+    if isinstance(result, dict) and result.get("error"):
+        return False, result, None
 
-        if isinstance(result, dict) and result.get("error"):
-            logger.error("auto_capture failed: %s", result)
-            return False, result, None
+    folder_path = result
 
-        folder_path = result
-        logger.info("auto_capture succeeded.")
+    # Cross-platform folder open
+    open_folder_cross_platform(folder_path)
 
-        # Auto open folder
-        try:
-            if platform.system() == "Windows":
-                os.startfile(folder_path)
-            elif platform.system() == "Darwin":
-                subprocess.Popen(["open", folder_path])
-            else:
-                subprocess.Popen(["xdg-open", folder_path])
-        except:
-            pass
+    # # Try to open folder for the logged-in user
+    # try:
+    #     subprocess.Popen(["open", folder_path])
+    # except Exception as e:
+    #     logger.error(f"Failed to open folder: {e}")
 
-        success = True
-
-    except Exception as e:
-        success = False
-        error_obj = {
-            "error": True,
-            "error_code": "AGENT_EXCEPTION",
-            "message": "Unexpected failure.",
-            "details": str(e)
-        }
-        logger.error("Unexpected agent error: %s", e)
-
-    duration = time.time() - start_time
-
-    logs = stdout_buffer.getvalue() + stderr_buffer.getvalue()
-    if logs.strip():
-        logs += f"\n[Finished in {duration:.2f} sec]"
-
-    if success:
-        return True, logs, folder_path
-
-    if error_obj is None:
-        error_obj = {
-            "error": True,
-            "error_code": "UNKNOWN_FAILURE",
-            "message": "Unknown agent failure.",
-            "details": logs
-        }
-
-    error_obj["logs"] = logs
-    return False, error_obj, None
+    return True, stdout_buffer.getvalue(), folder_path
 
 
 @app.route("/auto-capture-process", methods=["GET", "POST"])
 def auto_capture_process():
-    logger.info("Received /auto-capture-process request")
+    ok, out, folder = run_auto_capture()
+    if ok:
+        return jsonify({"status": "success", "folder": folder, "output": out})
+    return jsonify({"status": "error", **out}), 500
 
-    success, output, folder_path = run_auto_capture()
-
-    if success:
-        return jsonify({
-            "status": "success",
-            "folder": folder_path,
-            "output": output
-        })
-
-    return jsonify({
-        "status": "error",
-        "error_code": output.get("error_code"),
-        "message": output.get("message"),
-        "details": output.get("details"),
-        "logs": output.get("logs")
-    }), 500
-
-
-# ---------------------------------------------------------
-# ENTRY POINT
-# ---------------------------------------------------------
 
 if __name__ == "__main__":
-    logger.info("Starting combined agent on %s:%s", HOST, PORT)
+    logger.info(f"Starting agent on {HOST}:{PORT}")
     app.run(host=HOST, port=PORT)

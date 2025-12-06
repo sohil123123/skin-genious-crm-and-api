@@ -67,10 +67,14 @@ class AutoCaptureController extends BaseApiController
 
         // Cloudflare Tunnel URL
         $endpoint = "https://aia.drshehlaendocrinologist.com/auto-capture-process";
-
         try {
             // Send POST request to Python/ADB server
-            $response = Http::withoutVerifying()->post($endpoint);
+            // $response = Http::withoutVerifying()->post($endpoint);
+            $response = Http::withHeaders([
+                'X-API-KEY' => '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE',
+            ])
+            ->withoutVerifying()
+            ->get($endpoint);
 
             if ($response->failed()) {
                 return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
@@ -82,7 +86,7 @@ class AutoCaptureController extends BaseApiController
                 return $this->error('error.', [$data["output"]], HTTP_NOT_FOUND);
             }
 
-            return $this->success('Capture successfully triggered!');
+            return $this->success('Capture successfully triggered!', $data);
         } catch (\Exception $e) {
             return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
         }
