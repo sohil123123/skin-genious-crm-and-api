@@ -36,6 +36,7 @@ class ClinicInfolist
                         IconEntry::make('is_active')->label('Active')->boolean(),
                         TextEntry::make('start_time')->time('h:i A')->placeholder('N/A'),
                         TextEntry::make('end_time')->time('h:i A')->placeholder('N/A'),
+                        TextEntry::make('number_of_beds')->placeholder('N/A'),
                         // TextEntry::make('description')
                         //     ->label('Description')
                         //     ->html()

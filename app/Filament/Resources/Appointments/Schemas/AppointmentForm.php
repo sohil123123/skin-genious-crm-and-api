@@ -24,7 +24,8 @@ use Closure;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\AppointmentType;
-use App\Rules\AppointmentAvailability;
+use App\Rules\TherapistAvailabilityRule;
+use App\Rules\ClinicBedAvailabilityRule;
 
 use App\Models\User;
 use App\Models\Clinic;
@@ -100,7 +101,7 @@ class AppointmentForm
                     $clinicId = $get('clinic_id');
                     if (!$clinicId)
                         $clinicId = auth()->user()->clinic_id;
-                    
+
                     return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                 })
                 ->searchable()
@@ -117,7 +118,7 @@ class AppointmentForm
                         $clinicId = $get('clinic_id');
                         if (!$clinicId)
                             $clinicId = auth()->user()->clinic_id;
-                        
+
                         return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                     })
                     ->searchable()
@@ -160,7 +161,6 @@ class AppointmentForm
                 ->format('Y-m-d h:i A')
                 ->minutesStep(5)
                 ->closeOnDateSelection(false)
-                ->reactive()
                 ->afterStateHydrated(function (callable $set, $record) {
                     if ($record && $record->therapist_id) {
                         $set('therapist_id', $record->therapist_id);
@@ -194,15 +194,6 @@ class AppointmentForm
                     })->toArray();
                 })
                 ->required()
-                // ->rules([
-                //     fn (callable $get, $record) => new AppointmentAvailability(
-                //         therapistId: $get('therapist_id'),
-                //         clinicId: $get('clinic_id'),
-                //         start: Carbon::parse($get('appointment_datetime')),
-                //         end: Carbon::parse($get('appointment_datetime')),
-                //         excludeId: $record?->id,
-                //     ),
-                // ])
                 ->rules([
                     fn (callable $get, $record) => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                         // 1️⃣ Block selecting past date/time
@@ -224,7 +215,7 @@ class AppointmentForm
                             $fail("You cannot select a past date or time ({$original->format('M d, Y h:i A')}).");
                             return;
                         }
-                            
+
                         // 2️⃣ Clinic timing logic
                         $clinicId = $get('clinic_id');
                         if (!$clinicId) return;
@@ -238,7 +229,7 @@ class AppointmentForm
                         if (!$value) return;
 
                         $time = $selectedDateTime->format('H:i:s');
-                        
+
                         if ($time < $clinicStart || $time > $clinicEnd) {
                             $clinicStart = Carbon::parse($clinicStart)->format('h:i A');
                             $clinicEnd = Carbon::parse($clinicEnd)->format('h:i A');
@@ -246,8 +237,18 @@ class AppointmentForm
                             return; // Stop next rule
                         }
 
-                        // 3️⃣ Availability rule
-                        $rule = new AppointmentAvailability(
+                        // 3️⃣ Bed Availability Check
+                        $rule = new ClinicBedAvailabilityRule(
+                            clinic: $clinic,
+                            start: Carbon::parse($get('appointment_datetime')),
+                            end: Carbon::parse($get('appointment_datetime')),
+                            excludeId: $record?->id,
+                        );
+
+                        $rule->validate($attribute, $value, $fail);
+
+                        // 4️⃣ Availability rule for therapist
+                        $rule = new TherapistAvailabilityRule(
                             therapistId: $get('therapist_id'),
                             clinicId: $clinicId,
                             start: Carbon::parse($get('appointment_datetime')),
@@ -259,16 +260,38 @@ class AppointmentForm
                     }
                 ])
                 ->hint(function ($get) {
-                    $clinic = Clinic::find($get('clinic_id'));
+                    $clinicId = $get('clinic_id');
+                    $datetime = Carbon::parse($get('appointment_datetime'));
 
-                    if (!$clinic) return 'Select clinic to see available timing.';
+                    $clinic = Clinic::find($clinicId);
 
+                    if (!$clinic) return 'Select clinic to see available timing & bed availability.';
+
+                    // 1️⃣ Clinic timing
                     $start = Carbon::parse($clinic->start_time)->addMinutes(30)->format('h:i A');
                     $end   = Carbon::parse($clinic->end_time)->subMinutes(30)->format('h:i A');
 
-                    return "Available time: {$start} – {$end}";
+                    $timingText = "Available time: {$start} – {$end}";
+
+                    // 2️⃣ Beds availability
+                    if (!$datetime) {
+                        // No datetime yet → only show timing + generic beds message
+                        return $timingText . ' | Beds: select time to check availability.';
+                    }
+
+                    $start = Carbon::instance($datetime)->subMinutes(30);
+                    $end = Carbon::instance($datetime)->addMinutes(30);
+
+                    $used = $clinic->appointments()->whereBetween('appointment_datetime', [$start,$end])->count();
+
+                    $total = $clinic->number_of_beds;
+                    $available = max(0, $total - $used);
+
+                    return $timingText . " | Beds Available: {$available} / {$total}";
                 })
-                ->allowHtmlValidationMessages(),
+                ->allowHtmlValidationMessages()
+                ->reactive()
+                ->live(),
                 // ->helperText('Ensure the therapist does not already have an appointment at this time.')
                 // ->columnSpanFull(),
                 // ->columnSpan(['lg' => fn ($record) => $record === null ? 1 : 1]),
@@ -325,7 +348,7 @@ class AppointmentForm
     //                                     $clinicId = $get('clinic_id');
     //                                     if (!$clinicId)
     //                                         $clinicId = auth()->user()->clinic_id;
-                                        
+
     //                                     return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
     //                                 })
     //                                 ->searchable()
@@ -340,7 +363,7 @@ class AppointmentForm
     //                                         $clinicId = $get('clinic_id');
     //                                         if (!$clinicId)
     //                                             $clinicId = auth()->user()->clinic_id;
-                                            
+
     //                                         return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
     //                                     })
     //                                     ->searchable()
@@ -419,7 +442,7 @@ class AppointmentForm
     //                                 })
     //                                 ->required()
     //                                 ->rules([
-    //                                     fn (callable $get, $record) => new AppointmentAvailability(
+    //                                     fn (callable $get, $record) => new TherapistAvailabilityRule(
     //                                         therapistId: $get('therapist_id'),
     //                                         clinicId: $get('clinic_id'),
     //                                         start: Carbon::parse($get('appointment_datetime')),
@@ -485,7 +508,7 @@ class AppointmentForm
     //                                     ->placeholder('Select clinic')
     //                                     ->native(true)
     //                                     ->required(),
-                                    
+
     //                                 Select::make('client_id')
     //                                     ->label('Client')
     //                                     ->options(function (callable $get) {
@@ -553,7 +576,7 @@ class AppointmentForm
     //                                     ->visible(fn (callable $get) => $get('type')->value === 'treatment')
     //                                     ->placeholder('Select Treatment Session'),
 
-                                    
+
     //                             ]),
     //                             Grid::make(4)->schema([
     //                                 ToggleButtons::make('type')
@@ -659,7 +682,7 @@ class AppointmentForm
     //                                 //     //     // $minutes = $now->minute >= 30 ? 0 : 30;
     //                                 //     //     // return $now->copy()->addMinutes(30 - ($now->minute % 30))->format('H:i');
     //                                 //     // })
-    //                                 //     ->step(300)     
+    //                                 //     ->step(300)
     //                                 //     ->withoutSeconds(),
 
     //                                 ToggleButtons::make('status')

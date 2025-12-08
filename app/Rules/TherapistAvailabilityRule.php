@@ -7,7 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 use App\Models\Appointment;
 
-class AppointmentAvailability implements ValidationRule
+class TherapistAvailabilityRule implements ValidationRule
 {
     public function __construct(
         protected ?int $therapistId,

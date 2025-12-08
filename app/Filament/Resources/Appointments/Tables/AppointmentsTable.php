@@ -83,6 +83,20 @@ class AppointmentsTable
                     ->badge()
                     ->color('warning')
                     ->sortable(),
+                TextColumn::make('bed_usage')
+                    ->label('Beds Used')
+                    ->getStateUsing(function ($record) {
+                        $clinic = $record->clinic;
+                        if (!$clinic) return "-";
+
+                        $dt = Carbon::parse($record->appointment_datetime);
+
+                        $count = $clinic->appointments()->where('appointment_datetime', $dt)->count();
+
+                        return "{$count} / {$clinic->number_of_beds}";
+                    })
+                    ->badge()
+                    ->color(fn ($state) => str_contains($state, 0) ? 'success' : 'warning'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
@@ -129,7 +143,7 @@ class AppointmentsTable
                                             ])
                                             ->placeholder('All Statuses'),
 
-                                        
+
                                     ]),
                             ])
                             ->columns(1)
@@ -290,7 +304,7 @@ class AppointmentsTable
                                                 $clinicId = $get('clinic_id');
                                                 if (!$clinicId)
                                                     $clinicId = auth()->user()->clinic_id;
-                                                
+
                                                 return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                                             })
                                             ->reactive()
@@ -304,7 +318,7 @@ class AppointmentsTable
                                                 $clinicId = $get('clinic_id');
                                                 if (!$clinicId)
                                                     $clinicId = auth()->user()->clinic_id;
-                                                
+
                                                 return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                                             })
                                             ->reactive()
@@ -321,7 +335,7 @@ class AppointmentsTable
                                                 $clientId = $get('client_id');
                                                 if (!$clientId)
                                                     $clinicId = auth()->user()->clinic_id;
-                                                
+
                                                 return Assessment::where('user_id', $clientId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->id]);
                                             })
                                             ->searchable()

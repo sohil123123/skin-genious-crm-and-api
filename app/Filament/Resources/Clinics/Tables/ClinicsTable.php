@@ -115,7 +115,7 @@ class ClinicsTable
                         $state >= 20 => 'warning',
                         default      => 'danger',
                     }),
-                
+
                 // TextColumn::make('full_address')
                 //     ->label('Address')
                 //     ->searchable(['address_line1', 'address_line2', 'city', 'pincode'])
@@ -132,6 +132,8 @@ class ClinicsTable
                 //     // }),
                 TextColumn::make('start_time')->time('h:i A')->sortable(),
                 TextColumn::make('end_time')->time('h:i A')->sortable(),
+                TextColumn::make('start_time')->time('h:i A')->sortable(),
+                BadgeColumn::make('number_of_beds')->color('info')->searchable()->sortable(),
                 TextColumn::make('google_map_link')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->placeholder('-'),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable(isToggledHiddenByDefault: true),

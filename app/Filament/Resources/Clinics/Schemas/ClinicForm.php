@@ -114,6 +114,11 @@ class ClinicForm
                                         ->suffix('%')
                                         ->default(0.00)
                                         ->placeholder('Subsequent sale share percentage'),
+                                    TextInput::make('number_of_beds')
+                                        ->required()
+                                        ->numeric()
+                                        ->default(1)
+                                        ->placeholder('Enter number of beds in clinic'),
                                 ])
 
                             ])

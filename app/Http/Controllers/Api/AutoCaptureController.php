@@ -12,14 +12,14 @@ use Illuminate\Support\Facades\Http;
 
 class AutoCaptureController extends BaseApiController
 {
-    private $DEVICE = "192.168.31.177:5555";
-    private $PACKAGE = "com.yiyuan.skin";
-    private $CAMERA_ACTIVITY = "com.yiyuan.skin/.ui.activity.CameraActivity";
-    private $REMOTE_ROOT = "/sdcard/yiyuan/image";
+    // private $DEVICE = "192.168.31.177:5555";
+    // private $PACKAGE = "com.yiyuan.skin";
+    // private $CAMERA_ACTIVITY = "com.yiyuan.skin/.ui.activity.CameraActivity";
+    // private $REMOTE_ROOT = "/sdcard/yiyuan/image";
 
-    private $AI_TAP_X = 539;
-    private $AI_TAP_Y = 1789;
-    private $CAPTURE_WAIT_SECONDS = 14;
+    // private $AI_TAP_X = 539;
+    // private $AI_TAP_Y = 1789;
+    // private $CAPTURE_WAIT_SECONDS = 14;
 
     // public function connect(Request $request)
     // {

@@ -37,6 +37,7 @@ class Clinic extends Model
         'description',
         'start_time',
         'end_time',
+        'number_of_beds',
         'is_active',
     ];
 
@@ -103,5 +104,10 @@ class Clinic extends Model
     public function clients()
     {
         return $this->users()->whereHas('roles', fn ($q) => $q->where('name', 'client'));
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
     }
 }
