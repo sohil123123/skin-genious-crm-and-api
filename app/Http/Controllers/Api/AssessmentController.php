@@ -99,7 +99,7 @@ class AssessmentController extends BaseApiController
         // Validate the request (adjust as needed)
         $request->validate([
             'images' => 'required|array|min:1',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:5120',
+            'images.*' => 'required|image|mimes:jpeg,png,gif,webp',
             'assessment_type' => 'required|in:pre,post'
         ]);
 
