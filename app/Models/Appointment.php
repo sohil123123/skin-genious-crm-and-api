@@ -18,7 +18,7 @@ class Appointment extends Model
 
     protected $fillable = [
         'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
-        'treatment_plan_id', 'created_by', 'appointment_datetime',
+        'treatment_plan_id', 'created_by', 'appointment_datetime', 'duration',
         'status', 'products_used', 'resources_used', 'notes', 'billed_at',
     ];
 
@@ -37,14 +37,14 @@ class Appointment extends Model
         });
     }
 
-    // Scopes for Filament (e.g., uninvoiced)
-    public function scopeUninvoiced($query) { 
-        return $query->whereNull('billed_at'); 
-    }
+    // // Scopes for Filament (e.g., uninvoiced)
+    // public function scopeUninvoiced($query) {
+    //     return $query->whereNull('billed_at');
+    // }
 
-    public function scopeByType($query, $type) { 
-        return $query->where('type', $type); 
-    }
+    // public function scopeByType($query, $type) {
+    //     return $query->where('type', $type);
+    // }
 
     // public function scopeOverlapping($query, $therapistId, $clinicId, $appointment_datetime, $excludeId = null) {
     //     $appointment_datetime = Carbon::createFromFormat('Y-m-d h:i A', $appointment_datetime)->format('Y-m-d H:i:s');
@@ -55,39 +55,39 @@ class Appointment extends Model
     //                 ->where('status', '!=', 'cancelled'); // Ignore cancelled
     // }
 
-    public function scopeOverlapping($query, $therapistId, $clinicId, $start, $end, $excludeId = null, $gap = 30) {
-        return $query->where('therapist_id', $therapistId)
-                ->where('clinic_id', $clinicId)
-                ->whereBetween('appointment_datetime', [
-                    Carbon::instance($start)->subMinutes($gap),
-                    Carbon::instance($end)->addMinutes($gap),
-                ])
-                ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
-                ->where('status', '!=', 'cancelled');
-    }
+    // public function scopeOverlapping($query, $therapistId, $clinicId, $start, $end, $excludeId = null, $duration = 30) {
+    //     return $query->where('therapist_id', $therapistId)
+    //             ->where('clinic_id', $clinicId)
+    //             ->whereBetween('appointment_datetime', [
+    //                 Carbon::instance($start)->subMinutes($duration),
+    //                 Carbon::instance($end)->addMinutes($duration),
+    //             ])
+    //             ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+    //             ->where('status', '!=', 'cancelled');
+    // }
 
     //---------------------------- Relations --------------------------
-    public function client(): BelongsTo { 
+    public function client(): BelongsTo {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function therapist(): BelongsTo { 
+    public function therapist(): BelongsTo {
         return $this->belongsTo(User::class, 'therapist_id');
     }
 
-    public function clinic(): BelongsTo { 
-        return $this->belongsTo(Clinic::class); 
+    public function clinic(): BelongsTo {
+        return $this->belongsTo(Clinic::class);
     }
 
-    public function createdBy(): BelongsTo { 
+    public function createdBy(): BelongsTo {
         return $this->belongsTo(User::class, 'created_by');
     }
 
     public function assessment(): BelongsTo {
-        return $this->belongsTo(Assessment::class); 
+        return $this->belongsTo(Assessment::class);
     }
 
     public function treatmentSession(): BelongsTo {
-        return $this->belongsTo(TreatmentSession::class); 
+        return $this->belongsTo(TreatmentSession::class);
     }
 }

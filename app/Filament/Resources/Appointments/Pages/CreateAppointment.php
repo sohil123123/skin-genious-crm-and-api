@@ -63,22 +63,22 @@ class CreateAppointment extends CreateRecord
         ];
     }
 
-    // protected function mutateFormDataBeforeCreate(array $data): array
-    // {
-    //     dd('hi');
-    //     // $start = Carbon::parse($data['appointment_datetime']);
-    //     // $end = Carbon::parse($data['appointment_datetime'])->addMinutes(30);
-    //     // $result = Appointment::Overlapping($data['therapist_id'], $data['clinic_id'], $start, $end);
-    //     // if ($result->exists()) {
-    //     //         Notification::make()
-    //     //             ->title('Duplicate slot')
-    //     //             ->body("This time slot is already booked for the selected therapist and clinic")
-    //     //             ->danger()
-    //     //             // ->persistent()
-    //     //             ->send();
-    //     //     $this->halt();
-    //     // }
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        dd($data);
+        // $start = Carbon::parse($data['appointment_datetime']);
+        // $end = Carbon::parse($data['appointment_datetime'])->addMinutes(30);
+        // $result = Appointment::Overlapping($data['therapist_id'], $data['clinic_id'], $start, $end);
+        // if ($result->exists()) {
+        //         Notification::make()
+        //             ->title('Duplicate slot')
+        //             ->body("This time slot is already booked for the selected therapist and clinic")
+        //             ->danger()
+        //             // ->persistent()
+        //             ->send();
+        //     $this->halt();
+        // }
 
-    //     // return $data;
-    // }
+        // return $data;
+    }
 }

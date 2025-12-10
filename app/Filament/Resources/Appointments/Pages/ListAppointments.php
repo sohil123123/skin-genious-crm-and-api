@@ -18,7 +18,7 @@ class ListAppointments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->icon('heroicon-o-plus'),
+            CreateAction::make()->icon('heroicon-o-plus')->label('New Appointment'),
         ];
     }
 

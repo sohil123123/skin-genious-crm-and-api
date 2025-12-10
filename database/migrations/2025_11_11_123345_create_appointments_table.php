@@ -61,6 +61,11 @@ return new class extends Migration
                 ->index()
                 ->comment('Date and time of the appointment');
 
+            $table->integer('duration')
+                ->default(90)
+                ->nullable()
+                ->comment('Duration of the appointment in minutes');
+
             $table->enum('status', [
                 'scheduled',
                 'confirmed',

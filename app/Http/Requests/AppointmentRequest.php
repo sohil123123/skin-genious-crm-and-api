@@ -7,10 +7,12 @@ use Illuminate\Validation\Rule;
 
 use App\Models\Clinic;
 use App\Models\User;
+use App\Models\TreatmentSession;
 
 use Carbon\Carbon;
 
-use App\Rules\AppointmentAvailability;
+use App\Rules\TherapistAvailabilityRule;
+use App\Rules\ClinicBedAvailabilityRule;
 
 class AppointmentRequest extends FormRequest
 {
@@ -71,8 +73,8 @@ class AppointmentRequest extends FormRequest
 
     //         'therapist_id' => [
     //             // Required only for admin / clinic manager
-    //             $user->hasRole(['therapist']) 
-    //                 ? 'nullable' 
+    //             $user->hasRole(['therapist'])
+    //                 ? 'nullable'
     //                 : 'required',
 
     //             'exists:users,id',
@@ -102,7 +104,7 @@ class AppointmentRequest extends FormRequest
     //                 }
     //             }
     //         ],
-            
+
     //         'assessment_id' => [
     //             'required_unless:type,consult',
     //             'nullable'
@@ -132,6 +134,7 @@ class AppointmentRequest extends FormRequest
         $user = auth()->user();
 
         return [
+            'type' => ['required', 'in:treatment,consult'],
 
             // ----------------------------
             // CLINIC
@@ -188,8 +191,8 @@ class AppointmentRequest extends FormRequest
             // ----------------------------
             // TYPE-BASED REQUIRED FIELDS
             // ----------------------------
-            'assessment_id' => ['required_unless:type,consult', 'nullable'],
-            'treatment_session_id' => ['required_unless:type,consult', 'nullable'],
+            'assessment_id' => ['required_unless:type,consult', 'nullable', 'exists:assessments,id'],
+            'treatment_session_id' => ['required_unless:type,consult', 'nullable', 'exists:treatment_sessions,id'],
 
             // ----------------------------
             // APPOINTMENT DATE/TIME
@@ -200,6 +203,13 @@ class AppointmentRequest extends FormRequest
                 function ($attribute, $value, $fail) {
 
                     if (!$value) return;
+
+                    $type = $this->type;
+                    if ($type === 'consult') {
+                        $duration = 90; // fixed
+                    } else {
+                        $duration = get_treatment_session_duration($get('treatment_session_id'));
+                    }
 
                     $selected = Carbon::parse($value);
                     $now = Carbon::now()->addMinutes(30);
@@ -226,8 +236,8 @@ class AppointmentRequest extends FormRequest
                     $clinic = Clinic::find($clinicId);
                     if (!$clinic) return;
 
-                    $clinicStart = Carbon::parse($clinic->start_time)->addMinutes(30);
-                    $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes(30);
+                    $clinicStart = Carbon::parse($clinic->start_time);
+                    $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes($duration);
 
                     $time = $selected->format('H:i:s');
 
@@ -239,15 +249,28 @@ class AppointmentRequest extends FormRequest
                         return;
                     }
 
+                    // 3️⃣ Bed Availability Check
+                    $rule = new ClinicBedAvailabilityRule(
+                        clinic: $clinic,
+                        start: $selected,
+                        end: $selected,
+                        duration: $duration,
+                        excludeId: $this->route('appointment')?->id // for edit
+                    );
+
+                    $rule->validate($attribute, $value, $fail);
+
+
                     // -------------------------
-                    // 3️⃣ Appointment Availability
+                    // 4️⃣ Availability rule for therapist
                     // -------------------------
-                    $rule = new AppointmentAvailability(
+                    $rule = new TherapistAvailabilityRule(
                         therapistId: $this->therapist_id,
                         clinicId: $this->clinic_id,
                         start: Carbon::parse($value),
                         end: Carbon::parse($value),
-                        excludeId: $this->route('appointment')->id // for edit
+                        duration: $duration,
+                        excludeId: $this->route('appointment')?->id // for edit
                     );
 
                     $rule->validate($attribute, $value, $fail);
