@@ -49,7 +49,7 @@ return new class extends Migration
                 ->constrained('treatment_sessions', indexName: 'appointments_treatment_session_id_index')
                 ->nullOnDelete()
                 ->cascadeOnUpdate()
-                ->comment('Linked treatment plan, if any');
+                ->comment('Linked treatment session, if any');
 
             $table->foreignId('created_by')
                 ->constrained('users')

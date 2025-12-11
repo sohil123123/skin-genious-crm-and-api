@@ -35,24 +35,6 @@ if (!function_exists('has_user_related_role')) {
     }
 }
 
-if (!function_exists('new_assessment')) {
-    function new_assessment($user)
-    {
-        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
-        $auth_user = auth()->user();
-        $token = $auth_user->createToken(
-            'assessment-token-' . Str::random(10),
-            ['assessment'], // Abilities/scopes
-            // now()->addHour() // Expiration
-        )->plainTextToken;
-
-        // Redirect to Assessment App with token and patient ID
-        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id;
-
-        return $assessmentUrl;
-    }
-}
-
 if (!function_exists('get_treatment_session_duration')) {
     function get_treatment_session_duration($treatment_session_id)
     {
@@ -68,5 +50,69 @@ if (!function_exists('get_treatment_session_duration')) {
         // }
 
         // return $duration;
+    }
+}
+
+if (!function_exists('new_assessment')) {
+    function new_assessment($user, $appointment)
+    {
+        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
+        $auth_user = auth()->user();
+        $token = $auth_user->createToken(
+            'assessment-token-' . Str::random(10),
+            ['assessment'], // Abilities/scopes
+            // now()->addHour() // Expiration
+        )->plainTextToken;
+
+        // Redirect to Assessment App with token and patient ID
+        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id;
+
+        return $assessmentUrl;
+    }
+}
+
+if (!function_exists('can_create_assessment')) {
+    function can_create_assessment($appointment)
+    {
+        $start = $appointment->appointment_datetime->clone()->subMinutes(10);
+        $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+
+        return $appointment->type->value === 'consult'
+        && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        && is_null($appointment->assessment_id);
+        // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
+        // && now()->between($start, $end);
+    }
+}
+
+if (!function_exists('start_session')) {
+    function start_session($user, $appointment)
+    {
+        return 'www.google.com';
+        // // Generate short-lived Sanctum token (e.g., expires in 1 hour)
+        // $auth_user = auth()->user();
+        // $token = $auth_user->createToken(
+        //     'assessment-token-' . Str::random(10),
+        //     ['assessment'], // Abilities/scopes
+        //     // now()->addHour() // Expiration
+        // )->plainTextToken;
+
+        // // Redirect to Assessment App with token and patient ID
+        // $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id;
+
+        // return $assessmentUrl;
+    }
+}
+
+if (!function_exists('can_start_session')) {
+    function can_start_session($appointment)
+    {
+        $start = $appointment->appointment_datetime->clone()->subMinutes(10);
+        $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+
+        return $appointment->type->value === 'treatment'
+        && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        && !is_null($appointment->treatment_session_id);
+        // && now()->between($start, $end);
     }
 }

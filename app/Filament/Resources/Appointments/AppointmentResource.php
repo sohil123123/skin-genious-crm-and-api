@@ -16,6 +16,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
+use App\Filament\Resources\Appointments\Schemas\AppointmentInfolist;
+
 use App\Models\Appointment;
 
 class AppointmentResource extends Resource
@@ -96,5 +98,10 @@ class AppointmentResource extends Resource
         }
 
         return $query;
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return AppointmentInfolist::configure($schema);
     }
 }

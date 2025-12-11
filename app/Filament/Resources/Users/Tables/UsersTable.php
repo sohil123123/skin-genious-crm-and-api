@@ -191,16 +191,16 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                Action::make('new_assessment')
-                    ->label('New Assessment')
-                    ->visible(fn ($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record);
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                // Action::make('new_assessment')
+                //     ->label('New Assessment')
+                //     ->visible(fn ($record) => $record->hasRole('client'))
+                //     ->icon('heroicon-o-plus')
+                //     ->color('info')
+                //     ->action(function ($record) {
+                //         $assessmentUrl = new_assessment($record);
+                //         return redirect($assessmentUrl);
+                //     })
+                //     ->requiresConfirmation(),
 
                 Action::make('holiday')
                     ->visible(fn ($record) => $record->hasRole('therapist'))
@@ -279,7 +279,7 @@ class UsersTable
                     //     });
 
                     //     return $permissions->map(function ($group, $key) {
-                            
+
                     //         return Section::make(ucfirst($key))
                     //             ->schema([
                     //                 CheckboxList::make("permissions_{$key}")
@@ -311,7 +311,7 @@ class UsersTable
                                 ->send();
                             return;
                         }
-                        
+
                         if ($record->hasRole('super_admin'))
                         {
                             Notification::make()
@@ -327,7 +327,7 @@ class UsersTable
                             ->flatten()
                             ->filter()
                             ->toArray();
-                        
+
                         $record->syncPermissions($permissions ?? []);
 
                         Notification::make()

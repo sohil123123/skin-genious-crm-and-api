@@ -50,7 +50,8 @@ use Closure;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\AppointmentType;
-use App\Rules\AppointmentAvailability;
+use App\Rules\TherapistAvailabilityRule;
+use App\Rules\ClinicBedAvailabilityRule;
 
 class AppointmentsRelationManager extends RelationManager
 {
@@ -139,6 +140,20 @@ class AppointmentsRelationManager extends RelationManager
                                     ->inline()
                                     ->options(AppointmentType::class)
                                     ->default('treatment')
+                                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                        $set('assessment_id', null);
+                                        $set('treatment_session_id', null);
+                                        $set('appointment_datetime', null);
+                                        $type = $get('type') instanceof \BackedEnum
+                                            ? $get('type')->value
+                                            : $get('type');
+
+                                        if ($type === 'consult') {
+                                            $set('duration', config('project.appointment_consult_duration'));
+                                        } else {
+                                            $set('duration', get_treatment_session_duration($get('treatment_session_id')));
+                                        }
+                                    })
                                     ->live()
                                     ->required(),
                             ])
@@ -147,6 +162,7 @@ class AppointmentsRelationManager extends RelationManager
                         Section::make('Choose Client, Therapist and Date')
                             ->schema([
                                 Hidden::make('clinic_id')->default($this->getOwnerRecord()->clinic_id),
+                                Hidden::make('duration')->default(0),
 
                                 Select::make('therapist_id')
                                     ->label('Therapist')
@@ -167,6 +183,10 @@ class AppointmentsRelationManager extends RelationManager
                                     )
                                     ->visible(fn (callable $get) => $get('type')->value === 'treatment')
                                     ->required(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                        $set('treatment_session_id', null);
+                                        $set('appointment_datetime', null);
+                                    })
                                     ->placeholder('Select Assessment')
                                     ->live(),
 
@@ -180,6 +200,20 @@ class AppointmentsRelationManager extends RelationManager
                                     )
                                     ->visible(fn (callable $get) => $get('type')->value === 'treatment')
                                     ->required(fn (callable $get) => $get('type')->value === 'treatment')
+                                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                        $set('appointment_datetime', null);
+
+                                        $type = $get('type') instanceof \BackedEnum
+                                            ? $get('type')->value
+                                            : $get('type');
+
+                                        if ($type === 'consult') {
+                                            $set('duration', config('project.appointment_consult_duration')); // consult = 90 min
+                                        } else {
+                                            $set('duration', get_treatment_session_duration($get('treatment_session_id')));
+                                        }
+                                    })
+                                    ->live()
                                     ->placeholder('Select Treatment Session'),
 
                                 DateTimePicker::make('appointment_datetime')
@@ -198,6 +232,15 @@ class AppointmentsRelationManager extends RelationManager
                                         }
                                     })
                                     ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                                        $type = $get('type') instanceof \BackedEnum
+                                            ? $get('type')->value
+                                            : $get('type');
+
+                                        if ($type === 'consult') {
+                                            $set('duration', config('project.appointment_consult_duration')); // consult = 90 min
+                                        } else {
+                                            $set('duration', get_treatment_session_duration($get('treatment_session_id')));
+                                        }
                                         $livewire->validateOnly('appointment_datetime'); // ✅ triggers instant revalidation
                                     })
                                     ->disabledDates(function (callable $get) {
@@ -230,65 +273,65 @@ class AppointmentsRelationManager extends RelationManager
                                             // 1️⃣ Block selecting past date/time
                                             if (!$value) return;
 
-                                            $selectedDateTime = Carbon::parse($value);
-                                            $original = Carbon::now();
-                                            $now = $original->copy()->addMinutes(30);
+                                            $datetime = Carbon::parse($value);
+                                            $now = Carbon::now();
 
-                                            // -----------------------------------------------------
-                                            // 1️⃣ Block selecting past date/time
-                                            // -----------------------------------------------------
-                                            if ($selectedDateTime->isToday() && $selectedDateTime->lessThan($now)) {
-                                                $fail("You cannot select a past time ({$original->format('h:i A')}) for today's date.");
-                                                return;
-                                            }
+                                            $type = $get('type') instanceof \BackedEnum
+                                                ? $get('type')->value
+                                                : $get('type');
 
-                                            if ($selectedDateTime->isPast()) {
-                                                $fail("You cannot select a past date or time ({$original->format('M d, Y h:i A')}).");
-                                                return;
-                                            }
-                                                
-                                            // 2️⃣ Clinic timing logic
-                                            $clinicId = $get('clinic_id');
-                                            if (!$clinicId) return;
+                                            $duration = $type === 'consult' ? $get('duration') : get_treatment_session_duration($get('treatment_session_id'));
 
-                                            $clinic = Clinic::find($clinicId);
+                                            // 1️⃣ Block Past Date/Time
+                                            if ($datetime->isPast())
+                                                return $fail("❌ You cannot select a past date/time.");
+
+                                            if ($datetime->isToday() && $datetime->lt($now))
+                                                return $fail("❌ Selected time has already passed.");
+
+                                            // 2️⃣ Clinic Hours Check
+                                            $clinic = Clinic::find($get('clinic_id'));
                                             if (!$clinic) return;
 
-                                            $clinicStart = Carbon::parse($clinic->start_time)->addMinutes(30)->format('H:i:s');
-                                            $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes(30)->format('H:i:s');
+                                            $clinicStart = Carbon::parse($clinic->start_time);
+                                            $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes($duration);
 
-                                            if (!$value) return;
-
-                                            $time = $selectedDateTime->format('H:i:s');
-                                            
-                                            if ($time < $clinicStart || $time > $clinicEnd) {
-                                                $clinicStart = Carbon::parse($clinicStart)->format('h:i A');
-                                                $clinicEnd = Carbon::parse($clinicEnd)->format('h:i A');
-                                                $fail("Allowed time for this clinic is between {$clinicStart} and {$clinicEnd}.");
-                                                return; // Stop next rule
+                                            if ($datetime->format('H:i:s') < ($clinicStart->format('H:i:s')) || $datetime->format('H:i:s') > ($clinicEnd->format('H:i:s'))) {
+                                                return $fail("❌ Appointment must be within clinic hours: " .
+                                                    $clinicStart->format('h:i A') . " – " . $clinicEnd->format('h:i A'));
                                             }
 
-                                            // 3️⃣ Availability rule
-                                            $rule = new AppointmentAvailability(
+                                            // 3️⃣ Therapist Availability Check
+                                            $therapistRule = new TherapistAvailabilityRule(
                                                 therapistId: $get('therapist_id'),
-                                                clinicId: $clinicId,
-                                                start: Carbon::parse($get('appointment_datetime')),
-                                                end: Carbon::parse($get('appointment_datetime')),
+                                                clinicId: $get('clinic_id'),
+                                                start: $datetime,
+                                                duration: $duration,
                                                 excludeId: $record?->id,
                                             );
+                                            $therapistRule->validate($attribute, $value, $fail);
 
-                                            $rule->validate($attribute, $value, $fail);
+                                            // 4️⃣ Bed Availability Check
+                                            $bedRule = new ClinicBedAvailabilityRule(
+                                                clinic: $clinic,
+                                                start: $datetime,
+                                                duration: $duration,
+                                                excludeId: $record?->id
+                                            );
+                                            $bedRule->validate($attribute, $value, $fail);
+
                                         }
                                     ])
                                     ->helperText(function ($get) {
                                         $clinic = Clinic::find($get('clinic_id'));
+                                        if (!$clinic) return "Select clinic to see available timing";
 
-                                        if (!$clinic) return 'Select clinic to see available timing.';
+                                        $duration = $get('duration');
 
-                                        $start = Carbon::parse($clinic->start_time)->addMinutes(30)->format('h:i A');
-                                        $end   = Carbon::parse($clinic->end_time)->subMinutes(30)->format('h:i A');
+                                        $start = Carbon::parse($clinic->start_time)->format('h:i A');
+                                        $end   = Carbon::parse($clinic->end_time)->subMinutes($duration)->format('h:i A');
 
-                                        return "Available time: {$start} – {$end}";
+                                        return "Clinic hours: {$start} – {$end} | Duration: {$duration} minutes";
                                     })
                                     ->allowHtmlValidationMessages(),
 
@@ -630,7 +673,7 @@ class AppointmentsRelationManager extends RelationManager
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
-            
+
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

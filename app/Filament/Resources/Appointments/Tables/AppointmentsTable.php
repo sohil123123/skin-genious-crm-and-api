@@ -77,26 +77,31 @@ class AppointmentsTable
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name']),
                 // TextColumn::make('assessment.id')->searchable()->placeholder('-'),
-                TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-'),
+                TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('appointment_datetime')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
                     ->color('warning')
                     ->sortable(),
-                TextColumn::make('bed_usage')
-                    ->label('Beds Used')
-                    ->getStateUsing(function ($record) {
-                        $clinic = $record->clinic;
-                        if (!$clinic) return "-";
-
-                        $dt = Carbon::parse($record->appointment_datetime);
-
-                        $count = $clinic->appointments()->where('appointment_datetime', $dt)->count();
-
-                        return "{$count} / {$clinic->number_of_beds}";
-                    })
+                TextColumn::make('duration')
                     ->badge()
-                    ->color(fn ($state) => str_contains($state, 0) ? 'success' : 'warning'),
+                    ->formatStateUsing(fn ($state) => $state . ' minutes')
+                    ->searchable()
+                    ->sortable(),
+                // TextColumn::make('bed_usage')
+                //     ->label('Beds Used')
+                //     ->getStateUsing(function ($record) {
+                //         $clinic = $record->clinic;
+                //         if (!$clinic) return "-";
+
+                //         $dt = Carbon::parse($record->appointment_datetime);
+
+                //         $count = $clinic->appointments()->where('appointment_datetime', $dt)->count();
+
+                //         return "{$count} / {$clinic->number_of_beds}";
+                //     })
+                //     ->badge()
+                //     ->color(fn ($state) => str_contains($state, 0) ? 'success' : 'warning'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
@@ -104,7 +109,8 @@ class AppointmentsTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime('d M Y, h:i A')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->dateTime('d M Y, h:i A')
                     ->sortable()
@@ -408,6 +414,28 @@ class AppointmentsTable
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->recordActions([
+                Action::make('new_assessment')
+                    ->label('Create Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record->client, $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+                Action::make('start_session')
+                    ->label('Start Session')
+                    ->visible(fn ($record) => can_start_session($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('warning')
+                    ->button()
+                    ->action(function ($record) {
+                        $startSessionUrl = start_session($record->client, $record);
+                        return redirect($startSessionUrl);
+                    })
+                    ->requiresConfirmation(),
                 ViewAction::make(),
                 EditAction::make(),
                 DeleteAction::make()

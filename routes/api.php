@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
 
+use App\Http\Controllers\Api\AppointmentController;
+
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
 // })->middleware('auth:sanctum');
@@ -33,6 +35,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
 
         // INFO: Appointment CRUD Route
+        Route::post('appointments/update-treatment-session-id/{appointment_id}', [AppointmentController::class, 'updateTreatmentSessionId']);
         Route::apiResource('appointments', 'AppointmentController');
 
         // INFO: Common Route

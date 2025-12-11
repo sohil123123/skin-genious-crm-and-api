@@ -204,76 +204,49 @@ class AppointmentRequest extends FormRequest
 
                     if (!$value) return;
 
-                    $type = $this->type;
-                    if ($type === 'consult') {
-                        $duration = 90; // fixed
-                    } else {
-                        $duration = get_treatment_session_duration($get('treatment_session_id'));
-                    }
+                    $datetime = Carbon::parse($value);
+                    $now = Carbon::now();
 
-                    $selected = Carbon::parse($value);
-                    $now = Carbon::now()->addMinutes(30);
+                    $duration = $this->type === 'consult' ? config('project.appointment_consult_duration') : get_treatment_session_duration($this->treatment_session_id);
 
-                    // -------------------------
-                    // 1️⃣ Block past times
-                    // -------------------------
-                    if ($selected->isToday() && $selected->lessThan($now)) {
-                        $fail("You cannot select a past time ({$now->format('h:i A')}) for today.");
-                        return;
-                    }
+                    // 1️⃣ Block Past Date/Time
+                    if ($datetime->isPast())
+                        return $fail("❌ You cannot select a past date/time.");
 
-                    if ($selected->isPast()) {
-                        $fail("You cannot select a past date or time ({$now->format('M d, Y h:i A')}).");
-                        return;
-                    }
+                    if ($datetime->isToday() && $datetime->lt($now))
+                        return $fail("❌ Selected time has already passed.");
 
-                    // -------------------------
-                    // 2️⃣ Validate clinic time window (+30m, -30m)
-                    // -------------------------
-                    $clinicId = $this->clinic_id;
-                    if (!$clinicId) return;
-
-                    $clinic = Clinic::find($clinicId);
+                    // 2️⃣ Clinic Hours Check
+                    $clinic = Clinic::find($this->clinic_id);
                     if (!$clinic) return;
 
                     $clinicStart = Carbon::parse($clinic->start_time);
                     $clinicEnd   = Carbon::parse($clinic->end_time)->subMinutes($duration);
 
-                    $time = $selected->format('H:i:s');
-
-                    if (
-                        $time < $clinicStart->format('H:i:s') ||
-                        $time > $clinicEnd->format('H:i:s')
-                    ) {
-                        $fail("Allowed time for this clinic is between {$clinicStart->format('h:i A')} and {$clinicEnd->format('h:i A')}.");
-                        return;
+                    if ($datetime->format('H:i:s') < ($clinicStart->format('H:i:s')) || $datetime->format('H:i:s') > ($clinicEnd->format('H:i:s'))) {
+                        return $fail("❌ Appointment must be within clinic hours: " .
+                            $clinicStart->format('h:i A') . " – " . $clinicEnd->format('h:i A'));
                     }
 
-                    // 3️⃣ Bed Availability Check
-                    $rule = new ClinicBedAvailabilityRule(
-                        clinic: $clinic,
-                        start: $selected,
-                        end: $selected,
-                        duration: $duration,
-                        excludeId: $this->route('appointment')?->id // for edit
-                    );
-
-                    $rule->validate($attribute, $value, $fail);
-
-
-                    // -------------------------
-                    // 4️⃣ Availability rule for therapist
-                    // -------------------------
-                    $rule = new TherapistAvailabilityRule(
+                    // 3️⃣ Therapist Availability Check
+                    $therapistRule = new TherapistAvailabilityRule(
                         therapistId: $this->therapist_id,
                         clinicId: $this->clinic_id,
-                        start: Carbon::parse($value),
-                        end: Carbon::parse($value),
+                        start: $datetime,
                         duration: $duration,
-                        excludeId: $this->route('appointment')?->id // for edit
+                        excludeId: $this->route('appointment')?->id,
                     );
+                    $therapistRule->validate($attribute, $value, $fail);
 
-                    $rule->validate($attribute, $value, $fail);
+                    // 4️⃣ Bed Availability Check
+                    $bedRule = new ClinicBedAvailabilityRule(
+                        clinic: $clinic,
+                        start: $datetime,
+                        duration: $duration,
+                        excludeId: $this->route('appointment')?->id
+                    );
+                    $bedRule->validate($attribute, $value, $fail);
+
                 },
             ],
             'notes' => 'nullable|string',
