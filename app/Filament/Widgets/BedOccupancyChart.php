@@ -10,7 +10,7 @@ use App\Models\Appointment;
 
 class BedOccupancyChart extends ChartWidget
 {
-    protected ?string $heading = 'Bed Occupancy Chart';
+    protected ?string $heading = 'Today Bed Occupancy Chart';
     protected static ?int $sort = 4;
 
     protected function getData(): array

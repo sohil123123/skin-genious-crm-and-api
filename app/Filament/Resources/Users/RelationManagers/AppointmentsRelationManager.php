@@ -406,12 +406,17 @@ class AppointmentsRelationManager extends RelationManager
                 TextColumn::make('therapist.name')->label('Therapist')
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name']),
-                TextColumn::make('assessment.id')->searchable()->placeholder('-'),
-                TextColumn::make('treatmentSession.title')->searchable()->placeholder('-'),
+                TextColumn::make('assessment.id')->label('Assessment ID')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('appointment_datetime')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
                     ->color('info')
+                    ->sortable(),
+                TextColumn::make('duration')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state . ' minutes')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')
@@ -618,8 +623,8 @@ class AppointmentsRelationManager extends RelationManager
                                         Select::make('assessment_id')
                                             ->label('Assessment')
                                             ->options(function (callable $get) {
-                                                $clientId = $this->getOwnerRecord()->id;
-                                                return Assessment::where('user_id', $clientId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->id]);
+                                                $userId = $this->getOwnerRecord()->id;
+                                                return Assessment::where('user_id', $userId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->id]);
                                             })
                                             ->searchable()
                                             ->preload()
@@ -633,7 +638,7 @@ class AppointmentsRelationManager extends RelationManager
                                             ->options(fn (callable $get) =>
                                                 $get('assessment_id')
                                                     ? TreatmentSession::where('assessment_id', $get('assessment_id'))
-                                                        ->pluck('name', 'id')
+                                                        ->pluck('title', 'id')
                                                     : []
                                             )
                                             ->live()
@@ -673,8 +678,29 @@ class AppointmentsRelationManager extends RelationManager
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
-
             ->recordActions([
+                Action::make('new_assessment')
+                    ->label('Create Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record->client, $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+                Action::make('start_session')
+                    ->label('Start Session')
+                    ->visible(fn ($record) => can_start_session($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('warning')
+                    ->button()
+                    ->action(function ($record) {
+                        $startSessionUrl = start_session($record->client, $record);
+                        return redirect($startSessionUrl);
+                    })
+                    ->requiresConfirmation(),
                 ViewAction::make(),
                 EditAction::make(),
                 DeleteAction::make(),

@@ -1,55 +1,67 @@
 <?php
 
-namespace App\Filament\Resources\Appointments\Tables;
+namespace App\Filament\Widgets;
 
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Schema;
-use Filament\Tables\Grouping\Group;
 use Filament\Actions\Action;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Forms\Components\DatePicker;
-use Filament\Schemas\Components\Section;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
 use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 
-use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
-// use App\Enums\AppointmentStatus;
-// use App\Enums\AppointmentType;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\DeleteAction;
+
+use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
+
+use App\Filament\Resources\Appointments\AppointmentResource;
+
+use Carbon\Carbon;
+
+use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\User;
 use App\Models\Assessment;
 use App\Models\TreatmentSession;
 
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
-
-class AppointmentsTable
+class TodayAppointments extends TableWidget
 {
-    public static function configure(Table $table): Table
+    protected int | string | array $columnSpan = 'full';
+
+    protected static ?int $sort = 0;
+
+    protected ?string $pollingInterval = '5s';
+
+    // protected static bool $isLazy = false;
+
+    public function table(Table $table): Table
     {
         return $table
             ->deferLoading()
-            ->recordUrl(null)
-            ->defaultSort('appointment_datetime', 'asc')
+            ->query(AppointmentResource::getEloquentQuery()->whereDate('appointment_datetime', Carbon::today()))
+            // ->query(fn (): Builder =>
+            //     Appointment::query()
+            //         // ->when(!auth()->user()->hasRole('super_admin'), fn($q) => $q->where('clinic_id', auth()->user()->clinic_id))
+            //         ->whereDate('appointment_datetime', Carbon::today())
+            //         ->orderBy('appointment_datetime', 'asc')
+            // )
+            ->defaultPaginationPageOption(5)
+            ->defaultSort('appointment_datetime', 'desc')
             ->columns([
-                TextColumn::make('type')->badge(),
+                TextColumn::make('type')->badge()->sortable(),
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
@@ -89,20 +101,6 @@ class AppointmentsTable
                     ->formatStateUsing(fn ($state) => $state . ' minutes')
                     ->searchable()
                     ->sortable(),
-                // TextColumn::make('bed_usage')
-                //     ->label('Beds Used')
-                //     ->getStateUsing(function ($record) {
-                //         $clinic = $record->clinic;
-                //         if (!$clinic) return "-";
-
-                //         $dt = Carbon::parse($record->appointment_datetime);
-
-                //         $count = $clinic->appointments()->where('appointment_datetime', $dt)->count();
-
-                //         return "{$count} / {$clinic->number_of_beds}";
-                //     })
-                //     ->badge()
-                //     ->color(fn ($state) => str_contains($state, 0) ? 'success' : 'warning'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
@@ -170,114 +168,6 @@ class AppointmentsTable
 
                         if ($data['status'] ?? null) {
                             $indicators[] = Indicator::make('Status: ' . $data['status'])->removeField('status');
-                        }
-
-                        return $indicators;
-                    }),
-
-                // 1) Quick Filters: Enhanced with better layout and indicators
-                Filter::make('quick')
-                    ->label('Quick Date Filters')
-                    ->form([
-                        Section::make('Select Date Ranges')
-                            ->icon('heroicon-o-calendar-days')
-                            ->description('Choose predefined date ranges for quick filtering.')
-                            ->schema([
-                                CheckboxList::make('ranges')
-                                    ->label('Date Ranges')
-                                    ->options([
-                                        'today' => 'Today',
-                                        'yesterday' => 'Yesterday',
-                                        'this_week' => 'This Week',
-                                        'this_month' => 'This Month',
-                                        'this_year' => 'This Year',
-                                    ])
-                                    ->columns(5) // Increased to 3 for better horizontal spread
-                                    ->bulkToggleable()
-                                    ->reactive(), // Enables live updates if needed
-                            ])
-                            ->collapsible() // Allows collapsing to save space
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        $ranges = collect($data['ranges'] ?? []);
-                        if ($ranges->isEmpty()) {
-                            return $query;
-                        }
-
-                        return $query->where(function (Builder $q) use ($ranges) {
-                            if ($ranges->contains('today')) {
-                                $q->orWhereDate('appointment_datetime', Carbon::today());
-                            }
-                            if ($ranges->contains('yesterday')) {
-                                $q->orWhereDate('appointment_datetime', Carbon::today()->subDay());
-                            }
-                            if ($ranges->contains('this_week')) {
-                                $q->orWhereBetween('appointment_datetime', [
-                                    now()->startOfWeek(),
-                                    now()->endOfWeek()
-                                ]);
-                            }
-                            if ($ranges->contains('this_month')) {
-                                $q->orWhereMonth('appointment_datetime', now()->month)
-                                ->whereYear('appointment_datetime', now()->year);
-                            }
-                            if ($ranges->contains('this_year')) {
-                                $q->orWhereYear('appointment_datetime', now()->year);
-                            }
-                        });
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $ranges = collect($data['ranges'] ?? []);
-                        return $ranges->map(fn ($key) => Indicator::make(ucfirst(str_replace('_', ' ', $key))))
-                                    ->filter()
-                                    ->values()
-                                    ->toArray();
-                    }),
-
-                // 2) Custom Date Range: Integrated with quick filters via toggle-like behavior
-                Filter::make('date_range')
-                    ->label('Custom Date Range')
-                    ->form([
-                        Section::make('Custom Date Selection')
-                            ->icon('heroicon-o-calendar')
-                            ->description('Override quick filters with a specific date range.')
-                            ->schema([
-                                Grid::make(2) // 2-column layout for compact design
-                                    ->schema([
-                                    DatePicker::make('from')
-                                        ->label('From Date')
-                                        ->minDate(Carbon::today())
-                                        ->maxDate(fn ($get) => $get('to'))
-                                        ->closeOnDateSelection()
-                                        ->native(false)
-                                        ->placeholder('From Date')
-                                        ->reactive(),
-                                    DatePicker::make('to')
-                                        ->label('To Date')
-                                        ->minDate(fn ($get) => $get('from') ?? Carbon::today())
-                                        ->closeOnDateSelection()
-                                        ->native(false)
-                                        ->placeholder('To Date')
-                                        ->reactive(),
-                                    ])
-                            ])
-                            ->columns(1)
-                            ->collapsible(),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['from'], fn (Builder $query) => $query->where('appointment_datetime', '>=', $data['from']))
-                            ->when($data['to'], fn (Builder $query) => $query->where('appointment_datetime', '<=', $data['to']));
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-
-                        if ($data['from'] ?? null) {
-                            $indicators[] = Indicator::make('From Date ' . Carbon::parse($data['from'])->toFormattedDateString())->removeField('from');
-                        }
-
-                        if ($data['to'] ?? null) {
-                            $indicators[] = Indicator::make('To Date ' . Carbon::parse($data['to'])->toFormattedDateString())->removeField('to');
                         }
 
                         return $indicators;
@@ -416,15 +306,15 @@ class AppointmentsTable
                         return $indicators;
                     }),
 
-                // Basic toggles: Trashed and Type (grouped visually in modal)
-                TrashedFilter::make()->label('Include Deleted Records'),
             ],layout: FiltersLayout::Modal)
             ->filtersFormColumns(2) // Reduced to 2 for better readability in modal; adjust as needed
             ->filtersFormWidth('md:max-w-4xl')
-
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
+            ->headerActions([
+                //
+            ])
             ->recordActions([
                 Action::make('new_assessment')
                     ->label('Create Assessment')
@@ -448,8 +338,8 @@ class AppointmentsTable
                         return redirect($startSessionUrl);
                     })
                     ->requiresConfirmation(),
-                ViewAction::make(),
-                EditAction::make(),
+                // ViewAction::make(),
+                // EditAction::make(),
                 DeleteAction::make()
                     ->successNotification(function ($record) {
                         return Notification::make()
@@ -459,31 +349,9 @@ class AppointmentsTable
                     }),
                 RestoreAction::make()
             ])
-            ->groups([
-                Group::make('clinic_id')
-                    ->label('Clinic')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
-                Group::make('client_id')
-                    ->label('Client')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->client_id ?? 'no_client')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->client?->first_name ?? 'Unassigned'),
-                Group::make('therapist_id')
-                    ->label('Therapist')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->therapist_id ?? 'no_therapist')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->therapist?->first_name ?? 'Unassigned'),
-                Group::make('status')->label('Status')->collapsible(),
-                Group::make('appointment_datetime')->label('Appointment Date')->date(),
-                Group::make('created_at')->date(),
-            ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
+                    //
                 ]),
             ])
             ->emptyStateDescription('Once you create your first appointment, it will appear here.');
