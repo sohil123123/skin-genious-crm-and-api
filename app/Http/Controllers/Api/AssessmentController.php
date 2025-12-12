@@ -103,16 +103,26 @@ class AssessmentController extends BaseApiController
             'assessment_type' => 'required|in:pre,post'
         ]);
 
+        $openaiFileId = $request->openai_file_id;
+
         if($request->assessment_type == 'pre'){
             $assessment->addMultipleMediaFromRequest(['images'])
-                        ->each(function ($fileAdder) {
-                            $fileAdder->toMediaCollection('assessment_images', 'user_assessment_images');
+                        ->each(function ($fileAdder) use ($openaiFileId) {
+                            $fileAdder
+                            ->withCustomProperties([
+                                'openai_file_id' => $openaiFileId,
+                            ])
+                            ->toMediaCollection('assessment_images', 'user_assessment_images');
                         });
         }else{
             if ($request->hasFile('images')) {
                 $assessment->addMultipleMediaFromRequest(['images'])
-                        ->each(function ($fileAdder) {
-                            $fileAdder->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
+                        ->each(function ($fileAdder) use ($openaiFileId) {
+                            $fileAdder
+                            ->withCustomProperties([
+                                'openai_file_id' => $openaiFileId,
+                            ])
+                            ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
                         });
             }
         }
