@@ -85,6 +85,7 @@ class Assessment extends Model implements HasMedia
             "total_time" => $this->total_time,
             "treatments" => $sessions->map(function ($s) {
                 return [
+                    "id" => $s->id,
                     "session_number" => $s->session_number,
                     "title" => $s->title,
                     "treatment_time" => $s->treatment_time,
