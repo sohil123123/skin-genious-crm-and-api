@@ -65,7 +65,7 @@ if (!function_exists('new_assessment')) {
         )->plainTextToken;
 
         // Redirect to Assessment App with token and patient ID
-        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id;
+        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id. '&type=assessment';
 
         return $assessmentUrl;
     }
@@ -86,21 +86,21 @@ if (!function_exists('can_create_assessment')) {
 }
 
 if (!function_exists('start_session')) {
-    function start_session($user, $appointment)
+    function start_session($appointment)
     {
-        return 'www.google.com';
-        // // Generate short-lived Sanctum token (e.g., expires in 1 hour)
-        // $auth_user = auth()->user();
-        // $token = $auth_user->createToken(
-        //     'assessment-token-' . Str::random(10),
-        //     ['assessment'], // Abilities/scopes
-        //     // now()->addHour() // Expiration
-        // )->plainTextToken;
+        // return 'www.google.com';
+        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
+        $auth_user = auth()->user();
+        $token = $auth_user->createToken(
+            'assessment-token-' . Str::random(10),
+            ['assessment'], // Abilities/scopes
+            // now()->addHour() // Expiration
+        )->plainTextToken;
 
-        // // Redirect to Assessment App with token and patient ID
-        // $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id;
+        // Redirect to Assessment App with token and patient ID
+        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_number=' . $appointment->treatmentSession?->session_number . '&type=treatment';
 
-        // return $assessmentUrl;
+        return $assessmentUrl;
     }
 }
 

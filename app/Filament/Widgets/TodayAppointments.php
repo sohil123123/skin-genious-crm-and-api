@@ -334,7 +334,7 @@ class TodayAppointments extends TableWidget
                     ->color('warning')
                     ->button()
                     ->action(function ($record) {
-                        $startSessionUrl = start_session($record->client, $record);
+                        $startSessionUrl = start_session($record);
                         return redirect($startSessionUrl);
                     })
                     ->requiresConfirmation(),
