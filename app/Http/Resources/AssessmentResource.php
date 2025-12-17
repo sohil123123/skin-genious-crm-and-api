@@ -35,7 +35,7 @@ class AssessmentResource extends BaseResource
             'diagnosis' => $this->diagnosis,
             'parameters_with_abnormal_scores' => $this->parameters_with_abnormal_scores,
             // 'treatment_plan_type' => $this->treatment_plan_type,
-            // 'treatment_plan' => $this->treatment_plan,
+            'treatment_sessions' => $this->treatment_sessions,
             'selected_plan_type' => $this->selected_plan_type,
             'status' => $this->status,
             'therapist_notes' => $this->therapist_notes,

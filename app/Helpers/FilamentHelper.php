@@ -110,8 +110,7 @@ if (!function_exists('can_start_session')) {
         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
 
-        return $appointment->type->value === 'treatment'
-        && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        return in_array($appointment->status->value, ['scheduled', 'confirmed'])
         && !is_null($appointment->treatment_session_id);
         // && now()->between($start, $end);
     }

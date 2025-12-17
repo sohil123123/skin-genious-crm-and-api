@@ -49,7 +49,8 @@ class AppointmentController extends BaseApiController
     public function updateTreatmentSessionId(Request $request, $appointment_id)
     {
         $appointment = $this->model->find($appointment_id);
-        if($appointment->type->value !== 'treatment')
+
+        if($appointment->type->value !== 'consult')
             return $this->error('Error', ['Invalid appointment type'], HTTP_BAD_REQUEST);
 
         $validated = $request->validate([
