@@ -36,6 +36,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Appointment CRUD Route
         Route::post('appointments/update-treatment-session-id/{appointment_id}', [AppointmentController::class, 'updateTreatmentSessionId']);
+        Route::post('appointments/status/{id}', 'AppointmentController@updateStatus');
         Route::apiResource('appointments', 'AppointmentController');
 
         // INFO: Common Route
