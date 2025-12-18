@@ -25,13 +25,13 @@ class CreateUser extends CreateRecord
     {
         $user = $this->record;
 
-        if ($user->hasRole('therapist')) {
-            $user->createDefaultLeaveEntitlementsIfTherapist();
-        }
-
         if ($this->record && $this->data['role_id']) {
             $role = Role::find($this->data['role_id']);
             $this->record->syncRoles([$role->name]);
+        }
+
+        if ($user->hasRole('therapist')) {
+            $user->createDefaultLeaveEntitlementsIfTherapist();
         }
     }
 

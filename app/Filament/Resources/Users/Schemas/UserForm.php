@@ -237,8 +237,8 @@ class UserForm
                                     Select::make('clinic_id')
                                         ->label('Assigned Clinic')
                                         ->relationship('clinic', 'name')
-                                        ->searchable()
-                                        ->preload()
+                                        // ->searchable()
+                                        // ->preload()
                                         ->placeholder('Select a clinic')
                                         ->native(false)
                                         ->reactive()
@@ -261,7 +261,7 @@ class UserForm
                                                 // Validate only if role is clinic_manager
                                                 if (!$selectedRole || $selectedRole->name !== 'clinic_manager')
                                                     return;
-                                                
+
                                                 // Check if ANY user at this clinic has clinic_manager role
                                                 $exists = User::where('clinic_id', $value)
                                                     ->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))

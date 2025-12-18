@@ -116,3 +116,38 @@ if (!function_exists('can_start_session')) {
         // && now()->between($start, $end);
     }
 }
+
+if (!function_exists('time_options')) {
+    function time_options($start = 7, $end = 23)
+    {
+        $options = [];
+        foreach (range(7, 23) as $h) {
+            foreach ([0, 15, 30, 45] as $m) {
+                $t = sprintf('%02d:%02d', $h, $m);
+                $options[$t] = $t;
+            }
+        }
+        return $options;
+    }
+}
+
+
+if (!function_exists('disabled_sunday_dates')) {
+    function disabled_sunday_dates($how_many_year = 1)
+    {
+        $disabled = [];
+
+        // disable Sundays for next 1 years (adjust if needed)
+        $start = now();
+        $end   = now()->addYears($how_many_year);
+
+        while ($start <= $end) {
+            if ($start->isSunday()) {
+                $disabled[] = $start->format('Y-m-d');
+            }
+            $start->addDay();
+        }
+
+        return $disabled;
+    }
+}

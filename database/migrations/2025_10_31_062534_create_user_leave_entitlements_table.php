@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id()->comment('Primary key: Unique leave entitlement ID');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the clinic_manager/therapist');
             $table->integer('year')->default(date('Y'))->comment('Leave entitlement year');
-            $table->enum('leave_type', ['paid', 'unpaid', 'sick', 'other'])->comment('Type of leave entitlement');
-            $table->integer('total_allowed')->default(0)->comment('Total allowed days');
-            $table->integer('remaining')->default(0)->comment('Remaining days');
-            $table->integer('used')->default(0)->comment('Days used');
+            $table->enum('leave_type', ['paid', 'unpaid', 'sick', 'emergency', 'other'])->comment('Type of leave entitlement');
+            $table->decimal('total_allowed', 5, 2)->default(0)->comment('Total allowed days');
+            $table->decimal('remaining', 5, 2)->default(0)->comment('Remaining days');
+            $table->decimal('used', 5, 2)->default(0)->comment('Days used');
 
             $table->timestamps();
 

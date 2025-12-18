@@ -82,6 +82,7 @@ class User extends Authenticatable
             ['leave_type' => 'paid',   'total_allowed' => 12],
             ['leave_type' => 'unpaid', 'total_allowed' => 0],
             ['leave_type' => 'sick',   'total_allowed' => 8],
+            ['leave_type' => 'emergency',   'total_allowed' => 8],
             ['leave_type' => 'other',  'total_allowed' => 0],
         ];
 
