@@ -49,7 +49,8 @@ class AppointmentController extends BaseApiController
     public function updateTreatmentSessionId(Request $request, $appointment_id)
     {
         $appointment = $this->model->find($appointment_id);
-        if($appointment->type->value !== 'treatment')
+
+        if($appointment->type->value !== 'consult')
             return $this->error('Error', ['Invalid appointment type'], HTTP_BAD_REQUEST);
 
         $validated = $request->validate([
@@ -91,6 +92,33 @@ class AppointmentController extends BaseApiController
         $resource = new AppointmentResource($appointment->fresh());
 
         return $this->success('Appointment treatment session updated successfully', $resource);
+    }
+
+    public function updateStatus(Request $request, $appointment_id)
+    {
+        $appointment = $this->model->find($appointment_id);
+
+        $validated = $request->validate([
+            'status' => [
+                'required',
+                'in:scheduled,confirmed,in_progress,completed,cancelled',
+            ],
+        ]);
+
+        $appointment->update($validated);
+
+        $treatment_session = TreatmentSession::where('id', $appointment->treatment_session_id)->first();
+
+        if ($treatment_session) {
+            $treatment_session->update([
+                'status' => $validated['status'],
+            ]);
+        }
+
+        // Wrap in resource for clean, formatted API output
+        $resource = new AppointmentResource($appointment->fresh());
+
+        return $this->success('Appointment status updated successfully', $resource);
     }
 
 }

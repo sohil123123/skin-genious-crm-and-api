@@ -98,7 +98,7 @@ if (!function_exists('start_session')) {
         )->plainTextToken;
 
         // Redirect to Assessment App with token and patient ID
-        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_number=' . $appointment->treatmentSession?->session_number . '&type=treatment';
+        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment';
 
         return $assessmentUrl;
     }
@@ -110,8 +110,7 @@ if (!function_exists('can_start_session')) {
         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
 
-        return $appointment->type->value === 'treatment'
-        && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        return in_array($appointment->status->value, ['scheduled', 'confirmed'])
         && !is_null($appointment->treatment_session_id);
         // && now()->between($start, $end);
     }
