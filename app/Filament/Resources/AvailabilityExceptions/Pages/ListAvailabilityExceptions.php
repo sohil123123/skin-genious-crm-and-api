@@ -18,6 +18,11 @@ class ListAvailabilityExceptions extends ListRecords
         ];
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Define therapist availability';
+    }
+
     public function getTable(): Table
     {
         return parent::getTable()->poll('5s');

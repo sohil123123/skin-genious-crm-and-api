@@ -150,3 +150,34 @@ if (!function_exists('disabled_sunday_dates')) {
         return $disabled;
     }
 }
+
+if (!function_exists('day_options')) {
+    function day_options()
+    {
+        return [
+            1 => 'Monday',
+            2 => 'Tuesday',
+            3 => 'Wednesday',
+            4 => 'Thursday',
+            5 => 'Friday',
+            6 => 'Saturday',
+            7 => 'Sunday',
+        ];
+    }
+}
+
+if (! function_exists('day_color')) {
+    function day_color(int $day): string
+    {
+        return match ($day) {
+            1 => 'primary',
+            2 => 'success',
+            3 => 'warning',
+            4 => 'info',
+            5 => 'danger',
+            6 => 'gray',
+            7 => 'gray',
+            default => 'gray',
+        };
+    }
+}

@@ -48,14 +48,14 @@ class ManageAssessments extends ManageRelatedRecords
                 ->outlined()
                 ->url(UserResource::getUrl('index')),
 
-            Action::make('new_assessment')
-                ->label('New Assessment')
-                ->visible(fn ($record) => $record->hasRole('client'))
-                ->icon('heroicon-o-clipboard-document')
-                ->action(function ($record) {
-                    $assessmentUrl = new_assessment($record);
-                    return redirect($assessmentUrl);
-                }),
+            // Action::make('new_assessment')
+            //     ->label('New Assessment')
+            //     ->visible(fn ($record) => $record->hasRole('client'))
+            //     ->icon('heroicon-o-clipboard-document')
+            //     ->action(function ($record) {
+            //         $assessmentUrl = new_assessment($record);
+            //         return redirect($assessmentUrl);
+            //     }),
         ];
     }
 

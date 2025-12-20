@@ -26,6 +26,7 @@ class UserWeeklySchedule extends Model
         'allows_overlap' => 'boolean',
         'has_overlap'    => 'boolean',
         'is_active'      => 'boolean',
+        // 'weekly_schedule' => 'array',
     ];
 
     protected function startTime(): Attribute
@@ -47,22 +48,24 @@ class UserWeeklySchedule extends Model
      | -----------------------------------------------------------------
      */
 
-    protected static function booted() {
-        static::saved(function (UserWeeklySchedule $schedule) {
-            $auth_user_id = auth()->user()->id;
-            $update_array = ['created_by' => $auth_user_id];
+    // protected static function booted() {
+    //     static::saved(function (UserWeeklySchedule $schedule) {
+    //         $auth_user_id = auth()->user()->id;
+    //         $update_array = ['created_by' => $auth_user_id];
+    //         dd($schedule->detectOverlap());
+    //         $hasOverlap = $schedule->detectOverlap();
+    //         if ($schedule->has_overlap !== $hasOverlap) {
+    //             $update_array['has_overlap'] = $hasOverlap;
+    //         }
+    //         $schedule->updateQuietly($update_array);
+    //     });
 
-            $hasOverlap = $schedule->detectOverlap();
-            if ($schedule->has_overlap !== $hasOverlap) {
-                $update_array['has_overlap'] = $hasOverlap;
-            }
-            $schedule->updateQuietly($update_array);
-        });
+    //     static::updating(function ($model) {
+    //         dd('dd');
+    //         $model->updated_by = auth()->user()->id;
+    //     });
 
-        static::updating(function ($model) {
-            $model->updated_by = auth()->user()->id;
-        });
-    }
+    // }
 
     /* -----------------------------------------------------------------
      |  Relationships
@@ -108,28 +111,43 @@ class UserWeeklySchedule extends Model
      | -----------------------------------------------------------------
      */
 
-    public static function dayOptions(): array
-    {
-        return [
-            1 => 'Monday',
-            2 => 'Tuesday',
-            3 => 'Wednesday',
-            4 => 'Thursday',
-            5 => 'Friday',
-            6 => 'Saturday',
-            7 => 'Sunday',
-        ];
-    }
+    // public function shiftsForDay(int $day): array
+    // {
+    //     if (! is_array($this->weekly_schedule)) {
+    //         return [];
+    //     }
 
-    public function getDayLabelAttribute(): string
-    {
-        return static::dayOptions()[$this->day_of_week] ?? (string) $this->day_of_week;
-    }
+    //     return collect($this->weekly_schedule)
+    //         ->where('day', $day)
+    //         ->map(fn ($s) =>
+    //             substr($s['start'], 0, 5) . ' – ' . substr($s['end'], 0, 5)
+    //         )
+    //         ->values()
+    //         ->all();
+    // }
 
-    public function isOverlapping(): bool
-    {
-        return $this->has_overlap === true;
-    }
+    // public static function dayOptions(): array
+    // {
+    //     return [
+    //         1 => 'Monday',
+    //         2 => 'Tuesday',
+    //         3 => 'Wednesday',
+    //         4 => 'Thursday',
+    //         5 => 'Friday',
+    //         6 => 'Saturday',
+    //         7 => 'Sunday',
+    //     ];
+    // }
+
+    // public function getDayLabelAttribute(): string
+    // {
+    //     return static::dayOptions()[$this->day_of_week] ?? (string) $this->day_of_week;
+    // }
+
+    // public function isOverlapping(): bool
+    // {
+    //     return $this->has_overlap === true;
+    // }
 
     // --------------------------- Other ---------------------------
     /**
@@ -142,7 +160,7 @@ class UserWeeklySchedule extends Model
             ->where('user_id', $this->user_id)
             ->where('clinic_id', $this->clinic_id)
             ->where('day_of_week', $this->day_of_week)
-            ->where('is_active', true)
+            // ->where('is_active', true)
             ->whereTime('start_time', '<', $this->end_time)
             ->whereTime('end_time', '>', $this->start_time)
             ->exists();

@@ -8,6 +8,12 @@ use Filament\Resources\Pages\CreateRecord;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
+use App\Services\Scheduling\UserWeeklyScheduleService;
+
+use App\Models\UserWeeklySchedule;
+
+use Illuminate\Database\Eloquent\Model;
+
 class CreateUserWeeklySchedule extends CreateRecord
 {
     protected static string $resource = UserWeeklyScheduleResource::class;
@@ -19,11 +25,16 @@ class CreateUserWeeklySchedule extends CreateRecord
         ];
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Create therapist availability and working hours';
+    }
+
     protected function getCreatedNotification(): ?Notification
     {
         return Notification::make()
-            ->title('Appointment created 🎉')
-            ->body('The new therapist schedule have been successfully created.')
+            ->title('User schedule created 🎉')
+            ->body('User schedule have been successfully created.')
             ->success();
     }
 
@@ -34,6 +45,20 @@ class CreateUserWeeklySchedule extends CreateRecord
 
     // protected function mutateFormDataBeforeCreate(array $data): array
     // {
-    //     dd($data);
+    //     // dd($data);
+    //     app(UserWeeklyScheduleService::class)->saveOrUpdate($data);
+
+    //     return [];
     // }
+
+    protected function handleRecordCreation(array $data): Model
+    {
+        app(UserWeeklyScheduleService::class)->saveOrUpdate($data);
+
+        /**
+         * VERY IMPORTANT:
+         * Return a dummy model instance WITHOUT saving
+         */
+        return new UserWeeklySchedule();
+    }
 }

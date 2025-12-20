@@ -17,7 +17,7 @@ if (!function_exists('remove_empty_value')) {
 if (!function_exists('get_clinics')) {
     function get_clinics($request){
         $query = Clinic::active()->orderby('name');
-        
+
         $query = addJoin($query, $request);
 
         if($request->has('id') && $request->id)
@@ -39,7 +39,7 @@ if (!function_exists('get_clinics')) {
 if (!function_exists('get_users')) {
     function get_users($request){
         $query = User::active()->orderby('first_name');
-        
+
         $query = $query->whereHas('roles', fn ($q) => $q->where('name', '<>', 'super_admin'));
 
         $query = addJoin($query, $request);
@@ -63,5 +63,11 @@ if (!function_exists('get_users')) {
             $query = $query->take($request->take);
 
         return ($request->has('is_first') && $request->is_first) ? $query->first() : $query->get();
+    }
+}
+
+if (!function_exists('check_role')) {
+    function check_role($role_name){
+        return auth()->user()->hasRole($role_name);
     }
 }

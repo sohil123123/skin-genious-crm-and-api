@@ -29,6 +29,11 @@ class CreateAvailabilityException extends CreateRecord
         ];
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Create therapist availability';
+    }
+
     protected function getCreatedNotification(): ?Notification
     {
         return Notification::make()
@@ -44,7 +49,7 @@ class CreateAvailabilityException extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        dd($data);
+        // dd($data);
         if($data['exceptionable_type'] == User::class && in_array($data['type'], ['leave_full_day', 'leave_partial']))
             AvailabilityExceptionResource::validateLeaveLimit($data);
 

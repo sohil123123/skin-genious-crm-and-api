@@ -30,9 +30,17 @@ class AvailabilityExceptionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-no-symbol';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Scheduling';
+    protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
 
     protected static ?string $recordTitleAttribute = 'AvailabilityException';
+
+    protected static ?string $navigationLabel = 'Holidays';
+
+    protected static ?string $breadcrumb = 'Holidays';
+
+    protected static ?string $modelLabel = 'Holidays';
+
+    protected static ?string $pluralModelLabel = 'Holidays';
 
     protected static ?int $navigationSort = 3;
 

@@ -20,6 +20,11 @@ class ListUserWeeklySchedules extends ListRecords
         ];
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Define therapist working days and shifts';
+    }
+
     public function getTable(): Table
     {
         return parent::getTable()->poll('5s');

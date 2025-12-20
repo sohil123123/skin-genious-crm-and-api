@@ -23,7 +23,9 @@ class UserLeaveEntitlementResource extends Resource
 
     // protected static ?string $recordTitleAttribute = 'UserLeaveEntitlement';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Scheduling';
+    protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
+
+    protected static ?string $navigationLabel = 'Leave Entitlement';
 
     protected static ?int $navigationSort = 1;
 

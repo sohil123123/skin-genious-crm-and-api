@@ -63,6 +63,12 @@ return new class extends Migration
                 ['clinic_id', 'day_of_week', 'start_time', 'end_time'],
                 'clinic_day_time_idx'
             );
+
+            $table->unique(
+                ['clinic_id', 'user_id', 'day_of_week', 'start_time', 'end_time'],
+                'unique_weekly_shift'
+            );
+
         });
     }
 

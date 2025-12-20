@@ -14,6 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use UnitEnum;
+use Illuminate\Support\Facades\DB;
 
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,7 +24,17 @@ class UserWeeklyScheduleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Scheduling';
+    protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
+
+    protected static ?string $navigationLabel = 'Weekly Schedule';
+
+    protected static ?string $recordTitleAttribute = 'Weekly Schedule';
+
+    protected static ?string $breadcrumb = 'Weekly Schedule';
+
+    protected static ?string $modelLabel = 'Weekly Schedule';
+
+    protected static ?string $pluralModelLabel = 'Weekly Schedule';
 
     protected static ?int $navigationSort = 2;
 

@@ -24,6 +24,20 @@ class EditAvailabilityException extends EditRecord
         ];
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Update therapist availability';
+    }
+
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            AvailabilityExceptionResource::getUrl() => 'Holidays',
+            '' => 'Edit',
+        ];
+    }
+
     protected function getSavedNotification(): ?Notification
     {
         return Notification::make()
