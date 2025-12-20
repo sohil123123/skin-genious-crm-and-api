@@ -3,6 +3,9 @@
 namespace App\Filament\Resources\AvailabilityExceptions;
 
 use App\Filament\Resources\AvailabilityExceptions\Pages\CreateAvailabilityException;
+use App\Filament\Resources\AvailabilityExceptions\Pages\CreateAvailabilityExceptionEntry;
+use App\Filament\Resources\AvailabilityExceptions\Pages\CreateAvailabilityExceptionWizard;
+use App\Filament\Resources\AvailabilityExceptions\Pages\CreateAvailabilityExceptionSimple;
 use App\Filament\Resources\AvailabilityExceptions\Pages\EditAvailabilityException;
 use App\Filament\Resources\AvailabilityExceptions\Pages\ListAvailabilityExceptions;
 use App\Filament\Resources\AvailabilityExceptions\Schemas\AvailabilityExceptionForm;
@@ -65,7 +68,10 @@ class AvailabilityExceptionResource extends Resource
     {
         return [
             'index' => ListAvailabilityExceptions::route('/'),
-            'create' => CreateAvailabilityException::route('/create'),
+            // 'create' => CreateAvailabilityException::route('/create'),
+            'create' => CreateAvailabilityExceptionEntry::route('/create'),
+            'create-wizard' => CreateAvailabilityExceptionWizard::route('/create/wizard'),
+            'create-simple' => CreateAvailabilityExceptionSimple::route('/create/simple'),
             'edit' => EditAvailabilityException::route('/{record}/edit'),
         ];
     }
@@ -103,9 +109,9 @@ class AvailabilityExceptionResource extends Resource
                 Notification::make()
                     ->title('Leave Limit Exceeded')
                     ->body("You only have {$remaining} {$leaveType} days remaining.")
-                    ->danger()
-                    ->persistent()
-                    ->send();
+                    ->danger();
+                    // ->persistent()
+                    // ->send();
                 throw new Halt("Leave limit exceeded — form not saved.");
             }
         }

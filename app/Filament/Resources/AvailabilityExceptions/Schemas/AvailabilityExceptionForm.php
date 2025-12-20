@@ -24,6 +24,7 @@ use Illuminate\Validation\ValidationException;
 use Closure;
 
 use App\Enums\LeaveType;
+use App\Enums\AvailabilityExceptionType;
 
 use App\Models\AvailabilityException;
 use App\Models\User;
@@ -69,21 +70,28 @@ class AvailabilityExceptionForm
     public static function getClinicAndTherapistComponents()
     {
         return [
-            auth()->user()->hasRole('super_admin')
-                ? Select::make('clinic_id')
+            Hidden::make('clinic_id')
+                ->default(fn () => auth()->user()->clinic_id)
+                ->visible(fn () => ! check_role('super_admin')),
+
+            Hidden::make('exceptionable_type')
+                ->default(User::class)
+                ->visible(fn () => ! check_role('super_admin')),
+
+            Hidden::make('exceptionable_id')
+                ->default(auth()->id())
+                ->visible(fn () => check_role('therapist')),
+
+            Grid::make(2)->schema([
+                Select::make('clinic_id')
                     ->label('Clinic')
                     ->relationship('clinic', 'name')
-                    // ->searchable()
-                    // ->preload()
                     ->required()
                     ->placeholder('Select Clinic')
                     ->visible(fn ($get) => $get('exceptionable_type') == User::class)
-                    ->live()
-                : Hidden::make('clinic_id')->default(auth()->user()->clinic_id),
+                    ->live(),
 
-            auth()->user()->hasRole('therapist')
-                ? Hidden::make('exceptionable_id')->default(auth()->id())
-                : Select::make('exceptionable_id')
+                Select::make('exceptionable_id')
                     ->label(fn ($get) => $get('exceptionable_type') == Clinic::class ? 'Clinic (Holiday)' : 'Therapist')
                     ->options(function (callable $get) {
                         if ($get('exceptionable_type') == Clinic::class)
@@ -91,99 +99,128 @@ class AvailabilityExceptionForm
 
                         return User::active()->role('therapist')->where('clinic_id', $get('clinic_id'))->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                     })
-                    // ->searchable()
                     ->required()
-                    // ->placeholder('Select Therapist')
                     ->live(),
+            ])
+            ->visible(fn ($get) => check_role('super_admin')),
 
-            Select::make('type')
-                ->required()
-                ->live()
-                ->options(fn ($get) =>
-                    $get('exceptionable_type') === Clinic::class
-                        ? [
-                            'leave_full_day' => 'Full Day Leave',
-                        ]
-                        : [
-                            'leave_full_day' => 'Full Day Leave',
-                            'leave_partial'  => 'Partial Leave',
-                            'extra_hours'    => 'Extra Working Hours',
-                            'override_hours' => 'Override Hours',
-                            'blocked_hours'  => 'Blocked Hours',
-                        ]
-                )
-                ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
-                    // Keep your existing logic
-                    $set('end_date', $get('start_date'));
-                    $livewire->validateOnly('start_date');
-                }),
+            Grid::make(2)->schema([
+                ToggleButtons::make('type')
+                    ->inline()
+                    ->options(AvailabilityExceptionType::class)
+                    ->default('leave_full_day')
+                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                        // Keep your existing logic
+                        $set('end_date', $get('start_date'));
+                        $livewire->validateOnly('start_date');
+                    })
+                    ->live()
+                    ->required(),
 
-            DatePicker::make('start_date')
-                ->required()
-                ->native(false)
-                ->closeOnDateSelection(false)
-                ->placeholder(now()->startOfMonth()->format('M d, Y'))
-                ->format('Y-m-d')
-                ->live()
-                ->minDate(today())
-                ->disabledDates(function () {
-                    return disabled_sunday_dates();
-                })
-                ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
-                    $set('end_date', $state);
-                    $livewire->validateOnly('start_date'); // ✅ triggers instant revalidation
-                })
-                ->allowHtmlValidationMessages()
-                ->reactive()
-                ->rules([
-                    fn ($get, ?AvailabilityException $record) =>
-                        function (string $attribute, $value, $fail) use ($get, $record) {
+                // Select::make('type')
+                //     ->required()
+                //     ->live()
+                //     ->options(fn ($get) =>
+                //         $get('exceptionable_type') === Clinic::class
+                //             ? [
+                //                 'leave_full_day' => 'Full Day Leave',
+                //             ]
+                //             : [
+                //                 'leave_full_day' => 'Full Day Leave',
+                //                 'leave_partial'  => 'Partial Leave',
+                //                 'extra_hours'    => 'Extra Working Hours',
+                //                 'override_hours' => 'Override Hours',
+                //                 'blocked_hours'  => 'Blocked Hours',
+                //             ]
+                //     )
+                //     ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                //         // Keep your existing logic
+                //         $set('end_date', $get('start_date'));
+                //         $livewire->validateOnly('start_date');
+                //     }),
 
-                            $exceptionableType = $get('exceptionable_type');
-                            $exceptionableId   = $get('exceptionable_id');
-                            $type              = $get('type');
+                ToggleButtons::make('leave_type')
+                    ->inline()
+                    ->options(LeaveType::class)
+                    ->default(LeaveType::Paid->value)
+                    ->required(fn ($get) => $get('type')->value === AvailabilityExceptionType::LeaveFullDay->value)
+                    ->visible(fn ($get) => str_starts_with((string)$get('type')->value, 'leave') && $get('exceptionable_type') == User::class),
 
-                            if (! $exceptionableType || ! $exceptionableId || ! $type)
-                                return;
+                // Select::make('leave_type')
+                //     ->required(fn ($get) => $get('type')->value === AvailabilityExceptionType::LeaveFullDay->value)
+                //     ->options(LeaveType::class)
+                //     ->visible(fn ($get) => str_starts_with((string)$get('type')->value, 'leave') && $get('exceptionable_type') == User::class),
 
-                            $newStart = Carbon::parse($value);
-                            $newEnd   = Carbon::parse($get('end_date') ?? $value);
+            ])
+            ->visible(fn ($get) => $get('exceptionable_type') ===  User::class),
 
-                            /**
-                             * ==================================================
-                             * CASE A — CLINIC
-                             * ==================================================
-                             */
-                            if ($exceptionableType === Clinic::class) {
+            Grid::make(4)->schema([
 
-                                $exists = AvailabilityException::query()
-                                    ->where('exceptionable_type', Clinic::class)
-                                    ->where('exceptionable_id', $exceptionableId)
-                                    ->whereDate('start_date', '<=', $newEnd)
-                                    ->whereDate('end_date', '>=', $newStart)
-                                    ->when($record, fn ($q) => $q->whereKeyNot($record->id))
-                                    ->exists();
+                DatePicker::make('start_date')
+                    ->required()
+                    ->native(false)
+                    ->closeOnDateSelection(true)
+                    ->placeholder(now()->startOfMonth()->format('M d, Y'))
+                    ->format('Y-m-d')
+                    ->live()
+                    ->minDate(today())
+                    ->disabledDates(function () {
+                        return disabled_sunday_dates();
+                    })
+                    ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
+                        $set('end_date', $state);
+                        $livewire->validateOnly('start_date'); // ✅ triggers instant revalidation
+                    })
+                    ->allowHtmlValidationMessages()
+                    ->reactive()
+                    ->rules([
+                        fn ($get, ?AvailabilityException $record) =>
+                            function (string $attribute, $value, $fail) use ($get, $record) {
 
-                                if ($exists) {
-                                    $fail('A clinic availability exception already exists for this date range.');
+                                $exceptionableType = $get('exceptionable_type');
+                                $exceptionableId   = $get('exceptionable_id');
+                                $type              = $get('type')->value;
+
+                                if (! $exceptionableType || ! $exceptionableId || ! $type)
+                                    return;
+
+                                $newStart = Carbon::parse($value);
+                                $newEnd   = Carbon::parse($get('end_date') ?? $value);
+
+                                /**
+                                 * ==================================================
+                                 * CASE A — CLINIC
+                                 * ==================================================
+                                 */
+                                if ($exceptionableType === Clinic::class) {
+
+                                    $exists = AvailabilityException::query()
+                                        ->where('exceptionable_type', Clinic::class)
+                                        ->where('exceptionable_id', $exceptionableId)
+                                        ->whereDate('start_date', '<=', $newEnd)
+                                        ->whereDate('end_date', '>=', $newStart)
+                                        ->when($record, fn ($q) => $q->whereKeyNot($record->id))
+                                        ->exists();
+
+                                    if ($exists)
+                                        $fail('A clinic holiday already exists for this date range.');
+
+                                    return;
                                 }
 
-                                return;
-                            }
+                                /**
+                                 * ==================================================
+                                 * CASE B — USER
+                                 * ==================================================
+                                 */
 
-                            /**
-                             * ==================================================
-                             * CASE B — USER
-                             * ==================================================
-                             */
-
-                            /**
-                             * B1 — Full-day leave (date overlap only)
-                             */
-                            if ($type === 'leave_full_day') {
+                                /**
+                                 * B1 — Full-day leave (date overlap only)
+                                 */
                                 $baseQuery = AvailabilityException::query()
                                     ->where('exceptionable_type', User::class)
                                     ->where('exceptionable_id', $exceptionableId)
+                                    ->where('status', '<>', 'rejected')
                                     ->whereDate('start_date', '<=', $newEnd)
                                     ->whereDate('end_date', '>=', $newStart)
                                     ->when($record, fn ($q) => $q->whereKeyNot($record->id));
@@ -196,10 +233,42 @@ class AvailabilityExceptionForm
                                 if ($fullDayExists)
                                     $fail('A full-day leave already exists for this date range.');
 
+                                if ($type === 'leave_full_day') {
+                                    /**
+                                     * 2️⃣ Other leave types (no leave_full_day)
+                                     */
+                                    $conflicts = (clone $baseQuery)->where('type', '!=', 'leave_full_day');
+                                    if ($conflicts->exists()) {
+                                        $details = "";
+                                        foreach ($conflicts->get() as $c) {
+                                            $sd = Carbon::parse($c->start_date);
+                                            $ed = Carbon::parse($c->end_date);
+                                            $details .= "• <strong>{$c->type->value}</strong> already exists for <b>{$sd->format('M d, Y')}: {$c->start_time} → {$ed->format('M d, Y')}: {$c->end_time}</b><br>";
+                                        }
+                                        $fail("❌ <strong>Conflicting exceptions:</strong><br>{$details}");
+                                    }
+                                    return;
+                                }
+
                                 /**
-                                 * 2️⃣ Other leave types (no leave_full_day)
+                                 * B2 — Time-based leave (date + time overlap)
                                  */
-                                $conflicts = (clone $baseQuery)->where('type', '!=', 'leave_full_day');
+                                $startTime = $get('start_time');
+                                $endTime   = $get('end_time');
+
+                                if (! $startTime || ! $endTime) return;
+
+                                $startTime = Carbon::createFromTimeString($startTime . ':00');
+                                $endTime   = Carbon::createFromTimeString($endTime . ':00');
+
+                                $conflicts = (clone $baseQuery)
+                                    ->where('type', '!=', 'leave_full_day')
+                                    ->where(function ($q) use ($startTime, $endTime) {
+                                        // overlap rule: existing.start < new.end AND existing.end > new.start
+                                        $q->where('start_time', '<', $endTime->format('H:i:s'))
+                                        ->where('end_time',   '>', $startTime->format('H:i:s'));
+                                    });
+
                                 if ($conflicts->exists()) {
                                     $details = "";
                                     foreach ($conflicts->get() as $c) {
@@ -209,195 +278,76 @@ class AvailabilityExceptionForm
                                     }
                                     $fail("❌ <strong>Conflicting exceptions:</strong><br>{$details}");
                                 }
-                                return;
+
+                            },
+                    ]),
+
+                DatePicker::make('end_date')
+                    ->required()
+                    ->native(false)
+                    ->placeholder(now()->startOfMonth()->format('M d, Y'))
+                    ->format('Y-m-d')
+                    // ->minDate(today())
+                    ->minDate(fn ($get) => $get('start_date'))
+                    ->disabledDates(function () {
+                        return disabled_sunday_dates();
+                    })
+                    ->closeOnDateSelection(true)
+                    ->afterOrEqual('start_date')
+                    ->readOnly(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->rules([
+                        fn ($get) => function (string $attribute, $value, $fail) use ($get) {
+                            $startDate = $get('start_date');
+
+                            if (! $startDate || ! $value) return;
+
+                            if (Carbon::parse($value)->lt(Carbon::parse($startDate))) {
+                                $fail('End date must be the same as or after the start date.');
                             }
-
-                            /**
-                             * B2 — Time-based leave (date + time overlap)
-                             */
-                            $startTime = $get('start_time');
-                            $endTime   = $get('end_time');
-
-                            if (! $startTime || ! $endTime) {
-                                return;
-                            }
-
-                            $startTime = Carbon::createFromTimeString($startTime . ':00');
-                            $endTime   = Carbon::createFromTimeString($endTime . ':00');
-
-                            $conflicts = AvailabilityException::query()
-                                ->where('exceptionable_type', User::class)
-                                ->where('exceptionable_id', $exceptionableId)
-                                ->where('type', '!=', 'leave_full_day')
-                                ->whereDate('start_date', '<=', $newEnd)
-                                ->whereDate('end_date', '>=', $newStart)
-                                ->where(function ($q) use ($startTime, $endTime) {
-                                    // overlap rule: existing.start < new.end AND existing.end > new.start
-                                    $q->where('start_time', '<', $endTime->format('H:i:s'))
-                                    ->where('end_time',   '>', $startTime->format('H:i:s'));
-                                })
-                                ->when($record, fn ($q) => $q->whereKeyNot($record->id));
-
-                            if ($conflicts->exists()) {
-                                $details = "";
-                                foreach ($conflicts->get() as $c) {
-                                    $sd = Carbon::parse($c->start_date);
-                                    $ed = Carbon::parse($c->end_date);
-                                    $details .= "• <strong>{$c->type}</strong> already exists for <b>{$sd->format('M d, Y')}: {$c->start_time} → {$ed->format('M d, Y')}: {$c->end_time}</b><br>";
-                                }
-                                $fail("❌ <strong>Conflicting exceptions:</strong><br>{$details}");
-                            }
-
                         },
-                ]),
-                // ->rules([
-                //     fn ($get, ?AvailabilityException $record) =>
-                //         function (string $attribute, $value, $fail) use ($get, $record) {
+                    ]),
 
-                //             $exceptionableType = $get('exceptionable_type');
-                //             $exceptionableId   = $get('exceptionable_id');
-                //             $type              = $get('type');
-                //             $newStart = Carbon::parse($value);
-                //             $newEnd   = Carbon::parse($get('end_date') ?? $value);
+                Select::make('start_time')
+                    ->options(time_options())
+                    ->visible(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->required(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->dehydrateStateUsing(fn ($state, $get) =>
+                        $get('type')->value === 'leave_full_day' ? null : ($state ? $state : null)
+                    ),
 
-                //             if (! $exceptionableType || ! $exceptionableId || ! $type) return;
+                Select::make('end_time')
+                    ->options(time_options())
+                    ->visible(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->required(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->dehydrateStateUsing(fn ($state, $get) =>
+                        $get('type')->value === 'leave_full_day' ? null : ($state ? $state : null)
+                    )
+                    ->rules([
+                        fn ($get) => function (string $attribute, $value, $fail) use ($get) {
 
-                //             /*
-                //             * --------------------------------------------------
-                //             * BASE RULE (Clinic + User)
-                //             * Block ANY overlapping date range
-                //             * --------------------------------------------------
-                //             */
-                //             $baseExists = AvailabilityException::query()
-                //                 ->where('exceptionable_type', $exceptionableType)
-                //                 ->where('exceptionable_id', $exceptionableId)
-                //                 ->whereDate('start_date', '<=', $newEnd)
-                //                 ->whereDate('end_date', '>=', $newStart)
-                //                 ->when($record, fn ($q) => $q->whereKeyNot($record->id))
-                //                 ->exists();
+                            // Only apply for partial leave
+                            if ($get('type')->value !== 'leave_partial') return;
 
-                //             if ($baseExists) {
-                //                 $fail('An availability exception already exists for this date.');
-                //                 return;
-                //             }
+                            $start = $get('start_time');
 
-                //             /*
-                //             * --------------------------------------------------
-                //             * USER-SPECIFIC RULES
-                //             * --------------------------------------------------
-                //             */
-                //             if ($exceptionableType !== User::class) {
-                //                 return;
-                //             }
+                            if (! $start || ! $value) return;
 
-                //             /*
-                //             * Full-day leave → already blocked by base rule
-                //             */
-                //             if ($type === 'leave_full_day') {
-                //                 return;
-                //             }
+                            $startTime = Carbon::createFromTimeString($start . ':00');
+                            $endTime   = Carbon::createFromTimeString($value . ':00');
 
-                //             /*
-                //             * Time-based leave → allow same date ONLY if no time overlap
-                //             */
-                //             $startTime = $get('start_time');
-                //             $endTime   = $get('end_time');
+                            // End must be after start
+                            if ($endTime->lessThanOrEqualTo($startTime)) {
+                                $fail('End time must be after start time.');
+                                return;
+                            }
 
-                //             if (! $startTime || ! $endTime) return;
+                            $minutes = $startTime->diffInMinutes($endTime);
 
-                //             $startTime = Carbon::createFromTimeString($startTime . ':00');
-                //             $endTime   = Carbon::createFromTimeString($endTime . ':00');
+                            if ($minutes > 240) $fail('Partial leave cannot exceed 4 hours.');
+                        },
+                    ]),
 
-                //             $overlapExists = AvailabilityException::query()
-                //                 ->where('exceptionable_type', User::class)
-                //                 ->where('exceptionable_id', $exceptionableId)
-                //                 ->where('type', '!=', 'leave_full_day')
-                //                 ->whereDate('start_date', '<=', $newEnd)
-                //                 ->whereDate('end_date', '>=', $newStart)
-                //                 ->where(function ($q) use ($startTime, $endTime) {
-                //                     // existing.start < new.end AND existing.end > new.start
-                //                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                //                     ->where('end_time',   '>', $startTime->format('H:i:s'));
-                //                 })
-                //                 ->when($record, fn ($q) => $q->whereKeyNot($record->id))
-                //                 ->exists();
-
-                //             if ($overlapExists) {
-                //                 $fail('An overlapping leave already exists for this time range.');
-                //             }
-                //         },
-                // ]),
-
-            DatePicker::make('end_date')
-                ->required()
-                ->native(false)
-                ->placeholder(now()->startOfMonth()->format('M d, Y'))
-                ->format('Y-m-d')
-                // ->minDate(today())
-                ->minDate(fn ($get) => $get('start_date'))
-                ->disabledDates(function () {
-                    return disabled_sunday_dates();
-                })
-                ->closeOnDateSelection(false)
-                ->afterOrEqual('start_date')
-                ->rules([
-                    fn ($get) => function (string $attribute, $value, $fail) use ($get) {
-                        $startDate = $get('start_date');
-
-                        if (! $startDate || ! $value) {
-                            return;
-                        }
-
-                        if (Carbon::parse($value)->lt(Carbon::parse($startDate))) {
-                            $fail('End date must be the same as or after the start date.');
-                        }
-                    },
-                ]),
-
-            Select::make('start_time')
-                ->options(time_options())
-                ->visible(fn ($get) => $get('type') !== 'leave_full_day')
-                ->required(fn ($get) => $get('type') !== 'leave_full_day')
-                ->dehydrateStateUsing(fn ($state, $get) =>
-                    $get('type') === 'leave_full_day' ? null : ($state ? $state : null)
-                ),
-
-            Select::make('end_time')
-                ->options(time_options())
-                ->visible(fn ($get) => $get('type') !== 'leave_full_day')
-                ->required(fn ($get) => $get('type') !== 'leave_full_day')
-                ->dehydrateStateUsing(fn ($state, $get) =>
-                    $get('type') === 'leave_full_day' ? null : ($state ? $state : null)
-                )
-                ->rules([
-                    fn ($get) => function (string $attribute, $value, $fail) use ($get) {
-
-                        // Only apply for partial leave
-                        if ($get('type') !== 'leave_partial') return;
-
-                        $start = $get('start_time');
-
-                        if (! $start || ! $value) return;
-
-                        $startTime = Carbon::createFromTimeString($start . ':00');
-                        $endTime   = Carbon::createFromTimeString($value . ':00');
-
-                        // End must be after start
-                        if ($endTime->lessThanOrEqualTo($startTime)) {
-                            $fail('End time must be after start time.');
-                            return;
-                        }
-
-                        $minutes = $startTime->diffInMinutes($endTime);
-
-                        if ($minutes > 240) $fail('Partial leave cannot exceed 4 hours.');
-                    },
-                ]),
-
-            Select::make('leave_type')
-                ->required(fn ($get) => $get('type') === 'leave_full_day')
-                ->options(LeaveType::class)
-                ->visible(fn ($get) => str_starts_with((string)$get('type'), 'leave') && $get('exceptionable_type') == User::class),
+            ]),
 
             Textarea::make('reason')
                 ->required()
@@ -420,28 +370,30 @@ class AvailabilityExceptionForm
                     ->schema([
                         Section::make()
                             ->schema(static::getTypeComponents())
+                            ->visible(fn ($get) => check_role('super_admin'))
                             ->columns(2),
 
                         Section::make()
                             ->schema(static::getClinicAndTherapistComponents())
-                            ->columns(2),
+                            ->columns(1),
                     ])
-                    ->columnSpan(['lg' => fn ($record) => $record === null ? 3 : 2]),
+                    ->columnSpan(['lg' => 3]),
+                    // ->columnSpan(['lg' => fn ($record) => $record === null ? 3 : 2]),
 
-                Section::make()
-                    ->schema([
-                        TextEntry::make('created_at')
-                            ->label('Availability created')
-                            ->state(fn ($record): ?string => $record->created_at?->diffForHumans()),
+                // Section::make()
+                //     ->schema([
+                //         TextEntry::make('created_at')
+                //             ->label('Availability created')
+                //             ->state(fn ($record): ?string => $record->created_at?->diffForHumans()),
 
-                        TextEntry::make('updated_at')
-                            ->label('Last modified')
-                            ->state(fn ($record): ?string => $record->updated_at?->diffForHumans()),
-                    ])
-                    ->columnSpan(['lg' => 1])
-                    ->hidden(fn ($record) => $record === null),
-            ])
-            ->columns(3);
+                //         TextEntry::make('updated_at')
+                //             ->label('Last modified')
+                //             ->state(fn ($record): ?string => $record->updated_at?->diffForHumans()),
+                //     ])
+                //     ->columnSpan(['lg' => 1])
+                //     ->hidden(fn ($record) => $record === null),
+                    ]);
+            // ->columns(3);
     }
 
     // public static function configure(Schema $schema): Schema

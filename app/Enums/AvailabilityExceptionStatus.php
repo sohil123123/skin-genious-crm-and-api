@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
 use Filament\Support\Icons\Heroicon;
 
-enum HolidayStatus: string implements HasColor, HasIcon, HasLabel
+enum AvailabilityExceptionStatus: string implements HasColor, HasIcon, HasLabel
 {
     case Pending = 'pending';
     case Approved = 'approved';

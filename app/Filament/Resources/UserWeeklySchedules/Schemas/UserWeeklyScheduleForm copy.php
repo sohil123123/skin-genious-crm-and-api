@@ -22,9 +22,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Closure;
 
-// use App\Enums\HolidayStatus;
-// use App\Enums\HolidayType;
-
 use App\Models\UserWeeklySchedule;
 use App\Models\User;
 

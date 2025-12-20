@@ -18,7 +18,7 @@ use App\Models\User;
 
 class CreateAvailabilityException extends CreateRecord
 {
-    use HasWizard;
+    // use HasWizard;
 
     protected static string $resource = AvailabilityExceptionResource::class;
 
@@ -59,23 +59,23 @@ class CreateAvailabilityException extends CreateRecord
         return $data;
     }
 
-    protected function getSteps(): array
-    {
-        return [
-            Step::make('Applies To')
-                ->schema([
-                    Section::make()
-                        ->schema(AvailabilityExceptionForm::getTypeComponents())
-                        // ->extraAttributes(['class' => 'flex justify-center']),
-                        ->columns(),
-                ])
-                ->description('Applies To therapist or clinic.'),
+    // protected function getSteps(): array
+    // {
+    //     return [
+    //         Step::make('Applies To')
+    //             ->schema([
+    //                 Section::make()
+    //                     ->schema(AvailabilityExceptionForm::getTypeComponents())
+    //                     // ->extraAttributes(['class' => 'flex justify-center']),
+    //                     ->columns(),
+    //             ])
+    //             ->description('Applies To therapist or clinic.'),
 
-            Step::make('Availability Exception Details')
-                ->schema([
-                    Section::make()->schema(AvailabilityExceptionForm::getClinicAndTherapistComponents())->columns(),
-                ])
-                ->description('Select the clinic, therapist and date time etc...'),
-        ];
-    }
+    //         Step::make('Availability Exception Details')
+    //             ->schema([
+    //                 Section::make()->schema(AvailabilityExceptionForm::getClinicAndTherapistComponents())->columns(),
+    //             ])
+    //             ->description('Select the clinic, therapist and date time etc...'),
+    //     ];
+    // }
 }

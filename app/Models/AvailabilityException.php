@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
 
 use App\Enums\LeaveType;
+use App\Enums\AvailabilityExceptionType;
+use App\Enums\AvailabilityExceptionStatus;
 
 use App\Models\Clinic;
 
@@ -39,11 +41,13 @@ class AvailabilityException extends Model
     ];
 
     protected $casts = [
-        'start_date'  => 'date',
+        'start_date'  => 'date:Y-m-d',
         'end_date'    => 'date',
         'approved_at' => 'datetime',
         'is_active'   => 'boolean',
+        'type' => AvailabilityExceptionType::class,
         'leave_type' => LeaveType::class,
+        'status' => AvailabilityExceptionStatus::class
     ];
 
     protected function startTime(): Attribute
@@ -64,17 +68,15 @@ class AvailabilityException extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query
-            ->where('is_active', true)
-            ->where('status', 'approved');
+        return $query->where('is_active', true)->where('status', 'approved');
     }
 
-    public function scopeForDate(Builder $query, $date): Builder
-    {
-        return $query
-            ->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date);
-    }
+    // public function scopeForDate(Builder $query, $date): Builder
+    // {
+    //     return $query
+    //         ->whereDate('start_date', '<=', $date)
+    //         ->whereDate('end_date', '>=', $date);
+    // }
 
     protected static function booted() {
         static::creating(function ($record) {
@@ -116,30 +118,30 @@ class AvailabilityException extends Model
 
     /* ---------------- Logic Helpers ---------------- */
 
-    public function isFullDay(): bool
-    {
-        return is_null($this->start_time) && is_null($this->end_time);
-    }
+    // public function isFullDay(): bool
+    // {
+    //     return is_null($this->start_time) && is_null($this->end_time);
+    // }
 
-    public function isMultiDay(): bool
-    {
-        return $this->start_date->lt($this->end_date);
-    }
+    // public function isMultiDay(): bool
+    // {
+    //     return $this->start_date->lt($this->end_date);
+    // }
 
-    public function blocksAvailability(): bool
-    {
-        return $this->effect === 'block';
-    }
+    // public function blocksAvailability(): bool
+    // {
+    //     return $this->effect === 'block';
+    // }
 
-    public function addsAvailability(): bool
-    {
-        return $this->effect === 'add';
-    }
+    // public function addsAvailability(): bool
+    // {
+    //     return $this->effect === 'add';
+    // }
 
-    public function overridesAvailability(): bool
-    {
-        return $this->effect === 'override';
-    }
+    // public function overridesAvailability(): bool
+    // {
+    //     return $this->effect === 'override';
+    // }
 
     /**
      * Enforce 15-minute boundary
@@ -159,10 +161,6 @@ class AvailabilityException extends Model
         // Only leave types affect entitlement
         if($this->exceptionable_type == Clinic::class || !in_array($this->type, ['leave_full_day', 'leave_partial']))
             return;
-
-        // if (! in_array($this->type, ['leave_full_day', 'leave_partial'])) {
-        //     return;
-        // }
 
         $leaveDays = 0;
 

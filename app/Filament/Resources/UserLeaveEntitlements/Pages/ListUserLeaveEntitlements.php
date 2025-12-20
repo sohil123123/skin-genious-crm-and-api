@@ -72,6 +72,12 @@ class ListUserLeaveEntitlements extends ListRecords
                 ->badge($this->getModel()::where('leave_type', 'sick')->count())
                 ->badgeColor('danger'),
 
+            'emergency' => Tab::make('Emergency')
+                ->icon('heroicon-m-heart')
+                ->query(fn ($query) => $query->where('leave_type', 'emergency'))
+                ->badge($this->getModel()::where('leave_type', 'emergency')->count())
+                ->badgeColor('danger'),
+
             'other' => Tab::make('Other')
                 ->icon('heroicon-m-question-mark-circle')
                 ->query(fn ($query) => $query->where('leave_type', 'other'))

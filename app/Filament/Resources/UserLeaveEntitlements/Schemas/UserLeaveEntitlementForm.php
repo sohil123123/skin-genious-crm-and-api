@@ -10,7 +10,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
-use App\Enums\HolidayType;
+use App\Enums\LeaveType;
 
 class UserLeaveEntitlementForm
 {
@@ -32,7 +32,7 @@ class UserLeaveEntitlementForm
 
                                     Select::make('leave_type')
                                         ->label('Leave Type')
-                                        ->options(HolidayType::class)
+                                        ->options(LeaveType::class)
                                         ->placeholder('Select Leave Type')
                                         ->required(),
 

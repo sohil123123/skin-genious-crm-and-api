@@ -11,7 +11,7 @@ use Illuminate\Auth\Access\HandlesAuthorization;
 class AvailabilityExceptionPolicy
 {
     use HandlesAuthorization;
-    
+
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:AvailabilityException');
@@ -29,12 +29,12 @@ class AvailabilityExceptionPolicy
 
     public function update(AuthUser $authUser, AvailabilityException $availabilityException): bool
     {
-        return $authUser->can('Update:AvailabilityException');
+        return ($authUser->can('Update:AvailabilityException') && $authUser->id === $availabilityException->exceptionable_id && $availabilityException->status->value === 'pending') || $authUser->hasRole('super_admin');
     }
 
     public function delete(AuthUser $authUser, AvailabilityException $availabilityException): bool
     {
-        return $authUser->can('Delete:AvailabilityException');
+        return ($authUser->can('Delete:AvailabilityException') && $authUser->id === $availabilityException->exceptionable_id && $availabilityException->status->value === 'pending') || $authUser->hasRole('super_admin');
     }
 
     public function deleteAny(AuthUser $authUser): bool
@@ -44,12 +44,12 @@ class AvailabilityExceptionPolicy
 
     public function restore(AuthUser $authUser, AvailabilityException $availabilityException): bool
     {
-        return $authUser->can('Restore:AvailabilityException');
+        return ($authUser->can('Restore:AvailabilityException') && $authUser->id === $availabilityException->exceptionable_id) || $authUser->hasRole('super_admin');
     }
 
     public function forceDelete(AuthUser $authUser, AvailabilityException $availabilityException): bool
     {
-        return $authUser->can('ForceDelete:AvailabilityException');
+        return ($authUser->can('ForceDelete:AvailabilityException') && $authUser->id === $availabilityException->exceptionable_id) || $authUser->hasRole('super_admin');
     }
 
     public function forceDeleteAny(AuthUser $authUser): bool
@@ -64,7 +64,7 @@ class AvailabilityExceptionPolicy
 
     public function replicate(AuthUser $authUser, AvailabilityException $availabilityException): bool
     {
-        return $authUser->can('Replicate:AvailabilityException');
+        return ($authUser->can('Replicate:AvailabilityException') && $authUser->id === $availabilityException->exceptionable_id) || $authUser->hasRole('super_admin');
     }
 
     public function reorder(AuthUser $authUser): bool

@@ -18,7 +18,7 @@ use Filament\Tables\Enums\FiltersLayout;
 
 use Filament\Notifications\Notification;
 
-use App\Enums\HolidayType;
+use App\Enums\LeaveType;
 
 use App\Models\UserLeaveEntitlement;
 
@@ -59,7 +59,7 @@ class UserLeaveEntitlementsTable
                     // ->preload(),
                 SelectFilter::make('leave_type')
                     ->label('Leave Type')
-                    ->options(HolidayType::class)
+                    ->options(LeaveType::class)
                     ->placeholder('All'),
                 SelectFilter::make('year')
                     ->options(fn () => UserLeaveEntitlement::query()->distinct('year')->pluck('year', 'year')->toArray())
