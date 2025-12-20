@@ -12,6 +12,8 @@ use App\Http\Resources\AssessmentResource;
 use App\Models\Assessment;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AssessmentController extends BaseApiController
 {
@@ -96,42 +98,59 @@ class AssessmentController extends BaseApiController
 
     public function storeImage(Request $request, Assessment $assessment)
     {
-        // Validate the request (adjust as needed)
         $request->validate([
-            'images' => 'required|array|min:1',
-            'images.*' => 'required|image|mimes:jpeg,png,gif,webp',
+            'image' => 'required|image|mimes:jpeg,png,gif,webp',
             'assessment_type' => 'required|in:pre,post'
         ]);
 
-        $openaiFileId = $request->openai_file_id;
+        $apiKey = config('project.openai_api_key');
+        $image  = $request->file('image');
 
-        if($request->assessment_type == 'pre'){
-            $assessment->addMultipleMediaFromRequest(['images'])
-                        ->each(function ($fileAdder) use ($openaiFileId) {
-                            $fileAdder
-                            ->withCustomProperties([
-                                'openai_file_id' => $openaiFileId,
-                            ])
-                            ->toMediaCollection('assessment_images', 'user_assessment_images');
-                        });
-        }else{
-            if ($request->hasFile('images')) {
-                $assessment->addMultipleMediaFromRequest(['images'])
-                        ->each(function ($fileAdder) use ($openaiFileId) {
-                            $fileAdder
-                            ->withCustomProperties([
-                                'openai_file_id' => $openaiFileId,
-                            ])
-                            ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
-                        });
-            }
+        $response = Http::withToken($apiKey)
+            ->timeout(60)
+            ->attach(
+                'file',
+                fopen($image->getPathname(), 'r'),
+                $image->getClientOriginalName()
+            )
+            ->post('https://api.openai.com/v1/files', [
+                'purpose' => 'vision', // REQUIRED
+            ]);
+
+        if (! $response->successful()) {
+            Log::error('OpenAI API error', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            return response()->json([
+                'error' => 'OpenAI upload failed',
+                'details' => $response->json(),
+            ], 500);
         }
 
-        // Wrap in resource for clean, formatted API output
-        $resource = new AssessmentResource($assessment);
+        $openaiFileId = $response->json('id');
 
-        return $this->success('Assessment user images added successfully', $resource);
+        // Save media (your existing logic)
+        if ($request->assessment_type === 'pre') {
+            $assessment->addMedia($image)
+                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->toMediaCollection('assessment_images', 'user_assessment_images');
+        } else {
+            $assessment->addMedia($image)
+                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
+        }
+
+        $data = [
+            'images' => $assessment->images,
+            'post_images' => $assessment->post_images,
+            'file_id' => $openaiFileId
+        ];
+
+        return $this->success('Assessment user images added successfully', $data);
     }
+
 
     public function deleteImage(Assessment $assessment, $mediaId, $assessment_type)
     {
