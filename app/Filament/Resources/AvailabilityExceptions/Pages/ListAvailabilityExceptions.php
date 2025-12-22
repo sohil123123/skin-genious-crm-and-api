@@ -23,9 +23,9 @@ class ListAvailabilityExceptions extends ListRecords
         return 'Define therapist availability';
     }
 
-    public function getTable(): Table
-    {
-        return parent::getTable()->poll('5s');
-    }
+    // public function getTable(): Table
+    // {
+    //     return parent::getTable()->poll('5s');
+    // }
 
 }

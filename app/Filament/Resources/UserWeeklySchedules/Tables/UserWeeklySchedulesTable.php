@@ -45,9 +45,9 @@ class UserWeeklySchedulesTable
     public static function configure(Table $table): Table
     {
         $filters = [];
-        if (check_role('super_admin')) {
+        if (check_role('super_admin') || check_role('clinic_manager')) {
             $filters[] = Filter::make('advanced')
-                ->visible(fn () => check_role('super_admin'))
+                // ->visible(fn () => check_role('super_admin'))
                 ->label('Advanced Filters')
                 ->form([
                     Section::make('Clinic & Therapist Filters')
@@ -60,13 +60,14 @@ class UserWeeklySchedulesTable
                                     Select::make('clinic_id')
                                         ->label('Clinic')
                                         ->relationship('clinic', 'name')
+                                        ->visible(check_role('super_admin'))
                                         // ->searchable()
                                         // ->preload()
                                         ->placeholder('Select clinic')
                                         // ->native(false)
                                         ->live(), // Triggers reactive updates on dependents
 
-                                    // Client
+                                    // User
                                     Select::make('user_id')
                                         ->label('Therapist')
                                         ->options(function (callable $get) {
@@ -153,7 +154,7 @@ class UserWeeklySchedulesTable
                 TextColumn::make('therapist.name')
                     ->label('Therapist')
                     ->searchable(['first_name', 'last_name'])
-                    ->visible(fn () => check_role('super_admin'))
+                    ->visible(fn () => check_role('super_admin') || check_role('clinic_manager'))
                     ->badge()
                     ->icon('heroicon-o-user')
                     ->color('info'),
@@ -214,6 +215,19 @@ class UserWeeklySchedulesTable
                     ->collapsible()
                     ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
                     ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
+                Group::make('user_id')
+                    ->label('Therapist')
+                    ->collapsible()
+                    ->getKeyFromRecordUsing(fn ($record) => $record->user_id ?? 'no_therapist')
+                    ->getTitleFromRecordUsing(fn ($record) => $record->therapist?->first_name ?? 'Unassigned'),
+                Group::make('day_of_week')->label('Day Of Week'),
+                Group::make('created_at')->date()
+            ]);
+            // $table->groups($groups);
+            $table->defaultGroup('user_id');
+        }
+        else if (check_role('clinic_manager')) {
+            $table->groups([
                 Group::make('user_id')
                     ->label('Therapist')
                     ->collapsible()

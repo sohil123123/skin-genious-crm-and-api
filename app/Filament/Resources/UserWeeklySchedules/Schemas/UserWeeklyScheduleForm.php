@@ -66,7 +66,7 @@ class UserWeeklyScheduleForm
                                         })
                                         // ->searchable()
                                         // ->preload()
-                                        ->native(false)
+                                        ->native(true)
                                         ->reactive()
                                         ->required()
                                         ->placeholder('Select Therapist')
