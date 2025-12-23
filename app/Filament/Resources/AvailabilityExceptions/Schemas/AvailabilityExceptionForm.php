@@ -97,7 +97,8 @@ class AvailabilityExceptionForm
                     ->required()
                     ->reactive()
                     ->live()
-                    ->visible(fn ($get) => ! check_role('therapist') && $get('exceptionable_type') == User::class),
+                    // ->visible(fn ($get) => ! check_role('therapist') && $get('exceptionable_type') == User::class),
+                    ->visible(fn ($get) => check_role('super_admin') || (check_role('clinic_manager') && $get('exceptionable_type') == User::class)),
             ])
             ->visible(fn ($get) => check_role('super_admin') || check_role('clinic_manager')),
 

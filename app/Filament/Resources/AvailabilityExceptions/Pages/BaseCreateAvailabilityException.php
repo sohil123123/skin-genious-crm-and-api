@@ -47,23 +47,29 @@ abstract class BaseCreateAvailabilityException extends CreateRecord
         if(check_role('therapist') || check_role('clinic_manager')){
             $data['clinic_id'] = auth()->user()->clinic_id;
         }
+
         if(check_role('therapist')){
             $data['exceptionable_type'] = User::class;
             $data['exceptionable_id'] = auth()->id();
         }
+
         if(check_role('clinic_manager') && $data['exceptionable_type'] === Clinic::class){
             $data['exceptionable_id'] = auth()->user()->clinic_id;
         }
 
-        if($data['exceptionable_type'] === User::class && in_array($data['type']->value, ['leave_full_day', 'leave_partial'])) {
-            AvailabilityExceptionResource::validateLeaveLimit($data);
+        if(check_role('super_admin') && $data['exceptionable_type'] === Clinic::class){
+            $data['clinic_id'] = $data['exceptionable_id'];
         }
 
         if ($data['exceptionable_type'] === Clinic::class) {
             $data['type'] = 'leave_full_day';
         }
 
-        dd($data);
+        if($data['exceptionable_type'] === User::class && in_array($data['type']->value, ['leave_full_day', 'leave_partial'])) {
+            AvailabilityExceptionResource::validateLeaveLimit($data);
+        }
+
+        // dd($data);
         return $data;
     }
 
