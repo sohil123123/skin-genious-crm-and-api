@@ -40,7 +40,9 @@ return new class extends Migration
                 'extra_hours',
                 'override_hours',
                 'blocked_hours',
-            ])->index()->comment('Availability exception type');
+            ])->index()
+                ->nullable()
+                ->comment('Availability exception type');
 
             /**
              * Effect on availability

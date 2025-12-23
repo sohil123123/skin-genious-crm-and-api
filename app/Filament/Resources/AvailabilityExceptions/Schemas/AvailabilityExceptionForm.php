@@ -38,29 +38,33 @@ class AvailabilityExceptionForm
             ToggleButtons::make('exceptionable_type')
                 ->label('Applies To')
                 ->inline()
-                ->options(fn ($get) =>
-                    auth()->user()->hasRole('super_admin')
-                        ? [
-                            User::class   => 'Therapist',
-                            Clinic::class => 'Clinic (Holiday)',
-                        ]
-                        : [
-                            User::class   => 'Therapist',
-                        ]
-                )
+                // ->options(fn ($get) =>
+                //     check_role('super_admin') || check_role('clinic_manager')
+                //         ? [
+                //             User::class   => 'Therapist',
+                //             Clinic::class => 'Clinic (Holiday)',
+                //         ]
+                //         : [
+                //             User::class   => 'Therapist',
+                //         ]
+                // )
+                ->options([
+                    User::class   => 'Therapist',
+                    Clinic::class => 'Clinic (Holiday)',
+                ])
                 ->default(User::class)
                 ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
                     $set('exceptionable_id', null);
                     $set('clinic_id', null);
-                    $set('type', null);
+                    // $set('type', null);
                     $set('start_date', null);
                     $set('end_date', null);
                     $set('leave_type', null);
 
                     // Force leave_full_day when clinic selected
-                    if ($state === Clinic::class) {
+                    // if ($state === Clinic::class) {
                         $set('type', 'leave_full_day');
-                    }
+                    // }
                 })
                 ->live()
                 ->required(),
@@ -70,39 +74,32 @@ class AvailabilityExceptionForm
     public static function getClinicAndTherapistComponents()
     {
         return [
-            Hidden::make('clinic_id')
-                ->default(fn () => auth()->user()->clinic_id)
-                ->visible(fn () => ! check_role('super_admin')),
-
-            Hidden::make('exceptionable_type')
-                ->default(User::class)
-                ->visible(fn () => ! check_role('super_admin')),
-
-            Hidden::make('exceptionable_id')
-                ->default(auth()->id())
-                ->visible(fn () => check_role('therapist')),
-
             Grid::make(2)->schema([
                 Select::make('clinic_id')
                     ->label('Clinic')
                     ->relationship('clinic', 'name')
                     ->required()
                     ->placeholder('Select Clinic')
-                    ->visible(fn ($get) => $get('exceptionable_type') == User::class)
+                    ->visible(fn ($get) => check_role('super_admin') && $get('exceptionable_type') == User::class)
                     ->live(),
 
                 Select::make('exceptionable_id')
-                    ->label(fn ($get) => $get('exceptionable_type') == Clinic::class ? 'Clinic (Holiday)' : 'Therapist')
+                    ->label(fn ($get) => $get('exceptionable_type') == Clinic::class ? 'Clinic' : 'Therapist')
                     ->options(function (callable $get) {
                         if ($get('exceptionable_type') == Clinic::class)
                             return Clinic::active()->pluck('name', 'id');
 
-                        return User::active()->role('therapist')->where('clinic_id', $get('clinic_id'))->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                        $clinicId = auth()->user()->clinic_id ?? $get('clinic_id');
+
+                        return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                     })
+                    ->searchable()
                     ->required()
-                    ->live(),
+                    ->reactive()
+                    ->live()
+                    ->visible(fn ($get) => ! check_role('therapist') && $get('exceptionable_type') == User::class),
             ])
-            ->visible(fn ($get) => check_role('super_admin')),
+            ->visible(fn ($get) => check_role('super_admin') || check_role('clinic_manager')),
 
             Grid::make(2)->schema([
                 ToggleButtons::make('type')
@@ -117,28 +114,6 @@ class AvailabilityExceptionForm
                     ->live()
                     ->required(),
 
-                // Select::make('type')
-                //     ->required()
-                //     ->live()
-                //     ->options(fn ($get) =>
-                //         $get('exceptionable_type') === Clinic::class
-                //             ? [
-                //                 'leave_full_day' => 'Full Day Leave',
-                //             ]
-                //             : [
-                //                 'leave_full_day' => 'Full Day Leave',
-                //                 'leave_partial'  => 'Partial Leave',
-                //                 'extra_hours'    => 'Extra Working Hours',
-                //                 'override_hours' => 'Override Hours',
-                //                 'blocked_hours'  => 'Blocked Hours',
-                //             ]
-                //     )
-                //     ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
-                //         // Keep your existing logic
-                //         $set('end_date', $get('start_date'));
-                //         $livewire->validateOnly('start_date');
-                //     }),
-
                 ToggleButtons::make('leave_type')
                     ->inline()
                     ->options(LeaveType::class)
@@ -146,13 +121,8 @@ class AvailabilityExceptionForm
                     ->required(fn ($get) => $get('type')->value === AvailabilityExceptionType::LeaveFullDay->value)
                     ->visible(fn ($get) => str_starts_with((string)$get('type')->value, 'leave') && $get('exceptionable_type') == User::class),
 
-                // Select::make('leave_type')
-                //     ->required(fn ($get) => $get('type')->value === AvailabilityExceptionType::LeaveFullDay->value)
-                //     ->options(LeaveType::class)
-                //     ->visible(fn ($get) => str_starts_with((string)$get('type')->value, 'leave') && $get('exceptionable_type') == User::class),
-
             ])
-            ->visible(fn ($get) => $get('exceptionable_type') ===  User::class),
+            ->visible(fn ($get) => $get('exceptionable_type') === User::class),
 
             Grid::make(4)->schema([
 
@@ -178,7 +148,7 @@ class AvailabilityExceptionForm
                             function (string $attribute, $value, $fail) use ($get, $record) {
 
                                 $exceptionableType = $get('exceptionable_type');
-                                $exceptionableId   = $get('exceptionable_id');
+                                $exceptionableId   = check_role('therapist') ? auth()->id() : $get('exceptionable_id');
                                 $type              = $get('type')->value;
 
                                 if (! $exceptionableType || ! $exceptionableId || ! $type)
@@ -346,7 +316,6 @@ class AvailabilityExceptionForm
                             if ($minutes > 240) $fail('Partial leave cannot exceed 4 hours.');
                         },
                     ]),
-
             ]),
 
             Textarea::make('reason')
@@ -395,183 +364,5 @@ class AvailabilityExceptionForm
                     ]);
             // ->columns(3);
     }
-
-    // public static function configure(Schema $schema): Schema
-    // {
-    //     return $schema
-    //         ->components([
-    //             Group::make()
-    //                 ->schema([
-    //                     Section::make('Availability Exception Details')
-    //                         ->schema([
-    //                             auth()->user()->hasRole('super_admin')
-    //                                 ? Select::make('exceptionable_type')
-    //                                     ->label('Applies To')
-    //                                     ->options([
-    //                                         User::class   => 'Therapist',
-    //                                         Clinic::class => 'Clinic (Holiday)',
-    //                                     ])
-    //                                     ->required()
-    //                                     ->live()
-    //                                     ->afterStateUpdated(fn ($state, callable $set) => $set('exceptionable_id', null))
-    //                                 : Hidden::make('exceptionable_type')->default(User::class),
-
-    //                             auth()->user()->hasRole('super_admin')
-    //                                 ? Select::make('clinic_id')
-    //                                     ->label('Clinic')
-    //                                     ->relationship('clinic', 'name')
-    //                                     // ->searchable()
-    //                                     // ->preload()
-    //                                     ->required()
-    //                                     ->placeholder('Select Clinic')
-    //                                     ->visible(fn ($get) => $get('exceptionable_type') == User::class)
-    //                                     ->live()
-    //                                 : Hidden::make('clinic_id')->default(auth()->user()->clinic_id),
-
-    //                             auth()->user()->hasRole('therapist')
-    //                                 ? Hidden::make('exceptionable_id')->default(auth()->id())
-    //                                 : Select::make('exceptionable_id')
-    //                                     ->label(fn ($get) => $get('exceptionable_type') == Clinic::class ? 'Clinic (Holiday)' : 'Therapist')
-    //                                     ->options(function (callable $get) {
-    //                                         return User::active()->role('therapist')->where('clinic_id', $get('clinic_id'))->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
-    //                                     })
-    //                                     // ->searchable()
-    //                                     ->required()
-    //                                     // ->placeholder('Select Therapist')
-    //                                     ->live(),
-
-    //                             Select::make('type')
-    //                                 ->options([
-    //                                     'leave_full_day' => 'Full Day Leave',
-    //                                     'leave_partial'  => 'Partial Leave',
-    //                                     'extra_hours'    => 'Extra Working Hours',
-    //                                     'override_hours' => 'Override Hours',
-    //                                     'blocked_hours'  => 'Blocked Hours',
-    //                                 ])
-    //                                 ->required()
-    //                                 ->live()
-    //                                 ->afterStateUpdated(function (string $state, $get, $set) {
-    //                                     // if (in_array($state, [
-    //                                     //     'leave_partial',
-    //                                     //     'extra_hours',
-    //                                     //     'override_hours',
-    //                                     //     'blocked_hours',
-    //                                     // ])) {
-    //                                         $set('end_date', $get('start_date'));
-    //                                     // }
-    //                                 }),
-
-    //                             // Select::make('effect')
-    //                             //     ->options([
-    //                             //         'block'    => 'Block Time',
-    //                             //         'add'      => 'Add Time',
-    //                             //         'override' => 'Override Schedule',
-    //                             //     ])
-    //                             //     ->required(),
-
-    //                             DatePicker::make('start_date')
-    //                                 ->required()
-    //                                 ->native(false)
-    //                                 ->closeOnDateSelection(false)
-    //                                 ->placeholder(now()->startOfMonth()->format('M d, Y'))
-    //                                 ->format('Y-m-d')
-    //                                 ->live()
-    //                                 ->minDate(now())
-    //                                 ->disabledDates(function () {
-    //                                     return disabled_sunday_dates();
-    //                                 })
-    //                                 ->afterStateUpdated(function ($state, $get, $set) {
-    //                                     // if (in_array($get('type'), [
-    //                                     //     'leave_partial',
-    //                                     //     'extra_hours',
-    //                                     //     'override_hours',
-    //                                     //     'blocked_hours',
-    //                                     // ])) {
-    //                                         $set('end_date', $state);
-    //                                     // }
-    //                                 }),
-    //                             DatePicker::make('end_date')
-    //                                 ->required()
-    //                                 ->native(false)
-    //                                 ->placeholder(now()->startOfMonth()->format('M d, Y'))
-    //                                 ->format('Y-m-d')
-    //                                 ->disabledDates(function () {
-    //                                     return disabled_sunday_dates();
-    //                                 })
-    //                                 ->closeOnDateSelection(false),
-
-    //                             Select::make('start_time')
-    //                                 ->options(time_options())
-    //                                 ->visible(fn ($get) => $get('type') !== 'leave_full_day')
-    //                                 ->dehydrateStateUsing(fn ($state, $get) =>
-    //                                     $get('type') === 'leave_full_day' ? null : ($state ? $state : null)
-    //                                 ),
-
-    //                             Select::make('end_time')
-    //                                 ->options(time_options())
-    //                                 ->visible(fn ($get) => $get('type') !== 'leave_full_day')
-    //                                 ->required(fn ($get) => $get('type') !== 'leave_full_day')
-    //                                 ->dehydrateStateUsing(fn ($state, $get) =>
-    //                                     $get('type') === 'leave_full_day' ? null : ($state ? $state : null)
-    //                                 )
-    //                                 ->rules([
-    //                                     fn ($get) => function (string $attribute, $value, $fail) use ($get) {
-
-    //                                         // Only apply for partial leave
-    //                                         if ($get('type') !== 'leave_partial') {
-    //                                             return;
-    //                                         }
-
-    //                                         $start = $get('start_time');
-
-    //                                         if (! $start || ! $value) {
-    //                                             return;
-    //                                         }
-
-    //                                         $startTime = Carbon::createFromTimeString($start . ':00');
-    //                                         $endTime   = Carbon::createFromTimeString($value . ':00');
-
-    //                                         // End must be after start
-    //                                         if ($endTime->lessThanOrEqualTo($startTime)) {
-    //                                             $fail('End time must be after start time.');
-    //                                             return;
-    //                                         }
-
-    //                                         $minutes = $startTime->diffInMinutes($endTime);
-
-    //                                         if ($minutes > 240) {
-    //                                             $fail('Partial leave cannot exceed 4 hours.');
-    //                                         }
-    //                                     },
-    //                                 ]),
-
-    //                             Select::make('leave_type')
-    //                                 ->required(fn ($get) => $get('type') === 'leave_full_day')
-    //                                 ->options(LeaveType::class)
-    //                                 ->visible(fn ($get) => str_starts_with((string)$get('type'), 'leave')),
-
-    //                             Textarea::make('reason')->required()->columnSpanFull(),
-    //                             Textarea::make('notes')->columnSpanFull(),
-
-    //                         ])
-    //                         ->columns(3),
-
-    //             ])
-    //             ->columnSpan(['lg' => fn ($record) => $record === null ? 3 : 2]),
-
-    //             Section::make()
-    //                 ->schema([
-    //                     TextEntry::make('created_at')
-    //                         ->label('Holiday created date')
-    //                         ->state(fn ($record): ?string => $record->created_at?->diffForHumans()),
-
-    //                     TextEntry::make('updated_at')
-    //                         ->label('Last modified at')
-    //                         ->state(fn ($record): ?string => $record->updated_at?->diffForHumans()),
-    //                 ])
-    //                 ->columnSpan(['lg' => 1])
-    //                 ->hidden(fn ($record) => $record === null),
-    //         ]);
-    // }
 
 }

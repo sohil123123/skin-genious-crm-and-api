@@ -109,9 +109,9 @@ class AvailabilityExceptionResource extends Resource
                 Notification::make()
                     ->title('Leave Limit Exceeded')
                     ->body("You only have {$remaining} {$leaveType} days remaining.")
-                    ->danger();
+                    ->danger()
                     // ->persistent()
-                    // ->send();
+                    ->send();
                 throw new Halt("Leave limit exceeded — form not saved.");
             }
         }

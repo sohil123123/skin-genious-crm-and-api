@@ -321,7 +321,7 @@ class AvailabilityExceptionsTable
 
                                         })
                                         ->reactive()
-                                        // ->searchable()
+                                        ->searchable()
                                         ->placeholder('All Therapists')
                                         ->visible(fn ($get) => !check_role('therapist')),
 
