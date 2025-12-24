@@ -94,8 +94,8 @@ class AvailabilityService
         );
 
         $requested = [
-            'start' => $start->format('H:i'),
-            'end'   => $end->format('H:i'),
+            'start' => $start->format('Y-m-d H:i'),
+            'end'   => $end->format('Y-m-d H:i'),
         ];
 
         $ok = collect($result['available_slots'])->contains(function ($s) use ($requested) {

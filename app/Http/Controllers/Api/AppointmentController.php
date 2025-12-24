@@ -24,16 +24,38 @@ class AppointmentController extends BaseApiController
         parent::__construct($model, $request, 'Appointment', 'Api');
     }
 
-    public function store(AppointmentRequest $request)
+    // public function store(AppointmentRequest $request)
+    // {
+    //     // Create the assessment record
+    //     $appointment = $this->model->create($request->validated());
+
+    //     // Wrap in resource for clean, formatted API output
+    //     $resource = new AppointmentResource($appointment);
+
+    //     return $this->success('Appointment created successfully', $resource);
+    // }
+
+    public function store(AppointmentRequest $request, AvailabilityService $availability)
     {
+        $data = $request->validated();
+
+        // validate slot availability
+        $availability->assertBookable(
+            clinicId: (int)$data['clinic_id'],
+            therapistId: (int)$data['therapist_id'],
+            start: Carbon::parse($data['start_datetime']),
+            end: Carbon::parse($data['end_datetime'])
+        );
+        // exit;
         // Create the assessment record
-        $appointment = $this->model->create($request->validated());
+        $appointment = $this->model->create($data);
 
         // Wrap in resource for clean, formatted API output
         $resource = new AppointmentResource($appointment);
 
         return $this->success('Appointment created successfully', $resource);
     }
+
 
     public function update(AppointmentRequest $request, Appointment $appointment)
     {
