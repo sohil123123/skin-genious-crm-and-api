@@ -12,59 +12,45 @@ use App\Enums\AppointmentStatus;
 
 use Carbon\Carbon;
 
+// use Guava\Calendar\Contracts\Eventable;
+// use Guava\Calendar\ValueObjects\CalendarEvent;
+
 class Appointment extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
         'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
-        'treatment_session_id', 'created_by', 'appointment_datetime', 'duration',
-        'status', 'products_used', 'resources_used', 'notes', 'billed_at',
+        'treatment_session_id', 'start_datetime', 'end_datetime', 'duration_minutes',
+        'status', 'products_used', 'resources_used', 'notes', 'is_billable', 'is_billed', 'created_by', 'updated_by'
     ];
 
     protected $casts = [
-        'appointment_datetime' => 'datetime',
-        'billed_at' => 'datetime',
+        'start_datetime' => 'datetime',
+        'end_datetime' => 'datetime',
         'products_used' => 'array',
         'resources_used' => 'array',
+        'is_billable' => 'boolean',
+        'is_billed' => 'boolean',
         'type' => AppointmentType::class,
         'status' => AppointmentStatus::class,
     ];
 
+    // // This is where you map your model into a calendar object
+    // public function toCalendarEvent(): CalendarEvent
+    // {
+    //     // For eloquent models, make sure to pass the model to the constructor
+    //     return CalendarEvent::make($this)
+    //         ->title($this->client->first_name)
+    //         ->start($this->start_datetime)
+    //         ->end($this->end_datetime);
+    // }
+
     protected static function booted() {
         static::creating(function ($appointment) {
-            $appointment->created_by = auth()->user()->id;
+            $appointment->created_by ??= auth()->id();
         });
     }
-
-    // // Scopes for Filament (e.g., uninvoiced)
-    // public function scopeUninvoiced($query) {
-    //     return $query->whereNull('billed_at');
-    // }
-
-    // public function scopeByType($query, $type) {
-    //     return $query->where('type', $type);
-    // }
-
-    // public function scopeOverlapping($query, $therapistId, $clinicId, $appointment_datetime, $excludeId = null) {
-    //     $appointment_datetime = Carbon::createFromFormat('Y-m-d h:i A', $appointment_datetime)->format('Y-m-d H:i:s');
-    //     return $query->where('therapist_id', $therapistId)
-    //                 ->where('clinic_id', $clinicId)
-    //                 ->where('appointment_datetime', $appointment_datetime)
-    //                 ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
-    //                 ->where('status', '!=', 'cancelled'); // Ignore cancelled
-    // }
-
-    // public function scopeOverlapping($query, $therapistId, $clinicId, $start, $end, $excludeId = null, $duration = 30) {
-    //     return $query->where('therapist_id', $therapistId)
-    //             ->where('clinic_id', $clinicId)
-    //             ->whereBetween('appointment_datetime', [
-    //                 Carbon::instance($start)->subMinutes($duration),
-    //                 Carbon::instance($end)->addMinutes($duration),
-    //             ])
-    //             ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
-    //             ->where('status', '!=', 'cancelled');
-    // }
 
     //---------------------------- Relations --------------------------
     public function client(): BelongsTo {

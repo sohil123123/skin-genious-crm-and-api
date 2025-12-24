@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
+use Illuminate\Support\Str;
 
 use App\Http\Controllers\Api\AppointmentController;
 
@@ -68,3 +69,40 @@ Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (R
         'auth_user_id' => $personalToken->tokenable->id,
     ]);
 });
+
+
+Route::get('/vue-sso', function (Request $request) {
+
+    // ❌ Invalid or expired signature
+    if (! $request->hasValidSignature())
+        return response()->json(['message' => 'Invalid or expired link'], 401);
+
+    $user = \App\Models\User::findOrFail($request->user_id);
+
+    // (Optional but recommended) Revoke old tokens
+    $user->tokens()
+        ->where('name', 'like', 'appointment-token-%')
+        ->delete();
+
+    // 🔐 Issue Sanctum token
+    $token = $user->createToken(
+        'appointment-token-' . Str::random(10),
+        ['assessment'],
+        now()->addHour() // optional expiry
+    )->plainTextToken;
+
+    // 🌍 Frontend base URL
+    $frontend = rtrim(config('project.frontend_url'), '/');
+
+    $url = $frontend . '/authenticate?token=' . $token . '&type=appointment';
+
+    // 🔁 Role-based redirect
+    if(in_array($request->role, ['clinic_manager', 'therapist']))
+        $url .= '&clinic_id=' . $user->clinic_id;
+
+    if ($request->role === 'therapist')
+        $url .= '&therapist_id=' . $user->id;
+
+    return redirect()->away($url);
+})
+->name('vue.sso');

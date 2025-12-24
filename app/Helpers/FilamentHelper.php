@@ -181,3 +181,4 @@ if (! function_exists('day_color')) {
         };
     }
 }
+

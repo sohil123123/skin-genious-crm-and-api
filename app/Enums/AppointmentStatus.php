@@ -9,7 +9,7 @@ use Filament\Support\Icons\Heroicon;
 
 enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
 {
-    case Scheduled = 'scheduled';
+    case Pending = 'pending';
     case Confirmed = 'confirmed';
     case InProgress = 'in_progress';
     case Completed = 'completed';
@@ -18,7 +18,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Scheduled => 'Scheduled',
+            self::Pending => 'Pending',
             self::Confirmed => 'Confirmed',
             self::InProgress => 'In Progress',
             self::Completed => 'Completed',
@@ -29,7 +29,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
     public function getColor(): string
     {
         return match ($this) {
-            self::Scheduled => 'gray',
+            self::Pending => 'gray',
             self::Confirmed => 'info',
             self::InProgress => 'warning',
             self::Completed => 'success',
@@ -40,7 +40,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
     public function getIcon(): string
     {
         return match ($this) {
-            self::Scheduled => 'heroicon-o-clock',
+            self::Pending => 'heroicon-o-clock',
             self::Confirmed => 'heroicon-o-check-circle',
             self::InProgress => 'heroicon-o-arrow-path',
             self::Completed => 'heroicon-o-check-badge',

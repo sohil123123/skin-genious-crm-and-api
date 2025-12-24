@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id()->comment('Primary key of the appointment');
 
-            $table->enum('type', ['consult', 'treatment'])
+            $table->enum('type', ['consult', 'treatment', 'express'])
                 ->default('consult')
                 ->comment('Type of appointment: consult or treatment');
 
@@ -51,28 +51,26 @@ return new class extends Migration
                 ->cascadeOnUpdate()
                 ->comment('Linked treatment session, if any');
 
-            $table->foreignId('created_by')
-                ->constrained('users')
-                ->cascadeOnDelete()
-                ->cascadeOnUpdate()
-                ->comment('User who created the appointment');
-
-            $table->dateTime('appointment_datetime')
+            $table->dateTime('start_datetime')
                 ->index()
-                ->comment('Date and time of the appointment');
+                ->comment('Appointment start datetime');
 
-            $table->integer('duration')
-                ->default(90)
+            $table->dateTime('end_datetime')
+                ->index()
+                ->comment('Appointment end datetime');
+
+             $table->unsignedSmallInteger('duration_minutes')
                 ->nullable()
-                ->comment('Duration of the appointment in minutes');
+                ->comment('Duration in minutes (stored explicitly)');
 
             $table->enum('status', [
-                'scheduled',
+                'pending',
                 'confirmed',
                 'in_progress',
                 'completed',
                 'cancelled',
-            ])->default('scheduled')
+                'no_show',
+            ])->default('pending')
                 ->comment('Current status of the appointment');
 
             $table->json('products_used')
@@ -83,22 +81,54 @@ return new class extends Migration
                 ->nullable()
                 ->comment('List of clinic resources used (e.g. room, equipment) in JSON format');
 
+            $table->enum('source', [
+                'front_desk',
+                'central_team',
+                'online',
+                'system',
+            ])
+                ->default('front_desk')
+                ->comment('Booking source');
+
             $table->text('notes')
                 ->nullable()
                 ->comment('Therapist or system notes about the appointment');
 
-            $table->timestamp('billed_at')
+            $table->boolean('is_billable')
+                ->default(true)
+                ->comment('Whether this appointment can generate invoice');
+
+            $table->boolean('is_billed')
+                ->default(false)
+                ->index()
+                ->comment('Invoice generated or not');
+
+            $table->foreignId('created_by')
+                ->constrained('users')
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate()
+                ->comment('User who created the appointment');
+
+            $table->foreignId('updated_by')
                 ->nullable()
-                ->comment('Timestamp when the appointment was billed');
+                ->constrained('users')
+                ->nullOnDelete()
+                ->comment('User who last updated appointment');
+
 
             $table->softDeletes();
             $table->timestamps();
 
-            // Prevent double bookings
-            $table->unique(
-                ['therapist_id', 'clinic_id', 'appointment_datetime'],
-                'unique_therapist_slot'
+            $table->index(
+                ['therapist_id', 'start_datetime', 'end_datetime'],
+                'therapist_time_idx'
             );
+
+            $table->index(
+                ['clinic_id', 'start_datetime', 'end_datetime'],
+                'clinic_time_idx'
+            );
+
         });
     }
 
