@@ -9,6 +9,8 @@ use App\Http\Requests\AppointmentRequest;
 
 use App\Http\Resources\AppointmentResource;
 
+use App\Services\Availability\AvailabilityService;
+
 use App\Models\Appointment;
 use App\Models\Assessment;
 use App\Models\TreatmentSession;
@@ -119,6 +121,30 @@ class AppointmentController extends BaseApiController
         $resource = new AppointmentResource($appointment->fresh());
 
         return $this->success('Appointment status updated successfully', $resource);
+    }
+
+    public function slots(Request $request, AvailabilityService $availability)
+    {
+        $validated = $request->validate([
+            'clinic_id'      => ['required', 'integer', 'exists:clinics,id'],
+            'therapist_id'   => ['required', 'integer', 'exists:users,id'],
+            'date'           => ['required', 'date'],
+            'slot_interval'  => ['nullable', 'integer', 'in:5,10,15,20,30,60'],
+            'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:480'],
+        ]);
+
+        $slotInterval = (int)($validated['slot_interval'] ?? 15);
+        $duration     = (int)($validated['duration_minutes'] ?? 15);
+
+        $result = $availability->getSlotsForDate(
+            clinicId: (int)$validated['clinic_id'],
+            therapistId: (int)$validated['therapist_id'],
+            date: $validated['date'],
+            slotIntervalMinutes: $slotInterval,
+            appointmentDurationMinutes: $duration
+        );
+
+        return $this->success('Slots fetched successfully', $result);
     }
 
 }

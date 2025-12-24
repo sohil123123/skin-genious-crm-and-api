@@ -26,8 +26,8 @@ class Appointment extends Model
     ];
 
     protected $casts = [
-        'start_datetime' => 'datetime',
-        'end_datetime' => 'datetime',
+        // 'start_datetime' => 'datetime',
+        // 'end_datetime' => 'datetime',
         'products_used' => 'array',
         'resources_used' => 'array',
         'is_billable' => 'boolean',

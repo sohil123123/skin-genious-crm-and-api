@@ -36,15 +36,20 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
 
         // INFO: Appointment CRUD Route
+        // Availability engine
+        // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
         Route::post('appointments/update-treatment-session-id/{appointment_id}', [AppointmentController::class, 'updateTreatmentSessionId']);
-        Route::post('appointments/status/{id}', 'AppointmentController@updateStatus');
-        Route::apiResource('appointments', 'AppointmentController');
+        Route::post('appointments/status/{id}', [AppointmentController::class, 'updateStatus']);
+        // Route::apiResource('appointments', 'AppointmentController');
 
         // INFO: Common Route
         Route::get('get-clinics', 'CommonController@getClinics');
         Route::get('get-users', 'CommonController@getUsers');
 
     });
+
+    Route::get('/availability/slots', [AppointmentController::class, 'slots']);
+    Route::apiResource('appointments', 'AppointmentController');
 
 });
 

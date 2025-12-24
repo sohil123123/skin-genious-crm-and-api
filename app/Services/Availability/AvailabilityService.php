@@ -4,412 +4,512 @@ namespace App\Services\Availability;
 
 use App\Models\Appointment;
 use App\Models\AvailabilityException;
-use App\Models\Clinic;
-use App\Models\User;
 use App\Models\UserWeeklySchedule;
-use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class AvailabilityService
 {
-    public const SLOT_MINUTES = 15;
-
-    /**
-     * Appointment statuses that block time & beds
-     */
-    public const BLOCKING_STATUSES = [
-        'pending',
-        'confirmed',
-        'in_progress',
-    ];
-
-    /* ============================================================
-     | PUBLIC API
-     |============================================================ */
-
-    /**
-     * Returns available slot start times (HH:MM)
-     */
-    public function getAvailableStartTimes(
+    public function getSlotsForDate(
         int $clinicId,
         int $therapistId,
-        CarbonImmutable $date,
-        int $durationMinutes,
-        int $bedsRequired = 1
+        string $date,
+        int $slotIntervalMinutes = 15,
+        int $appointmentDurationMinutes = 15
     ): array {
-        $durationMinutes = $this->normalizeDuration($durationMinutes);
+        $day = Carbon::parse($date);
+        $weekday = $day->isoWeekday(); // 1=Mon ... 7=Sun
 
-        // 1️⃣ Base schedule
-        $windows = $this->getWeeklyWindows($clinicId, $therapistId, $date);
+        // 1) Base slots from weekly schedule
+        $baseWindows = $this->getBaseWindowsFromWeeklySchedule($clinicId, $therapistId, $weekday);
 
-        // 2️⃣ Apply exceptions
-        $windows = $this->applyExceptions($windows, $clinicId, $therapistId, $date);
+        // 2) Apply exceptions (block/add/override)
+        $exceptions = $this->getExceptionsForDate($clinicId, $therapistId, $day);
+        $windows = $this->applyExceptionsToWindows($baseWindows, $exceptions, $day);
 
-        if ($windows->isEmpty()) {
-            return [];
-        }
-
-        // 3️⃣ Expand to slots
-        $slots = $this->expandWindowsToSlots($windows, $durationMinutes);
-
-        if ($slots->isEmpty()) {
-            return [];
-        }
-
-        // 4️⃣ Remove therapist conflicts
-        $slots = $this->removeTherapistConflicts(
-            $slots,
-            $clinicId,
-            $therapistId,
-            $date,
-            $durationMinutes
+        // 3) Generate slots from final windows
+        $candidateSlots = $this->generateSlotsFromWindows(
+            $windows,
+            $day,
+            $slotIntervalMinutes,
+            $appointmentDurationMinutes
         );
+        // dd($candidateSlots);
 
-        if ($slots->isEmpty()) {
-            return [];
-        }
+        // 4) Remove booked overlaps
+        $bookedBlocks = $this->getBookedBlocks($clinicId, $therapistId, $day);
+        [$available, $unavailableBooked] = $this->filterBookedSlots($candidateSlots, $bookedBlocks);
 
-        // 5️⃣ Remove bed capacity conflicts
-        $slots = $this->removeBedCapacityConflicts(
-            $slots,
-            $clinicId,
-            $date,
-            $durationMinutes,
-            $bedsRequired
-        );
+        // 5) Unavailable because of leave/block/closed (optional: provide blocks summary)
+        $unavailableByExceptions = $this->summarizeExceptionBlocks($exceptions, $day, $slotIntervalMinutes);
 
-        return $slots
-            ->mapWithKeys(fn ($t) => [$t => $t])
-            ->all();
+        // return [
+        //     'date' => $day->toDateString(),
+        //     'slot_interval' => $slotIntervalMinutes,
+        //     'appointment_duration_minutes' => $appointmentDurationMinutes,
+        //     'available_slots' => $available,
+        //     'unavailable_slots' => array_values(array_merge($unavailableBooked, $unavailableByExceptions)),
+        // ];
+
+        return [
+            'date' => $day->toDateString(),
+            'interval' => $slotIntervalMinutes,
+
+            // QCalendar-ready events
+            'events' => array_values(array_merge(
+                $this->formatBookedEventsForCalendar($unavailableBooked, $day),
+                $this->formatExceptionEventsForCalendar($unavailableByExceptions, $day)
+            )),
+
+            // clickable slots only
+            'available_slots' => array_map(fn ($s) => [
+                'start' => $day->toDateString().' '.$s['start'],
+                'end'   => $day->toDateString().' '.$s['end'],
+                'isDisabled' => false
+            ], $available),
+        ];
     }
 
-    /**
-     * HARD-LOCKED booking entry point
-     */
-    public function bookWithLock(
+    public function assertBookable(
         int $clinicId,
         int $therapistId,
-        CarbonImmutable $start,
-        CarbonImmutable $end,
-        int $bedsRequired,
-        callable $createCallback,
+        Carbon $start,
+        Carbon $end,
         ?int $ignoreAppointmentId = null
-    ) {
-        return DB::transaction(function () use (
-            $clinicId,
-            $therapistId,
-            $start,
-            $end,
-            $bedsRequired,
-            $createCallback,
-            $ignoreAppointmentId
-        ) {
-            /**
-             * 1️⃣ Lock clinic row
-             */
-            $clinic = Clinic::query()
-                ->where('id', $clinicId)
-                ->lockForUpdate()
-                ->firstOrFail();
+    ): void {
+        // Only allow 15-min aligned start/end by default (optional)
+        if (!$this->isAlignedToMinutes($start, 15) || !$this->isAlignedToMinutes($end, 15)) {
+            throw ValidationException::withMessages([
+                'slot' => 'Slot must be aligned to 15-minute boundaries.',
+            ]);
+        }
 
-            /**
-             * 2️⃣ Therapist overlap (HARD)
-             */
-            $therapistOverlap = Appointment::query()
-                ->where('clinic_id', $clinicId)
-                ->where('therapist_id', $therapistId)
-                ->whereIn('status', self::BLOCKING_STATUSES)
-                ->where(function ($q) use ($start, $end) {
-                    $q->where('start_datetime', '<', $end)
-                      ->where('end_datetime', '>', $start);
-                });
+        // Get availability windows for that date and ensure requested range is within any window
+        $result = $this->getSlotsForDate(
+            clinicId: $clinicId,
+            therapistId: $therapistId,
+            date: $start->toDateString(),
+            slotIntervalMinutes: 15,
+            appointmentDurationMinutes: (int)$start->diffInMinutes($end)
+        );
 
-            if ($ignoreAppointmentId) {
-                $therapistOverlap->where('id', '!=', $ignoreAppointmentId);
-            }
+        $requested = [
+            'start' => $start->format('H:i'),
+            'end'   => $end->format('H:i'),
+        ];
 
-            if ($therapistOverlap->exists()) {
-                throw new \RuntimeException('Therapist already booked in this time slot.');
-            }
+        $ok = collect($result['available_slots'])->contains(function ($s) use ($requested) {
+            return $s['start'] === $requested['start'] && $s['end'] === $requested['end'];
+        });
 
-            /**
-             * 3️⃣ Bed capacity overlap (HARD)
-             */
-            $bedsInUse = Appointment::query()
-                ->where('clinic_id', $clinicId)
-                ->whereIn('status', self::BLOCKING_STATUSES)
-                ->where(function ($q) use ($start, $end) {
-                    $q->where('start_datetime', '<', $end)
-                      ->where('end_datetime', '>', $start);
-                })
-                ->selectRaw("
-                    COALESCE(
-                        SUM(JSON_EXTRACT(resources_used, '$.beds')),
-                        0
-                    ) as beds_used
-                ")
-                ->value('beds_used');
+        if (!$ok) {
+            throw ValidationException::withMessages([
+                'slot' => 'Selected slot is unavailable.',
+            ]);
+        }
 
-            if (($bedsInUse + $bedsRequired) > (int) $clinic->beds) {
-                throw new \RuntimeException('No bed available for this time slot.');
-            }
+        // Also ensure no overlapping appointment exists (hard check)
+        $overlap = Appointment::query()
+            ->where('clinic_id', $clinicId)
+            ->where('therapist_id', $therapistId)
+            ->when($ignoreAppointmentId, fn($q) => $q->where('id', '!=', $ignoreAppointmentId))
+            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->where(function ($q) use ($start, $end) {
+                $q->where('start_datetime', '<', $end)
+                  ->where('end_datetime',   '>', $start);
+            })
+            ->exists();
 
-            /**
-             * 4️⃣ All checks passed → create appointment
-             */
-            return $createCallback();
-        }, 5);
+        if ($overlap) {
+            throw ValidationException::withMessages([
+                'slot' => 'Selected slot overlaps an existing appointment.',
+            ]);
+        }
     }
 
-    /* ============================================================
-     | WEEKLY + EXCEPTION LOGIC
-     |============================================================ */
+    // ------------------------
+    // Internals
+    // ------------------------
 
-    private function getWeeklyWindows(
-        int $clinicId,
-        int $therapistId,
-        CarbonImmutable $date
-    ): Collection {
-        $dow = $date->isoWeekday();
-
-        return UserWeeklySchedule::query()
+    private function getBaseWindowsFromWeeklySchedule(int $clinicId, int $therapistId, int $weekday): array
+    {
+        $shifts = UserWeeklySchedule::query()
+            ->active()
             ->where('clinic_id', $clinicId)
             ->where('user_id', $therapistId)
-            ->where('day_of_week', $dow)
-            ->where('is_active', true)
+            ->where('day_of_week', $weekday)
             ->orderBy('start_time')
-            ->get(['start_time', 'end_time'])
-            ->map(function ($row) use ($date) {
-                return [
-                    'start' => CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $row->start_time),
-                    'end'   => CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $row->end_time),
-                ];
-            })
-            ->filter(fn ($w) => $w['end']->gt($w['start']))
-            ->values();
+            ->get(['start_time', 'end_time']);
+
+        // If no schedule exists, windows empty (unless exceptions add/override)
+        return $shifts->map(fn($s) => [
+            'start' => Carbon::parse($s->start_time)->format('H:i'),
+            'end'   => Carbon::parse($s->end_time)->format('H:i'),
+        ])->all();
     }
 
-    private function applyExceptions(
-        Collection $windows,
-        int $clinicId,
-        int $therapistId,
-        CarbonImmutable $date
-    ): Collection {
-        $exceptions = AvailabilityException::query()
+    private function getExceptionsForDate(int $clinicId, int $therapistId, Carbon $day)
+    {
+        // exceptionable polymorph: for therapist, exceptionable_type = User::class & id = therapistId
+        // You also have clinic-level exceptions via exceptionable_type = Clinic::class & id = clinicId
+        $date = $day->toDateString();
+
+        return AvailabilityException::query()
+            ->active()
             ->where('clinic_id', $clinicId)
-            ->where('exceptionable_type', User::class)
-            ->where('exceptionable_id', $therapistId)
-            ->where('is_active', true)
-            ->whereIn('status', ['approved'])
-            ->whereDate('start_date', '<=', $date->toDateString())
-            ->whereDate('end_date', '>=', $date->toDateString())
+            ->where(function ($q) use ($therapistId, $clinicId) {
+                $q->where(function ($qq) use ($therapistId) {
+                    $qq->where('exceptionable_type', 'App\\Models\\User')
+                       ->where('exceptionable_id', $therapistId);
+                })->orWhere(function ($qq) use ($clinicId) {
+                    $qq->where('exceptionable_type', 'App\\Models\\Clinic')
+                       ->where('exceptionable_id', $clinicId);
+                });
+            })
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->orderByRaw("FIELD(type,'override_hours','blocked_hours','leave_partial','leave_full_day','extra_hours')") // priority-ish
             ->get();
+    }
 
-        // Override wipes weekly schedule
-        if ($override = $exceptions->firstWhere('type', 'override_hours')) {
-            return $this->windowsFromException($override, $date);
-        }
+    private function applyExceptionsToWindows(array $baseWindows, $exceptions, Carbon $day): array
+    {
+        $windows = $baseWindows;
 
-        // Full day leave wipes everything
-        if ($exceptions->contains('type', 'leave_full_day')) {
-            return collect();
-        }
+        foreach ($exceptions as $ex) {
+            $exStart = $ex->start_time ? Carbon::parse($ex->start_time)->format('H:i') : null;
+            $exEnd   = $ex->end_time ? Carbon::parse($ex->end_time)->format('H:i') : null;
 
-        // Add extra hours
-        foreach ($exceptions->where('type', 'extra_hours') as $ex) {
-            $windows = $windows->merge($this->windowsFromException($ex, $date));
-        }
+            $isFullDay = is_null($exStart) && is_null($exEnd);
 
-        $windows = $this->mergeWindows($windows);
+            // "override" means replace schedule (for that date)
+            if ($ex->effect === 'override' || $ex->type->value === 'override_hours') {
+                if ($isFullDay) {
+                    // override full day: treat as open full day (rare) -> 00:00-23:59
+                    $windows = [['start' => '00:00', 'end' => '23:59']];
+                } else {
+                    $windows = [['start' => $exStart, 'end' => $exEnd]];
+                }
+                continue;
+            }
 
-        // Subtract blocked / partial leave
-        foreach ($exceptions->whereIn('type', ['leave_partial', 'blocked_hours']) as $ex) {
-            foreach ($this->windowsFromException($ex, $date) as $block) {
-                $windows = $this->subtractWindow(
-                    $windows,
-                    $block['start'],
-                    $block['end']
-                );
+            // "add" means add availability window
+            if ($ex->effect === 'add' || $ex->type->value === 'extra_hours') {
+                if ($isFullDay) {
+                    $windows[] = ['start' => '00:00', 'end' => '23:59'];
+                } else {
+                    $windows[] = ['start' => $exStart, 'end' => $exEnd];
+                }
+                $windows = $this->mergeWindows($windows);
+                continue;
+            }
+
+            // "block" means remove availability
+            if ($ex->effect === 'block' || in_array($ex->type->value, ['blocked_hours','leave_partial','leave_full_day'], true)) {
+                if ($isFullDay) {
+                    $windows = []; // fully unavailable
+                } else {
+                    $windows = $this->subtractWindow($windows, ['start' => $exStart, 'end' => $exEnd]);
+                }
+                continue;
             }
         }
 
         return $this->mergeWindows($windows);
     }
 
-    private function windowsFromException($exception, CarbonImmutable $date): Collection
+    private function generateSlotsFromWindows(array $windows, Carbon $day, int $slotIntervalMinutes, int $durationMinutes): array
     {
-        $start = $exception->start_time
-            ? CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $exception->start_time)
-            : $date->startOfDay();
-
-        $end = $exception->end_time
-            ? CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $exception->end_time)
-            : $date->endOfDay()->addSecond();
-
-        return collect([[
-            'start' => $start,
-            'end'   => $end,
-        ]]);
-    }
-
-    /* ============================================================
-     | SLOT & CONFLICT LOGIC
-     |============================================================ */
-
-    private function expandWindowsToSlots(
-        Collection $windows,
-        int $durationMinutes
-    ): Collection {
-        $slots = collect();
+        $slots = [];
 
         foreach ($windows as $w) {
-            $start = $this->alignUp($w['start']);
-            $lastStart = $w['end']->subMinutes($durationMinutes);
+            $start = Carbon::parse($day->toDateString() . ' ' . $w['start']);
+            $end   = Carbon::parse($day->toDateString() . ' ' . $w['end']);
 
-            for ($t = $start; $t->lte($lastStart); $t = $t->addMinutes(self::SLOT_MINUTES)) {
-                $slots->push($t->format('H:i'));
+            // ensure end >= start
+            if ($end->lte($start)) continue;
+
+            $cursor = $start->copy();
+
+            while ($cursor->copy()->addMinutes($durationMinutes)->lte($end)) {
+                $slotEnd = $cursor->copy()->addMinutes($durationMinutes);
+
+                $slots[] = [
+                    'start' => $cursor->format('H:i'),
+                    'end'   => $slotEnd->format('H:i'),
+                ];
+
+                $cursor->addMinutes($slotIntervalMinutes);
             }
         }
 
-        return $slots->unique()->values();
+        // unique + sorted
+        $slots = collect($slots)
+            ->unique(fn($s) => $s['start'].'-'.$s['end'])
+            ->sortBy('start')
+            ->values()
+            ->all();
+
+        return $slots;
     }
 
-    private function removeTherapistConflicts(
-        Collection $slots,
-        int $clinicId,
-        int $therapistId,
-        CarbonImmutable $date,
-        int $durationMinutes
-    ): Collection {
+    private function getBookedBlocks(int $clinicId, int $therapistId, Carbon $day): array
+    {
         $appointments = Appointment::query()
             ->where('clinic_id', $clinicId)
             ->where('therapist_id', $therapistId)
-            ->whereIn('status', self::BLOCKING_STATUSES)
-            ->get(['start_datetime', 'end_datetime']);
+            ->whereDate('start_datetime', $day->toDateString())
+            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->get();
 
-        return $slots->filter(function ($hm) use ($appointments, $date, $durationMinutes) {
-            $start = CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $hm);
-            $end = $start->addMinutes($durationMinutes);
+        return $appointments->map(function ($a) {
+            return [
+                'start' => Carbon::parse($a->start_datetime)->format('H:i'),
+                'end'   => Carbon::parse($a->end_datetime)->format('H:i'),
 
-            foreach ($appointments as $a) {
-                if ($start->lt($a->end_datetime) && $end->gt($a->start_datetime)) {
-                    return false;
+                'appointment' => [
+                    'id'             => $a->id,
+                    'status'         => $a->status,
+                    'status_color'   => $this->appointmentStatusColor($a->status->value),
+                    'therapist_name' => $a->therapist?->name,
+                    'client_name'    => $a->user?->name,
+                    'clinic_name'    => $a->clinic?->name,
+                ],
+            ];
+        })->all();
+    }
+
+    private function filterBookedSlots(array $slots, array $bookedBlocks): array
+    {
+        $available = [];
+        $unavailable = [];
+
+        foreach ($slots as $s) {
+            $isBooked = false;
+
+            foreach ($bookedBlocks as $b) {
+                if ($this->timeOverlap($s['start'], $s['end'], $b['start'], $b['end'])) {
+                    $isBooked = true;
+
+                    $unavailable[] = [
+                        'start' => $s['start'],
+                        'end'   => $s['end'],
+                        'reason'=> 'booked',
+                        'appointment' => $b['appointment'],
+                    ];
+
+                    break;
                 }
             }
-            return true;
-        })->values();
-    }
 
-    private function removeBedCapacityConflicts(
-        Collection $slots,
-        int $clinicId,
-        CarbonImmutable $date,
-        int $durationMinutes,
-        int $bedsRequired
-    ): Collection {
-        if ($bedsRequired <= 0) return $slots;
-
-        $clinicBeds = Clinic::where('id', $clinicId)->value('beds');
-
-        return $slots->filter(function ($hm) use (
-            $clinicId,
-            $date,
-            $durationMinutes,
-            $bedsRequired,
-            $clinicBeds
-        ) {
-            $start = CarbonImmutable::parse($date->format('Y-m-d') . ' ' . $hm);
-            $end = $start->addMinutes($durationMinutes);
-
-            $bedsInUse = Appointment::query()
-                ->where('clinic_id', $clinicId)
-                ->whereIn('status', self::BLOCKING_STATUSES)
-                ->where(function ($q) use ($start, $end) {
-                    $q->where('start_datetime', '<', $end)
-                      ->where('end_datetime', '>', $start);
-                })
-                ->selectRaw("
-                    COALESCE(
-                        SUM(JSON_EXTRACT(resources_used, '$.beds')),
-                        0
-                    ) as beds_used
-                ")
-                ->value('beds_used');
-
-            return ($bedsInUse + $bedsRequired) <= $clinicBeds;
-        })->values();
-    }
-
-    /* ============================================================
-     | HELPERS
-     |============================================================ */
-
-    private function mergeWindows(Collection $windows): Collection
-    {
-        $windows = $windows->sortBy(fn ($w) => $w['start']->timestamp)->values();
-        if ($windows->isEmpty()) return $windows;
-
-        $merged = collect([$windows->first()]);
-
-        foreach ($windows->slice(1) as $w) {
-            $last = $merged->last();
-
-            if ($w['start']->lte($last['end'])) {
-                $last['end'] = $last['end']->max($w['end']);
-                $merged[$merged->count() - 1] = $last;
-            } else {
-                $merged->push($w);
+            if (!$isBooked) {
+                $available[] = $s;
             }
         }
 
-        return $merged->values();
+        return [$available, $unavailable];
     }
 
-    private function subtractWindow(
-        Collection $windows,
-        CarbonImmutable $blockStart,
-        CarbonImmutable $blockEnd
-    ): Collection {
-        return $windows->flatMap(function ($w) use ($blockStart, $blockEnd) {
-            $parts = [];
+    // private function summarizeExceptionBlocks($exceptions, Carbon $day): array
+    // {
+    //     $out = [];
 
-            if ($blockEnd->lte($w['start']) || $blockStart->gte($w['end'])) {
-                return [$w];
-            }
+    //     foreach ($exceptions as $ex) {
+    //         $isBlocky = ($ex->effect === 'block') || in_array($ex->type->value, ['blocked_hours','leave_partial','leave_full_day'], true);
+    //         if (!$isBlocky) continue;
 
-            if ($blockStart->gt($w['start'])) {
-                $parts[] = [
-                    'start' => $w['start'],
-                    'end'   => $blockStart,
-                ];
-            }
+    //         $st = $ex->start_time ? Carbon::parse($ex->start_time)->format('H:i') : '00:00';
+    //         $en = $ex->end_time ? Carbon::parse($ex->end_time)->format('H:i') : '23:59';
 
-            if ($blockEnd->lt($w['end'])) {
-                $parts[] = [
-                    'start' => $blockEnd,
-                    'end'   => $w['end'],
-                ];
-            }
+    //         $out[] = [
+    //             'start'  => $st,
+    //             'end'    => $en,
+    //             'reason' => $ex->type->value ?? 'blocked',
+    //         ];
+    //     }
 
-            return $parts;
-        })
-        ->filter(fn ($w) => $w['end']->gt($w['start']))
-        ->values();
-    }
+    //     return $out;
+    // }
 
-    private function normalizeDuration(int $minutes): int
+    private function summarizeExceptionBlocks($exceptions, Carbon $day, int $slotIntervalMinutes = 15): array
     {
-        $minutes = max(self::SLOT_MINUTES, $minutes);
-        $rem = $minutes % self::SLOT_MINUTES;
-        return $rem === 0 ? $minutes : $minutes + (self::SLOT_MINUTES - $rem);
+        $out = [];
+
+        foreach ($exceptions as $ex) {
+
+            $type = is_object($ex->type) ? $ex->type->value : $ex->type;
+
+            $isPartialBlock = in_array($type, ['leave_partial', 'blocked_hours'], true);
+            $isFullDayBlock = in_array($type, ['leave_full_day'], true);
+
+            // Skip non-blocking exceptions
+            if (!$isPartialBlock && !$isFullDayBlock) {
+                continue;
+            }
+
+            // Full-day leave → keep as single block (optional)
+            if ($isFullDayBlock) {
+                $out[] = [
+                    'start'  => '00:00',
+                    'end'    => '23:59',
+                    'reason' => $type,
+                ];
+                continue;
+            }
+
+            // Partial blocks → SPLIT INTO 15-MIN SLOTS
+            $start = Carbon::parse($day->toDateString().' '.($ex->start_time ?? '00:00'));
+            $end   = Carbon::parse($day->toDateString().' '.($ex->end_time ?? '23:59'));
+
+            $cursor = $start->copy();
+
+            while ($cursor->copy()->addMinutes($slotIntervalMinutes)->lte($end)) {
+                $out[] = [
+                    'start'  => $cursor->format('H:i'),
+                    'end'    => $cursor->copy()->addMinutes($slotIntervalMinutes)->format('H:i'),
+                    'reason' => $type,
+                ];
+
+                $cursor->addMinutes($slotIntervalMinutes);
+            }
+        }
+
+        return $out;
     }
 
-    private function alignUp(CarbonImmutable $dt): CarbonImmutable
+    // ------------------------
+    // Time utilities
+    // ------------------------
+
+    private function isAlignedToMinutes(Carbon $t, int $step): bool
     {
-        $rem = $dt->minute % self::SLOT_MINUTES;
-        return $rem === 0
-            ? $dt->setSecond(0)
-            : $dt->addMinutes(self::SLOT_MINUTES - $rem)->setSecond(0);
+        return ((int)$t->format('i') % $step) === 0 && ((int)$t->format('s') === 0);
     }
+
+    private function timeOverlap(string $aStart, string $aEnd, string $bStart, string $bEnd): bool
+    {
+        $aS = Carbon::createFromFormat('H:i', $aStart);
+        $aE = Carbon::createFromFormat('H:i', $aEnd);
+        $bS = Carbon::createFromFormat('H:i', $bStart);
+        $bE = Carbon::createFromFormat('H:i', $bEnd);
+
+        return $aS->lt($bE) && $aE->gt($bS);
+    }
+
+    private function mergeWindows(array $windows): array
+    {
+        if (empty($windows)) return [];
+
+        $sorted = collect($windows)->sortBy('start')->values()->all();
+        $merged = [];
+
+        foreach ($sorted as $w) {
+            if (empty($merged)) {
+                $merged[] = $w;
+                continue;
+            }
+
+            $last = &$merged[count($merged)-1];
+
+            $lastEnd = Carbon::createFromFormat('H:i', $last['end']);
+            $curStart= Carbon::createFromFormat('H:i', $w['start']);
+            $curEnd  = Carbon::createFromFormat('H:i', $w['end']);
+
+            // overlap or touching
+            if ($curStart->lte($lastEnd)) {
+                if ($curEnd->gt($lastEnd)) {
+                    $last['end'] = $curEnd->format('H:i');
+                }
+            } else {
+                $merged[] = $w;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function subtractWindow(array $windows, array $block): array
+    {
+        $result = [];
+
+        $bS = Carbon::createFromFormat('H:i', $block['start']);
+        $bE = Carbon::createFromFormat('H:i', $block['end']);
+
+        foreach ($windows as $w) {
+            $wS = Carbon::createFromFormat('H:i', $w['start']);
+            $wE = Carbon::createFromFormat('H:i', $w['end']);
+
+            // no overlap
+            if ($wE->lte($bS) || $wS->gte($bE)) {
+                $result[] = $w;
+                continue;
+            }
+
+            // left remainder
+            if ($wS->lt($bS)) {
+                $result[] = ['start' => $wS->format('H:i'), 'end' => $bS->format('H:i')];
+            }
+
+            // right remainder
+            if ($wE->gt($bE)) {
+                $result[] = ['start' => $bE->format('H:i'), 'end' => $wE->format('H:i')];
+            }
+        }
+
+        return $this->mergeWindows($result);
+    }
+
+    private function appointmentStatusColor(string $status): string
+    {
+        return match ($status) {
+            'confirmed'   => '#4CAF50', // green
+            'pending'     => '#FFC107', // amber
+            'in_progress' => '#2196F3', // blue
+            'completed'   => '#9E9E9E', // grey
+            'cancelled'   => '#F44336', // red
+            'no_show'     => '#E91E63', // pink
+            default       => '#607D8B', // fallback
+        };
+    }
+
+    private function formatBookedEventsForCalendar(array $unavailableBooked, Carbon $day): array
+    {
+        return array_map(function ($slot) use ($day) {
+            return [
+                'id'    => 'appt_'.$slot['appointment']['id'],
+                'start' => $day->toDateString().' '.$slot['start'],
+                'end'   => $day->toDateString().' '.$slot['end'],
+                'title' => $slot['appointment']['client_name'] ?? 'Booked',
+                'type'  => 'appointment',
+                'status'=> $slot['appointment']['status'],
+                'color' => $slot['appointment']['status_color'],
+                'isDisabled' => true,
+                'meta' => [
+                    'therapist' => $slot['appointment']['therapist_name'],
+                    'clinic'    => $slot['appointment']['clinic_name'],
+                ]
+            ];
+        }, $unavailableBooked);
+    }
+
+    private function formatExceptionEventsForCalendar(array $exceptionSlots, Carbon $day): array
+    {
+        $colorMap = [
+            'leave_partial' => '#FF7043',
+            'leave_full_day'=> '#E53935',
+            'blocked_hours' => '#9E9E9E',
+        ];
+
+        return array_map(function ($slot) use ($day, $colorMap) {
+            return [
+                'id'    => $slot['reason'].'_'.$slot['start'],
+                'start' => $day->toDateString().' '.$slot['start'],
+                'end'   => $day->toDateString().' '.$slot['end'],
+                'title' => ucfirst(str_replace('_', ' ', $slot['reason'])),
+                'type'  => $slot['reason'],
+                'color' => $colorMap[$slot['reason']] ?? '#BDBDBD',
+                'isDisabled' => true,
+            ];
+        }, $exceptionSlots);
+}
 }
