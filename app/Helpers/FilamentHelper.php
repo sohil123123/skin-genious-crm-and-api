@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 use App\Models\Role;
 use App\Models\TreatmentSession;
@@ -71,14 +72,28 @@ if (!function_exists('new_assessment')) {
     }
 }
 
+// if (!function_exists('can_create_assessment')) {
+//     function can_create_assessment($appointment)
+//     {
+//         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
+//         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+
+//         return $appointment->type->value === 'consult'
+//         && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+//         && is_null($appointment->assessment_id);
+//         // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
+//         // && now()->between($start, $end);
+//     }
+// }
+
 if (!function_exists('can_create_assessment')) {
     function can_create_assessment($appointment)
     {
-        $start = $appointment->appointment_datetime->clone()->subMinutes(10);
-        $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+        $start = Carbon::parse($appointment->start_datetime)->subMinutes(10);
+        $end   = $appointment->end_datetime;
 
         return $appointment->type->value === 'consult'
-        && in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        && in_array($appointment->status->value, ['confirmed'])
         && is_null($appointment->assessment_id);
         // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
         // && now()->between($start, $end);
@@ -104,17 +119,30 @@ if (!function_exists('start_session')) {
     }
 }
 
+// if (!function_exists('can_start_session')) {
+//     function can_start_session($appointment)
+//     {
+//         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
+//         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+
+//         return in_array($appointment->status->value, ['scheduled', 'confirmed'])
+//         && !is_null($appointment->treatment_session_id);
+//         // && now()->between($start, $end);
+//     }
+// }
+
 if (!function_exists('can_start_session')) {
     function can_start_session($appointment)
     {
-        $start = $appointment->appointment_datetime->clone()->subMinutes(10);
-        $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
+        $start = Carbon::parse($appointment->start_datetime)->subMinutes(10);
+        $end   = $appointment->end_datetime;
 
-        return in_array($appointment->status->value, ['scheduled', 'confirmed'])
+        return in_array($appointment->status->value, ['confirmed'])
         && !is_null($appointment->treatment_session_id);
         // && now()->between($start, $end);
     }
 }
+
 
 if (!function_exists('time_options')) {
     function time_options($start = 7, $end = 23)

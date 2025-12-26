@@ -52,6 +52,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\URL;
 
 use Filament\Facades\Filament;
+use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -153,7 +154,41 @@ class AdminPanelProvider extends PanelProvider
                     // ->showInTenancy(false),  // Hide in multi-tenant setups
 
                 // FilamentAwinTheme::make()->primaryColor(Color::Emerald),
-                FilamentNordThemePlugin::make()
+                FilamentNordThemePlugin::make(),
+
+                FilamentFullCalendarPlugin::make()
+                    // ->selectable()  // Optional: Allow selecting dates for new events
+                    ->editable()    // Optional: Allow dragging/resizing events
+                    // ->timezone('UTC')  // Optional: Set your app's timezone
+                    // ->config([
+                    //     'initialDate' => now()->format('Y-m-d'),  // Always start on today
+                    //     'initialView' => 'timeGridDay',  // Defaults to today's view
+                    //     'firstDay' => 1,  // Optional: Start week on Monday
+                    //     'headerToolbar' => [
+                    //         'left' => 'prev,next',
+                    //         'center' => 'title',
+                    //         'right' => 'today,dayGridWeek,timeGridDay',
+                    //     ],
+                    //     'slotMinTime' => '08:00:00',  // Appointments from 8 AM
+                    //     'slotMaxTime' => '20:00:00',  // To 8 PM
+                    //     'slotDuration' => '00:15:00',  // 30-min slots
+                    //     'businessHours' => [
+                    //         [
+                    //             'daysOfWeek' => [1, 2, 3, 4, 5],  // Mon-Fri only (1=Mon, 7=Sun)
+                    //             'startTime' => '08:00',
+                    //             'endTime' => '12:00',  // Morning shift
+                    //         ],
+                    //         [
+                    //             'daysOfWeek' => [1, 2, 3, 4, 5],
+                    //             'startTime' => '13:00',  // After lunch
+                    //             'endTime' => '18:00',    // End at 6 PM
+                    //         ],
+                    //     ],
+                    //     'dayHeaderClassNames' => ['fc-business-hours'],
+                    //     // 'dayHeaderClassNames' => function ($info) {
+                    //     //     return $info.date.getDay() === 0 || $info.date.getDay() === 6 ? ['fc-non-business'] : [];
+                    //     // },
+                    // ])
             ])
             ->databaseNotifications()
             ->renderHook(

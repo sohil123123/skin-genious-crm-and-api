@@ -11,10 +11,11 @@ use Illuminate\Auth\Access\HandlesAuthorization;
 class AppointmentPolicy
 {
     use HandlesAuthorization;
-    
+
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:Appointment');
+        return false;
+        // return $authUser->can('ViewAny:Appointment');
     }
 
     public function view(AuthUser $authUser, Appointment $appointment): bool

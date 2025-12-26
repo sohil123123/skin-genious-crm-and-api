@@ -9,3 +9,6 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+@import '../../../../vendor/saade/filament-fullcalendar/resources/css/filament-fullcalendar.css';
+@source '../../../../vendor/saade/filament-fullcalendar/resources/views/**/*.blade.php';

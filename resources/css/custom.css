@@ -19,3 +19,8 @@ table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) { /* Exclude sort ic
     background-position: 800px 0;
   }
 }
+
+/* In your theme.css */
+.fc-event-confirmed { border-left: 4px solid green !important; }
+.fc-day-today { background: rgba(59, 130, 246, 0.1); }  /* Highlight today */
+.fc-non-business { background-color: #f3f4f6 !important; opacity: 0.5; }

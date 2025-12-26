@@ -94,15 +94,22 @@ class TodayAppointments extends TableWidget
                 TextColumn::make('assessment.id')->label('Assessment ID')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('start_datetime')
+                    ->label('Start Time')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
                     ->color('warning')
                     ->sortable(),
-                TextColumn::make('duration_minutes')
+                TextColumn::make('end_datetime')
+                    ->label('End Time')
+                    ->dateTime('d M Y, h:i A')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state . ' minutes')
-                    ->searchable()
+                    ->color('warning')
                     ->sortable(),
+                // TextColumn::make('duration_minutes')
+                //     ->badge()
+                //     ->formatStateUsing(fn ($state) => $state . ' minutes')
+                //     ->searchable()
+                //     ->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
@@ -318,28 +325,28 @@ class TodayAppointments extends TableWidget
                 //
             ])
             ->recordActions([
-                // Action::make('new_assessment')
-                //     ->label('Create Assessment')
-                //     ->visible(fn ($record) => can_create_assessment($record))
-                //     ->icon('heroicon-o-plus')
-                //     ->color('info')
-                //     ->button()
-                //     ->action(function ($record) {
-                //         $assessmentUrl = new_assessment($record->client, $record);
-                //         return redirect($assessmentUrl);
-                //     })
-                //     ->requiresConfirmation(),
-                // Action::make('start_session')
-                //     ->label('Start Session')
-                //     ->visible(fn ($record) => can_start_session($record))
-                //     ->icon('heroicon-o-plus')
-                //     ->color('warning')
-                //     ->button()
-                //     ->action(function ($record) {
-                //         $startSessionUrl = start_session($record);
-                //         return redirect($startSessionUrl);
-                //     })
-                //     ->requiresConfirmation(),
+                Action::make('new_assessment')
+                    ->label('Create Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record->client, $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+                Action::make('start_session')
+                    ->label('Start Session')
+                    ->visible(fn ($record) => can_start_session($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('warning')
+                    ->button()
+                    ->action(function ($record) {
+                        $startSessionUrl = start_session($record);
+                        return redirect($startSessionUrl);
+                    })
+                    ->requiresConfirmation(),
                 // ViewAction::make(),
                 // EditAction::make(),
                 DeleteAction::make()
