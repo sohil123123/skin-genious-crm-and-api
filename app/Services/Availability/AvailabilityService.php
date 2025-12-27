@@ -8,8 +8,23 @@ use App\Models\UserWeeklySchedule;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
+use App\Models\Clinic;
+
 class AvailabilityService
 {
+     /* ============================
+     | Error Codes
+     |============================ */
+    private const ERR_OUTSIDE_WORKING_HOURS = 'OUTSIDE_WORKING_HOURS';
+    private const ERR_CLINIC_HOLIDAY        = 'CLINIC_HOLIDAY';
+    private const ERR_THERAPIST_LEAVE       = 'THERAPIST_LEAVE';
+    private const ERR_BLOCKED_HOURS         = 'BLOCKED_HOURS';
+    private const ERR_ALREADY_BOOKED        = 'ALREADY_BOOKED';
+
+    /* ============================
+     | PUBLIC API
+     |============================ */
+
     public function getSlotsForDate(
         int $clinicId,
         int $therapistId,
@@ -17,59 +32,47 @@ class AvailabilityService
         int $slotIntervalMinutes = 15,
         int $appointmentDurationMinutes = 15
     ): array {
-        $day = Carbon::parse($date);
-        $weekday = $day->isoWeekday(); // 1=Mon ... 7=Sun
 
-        // 1) Base slots from weekly schedule
+        $day = Carbon::parse($date);
+        $weekday = $day->isoWeekday();
+
         $baseWindows = $this->getBaseWindowsFromWeeklySchedule($clinicId, $therapistId, $weekday);
 
-        // 2) Apply exceptions (block/add/override)
         $exceptions = $this->getExceptionsForDate($clinicId, $therapistId, $day);
-        $windows = $this->applyExceptionsToWindows($baseWindows, $exceptions, $day);
+        $windows    = $this->applyExceptionsToWindows($baseWindows, $exceptions, $day);
 
-        // 3) Generate slots from final windows
         $candidateSlots = $this->generateSlotsFromWindows(
             $windows,
             $day,
             $slotIntervalMinutes,
             $appointmentDurationMinutes
         );
-        // dd($candidateSlots);
 
-        // 4) Remove booked overlaps
         $bookedBlocks = $this->getBookedBlocks($clinicId, $therapistId, $day);
         [$available, $unavailableBooked] = $this->filterBookedSlots($candidateSlots, $bookedBlocks);
 
-        // 5) Unavailable because of leave/block/closed (optional: provide blocks summary)
         $unavailableByExceptions = $this->summarizeExceptionBlocks($exceptions, $day, $slotIntervalMinutes);
 
-        // return [
-        //     'date' => $day->toDateString(),
-        //     'slot_interval' => $slotIntervalMinutes,
-        //     'appointment_duration_minutes' => $appointmentDurationMinutes,
-        //     'available_slots' => $available,
-        //     'unavailable_slots' => array_values(array_merge($unavailableBooked, $unavailableByExceptions)),
-        // ];
-
         return [
-            'date' => $day->toDateString(),
+            'date'     => $day->toDateString(),
             'interval' => $slotIntervalMinutes,
 
-            // QCalendar-ready events
             'events' => array_values(array_merge(
                 $this->formatBookedEventsForCalendar($unavailableBooked, $day),
                 $this->formatExceptionEventsForCalendar($unavailableByExceptions, $day)
             )),
 
-            // clickable slots only
             'available_slots' => array_map(fn ($s) => [
-                'start' => $day->toDateString().' '.$s['start'],
-                'end'   => $day->toDateString().' '.$s['end'],
-                'isDisabled' => false
+                'start'      => $day->toDateString().' '.$s['start'],
+                'end'        => $day->toDateString().' '.$s['end'],
+                'isDisabled' => false,
             ], $available),
         ];
     }
 
+    /**
+     * Used by STORE / UPDATE
+     */
     public function assertBookable(
         int $clinicId,
         int $therapistId,
@@ -77,54 +80,156 @@ class AvailabilityService
         Carbon $end,
         ?int $ignoreAppointmentId = null
     ): void {
-        // Only allow 15-min aligned start/end by default (optional)
-        if (!$this->isAlignedToMinutes($start, 15) || !$this->isAlignedToMinutes($end, 15)) {
-            throw ValidationException::withMessages([
-                'slot' => 'Slot must be aligned to 15-minute boundaries.',
-            ]);
+
+        // 1️⃣ Outside weekly schedule
+        if (!$this->isWithinWeeklySchedule($clinicId, $therapistId, $start, $end)) {
+            $this->throwAvailabilityError(
+                self::ERR_OUTSIDE_WORKING_HOURS,
+                'Selected time is outside therapist working hours.'
+            );
         }
 
-        // Get availability windows for that date and ensure requested range is within any window
-        $result = $this->getSlotsForDate(
-            clinicId: $clinicId,
-            therapistId: $therapistId,
-            date: $start->toDateString(),
-            slotIntervalMinutes: 15,
-            appointmentDurationMinutes: (int)$start->diffInMinutes($end)
-        );
+        // 2️⃣ Clinic / therapist blocking exceptions
+        if ($exception = $this->findBlockingException($clinicId, $therapistId, $start, $end)) {
 
-        $requested = [
-            'start' => $start->format('Y-m-d H:i'),
-            'end'   => $end->format('Y-m-d H:i'),
-        ];
+            match ($exception['category']) {
+                'clinic' => $this->throwAvailabilityError(
+                    self::ERR_CLINIC_HOLIDAY,
+                    'Clinic is closed on the selected date.',
+                    $exception
+                ),
 
-        $ok = collect($result['available_slots'])->contains(function ($s) use ($requested) {
-            return $s['start'] === $requested['start'] && $s['end'] === $requested['end'];
-        });
+                'therapist_leave' => $this->throwAvailabilityError(
+                    self::ERR_THERAPIST_LEAVE,
+                    'Therapist is unavailable during the selected time.',
+                    $exception
+                ),
 
-        if (!$ok) {
-            throw ValidationException::withMessages([
-                'slot' => 'Selected slot is unavailable.',
-            ]);
+                'blocked_hours' => $this->throwAvailabilityError(
+                    self::ERR_BLOCKED_HOURS,
+                    'This time slot is blocked.',
+                    $exception
+                ),
+
+                default => null
+            };
         }
 
-        // Also ensure no overlapping appointment exists (hard check)
+        // 3️⃣ Appointment overlap
         $overlap = Appointment::query()
             ->where('clinic_id', $clinicId)
             ->where('therapist_id', $therapistId)
-            ->when($ignoreAppointmentId, fn($q) => $q->where('id', '!=', $ignoreAppointmentId))
+            ->when($ignoreAppointmentId, fn ($q) => $q->where('id', '!=', $ignoreAppointmentId))
             ->whereNotIn('status', ['cancelled', 'no_show'])
             ->where(function ($q) use ($start, $end) {
                 $q->where('start_datetime', '<', $end)
-                  ->where('end_datetime',   '>', $start);
+                  ->where('end_datetime', '>', $start);
             })
-            ->exists();
+            ->first();
 
         if ($overlap) {
-            throw ValidationException::withMessages([
-                'slot' => 'Selected slot overlaps an existing appointment.',
-            ]);
+            $this->throwAvailabilityError(
+                self::ERR_ALREADY_BOOKED,
+                'This slot is already booked.',
+                [
+                    'category'   => 'booking_conflict',
+                    'client_name'       => $overlap->client?->name,
+                    'therapist_name'    => $overlap->therapist?->name,
+                    'from'     => $overlap->start_datetime->format('Y-m-d H:i'),
+                    'to'       => $overlap->end_datetime->format('Y-m-d H:i'),
+                ]
+            );
         }
+    }
+
+    /* ============================
+     | INTERNALS
+     |============================ */
+
+    private function isWithinWeeklySchedule(
+        int $clinicId,
+        int $therapistId,
+        Carbon $start,
+        Carbon $end
+    ): bool {
+        return UserWeeklySchedule::query()
+            ->active()
+            ->where('clinic_id', $clinicId)
+            ->where('user_id', $therapistId)
+            ->where('day_of_week', $start->isoWeekday())
+            ->where('start_time', '<=', $start->format('H:i'))
+            ->where('end_time', '>=', $end->format('H:i'))
+            ->exists();
+    }
+
+    private function findBlockingException(
+        int $clinicId,
+        int $therapistId,
+        Carbon $start,
+        Carbon $end
+    ): ?array {
+
+        $exceptions = $this->getExceptionsForDate($clinicId, $therapistId, $start);
+
+        foreach ($exceptions as $ex) {
+
+            $type = $ex->type->value ?? $ex->type;
+
+            // 🏥 Clinic holiday
+            if ($ex->exceptionable_type === Clinic::class) {
+                return [
+                    'category' => 'clinic',
+                    'type'     => $type,
+                    'from'     => $ex->clinic->start_time ?? '00:00',
+                    'to'       => $ex->clinic->end_time ?? '23:59',
+                    'reason'   => $ex->reason,
+                ];
+            }
+
+            // 👨‍⚕️ Therapist full-day leave
+            if ($type === 'leave_full_day') {
+                return [
+                    'category'   => 'therapist_leave',
+                    'type'       => $type,
+                    'from'     => $ex->clinic->start_time ?? '00:00',
+                    'to'       => $ex->clinic->end_time ?? '23:59',
+                    'leave_type' => $ex->leave_type,
+                ];
+            }
+
+            // ⛔ Partial leave / blocked
+            if (in_array($type, ['leave_partial', 'blocked_hours'], true)) {
+
+                $exStart = Carbon::parse($start->toDateString().' '.$ex->start_time);
+                $exEnd   = Carbon::parse($start->toDateString().' '.$ex->end_time);
+
+                if ($start->lt($exEnd) && $end->gt($exStart)) {
+                    return [
+                        'category'   => $type === 'leave_partial' ? 'therapist_leave' : 'blocked_hours',
+                        'type'       => $type,
+                        'from'       => $exStart->format('H:i'),
+                        'to'         => $exEnd->format('H:i'),
+                        'leave_type' => $ex->leave_type,
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function throwAvailabilityError(
+        string $code,
+        string $message,
+        array $details = []
+    ): void {
+        throw ValidationException::withMessages([
+            'availability' => [
+                'code'    => $code,
+                'message' => $message,
+                'details' => $details,
+            ]
+        ]);
     }
 
     // ------------------------
@@ -511,5 +616,35 @@ class AvailabilityService
                 'isDisabled' => true,
             ];
         }, $exceptionSlots);
-}
+    }
+
+    public function getSlotsForDateRange(
+        int $clinicId,
+        int $therapistId,
+        string $fromDate,
+        string $toDate,
+        int $slotIntervalMinutes = 15,
+        int $appointmentDurationMinutes = 15
+    ): array {
+        $start = Carbon::parse($fromDate);
+        $end   = Carbon::parse($toDate);
+
+        $days = [];
+
+        while ($start->lte($end)) {
+            $days[] = $this->getSlotsForDate(
+                clinicId: $clinicId,
+                therapistId: $therapistId,
+                date: $start->toDateString(),
+                slotIntervalMinutes: $slotIntervalMinutes,
+                appointmentDurationMinutes: $appointmentDurationMinutes
+            );
+
+            $start->addDay();
+        }
+
+        return $days;
+    }
+
+
 }

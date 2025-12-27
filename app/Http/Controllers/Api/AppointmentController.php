@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\BaseApiController;
 use Illuminate\Http\Request;
 
 use App\Http\Requests\AppointmentRequest;
+use App\Http\Requests\AppointmentUpdateRequest;
 
 use App\Http\Resources\AppointmentResource;
 
@@ -46,6 +47,7 @@ class AppointmentController extends BaseApiController
             start: Carbon::parse($data['start_datetime']),
             end: Carbon::parse($data['end_datetime'])
         );
+        exit;
 
         // Create the assessment record
         $appointment = $this->model->create($data);
@@ -57,12 +59,62 @@ class AppointmentController extends BaseApiController
     }
 
 
-    public function update(AppointmentRequest $request, Appointment $appointment)
-    {
-        // Create the assessment record
-        $update_input = $request->validated();
+    // public function update(AppointmentRequest $request, Appointment $appointment)
+    // {
+    //     // Create the assessment record
+    //     $update_input = $request->validated();
 
-        $appointment->update($update_input);
+    //     $appointment->update($update_input);
+
+    //     // Wrap in resource for clean, formatted API output
+    //     $resource = new AppointmentResource($appointment);
+
+    //     return $this->success('Appointment updated successfully', $resource);
+    // }
+
+    public function update(AppointmentUpdateRequest $request, Appointment $appointment, AvailabilityService $availability)
+    {
+        // if ($request->user()->cannot('update', $appointment)) {
+        //     return $this->error('Unauthorized', ['You are not allowed to update this appointment.'], 403);
+        // }
+
+        $this->authorize('update', $appointment);
+
+        $data = $request->validated();
+
+        $newTherapistId = $data['therapist_id'] ?? $appointment->therapist_id;
+        $newClinicId    = $data['clinic_id'] ?? $appointment->clinic_id;
+
+        $start = $appointment->start_datetime ? Carbon::parse($appointment->start_datetime) : null;
+        $end   = $appointment->end_datetime ? Carbon::parse($appointment->end_datetime) : null;
+
+        $timeChanging = false;
+
+        if (isset($data['start_datetime']) || isset($data['end_datetime'])) {
+            $start = Carbon::parse($data['start_datetime'] ?? $appointment->start_datetime);
+            $end   = Carbon::parse($data['end_datetime'] ?? $appointment->end_datetime);
+
+            if ($end->lt($start)) {
+                return $this->error('Validation Error', ['end_datetime' => ['The end datetime must be after or equal to the start datetime.']], 422);
+            }
+
+            $timeChanging = true;
+        }
+
+        $therapistChanging = isset($data['therapist_id']) && ((int)$data['therapist_id'] !== (int)$appointment->therapist_id);
+
+        // Re-validate if therapist/time/clinic changed
+        if ($timeChanging || $therapistChanging || isset($data['clinic_id'])) {
+            $availability->assertBookable(
+                clinicId: (int)$newClinicId,
+                therapistId: (int)$newTherapistId,
+                start: $start,
+                end: $end,
+                ignoreAppointmentId: $appointment->id
+            );
+        }
+
+        $appointment->update($data);
 
         // Wrap in resource for clean, formatted API output
         $resource = new AppointmentResource($appointment);
@@ -125,7 +177,7 @@ class AppointmentController extends BaseApiController
         $validated = $request->validate([
             'status' => [
                 'required',
-                'in:scheduled,confirmed,in_progress,completed,cancelled',
+                'in:pending,confirmed,in_progress,completed,cancelled,no_show',
             ],
         ]);
 
@@ -148,25 +200,60 @@ class AppointmentController extends BaseApiController
     public function slots(Request $request, AvailabilityService $availability)
     {
         $validated = $request->validate([
-            'clinic_id'      => ['required', 'integer', 'exists:clinics,id'],
-            'therapist_id'   => ['required', 'integer', 'exists:users,id'],
-            'date'           => ['required', 'date'],
-            'slot_interval'  => ['nullable', 'integer', 'in:5,10,15,20,30,60'],
+            'clinic_id'        => ['required', 'integer', 'exists:clinics,id'],
+            'therapist_id'     => ['required', 'integer', 'exists:users,id'],
+
+            // single date
+            'date'             => ['nullable', 'date'],
+
+            // range
+            'from_date'        => ['nullable', 'date'],
+            'to_date'          => ['nullable', 'date', 'after_or_equal:from_date'],
+
+            'slot_interval'    => ['nullable', 'integer', 'in:5,10,15,20,30,60'],
             'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:480'],
         ]);
 
         $slotInterval = (int)($validated['slot_interval'] ?? 15);
         $duration     = (int)($validated['duration_minutes'] ?? 15);
 
-        $result = $availability->getSlotsForDate(
-            clinicId: (int)$validated['clinic_id'],
-            therapistId: (int)$validated['therapist_id'],
-            date: $validated['date'],
-            slotIntervalMinutes: $slotInterval,
-            appointmentDurationMinutes: $duration
-        );
+        // 🟢 Single date
+        if (!empty($validated['date'])) {
+            $data = $availability->getSlotsForDate(
+                clinicId: (int)$validated['clinic_id'],
+                therapistId: (int)$validated['therapist_id'],
+                date: $validated['date'],
+                slotIntervalMinutes: $slotInterval,
+                appointmentDurationMinutes: $duration
+            );
 
-        return $this->success('Slots fetched successfully', $result);
+            return $this->success('Slots fetched successfully', [
+                'mode' => 'single',
+                'data' => $data,
+            ]);
+        }
+
+        // 🟠 Date range
+        if (!empty($validated['from_date']) && !empty($validated['to_date'])) {
+            $data = $availability->getSlotsForDateRange(
+                clinicId: (int)$validated['clinic_id'],
+                therapistId: (int)$validated['therapist_id'],
+                fromDate: $validated['from_date'],
+                toDate: $validated['to_date'],
+                slotIntervalMinutes: $slotInterval,
+                appointmentDurationMinutes: $duration
+            );
+
+            return $this->success('Slots fetched successfully', [
+                'mode' => 'range',
+                'from' => $validated['from_date'],
+                'to'   => $validated['to_date'],
+                'data' => $data,
+            ]);
+        }
+
+        return $this->error('Either date or from_date & to_date is required', 422);
+
     }
 
 }

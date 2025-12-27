@@ -14,8 +14,8 @@ class AppointmentPolicy
 
     public function viewAny(AuthUser $authUser): bool
     {
-        return false;
-        // return $authUser->can('ViewAny:Appointment');
+        // return false;
+        return $authUser->can('ViewAny:Appointment');
     }
 
     public function view(AuthUser $authUser, Appointment $appointment): bool
@@ -30,17 +30,17 @@ class AppointmentPolicy
 
     public function update(AuthUser $authUser, Appointment $appointment): bool
     {
-        return $authUser->can('Update:Appointment');
+        return ($authUser->can('Update:Appointment') && $appointment->status->value != 'completed') || $authUser->hasRole('super_admin');
     }
 
     public function delete(AuthUser $authUser, Appointment $appointment): bool
     {
-        return $authUser->can('Delete:Appointment');
+        return ($authUser->can('Delete:Appointment') && $appointment->status->value != 'completed') || $authUser->hasRole('super_admin');
     }
 
     public function deleteAny(AuthUser $authUser): bool
     {
-        return $authUser->can('DeleteAny:Appointment');
+        return ($authUser->can('DeleteAny:Appointment') && $appointment->status->value != 'completed') || $authUser->hasRole('super_admin');
     }
 
     public function restore(AuthUser $authUser, Appointment $appointment): bool

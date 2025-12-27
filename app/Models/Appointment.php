@@ -26,8 +26,8 @@ class Appointment extends Model
     ];
 
     protected $casts = [
-        // 'start_datetime' => 'datetime',
-        // 'end_datetime' => 'datetime',
+        'start_datetime' => 'datetime',
+        'end_datetime' => 'datetime',
         'products_used' => 'array',
         'resources_used' => 'array',
         'is_billable' => 'boolean',
@@ -49,6 +49,17 @@ class Appointment extends Model
     protected static function booted() {
         static::creating(function ($appointment) {
             $appointment->created_by ??= auth()->id();
+        });
+
+        static::saving(function ($appointment) {
+            if ($appointment->start_datetime && $appointment->end_datetime) {
+
+                $start = Carbon::parse($appointment->start_datetime);
+                $end   = Carbon::parse($appointment->end_datetime);
+
+                // Prevent negative duration
+                $appointment->duration_minutes = max(0, $start->diffInMinutes($end));
+            }
         });
     }
 

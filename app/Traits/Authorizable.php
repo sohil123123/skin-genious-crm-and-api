@@ -11,13 +11,13 @@ trait Authorizable
      * Default controller method to permission mappings
      */
     private array $abilities = [
-        'index' => 'view',
-        'show' => 'view',
-        'create' => 'create',
-        'store' => 'add',
-        'edit' => 'edit',
-        'update' => 'edit',
-        'destroy' => 'delete',
+        'index' => 'ViewAny',
+        'show' => 'View',
+        'create' => 'Create',
+        'store' => 'Create',
+        'edit' => 'Update',
+        'update' => 'Update',
+        'destroy' => 'Delete',
     ];
 
     /**
@@ -45,22 +45,23 @@ trait Authorizable
      */
     protected function getPermission(string $method): ?string
     {
-        $route = Route::currentRouteName();
-
-        if (!$route) {
-            return null;
-        }
-
         $action = Arr::get($this->getAbilities(), $method);
+        
         if (!$action) {
             return null;
         }
 
-        // Extract the resource from route name: `admin.posts.edit` → `posts`
-        $parts = explode('.', $route);
-        $resource = $parts[count($parts) - 2] ?? $parts[0];
+        $modelName = null;
 
-        return "{$action}_{$resource}";
+        if (property_exists($this, 'model') && $this->model) {
+            $modelName = class_basename($this->model);
+        }
+
+        if (!$modelName) {
+            $modelName = str_replace('Controller', '', class_basename($this));
+        }
+
+        return "{$action}:{$modelName}";
     }
 
     /**

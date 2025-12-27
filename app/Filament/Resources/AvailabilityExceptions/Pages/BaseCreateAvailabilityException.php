@@ -44,6 +44,8 @@ abstract class BaseCreateAvailabilityException extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $data['status'] = 'pending';
+
         if(check_role('therapist') || check_role('clinic_manager')){
             $data['clinic_id'] = auth()->user()->clinic_id;
         }
@@ -63,6 +65,9 @@ abstract class BaseCreateAvailabilityException extends CreateRecord
 
         if ($data['exceptionable_type'] === Clinic::class) {
             $data['type'] = 'leave_full_day';
+            $data['status'] = 'approved';
+            $data['approved_by'] = auth()->id();
+            $data['approved_at'] = now();
         }
 
         if($data['exceptionable_type'] === User::class && in_array($data['type']->value, ['leave_full_day', 'leave_partial'])) {

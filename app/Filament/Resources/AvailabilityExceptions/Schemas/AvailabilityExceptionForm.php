@@ -264,7 +264,7 @@ class AvailabilityExceptionForm
                         return disabled_sunday_dates();
                     })
                     ->closeOnDateSelection(true)
-                    ->afterOrEqual('start_date')
+                    // ->afterOrEqual('start_date')
                     ->readOnly(fn ($get) => $get('type')->value !== 'leave_full_day')
                     ->rules([
                         fn ($get) => function (string $attribute, $value, $fail) use ($get) {

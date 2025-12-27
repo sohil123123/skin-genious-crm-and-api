@@ -27,7 +27,7 @@ use App\Traits\Authorizable;
 
 abstract class BaseApiController extends Controller
 {
-    use ResponseAPI;
+    use ResponseAPI, Authorizable;
 
     protected $orderBy = 'id';
     protected $orderType = 'ASC';

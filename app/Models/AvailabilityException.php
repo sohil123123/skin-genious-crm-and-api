@@ -159,7 +159,7 @@ class AvailabilityException extends Model
     public function updateEntitlementUsage(bool $isReversal = false): void
     {
         // Only leave types affect entitlement
-        if($this->exceptionable_type == Clinic::class || !in_array($this->type, ['leave_full_day', 'leave_partial']))
+        if($this->exceptionable_type == Clinic::class || !in_array($this->type->value, ['leave_full_day', 'leave_partial']) || $this->status->value != 'approved')
             return;
 
         $leaveDays = 0;
@@ -167,13 +167,13 @@ class AvailabilityException extends Model
         // ============================
         // FULL DAY LEAVE
         // ============================
-        if ($this->type === 'leave_full_day')
+        if ($this->type->value === 'leave_full_day')
             $leaveDays = Carbon::parse($this->start_date)->diffInDays(Carbon::parse($this->end_date)) + 1;
 
         // ============================
         // PARTIAL DAY LEAVE
         // ============================
-        if ($this->type === 'leave_partial') {
+        if ($this->type->value === 'leave_partial') {
             // if (! $this->start_time || ! $this->end_time) {
             //     return; // invalid partial leave
             // }
@@ -198,7 +198,7 @@ class AvailabilityException extends Model
         $entitlement = $this->exceptionable
             ?->leaveEntitlements()
             ->where('year', Carbon::parse($this->start_date)->year)
-            ->where('leave_type', $this->leave_type)
+            ->where('leave_type', $this->leave_type->value)
             ->first();
 
         if (! $entitlement) {

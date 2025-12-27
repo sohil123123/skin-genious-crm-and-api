@@ -20,8 +20,8 @@ class AppointmentResource extends BaseResource
         return [
             'id' => $this->id,
             'type' => $this->type,
-            'start_datetime' => $this->start_datetime,
-            'end_datetime' => $this->end_datetime,
+            'start_datetime' => $this->start_datetime->toDateTimeString(),
+            'end_datetime' => $this->end_datetime->toDateTimeString(),
             'duration_minutes' => $this->duration_minutes,
             'status' => $this->status,
             'notes' => $this->notes,

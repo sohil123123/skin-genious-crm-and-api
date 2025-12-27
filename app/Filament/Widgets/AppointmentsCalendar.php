@@ -39,11 +39,11 @@ class AppointmentsCalendar extends FullCalendarWidget
             function(info) {
                 info.el.setAttribute("x-tooltip", "tooltip");
                 info.el.setAttribute("x-data", "{ tooltip: '"+info.event.title+"' }");
-                // if (info.event.extendedProps.isLocked) {
-                //     // info.el.innerHTML = '🔒 ' + info.el.innerHTML;  // Add lock emoji to title
-                //     info.el.style.opacity = '0.7';  // Gray out visually
-                //     info.el.style.cursor = 'not-allowed';  // No-drag cursor
-                // }
+                if (info.event.extendedProps.isLocked) {
+                    // info.el.innerHTML = 'Completed ' + info.el.innerHTML;  // Add lock emoji to title
+                    info.el.style.opacity = '0.7';  // Gray out visually
+                    info.el.style.cursor = 'not-allowed';  // No-drag cursor
+                }
             }
         JS;
     }
@@ -153,14 +153,16 @@ class AppointmentsCalendar extends FullCalendarWidget
                 $statusColor = match ($appointment->status->value) {
                     'confirmed' => '#10B981',  // Green
                     'pending' => '#F59E0B',    // Yellow
+                    'completed' => '#3B82F6',  // Blue
                     'cancelled' => '#EF4444',  // Red
                     default => '#3B82F6',
                 };
-                $isEditable = $appointment->status->value !== 'confirmed';  // Key: Disable for confirmed
+                $isEditable = $appointment->status->value !== 'completed';  // Key: Disable for completed
                 return EventData::make()
                     ->id($appointment->id)
                     // ->title($appointment->client->first_name ?? 'Appointment')  // Customize title (e.g., client name)
-                    ->title("{$appointment->client->name} with {$appointment->therapist->name}")
+                    // ->title("{$appointment->client->name} w/ {$appointment->therapist->name}.")
+                    ->title("({$appointment->status->getLabel()}) {$appointment->client->name} w/ {$appointment->therapist->name}.")
                     ->start($appointment->start_datetime)
                     ->end($appointment->end_datetime)  // If no end time
                     // ->url(
@@ -175,7 +177,7 @@ class AppointmentsCalendar extends FullCalendarWidget
                         'display' => 'block',  // Optional: Full-width events; use 'auto' for compact
                         'status' => $appointment->status->value,
                         'client_id' => $appointment->client_id,
-                        // 'isLocked' => !$isEditable,  // For visual cues in hooks
+                        'isLocked' => !$isEditable,  // For visual cues in hooks
                     ])
                     ->extendedProps([  // Custom data for hooks
                         'status' => $appointment->status->value,
@@ -194,15 +196,16 @@ class AppointmentsCalendar extends FullCalendarWidget
             'initialDate' => now()->format('Y-m-d'),
             'initialView' => 'timeGridDay',
             'firstDay' => 1,
+            'allDaySlot' => false,
             // 'headerToolbar' => [
             //     'left' => '',
             //     'center' => 'title',
             //     'right' => 'today,dayGridWeek,timeGridDay, prev,next',
             // ],
             'headerToolbar' => [
-                'left' => 'prev,next',
+                'left' => 'prev,next,today',
                 'center' => 'title',
-                'right' => 'today,dayGridWeek,timeGridDay',
+                'right' => 'dayGridMonth,dayGridWeek,timeGridDay',
             ],
 
             // ✅ HARD constraint
@@ -211,6 +214,20 @@ class AppointmentsCalendar extends FullCalendarWidget
             'slotMinTime' => '08:00:00',
             'slotMaxTime' => '20:00:00',
             'slotDuration' => '00:15:00',
+
+            // 'slotLabelFormat' => [
+            //     'hour' => '2-digit',
+            //     'minute' => '2-digit',
+            //     'omitZeroMinute' => false,
+            //     'meridiem' => false,
+            //     'hour12' => false
+            // ],
+            // 'eventTimeFormat' => [ // for event times
+            //     'hour' => '2-digit',
+            //     'minute' => '2-digit',
+            //     'meridiem' => false, 
+            //     'hour12' => false
+            // ],
 
             // 'businessHours' => [
             //     [
