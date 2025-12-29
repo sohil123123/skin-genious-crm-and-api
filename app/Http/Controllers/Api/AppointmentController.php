@@ -47,7 +47,7 @@ class AppointmentController extends BaseApiController
             start: Carbon::parse($data['start_datetime']),
             end: Carbon::parse($data['end_datetime'])
         );
-        exit;
+        // exit;
 
         // Create the assessment record
         $appointment = $this->model->create($data);

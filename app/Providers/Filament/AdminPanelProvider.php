@@ -54,6 +54,8 @@ use Illuminate\Support\Facades\URL;
 use Filament\Facades\Filament;
 use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 
+use App\Filament\Pages\ActivityLog;
+
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -102,6 +104,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 // Dashboard::class,
                 // Profile::class
+                ActivityLog::class
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([

@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Enums\AppointmentType;
 use App\Enums\AppointmentStatus;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
 use Carbon\Carbon;
 
 // use Guava\Calendar\Contracts\Eventable;
@@ -17,7 +20,7 @@ use Carbon\Carbon;
 
 class Appointment extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $fillable = [
         'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
@@ -61,6 +64,31 @@ class Appointment extends Model
                 $appointment->duration_minutes = max(0, $start->diffInMinutes($end));
             }
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'clinic_id',
+                'therapist_id',
+                'user_id',
+                'assessment_id',
+                'treatment_session_id',
+                'start_datetime',
+                'end_datetime',
+                'duration_minutes',
+                'status',
+                'updated_by'
+            ])
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(function (string $eventName) {
+                if ($eventName === 'updated' && $this->wasChanged('status')) {
+                    return 'status changed';
+                }
+                return "Appointment {$eventName}";
+            })
+            ->useLogName('appointment');
     }
 
     //---------------------------- Relations --------------------------
