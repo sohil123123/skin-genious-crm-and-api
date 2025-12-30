@@ -14,6 +14,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
     case InProgress = 'in_progress';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
+    case NoShow = 'no_show';
 
     public function getLabel(): string
     {
@@ -23,6 +24,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
             self::InProgress => 'In Progress',
             self::Completed => 'Completed',
             self::Cancelled => 'Cancelled',
+            self::NoShow => 'No Show',
         };
     }
 
@@ -34,6 +36,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
             self::InProgress => 'warning',
             self::Completed => 'success',
             self::Cancelled => 'danger',
+            self::NoShow => 'danger',
         };
     }
 
@@ -45,6 +48,7 @@ enum AppointmentStatus: string implements HasColor, HasIcon, HasLabel
             self::InProgress => 'heroicon-o-arrow-path',
             self::Completed => 'heroicon-o-check-badge',
             self::Cancelled => 'heroicon-o-x-circle',
+            self::NoShow => 'heroicon-o-x-circle',
         };
     }
 }

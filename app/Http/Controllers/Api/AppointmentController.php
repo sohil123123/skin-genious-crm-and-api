@@ -211,8 +211,10 @@ class AppointmentController extends BaseApiController
             ],
         ]);
 
+        $request_status = $validated['status'];
+
         // Only re-validate when confirming
-        if ($appointment->status->value === 'pending' && $validated['status'] === 'confirmed') {
+        if (($appointment->status->value === 'pending' && $request_status === 'confirmed') || ($appointment->status->value === 'confirmed' && $request_status === 'pending') || ($appointment->status->value === 'cancelled' && in_array($request_status, ['pending', 'confirmed']))) {
 
             $emergency = $availability->assertConfirmable($appointment);
 
@@ -222,9 +224,9 @@ class AppointmentController extends BaseApiController
                 $appointment->disableLogging();
 
                 $appointment->update([
-                    'status' => $validated['status'],
-                    'is_emergency' => $emergency['is_emergency'],
-                    'emergency_reason' => $emergency,
+                    'status' => $request_status,
+                    'is_emergency' => $request_status === 'confirmed' ? $emergency['is_emergency'] : false,
+                    'emergency_reason' => $request_status === 'confirmed' ? $emergency : null,
                 ]);
 
                 $appointment->enableLogging();
