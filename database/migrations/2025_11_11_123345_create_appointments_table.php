@@ -94,6 +94,14 @@ return new class extends Migration
                 ->nullable()
                 ->comment('Therapist or system notes about the appointment');
 
+            $table->boolean('is_emergency')
+                ->default(false)
+                ->comment('Emergency override booking');
+
+            $table->json('emergency_reason')
+                ->nullable()
+                ->comment('Reason for emergency override');
+
             $table->boolean('is_billable')
                 ->default(true)
                 ->comment('Whether this appointment can generate invoice');

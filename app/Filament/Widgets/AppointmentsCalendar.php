@@ -105,8 +105,8 @@ class AppointmentsCalendar extends FullCalendarWidget
                         TextEntry::make('start_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
                         TextEntry::make('end_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
                         TextEntry::make('status')->placeholder('N/A'),
-                        IconEntry::make('created_by.first_name')->label('Created By')->placeholder('N/A'),
-                        IconEntry::make('updated_by.first_name')->label('Updated By')->placeholder('N/A'),
+                        IconEntry::make('createdBy.first_name')->label('Created By')->placeholder('N/A'),
+                        IconEntry::make('updatedBy.first_name')->label('Updated By')->placeholder('N/A'),
                         TextEntry::make('notes')->placeholder('N/A')->columnSpanFull(),
 
                     ])
@@ -157,12 +157,19 @@ class AppointmentsCalendar extends FullCalendarWidget
                     'cancelled' => '#EF4444',  // Red
                     default => '#3B82F6',
                 };
+                $emergencyLabel = NULL;
+                if($appointment->is_emergency){
+                    $statusColor = '#92400E';
+                    $emergencyLabel = 'Emergency';
+                }
                 $isEditable = $appointment->status->value !== 'completed';  // Key: Disable for completed
                 return EventData::make()
                     ->id($appointment->id)
-                    // ->title($appointment->client->first_name ?? 'Appointment')  // Customize title (e.g., client name)
-                    // ->title("{$appointment->client->name} w/ {$appointment->therapist->name}.")
-                    ->title("({$appointment->status->getLabel()}) {$appointment->client->name} w/ {$appointment->therapist->name}.")
+                    ->title(
+                        "({$appointment->status->getLabel()})"
+                        . ($emergencyLabel ? " ({$emergencyLabel})" : '')
+                        . " {$appointment->client->name} w/ {$appointment->therapist->name}."
+                    )
                     ->start($appointment->start_datetime)
                     ->end($appointment->end_datetime)  // If no end time
                     // ->url(

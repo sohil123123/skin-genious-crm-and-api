@@ -40,7 +40,7 @@ class AppointmentPolicy
 
     public function deleteAny(AuthUser $authUser): bool
     {
-        return ($authUser->can('DeleteAny:Appointment') && $appointment->status->value != 'completed') || $authUser->hasRole('super_admin');
+        return $authUser->can('DeleteAny:Appointment');
     }
 
     public function restore(AuthUser $authUser, Appointment $appointment): bool

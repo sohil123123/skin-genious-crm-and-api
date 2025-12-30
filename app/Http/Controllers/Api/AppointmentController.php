@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 
 use App\Http\Requests\AppointmentRequest;
 use App\Http\Requests\AppointmentUpdateRequest;
+// use Spatie\Activitylog\Facades\Activity;
+use Spatie\Activitylog\Models\Activity;
 
 use App\Http\Resources\AppointmentResource;
 
@@ -41,21 +43,38 @@ class AppointmentController extends BaseApiController
         $data = $request->validated();
 
         // validate slot availability
-        $availability->assertBookable(
+        $status = $data['status'] ?? 'pending';
+        $warning = $availability->assertBookable(
             clinicId: (int)$data['clinic_id'],
             therapistId: (int)$data['therapist_id'],
             start: Carbon::parse($data['start_datetime']),
-            end: Carbon::parse($data['end_datetime'])
+            end: Carbon::parse($data['end_datetime']),
+            status: $status
         );
-        // exit;
+
+        if ($status == 'confirmed' && !empty($warning) && $warning['code'] == 'NO_BED_AVAILABLE' && isset($warning['emergency'])) {
+            $data['is_emergency'] = $warning['emergency']['is_emergency'];
+            $data['emergency_reason'] = $warning['emergency'];
+
+            // Log the login activity
+            activity()
+                ->useLog('appointment')
+                ->performedOn($appointment)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'emergency_reason' => $warning['emergency'],
+                ])
+                ->event('emergency_override')
+                ->log('Emergency Override');
+        }
 
         // Create the assessment record
         $appointment = $this->model->create($data);
 
-        // Wrap in resource for clean, formatted API output
-        $resource = new AppointmentResource($appointment);
-
-        return $this->success('Appointment created successfully', $resource);
+        return $this->success('Appointment created', [
+            'appointment' => new AppointmentResource($appointment),
+            'warning' => $warning,
+        ]);
     }
 
 
@@ -104,22 +123,29 @@ class AppointmentController extends BaseApiController
         $therapistChanging = isset($data['therapist_id']) && ((int)$data['therapist_id'] !== (int)$appointment->therapist_id);
 
         // Re-validate if therapist/time/clinic changed
+        $warning = [];
         if ($timeChanging || $therapistChanging || isset($data['clinic_id'])) {
-            $availability->assertBookable(
+            $warning = $availability->assertBookable(
                 clinicId: (int)$newClinicId,
                 therapistId: (int)$newTherapistId,
                 start: $start,
                 end: $end,
+                status: 'pending',
                 ignoreAppointmentId: $appointment->id
             );
+            // if (!empty($warnings) && $warnings['code'] == 'NO_BED_AVAILABLE' && isset($warnings['is_emergency'])) {
+            //     $data['is_emergency'] = true;
+            // }
         }
 
         $appointment->update($data);
 
-        // Wrap in resource for clean, formatted API output
-        $resource = new AppointmentResource($appointment);
+        return $this->success('Appointment updated successfully', [
+            'appointment' => new AppointmentResource($appointment),
+            'warning' => $warning,
+        ]);
 
-        return $this->success('Appointment updated successfully', $resource);
+
     }
 
     public function updateTreatmentSessionId(Request $request, $appointment_id)
@@ -170,9 +196,9 @@ class AppointmentController extends BaseApiController
         return $this->success('Appointment treatment session updated successfully', $resource);
     }
 
-    public function updateStatus(Request $request, $appointment_id)
+    public function updateStatus(Request $request, $appointment_id, AvailabilityService $availability)
     {
-        $appointment = $this->model->find($appointment_id);
+        $appointment = $this->model->findOrFail($appointment_id);
 
         $validated = $request->validate([
             'status' => [
@@ -181,20 +207,49 @@ class AppointmentController extends BaseApiController
             ],
         ]);
 
-        $appointment->update($validated);
+        // Only re-validate when confirming
+        if ($appointment->status->value === 'pending' && $validated['status'] === 'confirmed') {
 
-        $treatment_session = TreatmentSession::where('id', $appointment->treatment_session_id)->first();
+            $emergency = $availability->assertConfirmable($appointment);
 
-        if ($treatment_session) {
-            $treatment_session->update([
-                'status' => $validated['status'],
-            ]);
+            if (!empty($emergency)) {
+
+                // 🔕 Disable automatic model logging ONLY inside this block
+                $appointment->disableLogging();
+
+                $appointment->update([
+                    'status' => $validated['status'],
+                    'is_emergency' => $emergency['is_emergency'],
+                    'emergency_reason' => $emergency,
+                ]);
+
+                $appointment->enableLogging();
+
+                // ✅ SINGLE manual log
+                activity()
+                    ->useLog('appointment')
+                    ->performedOn($appointment)
+                    ->causedBy(auth()->user())
+                    ->withProperties([
+                        'emergency_reason' => $emergency,
+                    ])
+                    ->event('emergency_override')
+                    ->log('Emergency Override');
+
+                return $this->success(
+                    'Appointment status updated successfully',
+                    new AppointmentResource($appointment->fresh())
+                );
+            }
         }
 
-        // Wrap in resource for clean, formatted API output
-        $resource = new AppointmentResource($appointment->fresh());
+        // Normal update → normal auto logging
+        $appointment->update($validated);
 
-        return $this->success('Appointment status updated successfully', $resource);
+        return $this->success(
+            'Appointment status updated successfully',
+            new AppointmentResource($appointment->fresh())
+        );
     }
 
     public function slots(Request $request, AvailabilityService $availability)

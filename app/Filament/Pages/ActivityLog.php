@@ -8,13 +8,14 @@ use Filament\Tables\Table;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Spatie\Activitylog\Models\Activity;
-use Filament\Forms;
+use Filament\Forms\Components\KeyValue;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\ViewAction;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
+use Filament\Actions\Action;
 
 use UnitEnum;
 use BackedEnum;
@@ -42,15 +43,16 @@ class ActivityLog extends Page implements HasTable
         return $table
             ->query(Activity::query()->latest())
             ->deferLoading()
-            // ->recordUrl(null)
+            ->recordUrl(null)
             ->columns([
                 TextColumn::make('description')
                     ->searchable()
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (Activity $record): string => match ($record->event) {
                         'created' => 'success',
                         'updated' => 'warning',
                         'deleted' => 'danger',
+                        'emergency_override' => 'danger',
                         default => 'gray',
                     }),
 
@@ -77,8 +79,12 @@ class ActivityLog extends Page implements HasTable
                         'created' => 'Created',
                         'updated' => 'Updated',
                         'deleted' => 'Deleted',
+                        'emergency_override' => 'Emergency Override',
                     ]),
             ])
+            ->filtersTriggerAction(
+                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+            )
             ->actions([
                 ViewAction::make()
                     ->form([
@@ -98,18 +104,29 @@ class ActivityLog extends Page implements HasTable
                             ]),
 
                         Section::make('Changes')
+                            ->visible(fn ($record) => $record->event != 'status_changed')
                             ->schema([
-                                Forms\Components\KeyValue::make('properties.attributes')
+                                KeyValue::make('properties.attributes')
                                     ->label('New Values')
                                     ->keyLabel('Field')
                                     ->valueLabel('Value'),
                                 
-                                Forms\Components\KeyValue::make('properties.old')
+                                KeyValue::make('properties.old')
                                     ->label('Old Values')
                                     ->keyLabel('Field')
                                     ->valueLabel('Value')
                                     ->visible(fn ($record) => isset($record->properties['old'])),
+                            ]),
+                        
+                        Section::make('Changes')
+                            ->visible(fn ($record) => $record->event == 'status_changed')
+                            ->schema([
+                                TextEntry::make('properties.emergency_reason.capacity')->label('Available Capacity')->numeric(),
+                                TextEntry::make('properties.emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
+                                TextEntry::make('properties.emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
+                                TextEntry::make('properties.emergency_reason.is_emergency')->label('Emergency Override')->badge()->color(fn (bool $state) => $state ? 'danger' : 'gray')->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
                             ])
+                            ->columns(3)
                     ])
             ]);
     }

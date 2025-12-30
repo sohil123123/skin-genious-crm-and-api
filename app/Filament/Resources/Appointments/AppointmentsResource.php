@@ -16,15 +16,19 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
+use App\Filament\Resources\Appointments\Schemas\AppointmentInfolist;
+
 class AppointmentsResource extends Resource
 {
     protected static ?string $model = Appointment::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $recordTitleAttribute = 'type';
+    protected static ?string $recordTitleAttribute = 'type.value';
 
-    protected static bool $shouldRegisterNavigation = false;
+    // protected static bool $shouldRegisterNavigation = false;
+
+    protected static ?int $navigationSort = 7;
 
     public static function form(Schema $schema): Schema
     {
@@ -48,7 +52,7 @@ class AppointmentsResource extends Resource
         return [
             'index' => ListAppointments::route('/'),
             'create' => CreateAppointments::route('/create'),
-            'edit' => EditAppointments::route('/{record}/edit'),
+            // 'edit' => EditAppointments::route('/{record}/edit'),
         ];
     }
 
@@ -58,5 +62,25 @@ class AppointmentsResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    // Global query scoping: Ensures therapists only see their own appointment in ALL pages (list, view, edit)
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user->hasRole('therapist')) {
+            $query->where('therapist_id', $user->id); // Only their own
+        } elseif ($user->hasRole('clinic_manager')) {
+            $query->where('clinic_id', $user->clinic_id); // Assuming User has 'clinic_id' field for their clinic
+        }
+
+        return $query;
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return AppointmentInfolist::configure($schema);
     }
 }

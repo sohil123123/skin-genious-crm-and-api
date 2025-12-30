@@ -68,6 +68,6 @@ if (!function_exists('get_users')) {
 
 if (!function_exists('check_role')) {
     function check_role($role_name){
-        return auth()->user()->hasRole($role_name);
+        return auth()->user()?->hasRole($role_name) ?? false;
     }
 }

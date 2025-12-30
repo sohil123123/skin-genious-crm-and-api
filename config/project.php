@@ -2,7 +2,8 @@
 return [
     'openai_api_key' => env('OPENAI_API_KEY', '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'),
     'appointment_consult_duration' => env('APPOINTMENT_CONSULT_DURATION', 90),
-    'working_hours_per_day' => 8,
+    'working_hours_per_day' => env('WORKING_HOURS_PER_DAY', 8),
+    'pending_limit' => env('PENDING_LIMIT', 2),
     'frontend_url' => env('FRONTEND_URL', 'https://aiaesthetics.cbphysiotherapy.in'),
     'mysql_ucwords' => 'CONCAT(UCASE(LEFT(name, 1)), LCASE(SUBSTRING(name, 2)))',
     'mysql_user_ucwords' => "TRIM(

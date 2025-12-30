@@ -25,7 +25,7 @@ class Appointment extends Model
     protected $fillable = [
         'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
         'treatment_session_id', 'start_datetime', 'end_datetime', 'duration_minutes',
-        'status', 'products_used', 'resources_used', 'notes', 'is_billable', 'is_billed', 'created_by', 'updated_by'
+        'status', 'products_used', 'resources_used', 'notes', 'is_emergency', 'emergency_reason', 'is_billable', 'is_billed', 'created_by', 'updated_by'
     ];
 
     protected $casts = [
@@ -33,6 +33,8 @@ class Appointment extends Model
         'end_datetime' => 'datetime',
         'products_used' => 'array',
         'resources_used' => 'array',
+        'is_emergency' => 'boolean',
+        'emergency_reason' => 'json',
         'is_billable' => 'boolean',
         'is_billed' => 'boolean',
         'type' => AppointmentType::class,
@@ -52,6 +54,10 @@ class Appointment extends Model
     protected static function booted() {
         static::creating(function ($appointment) {
             $appointment->created_by ??= auth()->id();
+        });
+
+        static::updating(function ($appointment) {
+            $appointment->updated_by = auth()->id();
         });
 
         static::saving(function ($appointment) {
@@ -84,7 +90,7 @@ class Appointment extends Model
             ->logOnlyDirty()
             ->setDescriptionForEvent(function (string $eventName) {
                 if ($eventName === 'updated' && $this->wasChanged('status')) {
-                    return 'status changed';
+                    return 'Status Changed';
                 }
                 return "Appointment {$eventName}";
             })
@@ -106,6 +112,10 @@ class Appointment extends Model
 
     public function createdBy(): BelongsTo {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy(): BelongsTo {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function assessment(): BelongsTo {

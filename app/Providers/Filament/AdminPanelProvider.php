@@ -49,7 +49,7 @@ use Filament\View\PanelsRenderHook;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\URL;
+// use Illuminate\Support\Facades\URL;
 
 use Filament\Facades\Filament;
 use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
@@ -254,49 +254,26 @@ class AdminPanelProvider extends PanelProvider
 
     public function boot(): void
     {
-        Filament::registerNavigationItems([
-            // NavigationItem::make('Appointments')
-            //     ->url(function () {
+        // Filament::registerNavigationItems([
+        //     NavigationItem::make('Create Appointment')
+        //         ->url(function () {
 
-            //         $user = auth()->user();
-            //         $token = $user->createToken(
-            //             'appointment-token-' . Str::random(10),
-            //             ['assessment'], // Abilities/scopes
-            //             // now()->addHour() // Expiration
-            //         )->plainTextToken;
+        //             $user = auth()->user();
 
-            //         if ($user->hasRole('clinic_manager')) {
-            //             return url('/appointments?token=' . $token . '&clinic_id=' . $user->clinic_id);
-            //         }
+        //             return URL::temporarySignedRoute(
+        //                 'vue.sso',
+        //                 now()->addMinutes(5), // ⏱ expires
+        //                 [
+        //                     'user_id'    => $user->id,
+        //                     'clinic_id'  => $user->clinic_id,
+        //                     'role'       => $user->getRoleNames()->first(),
+        //                 ]
+        //             );
 
-            //         if ($user->hasRole('therapist')) {
-            //             return url('/appointments?token=' . $token . '&clinic_id=' . $user->clinic_id . '&therapist_id=' . $user->id);
-            //         }
-
-            //         return url('/appointments?token=' . $token);
-            //     }, shouldOpenInNewTab: true)
-            //     ->icon('heroicon-o-calendar-days')
-            //     ->group('Custom Links'),
-
-            NavigationItem::make('Appointments')
-                ->url(function () {
-
-                    $user = auth()->user();
-
-                    return URL::temporarySignedRoute(
-                        'vue.sso',
-                        now()->addMinutes(5), // ⏱ expires
-                        [
-                            'user_id'    => $user->id,
-                            'clinic_id'  => $user->clinic_id,
-                            'role'       => $user->getRoleNames()->first(),
-                        ]
-                    );
-
-                }, shouldOpenInNewTab: true)
-                ->icon('heroicon-o-calendar-days'),
-                // ->group('Custom Links'),
-        ]);
+        //         }, shouldOpenInNewTab: true)
+        //         ->icon('heroicon-o-calendar-days'),
+        //         // ->group('Custom Links'),
+        // ]);
 
 
 

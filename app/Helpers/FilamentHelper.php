@@ -94,9 +94,9 @@ if (!function_exists('can_create_assessment')) {
 
         return $appointment->type->value === 'consult'
         && in_array($appointment->status->value, ['confirmed'])
-        && is_null($appointment->assessment_id);
+        && is_null($appointment->assessment_id)
         // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
-        // && now()->between($start, $end);
+        && now()->between($start, $end);
     }
 }
 
@@ -138,8 +138,8 @@ if (!function_exists('can_start_session')) {
         $end   = $appointment->end_datetime;
 
         return in_array($appointment->status->value, ['confirmed'])
-        && !is_null($appointment->treatment_session_id);
-        // && now()->between($start, $end);
+        && !is_null($appointment->treatment_session_id)
+        && now()->between($start, $end);
     }
 }
 
