@@ -35,7 +35,7 @@ class AvailabilityExceptionResource extends Resource
 
     protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
 
-    protected static ?string $recordTitleAttribute = 'AvailabilityException';
+    // protected static ?string $recordTitleAttribute = 'type';
 
     protected static ?string $navigationLabel = 'Holidays';
 

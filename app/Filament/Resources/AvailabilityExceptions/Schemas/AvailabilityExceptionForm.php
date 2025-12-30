@@ -29,6 +29,8 @@ use App\Enums\AvailabilityExceptionType;
 use App\Models\AvailabilityException;
 use App\Models\User;
 use App\Models\Clinic;
+use App\Models\Appointment;
+use App\Enums\AppointmentStatus;
 
 class AvailabilityExceptionForm
 {
@@ -159,6 +161,96 @@ class AvailabilityExceptionForm
                                 $newEnd   = Carbon::parse($get('end_date') ?? $value);
 
                                 /**
+                                 * --------------------------------------------------
+                                 * CHECK FOR CONFLICTING APPOINTMENTS
+                                 * --------------------------------------------------
+                                 */
+
+                                if(in_array($type, ['leave_full_day', 'leave_partial', 'override_hours', 'blocked_hours'])){
+
+                                    $conflictQuery = Appointment::query()
+                                        ->whereIn('status', [AppointmentStatus::Pending, AppointmentStatus::Confirmed])
+                                        ->when($exceptionableType === Clinic::class, fn ($q) => $q->where('clinic_id', $exceptionableId))
+                                        ->when($exceptionableType === User::class, fn ($q) => $q->where('therapist_id', $exceptionableId));
+
+                                    $shouldCheck = false;
+
+                                    if ($type === 'override_hours') {
+                                        // For Override Hours:
+                                        // The user is defining the ONLY hours they are working.
+                                        // So we must ensure there are NO appointments OUTSIDE this range.
+                                        $sTime = $get('start_time');
+                                        $eTime = $get('end_time');
+
+                                        if ($sTime && $eTime) {
+                                            $checkDate = $newStart->format('Y-m-d');
+                                            $newWorkStart = Carbon::parse($checkDate . ' ' . $sTime);
+                                            $newWorkEnd   = Carbon::parse($checkDate . ' ' . $eTime);
+
+                                            $dayStart = $newWorkStart->copy()->startOfDay();
+                                            $dayEnd   = $newWorkStart->copy()->endOfDay();
+
+                                            $conflictQuery->where(function ($q) use ($dayStart, $dayEnd, $newWorkStart, $newWorkEnd) {
+                                                $q->where(function ($sub) use ($dayStart, $newWorkStart) {
+                                                    // Check Early Morning Conflict (Before new work start)
+                                                    $sub->where('start_datetime', '<', $newWorkStart)
+                                                        ->where('end_datetime', '>', $dayStart);
+                                                })
+                                                ->orWhere(function ($sub) use ($newWorkEnd, $dayEnd) {
+                                                    // Check Late Evening Conflict (After new work end)
+                                                    $sub->where('start_datetime', '<', $dayEnd)
+                                                        ->where('end_datetime', '>', $newWorkEnd);
+                                                });
+                                            });
+                                            $shouldCheck = true;
+                                        }
+
+                                    } else {
+                                        // For Leaves/Blocked:
+                                        // The user is creating UNAVAILABILITY.
+                                        // So we must ensure there are NO appointments INSIDE this range.
+                                        $appCheckStart = null;
+                                        $appCheckEnd   = null;
+
+                                        if ($exceptionableType === Clinic::class || $type === 'leave_full_day') {
+                                            $appCheckStart = $newStart->copy()->startOfDay();
+                                            $appCheckEnd   = $newEnd->copy()->endOfDay();
+                                        } else {
+                                            $sTime = $get('start_time');
+                                            $eTime = $get('end_time');
+
+                                            if ($sTime && $eTime) {
+                                                $appCheckStart = Carbon::parse($newStart->format('Y-m-d') . ' ' . $sTime);
+                                                $appCheckEnd   = Carbon::parse($newStart->format('Y-m-d') . ' ' . $eTime);
+                                            }
+                                        }
+
+                                        if ($appCheckStart && $appCheckEnd) {
+                                            $conflictQuery->where(function ($q) use ($appCheckStart, $appCheckEnd) {
+                                                $q->where('start_datetime', '<', $appCheckEnd)
+                                                    ->where('end_datetime', '>', $appCheckStart);
+                                            });
+                                            $shouldCheck = true;
+                                        }
+                                    }
+
+                                    if ($shouldCheck && $conflictQuery->exists()) {
+                                        $details = "";
+                                        foreach ($conflictQuery->get() as $c) {
+                                            $sd = Carbon::parse($c->start_datetime);
+                                            $ed = Carbon::parse($c->end_datetime);
+                                            $details .= "• Appointment <b>{$sd->format('M d, H:i')} - {$ed->format('H:i')}</b> ({$c->status->value})<br>";
+                                        }
+                                        
+                                        $msg = $type === 'override_hours' 
+                                            ? "❌ <strong>Appointments exist outside your new working hours:</strong><br>{$details}"
+                                            : "❌ <strong>Conflicting appointments:</strong><br>{$details}";
+                                            
+                                        $fail($msg);
+                                    }
+                                }
+
+                                /**
                                  * ==================================================
                                  * CASE A — CLINIC
                                  * ==================================================
@@ -258,6 +350,8 @@ class AvailabilityExceptionForm
                     ->native(false)
                     ->placeholder(now()->startOfMonth()->format('M d, Y'))
                     ->format('Y-m-d')
+                    ->live()
+                    ->afterStateUpdated(fn ($livewire) => $livewire->validateOnly('start_date'))
                     // ->minDate(today())
                     ->minDate(fn ($get) => $get('start_date'))
                     ->disabledDates(function () {
@@ -282,6 +376,8 @@ class AvailabilityExceptionForm
                     ->options(time_options())
                     ->visible(fn ($get) => $get('type')->value !== 'leave_full_day')
                     ->required(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->live()
+                    ->afterStateUpdated(fn ($livewire) => $livewire->validateOnly('start_date'))
                     ->dehydrateStateUsing(fn ($state, $get) =>
                         $get('type')->value === 'leave_full_day' ? null : ($state ? $state : null)
                     ),
@@ -290,6 +386,8 @@ class AvailabilityExceptionForm
                     ->options(time_options())
                     ->visible(fn ($get) => $get('type')->value !== 'leave_full_day')
                     ->required(fn ($get) => $get('type')->value !== 'leave_full_day')
+                    ->live()
+                    ->afterStateUpdated(fn ($livewire) => $livewire->validateOnly('start_date'))
                     ->dehydrateStateUsing(fn ($state, $get) =>
                         $get('type')->value === 'leave_full_day' ? null : ($state ? $state : null)
                     )

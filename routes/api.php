@@ -37,7 +37,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Appointment CRUD Route
         // Availability engine
-        Route::get('/availability/slots', [AppointmentController::class, 'slots']);
+        Route::get('/availability/slots', [AppointmentController::class, 'getSlots']);
         Route::post('appointments/update-treatment-session-id/{appointment_id}', [AppointmentController::class, 'updateTreatmentSessionId']);
         Route::post('appointments/status/{id}', [AppointmentController::class, 'updateStatus'])->name('appointments.status');
         Route::apiResource('appointments', 'AppointmentController');

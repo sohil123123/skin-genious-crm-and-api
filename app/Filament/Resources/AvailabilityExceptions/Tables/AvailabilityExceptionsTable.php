@@ -64,12 +64,13 @@ class AvailabilityExceptionsTable
 
                         return '-';
                     })
-                    ->color(function ($record) {
-                        if($record->exceptionable instanceof User)
-                            return 'warning';
+                    // ->color(function ($record) {
+                    //     if($record->exceptionable instanceof User)
+                    //         return 'warning';
 
-                        return 'gray';
-                    })
+                    //     return 'gray';
+                    // })
+                    ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
                     ->icon(function ($record) {
                         if($record->exceptionable instanceof User)
                             return 'heroicon-o-user';
@@ -82,7 +83,8 @@ class AvailabilityExceptionsTable
                     ->badge()
                     ->visible(fn () => auth()->user()->hasRole('super_admin') || check_role('clinic_manager'))
                     ->icon('heroicon-o-building-office')
-                    ->color('gray')
+                    // ->color('gray')
+                    ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
                     ->placeholder('Unassigned')
                     ->searchable()
                     ->action(
@@ -101,12 +103,13 @@ class AvailabilityExceptionsTable
                     ->label('Therapist')
                     ->visible(fn () => check_role('super_admin') || check_role('clinic_manager'))
                     ->badge()
-                    ->color(function ($record) {
-                        if($record->exceptionable instanceof User)
-                            return 'warning';
+                    ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
+                    // ->color(function ($record) {
+                    //     if($record->exceptionable instanceof User)
+                    //         return 'warning';
 
-                        // return 'gray';
-                    })
+                    //     // return 'gray';
+                    // })
                     ->icon(function ($record) {
                         if($record->exceptionable instanceof User)
                             return 'heroicon-o-user';
@@ -140,7 +143,7 @@ class AvailabilityExceptionsTable
                     }),
 
                 TextColumn::make('type')->label('Type')->badge()->searchable(),
-                TextColumn::make('leave_type')->badge()->searchable()->placeholder('-'),
+                TextColumn::make('leave_type')->badge()->color(fn ($record) => $record->type?->getColor() ?? 'gray')->searchable()->placeholder('-'),
                 // TextColumn::make('start_date')->date()->searchable(),
                 // TextColumn::make('end_date')->date()->searchable(),
                 // TextColumn::make('start_time')->searchable()->placeholder('-'),
@@ -148,7 +151,8 @@ class AvailabilityExceptionsTable
                 TextColumn::make('start_datetime')
                     ->label('Start')
                     ->badge()
-                    ->color(fn ($record) => $record->type->value == AvailabilityExceptionType::LeaveFullDay->value ? 'success' : 'gray')
+                    ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
+                    // ->color(fn ($record) => $record->type->value == AvailabilityExceptionType::LeaveFullDay->value ? 'success' : 'gray')
                     ->state(function ($record) {
                         if ($record->type->value == AvailabilityExceptionType::LeaveFullDay->value)
                             return Carbon::parse($record->start_date)->format('M d, Y') . ' (Full day)';
@@ -165,7 +169,8 @@ class AvailabilityExceptionsTable
                 TextColumn::make('end_datetime')
                     ->label('End')
                     ->badge()
-                    ->color(fn ($record) => $record->type->value == AvailabilityExceptionType::LeaveFullDay->value ? 'success' : 'gray')
+                    ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
+                    // ->color(fn ($record) => $record->type->value == AvailabilityExceptionType::LeaveFullDay->value ? 'success' : 'gray')
                     ->state(function ($record) {
                         if ($record->type->value == AvailabilityExceptionType::LeaveFullDay->value)
                             return Carbon::parse($record->end_date)->format('M d, Y') . ' (Full day)';
@@ -246,7 +251,7 @@ class AvailabilityExceptionsTable
                             ->schema([
                                 DatePicker::make('from')
                                     ->label('From Date')
-                                    ->minDate(Carbon::today())
+                                    // ->minDate(Carbon::today())
                                     ->maxDate(fn ($get) => $get('to'))
                                     ->closeOnDateSelection()
                                     ->native(false)

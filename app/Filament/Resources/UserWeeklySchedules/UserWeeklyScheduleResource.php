@@ -28,7 +28,7 @@ class UserWeeklyScheduleResource extends Resource
 
     protected static ?string $navigationLabel = 'Weekly Schedule';
 
-    protected static ?string $recordTitleAttribute = 'Weekly Schedule';
+    // protected static ?string $recordTitleAttribute = 'Weekly Schedule';
 
     protected static ?string $breadcrumb = 'Weekly Schedule';
 

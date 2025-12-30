@@ -9,6 +9,8 @@ use App\Models\Clinic;
 use App\Models\User;
 use App\Models\TreatmentSession;
 
+use App\Enums\AppointmentStatus;
+
 use Carbon\Carbon;
 
 class AppointmentUpdateRequest extends FormRequest
@@ -69,9 +71,10 @@ class AppointmentUpdateRequest extends FormRequest
             'start_datetime'       => ['nullable', 'date_format:Y-m-d H:i', 'after_or_equal:now'],
             'end_datetime'         => ['nullable', 'date_format:Y-m-d H:i', 'after_or_equal:start_datetime'],
 
+            // 'status' => ['nullable', 'in:pending,confirmed,in_progress,completed,cancelled,no_show'],
+
             'notes' => 'nullable|string',
         ];
-
     }
 
     public function withValidator($validator)

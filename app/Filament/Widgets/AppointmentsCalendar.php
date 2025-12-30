@@ -37,6 +37,7 @@ class AppointmentsCalendar extends FullCalendarWidget
     {
         return <<<JS
             function(info) {
+                info.el.style.cursor = 'pointer';
                 info.el.setAttribute("x-tooltip", "tooltip");
                 info.el.setAttribute("x-data", "{ tooltip: '"+info.event.title+"' }");
                 if (info.event.extendedProps.isLocked) {
@@ -107,10 +108,27 @@ class AppointmentsCalendar extends FullCalendarWidget
                         TextEntry::make('status')->placeholder('N/A'),
                         IconEntry::make('createdBy.first_name')->label('Created By')->placeholder('N/A'),
                         IconEntry::make('updatedBy.first_name')->label('Updated By')->placeholder('N/A'),
-                        TextEntry::make('notes')->placeholder('N/A')->columnSpanFull(),
+                        TextEntry::make('is_emergency')
+                            ->label('Emergency Override')
+                            ->badge()
+                            ->color(fn (bool $state) => $state ? 'danger' : 'gray')
+                            ->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
+                        TextEntry::make('notes')->placeholder('N/A'),
 
                     ])
                     ->columns(3),
+
+                Section::make('Emergency Reason')
+                    ->description('Emergency reason details')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->visible(fn ($record) => ! empty($record->is_emergency))
+                    ->schema([
+                        TextEntry::make('emergency_reason.capacity')->label('Available Capacity')->numeric(),
+                        TextEntry::make('emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
+                        TextEntry::make('emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
+                    ])
+                    ->columns(3)
+                    ->collapsible(),
 
                 Section::make('Treatment Session Details')
                     ->description('assessment id and treatment session title.')
@@ -251,7 +269,4 @@ class AppointmentsCalendar extends FullCalendarWidget
 
         ];
     }
-
-
-
 }

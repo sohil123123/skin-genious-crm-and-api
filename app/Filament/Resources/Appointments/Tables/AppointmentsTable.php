@@ -245,7 +245,7 @@ class AppointmentsTable
                                     ->schema([
                                     DatePicker::make('from')
                                         ->label('From Date')
-                                        ->minDate(Carbon::today())
+                                        // ->minDate(Carbon::today())
                                         ->maxDate(fn ($get) => $get('to'))
                                         ->closeOnDateSelection()
                                         ->native(false)

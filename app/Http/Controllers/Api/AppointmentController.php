@@ -13,6 +13,7 @@ use Spatie\Activitylog\Models\Activity;
 use App\Http\Resources\AppointmentResource;
 
 use App\Services\Availability\AvailabilityService;
+use App\Services\Availability\UnavailableSlotService;
 
 use App\Models\Appointment;
 use App\Models\Assessment;
@@ -56,6 +57,9 @@ class AppointmentController extends BaseApiController
             $data['is_emergency'] = $warning['emergency']['is_emergency'];
             $data['emergency_reason'] = $warning['emergency'];
 
+            // Create the assessment record
+            $appointment = $this->model->create($data);
+
             // Log the login activity
             activity()
                 ->useLog('appointment')
@@ -67,9 +71,10 @@ class AppointmentController extends BaseApiController
                 ->event('emergency_override')
                 ->log('Emergency Override');
         }
-
-        // Create the assessment record
-        $appointment = $this->model->create($data);
+        else{
+            // Create the assessment record
+            $appointment = $this->model->create($data);
+        }
 
         return $this->success('Appointment created', [
             'appointment' => new AppointmentResource($appointment),
@@ -130,12 +135,11 @@ class AppointmentController extends BaseApiController
                 therapistId: (int)$newTherapistId,
                 start: $start,
                 end: $end,
-                status: 'pending',
+                // status: 'pending',
+                // status: $data['status'] ?? 'pending',
+                status: $appointment->status->value == 'pending' ? 'pending' : null,
                 ignoreAppointmentId: $appointment->id
             );
-            // if (!empty($warnings) && $warnings['code'] == 'NO_BED_AVAILABLE' && isset($warnings['is_emergency'])) {
-            //     $data['is_emergency'] = true;
-            // }
         }
 
         $appointment->update($data);
@@ -252,63 +256,82 @@ class AppointmentController extends BaseApiController
         );
     }
 
-    public function slots(Request $request, AvailabilityService $availability)
+    // public function slots(Request $request, AvailabilityService $availability)
+    // {
+    //     $validated = $request->validate([
+    //         'clinic_id'        => ['required', 'integer', 'exists:clinics,id'],
+    //         'therapist_id'     => ['required', 'integer', 'exists:users,id'],
+
+    //         // single date
+    //         'date'             => ['nullable', 'date'],
+
+    //         // range
+    //         'from_date'        => ['nullable', 'date'],
+    //         'to_date'          => ['nullable', 'date', 'after_or_equal:from_date'],
+
+    //         'slot_interval'    => ['nullable', 'integer', 'in:5,10,15,20,30,60'],
+    //         'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:480'],
+    //     ]);
+
+    //     $slotInterval = (int)($validated['slot_interval'] ?? 15);
+    //     $duration     = (int)($validated['duration_minutes'] ?? 15);
+
+    //     // 🟢 Single date
+    //     if (!empty($validated['date'])) {
+    //         $data = $availability->getSlotsForDate(
+    //             clinicId: (int)$validated['clinic_id'],
+    //             therapistId: (int)$validated['therapist_id'],
+    //             date: $validated['date'],
+    //             slotIntervalMinutes: $slotInterval,
+    //             appointmentDurationMinutes: $duration
+    //         );
+
+    //         return $this->success('Slots fetched successfully', [
+    //             'mode' => 'single',
+    //             'data' => $data,
+    //         ]);
+    //     }
+
+    //     // 🟠 Date range
+    //     if (!empty($validated['from_date']) && !empty($validated['to_date'])) {
+    //         $data = $availability->getSlotsForDateRange(
+    //             clinicId: (int)$validated['clinic_id'],
+    //             therapistId: (int)$validated['therapist_id'],
+    //             fromDate: $validated['from_date'],
+    //             toDate: $validated['to_date'],
+    //             slotIntervalMinutes: $slotInterval,
+    //             appointmentDurationMinutes: $duration
+    //         );
+
+    //         return $this->success('Slots fetched successfully', [
+    //             'mode' => 'range',
+    //             'from' => $validated['from_date'],
+    //             'to'   => $validated['to_date'],
+    //             'data' => $data,
+    //         ]);
+    //     }
+
+    //     return $this->error('Either date or from_date & to_date is required', 422);
+
+    // }
+
+    public function getSlots(Request $request, UnavailableSlotService $service)
     {
-        $validated = $request->validate([
-            'clinic_id'        => ['required', 'integer', 'exists:clinics,id'],
-            'therapist_id'     => ['required', 'integer', 'exists:users,id'],
-
-            // single date
-            'date'             => ['nullable', 'date'],
-
-            // range
-            'from_date'        => ['nullable', 'date'],
-            'to_date'          => ['nullable', 'date', 'after_or_equal:from_date'],
-
-            'slot_interval'    => ['nullable', 'integer', 'in:5,10,15,20,30,60'],
-            'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:480'],
+        $data = $request->validate([
+            'clinic_id'    => ['required', 'integer', 'exists:clinics,id'],
+            'therapist_id' => ['required', 'integer', 'exists:users,id'],
+            'from_date'    => ['required', 'date'],
+            'to_date'      => ['required', 'date', 'after_or_equal:from_date'],
         ]);
 
-        $slotInterval = (int)($validated['slot_interval'] ?? 15);
-        $duration     = (int)($validated['duration_minutes'] ?? 15);
+        $response = $service->getUnavailableSlots(
+            clinicId: $data['clinic_id'],
+            therapistId: $data['therapist_id'],
+            fromDate: $data['from_date'],
+            toDate: $data['to_date']
+        );
 
-        // 🟢 Single date
-        if (!empty($validated['date'])) {
-            $data = $availability->getSlotsForDate(
-                clinicId: (int)$validated['clinic_id'],
-                therapistId: (int)$validated['therapist_id'],
-                date: $validated['date'],
-                slotIntervalMinutes: $slotInterval,
-                appointmentDurationMinutes: $duration
-            );
-
-            return $this->success('Slots fetched successfully', [
-                'mode' => 'single',
-                'data' => $data,
-            ]);
-        }
-
-        // 🟠 Date range
-        if (!empty($validated['from_date']) && !empty($validated['to_date'])) {
-            $data = $availability->getSlotsForDateRange(
-                clinicId: (int)$validated['clinic_id'],
-                therapistId: (int)$validated['therapist_id'],
-                fromDate: $validated['from_date'],
-                toDate: $validated['to_date'],
-                slotIntervalMinutes: $slotInterval,
-                appointmentDurationMinutes: $duration
-            );
-
-            return $this->success('Slots fetched successfully', [
-                'mode' => 'range',
-                'from' => $validated['from_date'],
-                'to'   => $validated['to_date'],
-                'data' => $data,
-            ]);
-        }
-
-        return $this->error('Either date or from_date & to_date is required', 422);
-
+        return $this->success('Slots fetched successfully', $response);
     }
 
 }
