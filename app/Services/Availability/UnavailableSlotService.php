@@ -304,7 +304,7 @@ class UnavailableSlotService
             $end = Carbon::parse($a->end_datetime);
 
             $out[] = [
-                'id'         => 'appt_' . $a->id,
+                'id'         => $a->id,
                 'title'      => Str::ucfirst(is_object($a->status) ? $a->status->value : $a->status),
                 'start_date' => $date,
                 'end_date'   => $date,

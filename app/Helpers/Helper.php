@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 use App\Models\Clinic;
-use APp\Models\User;
+use App\Models\User;
+use App\Models\Assessment;
+use App\Models\TreatmentSession;
 
 if (!function_exists('remove_empty_value')) {
     function remove_empty_value($array){
@@ -58,6 +60,40 @@ if (!function_exists('get_users')) {
 
         if($request->has('is_dropdown') && $request->is_dropdown)
             $query = $query->select(DB::raw(config('project.mysql_user_ucwords').' AS label, id AS value'));
+
+        if($request->has('take') && $request->take)
+            $query = $query->take($request->take);
+
+        return ($request->has('is_first') && $request->is_first) ? $query->first() : $query->get();
+    }
+}
+
+if (!function_exists('getAssessments')) {
+    function getAssessments($request){
+        $query = Assessment::orderby('id', 'desc');
+
+        $query = addJoin($query, $request);
+        $query = addWhere($query, $request);
+
+        if($request->has('is_dropdown') && $request->is_dropdown)
+            $query = $query->select(DB::raw('id AS label, id AS value'));
+
+        if($request->has('take') && $request->take)
+            $query = $query->take($request->take);
+
+        return ($request->has('is_first') && $request->is_first) ? $query->first() : $query->get();
+    }
+}
+
+if (!function_exists('getTreatmentSessions')) {
+    function getTreatmentSessions($request){
+        $query = TreatmentSession::orderby('session_number', 'desc');
+
+        $query = addJoin($query, $request);
+        $query = addWhere($query, $request);
+
+        if($request->has('is_dropdown') && $request->is_dropdown)
+            $query = $query->select(DB::raw('title AS label, id AS value'));
 
         if($request->has('take') && $request->take)
             $query = $query->take($request->take);

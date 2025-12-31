@@ -50,13 +50,16 @@ class AppointmentsTable
             ->recordUrl(null)
             ->defaultSort('start_datetime', 'asc')
             ->columns([
-                TextColumn::make('type')->badge(),
+                TextColumn::make('type')
+                    ->badge()
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray'),
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
                     ->visible(fn () => check_role('super_admin'))
                     ->icon('heroicon-o-building-office')
-                    ->color('gray')
+                    // ->color('gray')
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
@@ -71,40 +74,59 @@ class AppointmentsTable
                             ->visible(fn ($record) => $record->clinic !== null)
                     )
                     ->toggleable(),
-                TextColumn::make('therapist.name')->label('Therapist')
+                TextColumn::make('therapist.name')
+                    ->label('Therapist')
+                    ->badge()
+                    ->icon('heroicon-o-user')
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->searchable(['first_name', 'last_name']),
-                TextColumn::make('client.name')->label('Client')
+                TextColumn::make('client.name')
+                    ->label('Client')
+                    ->badge()
+                    ->icon('heroicon-o-user')
                     // ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->searchable(['first_name', 'last_name']),
-                TextColumn::make('assessment.id')->label('Assessment ID')->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('treatmentSession.title')->wrap()->searchable()->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('assessment.id')
+                    ->label('Assessment ID')
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
+                    ->placeholder('-')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('treatmentSession.title')
+                    ->wrap()
+                    ->searchable()
+                    ->placeholder('-')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('start_datetime')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
-                    ->color('warning')
+                    ->icon('heroicon-o-clock')
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->sortable(),
                 TextColumn::make('end_datetime')
                     ->dateTime('d M Y, h:i A')
                     ->badge()
-                    ->color('warning')
+                    ->icon('heroicon-o-clock')
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->sortable(),
                 TextColumn::make('duration_minutes')
                     ->badge()
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray')
                     ->formatStateUsing(fn ($state) => $state . ' minutes')
                     ->searchable()
                     ->sortable(),
-                // TextColumn::make('is_emergency')
-                //     ->badge()
-                //     ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No')
-                //     ->searchable()
-                //     ->sortable(),
                 TextColumn::make('is_emergency')
                     ->label('Emergency Override')
+                    ->icon(function (bool $state) {
+                        return $state ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle';
+                    })
                     ->badge()
-                    ->color(fn (bool $state) => $state ? 'danger' : 'gray')
+                    ->color(fn (bool $state) => $state ? 'danger' : 'success')
                     ->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
-                TextColumn::make('status')->badge(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->color(fn ($record) => $record->status?->getColor() ?? 'gray'),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
                     ->sortable()

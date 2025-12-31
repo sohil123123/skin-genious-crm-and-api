@@ -45,6 +45,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         // INFO: Common Route
         Route::get('get-clinics', 'CommonController@getClinics');
         Route::get('get-users', 'CommonController@getUsers');
+        Route::get('get-assessments', 'CommonController@getAssessments');
+        Route::get('get-treatment-sessions', 'CommonController@getTreatmentSessions');
 
     });
 

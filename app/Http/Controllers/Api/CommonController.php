@@ -20,4 +20,18 @@ class CommonController extends BaseApiController
 
         return $this->success('Users get successfully.', $response);
     }
+
+    public function getAssessments(Request $request)
+    {
+        $response = getAssessments($request);
+
+        return $this->success('Assessments get successfully.', $response);
+    }
+
+    public function getTreatmentSessions(Request $request)
+    {
+        $response = getTreatmentSessions($request);
+
+        return $this->success('Treatment sessions get successfully.', $response);
+    }
 }

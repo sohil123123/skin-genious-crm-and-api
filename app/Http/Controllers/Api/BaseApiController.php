@@ -56,7 +56,7 @@ abstract class BaseApiController extends Controller
     // ------------------------------------------------INFO: Common-------------------------------------------------------
     public function index(Request $request)
     {
-        $query = $this->addWhere($this->model);
+        $query = addWhere($this->model, $request);
         $query = $this->joinTable($query);
         $query = $this->selectColumns($query);
         $query = $this->searchByAll($query, $this->model);
@@ -69,7 +69,7 @@ abstract class BaseApiController extends Controller
 
     public function show(string $id)
     {
-        $query = $this->addWhere($this->model);
+        $query = addWhere($this->model, $this->request);
 
         // $result =  $this->addJoin($query)->find($id);
         $result =  addJoin($query, $this->request)->find($id);
@@ -82,7 +82,7 @@ abstract class BaseApiController extends Controller
 
     public function destroy(Request $request, string $id)
     {
-        $query = $this->addWhere($this->model);
+        $query = addWhere($this->model, $request);
 
         $result = $query->find($id);
 
@@ -290,156 +290,6 @@ abstract class BaseApiController extends Controller
         return $this->success('Records retrieved successfully', $collection);
     }
 
-    // -------------------INFO: Common Filter functions -----------------------------------
-    protected function addWhere($query, $filter = [])
-    {
-        $filters = collect($this->request->has('filterArray')
-        ? json_decode($this->request->filterArray, true) ?? []
-        : []);
-
-        if (!empty($filter))
-            $filters = collect($filter)->merge($filters);
-
-        if ($this->request->has(['filterBy', 'filterValue'])) {
-            $filters->push([
-                'column' => $this->request->filterBy,
-                'value' => $this->request->filterValue,
-                'condition' => $this->request->filterCondition ?? '=',
-                'method' => $this->request->filterMethod ?? 'where',
-            ]);
-        }
-        return $this->filterByArrayNew($query, $filters);
-    }
-
-    protected function filterByArrayNew($query, $filters)
-    {
-        // NOTE: return if filters is empty
-        if ($filters->isEmpty()) return $query;
-
-        // NOTE: Separate "OR" conditions from "AND" conditions
-        $orConditions = $filters->filter(fn($f) => Str::lower($f['method'] ?? 'where') === 'or_where')->values()->all();
-        $andConditions = $filters->filter(fn($f) => Str::lower($f['method'] ?? 'where') === 'where')->values()->all();
-
-        // NOTE: Apply "OR" conditions first (grouped in parentheses)
-        if (!empty($orConditions)) {
-            $query = $query->where(function ($query) use ($orConditions) {
-                $this->applyConditions($query, $orConditions, 'orWhere');
-            });
-        }
-        // NOTE: Apply "AND" conditions
-        $query = $this->applyConditions($query, $andConditions, 'where');
-
-        return $query;
-    }
-
-    protected function applyConditions($query, array $conditions, string $defaultMethod)
-    {
-        foreach ($conditions as $filter) {
-            $column = Str::of($filter['column'])->trim()->replace(' ', '')->__toString();
-
-            // NOTE: Skip if column doesn't exist in the table
-            // if (!Schema::hasColumn($query->getModel()->getTable(), $column)) continue;
-
-            $type = (isset($filter['type']) && $filter['type']) ? Str::lower($filter['type']) : null;
-
-            $query = $this->matchCondition(
-                $query,
-                $column,
-                $filter['condition'] ?? '=',
-                $filter['value'] ?? null,
-                $defaultMethod,
-                $type,
-            );
-        }
-
-        return $query;
-    }
-
-    protected function matchCondition($query, $column, $condition, $value, $method, $type = null)
-    {
-        $condition = Str::lower($condition);
-        $value = Str::of($value)->trim();
-
-        // INFO: Handle date-specific conditions first
-        if (in_array($type, ['date', 'month', 'year', 'day']))
-            return $this->handleDateCondition($query, $column, $condition, $value, $method, $type);
-
-        // INFO: Rest of your existing condition handling...
-        return $this->handleStandardCondition($query, $column, $condition, $value, $method);
-    }
-
-    protected function handleDateCondition($query, $column, $condition, $value, $method, $dateType)
-    {
-        if ($dateType == 'date' && in_array($condition, ['between', 'not_between'])){
-            $filterMethod = $method . ucfirst(Str::camel($condition));
-            $dates = array_map('trim', explode(',', $value));
-
-            $startDate = Carbon::parse($dates[0])->startOfDay();
-            $endDate = Carbon::parse($dates[1])->endOfDay();
-
-            return $query->$filterMethod($column, [$startDate, $endDate]);
-        }
-
-        // INFO: Handle simple comparisons (date, month, year, day)
-        $filterMethod = $method . ucfirst(Str::camel($dateType));
-
-        // INFO: Map conditions to operators
-        $operator = match($condition) {
-            'eq', '=' => '=',
-            'lt', '<' => '<',
-            'lteq', '<=' => '<=',
-            'gt', '>' => '>',
-            'gteq', '>=' => '>=',
-            default => null,
-        };
-
-        $value = ($dateType == 'date') ? Carbon::parse($value)->format('Y-m-d') : $value->value();
-
-        return $operator ? $query->$filterMethod($column, $operator, $value) : $query;
-    }
-
-    protected function handleStandardCondition($query, $column, $condition, $value, $method)
-    {
-        $conditionHandlers = [
-            'eq' => fn($q) => $q->where($column, '=', $value),
-            '=' => fn($q) => $q->where($column, '=', $value),
-            'lt' => fn($q) => $q->where($column, '<', $value),
-            '<' => fn($q) => $q->where($column, '<', $value),
-            '<=' => fn($q) => $q->where($column, '<=', $value),
-            'gt' => fn($q) => $q->where($column, '>', $value),
-            '>' => fn($q) => $q->where($column, '>', $value),
-            '>=' => fn($q) => $q->where($column, '>=', $value),
-            'contains' => fn($q) => $q->where($column, 'LIKE', '%'.$value.'%'),
-            'like' => fn($q) => $q->where($column, 'LIKE', '%'.$value.'%'),
-            'not_contains' => fn($q) => $q->where($column, 'NOT LIKE', '%'.$value.'%'),
-            'not_like' => fn($q) => $q->where($column, 'NOT LIKE', '%'.$value.'%'),
-            'start_with' => fn($q) => $q->where($column, 'LIKE', $value.'%'),
-            'not_start_with' => fn($q) => $q->where($column, 'NOT LIKE', $value.'%'),
-            'end_with' => fn($q) => $q->where($column, 'LIKE', '%'.$value),
-            'not_end_with' => fn($q) => $q->where($column, 'NOT LIKE', '%'.$value),
-            'between' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'Between'),
-            'not_between' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'NotBetween'),
-            'in' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'In'),
-            'not_in' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'NotIn'),
-            'include' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'In'),
-            'exclude' => fn($q) => $this->applyArrayCondition($q, $column, $value, $method, 'NotIn'),
-            'null' => fn($q) => $q->whereNull($column),
-            'not_null' => fn($q) => $q->whereNotNull($column),
-        ];
-
-        $handler = $conditionHandlers[$condition] ?? fn($q) => $q;
-        return $handler($query);
-    }
-
-    protected function applyArrayCondition($query, $column, $value, $method, $suffix)
-    {
-        $values = array_map('trim', explode(',', $value));
-        $method = $method . $suffix;
-
-        return $query->$method($column, $values);
-    }
-
-
     // -------------------INFO: Globle Search------------------------
     protected function searchByAll($query, $model)
     {
@@ -543,138 +393,6 @@ abstract class BaseApiController extends Controller
             $query->$method(trim($column), 'like', '%' . $filter . '%');
         }
     }
-
-
-    // -------------------INFO: With Join ------------------------
-    // protected function addJoin($query)
-    // {
-    //     if ($this->request->has('trashed') && $this->request->trashed == true)
-    //         $query = $query->withTrashed();
-    //     elseif ($this->request->has('onlyTrashed') && $this->request->onlyTrashed == true)
-    //         $query = $query->onlyTrashed();
-
-    //     if (!$this->request->has('joinWith')) return $query;
-
-    //     $relations = explode(',', str_replace(' ', '', $this->request->joinWith));
-    //     foreach ($relations as $relation) {
-    //         $joins = explode('~', $relation);
-    //         if (count($joins) > 1){
-    //             $filters = [];
-    //             $filterParts = explode('-', $joins[1]);
-    //             foreach ($filterParts as $filter) {
-    //                 $parts = explode(':', $filter);
-    //                 $filters[] = [
-    //                     'column' => $parts[0],
-    //                     'value' => ($joins[0] == 'default_column_settings' && $parts[0] == 'model_type') ? Helper::getModelType($parts[1]) : $parts[1]
-    //                 ];
-    //             }
-    //             $query = $query->with([
-    //                 $joins[0] => function ($q) use ($filters) {
-    //                     foreach ($filters as $filter) {
-    //                         $q->where($filter['column'], $filter['value']);
-    //                     }
-    //                 }
-    //             ]);
-    //         }else{
-    //             $query = $query->with($joins[0]);
-
-    //             if ($this->request->has('request_from') && $this->request->request_from === 'dropdown' && !$this->request->has('include_join') || $this->request->include_join != false) {
-    //                 $query = $query->has($joins[0]);
-    //             }
-    //         }
-    //     }
-
-    //     if ($this->request->has('have_not_join'))
-    //         $query = $query->doesntHave($this->request->have_not_join);
-
-    //     if ($this->request->has('has_join'))
-    //         $query = $query->has($this->request->has_join);
-
-    //     return $query;
-    // }
-
-    // protected function addJoin($query)
-    // {
-    //     if ($this->request->has('trashed') && $this->request->trashed == true)
-    //         $query = $query->withTrashed();
-    //     elseif ($this->request->has('onlyTrashed') && $this->request->onlyTrashed == true)
-    //         $query = $query->onlyTrashed();
-
-    //     if (!$this->request->has('joinWith')) return $query;
-
-    //     $relations = explode(',', str_replace(' ', '', $this->request->joinWith));
-
-    //     foreach ($relations as $relation) {
-    //         $joins = explode('~', $relation);
-
-    //         if (count($joins) > 1) {
-    //             // Handle relation with filters
-    //             $filters = [];
-    //             $columns = [];
-
-    //             $filterParts = explode('-', $joins[1]);
-
-    //             foreach ($filterParts as $filter) {
-    //                 // Check if this part specifies columns (using @ symbol)
-    //                 if (strpos($filter, '@') === 0) {
-    //                     $columns = explode('|', substr($filter, 1));
-    //                     continue;
-    //                 }
-
-    //                 $parts = explode(':', $filter);
-    //                 $filters[] = [
-    //                     'column' => $parts[0],
-    //                     'value' => $parts[1]
-    //                 ];
-    //             }
-
-    //             $query = $query->with([
-    //                 $joins[0] => function ($q) use ($filters, $columns) {
-    //                     // Apply filters
-    //                     foreach ($filters as $filter) {
-    //                         $q->where($filter['column'], $filter['value']);
-    //                     }
-
-    //                     // Select specific columns if specified
-    //                     if (!empty($columns)) {
-    //                         $q->select(array_merge(['id'], $columns));
-    //                     }
-    //                 }
-    //             ]);
-
-    //         } else {
-    //             // Handle simple relation with optional columns
-    //             $relationParts = explode('@', $joins[0]);
-    //             $relationName = $relationParts[0];
-
-    //             if (count($relationParts) > 1) {
-    //                 // Relation with specific columns
-    //                 $columns = explode('|', $relationParts[1]);
-
-    //                 $query = $query->with([
-    //                     $relationName => function ($q) use ($columns) {
-    //                         $q->select(array_merge(['id'], $columns));
-    //                     }
-    //                 ]);
-    //             } else {
-    //                 // Regular relation
-    //                 $query = $query->with($relationName);
-    //             }
-
-    //             if ($this->request->has('request_from') && $this->request->request_from === 'dropdown' && !$this->request->has('include_join') || $this->request->include_join != false) {
-    //                 $query = $query->has($relationName);
-    //             }
-    //         }
-    //     }
-
-    //     if ($this->request->has('have_not_join'))
-    //         $query = $query->doesntHave($this->request->have_not_join);
-
-    //     if ($this->request->has('has_join'))
-    //         $query = $query->has($this->request->has_join);
-
-    //     return $query;
-    // }
 
     // -------------------INFO: Add Join ------------------------
     protected function joinTable($query, $join = [])
