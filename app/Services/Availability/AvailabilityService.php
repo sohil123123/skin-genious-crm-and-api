@@ -28,7 +28,7 @@ class AvailabilityService
         $isSuperAdmin = check_role('super_admin');
 
         // 1️⃣ Weekly schedule
-        if (!$this->isWithinWeeklySchedule($clinicId, $therapistId, $start, $end)) {
+        if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
             $this->throwAvailabilityError(self::ERR_OUTSIDE_WORKING_HOURS, 'Outside working hours.');
         }
 
@@ -133,7 +133,7 @@ class AvailabilityService
         if (!$isSuperAdmin) {
 
             // 1️⃣ Working hours
-            if (!$this->isWithinWeeklySchedule($clinicId, $therapistId, $start, $end)) {
+            if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
                 $this->throwAvailabilityError(self::ERR_OUTSIDE_WORKING_HOURS, 'Therapist is outside working hours.');
             }
 
@@ -184,7 +184,7 @@ class AvailabilityService
         // Collect violations only for logging / warning
         $violations = [];
 
-        if (!$this->isWithinWeeklySchedule($clinicId, $therapistId, $start, $end)) {
+        if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
             $violations[] = 'outside_working_hours';
         }
 
@@ -224,16 +224,16 @@ class AvailabilityService
         return $emergency;
     }
 
-    private function isWithinWeeklySchedule(int $clinicId, int $therapistId, Carbon $start, Carbon $end): bool {
-        return UserWeeklySchedule::query()
-            ->active()
-            ->where('clinic_id', $clinicId)
-            ->where('user_id', $therapistId)
-            ->where('day_of_week', $start->isoWeekday())
-            ->where('start_time', '<=', $start->format('H:i'))
-            ->where('end_time', '>=', $end->format('H:i'))
-            ->exists();
-    }
+    // private function isWithinWeeklySchedule(int $clinicId, int $therapistId, Carbon $start, Carbon $end): bool {
+    //     return UserWeeklySchedule::query()
+    //         ->active()
+    //         ->where('clinic_id', $clinicId)
+    //         ->where('user_id', $therapistId)
+    //         ->where('day_of_week', $start->isoWeekday())
+    //         ->where('start_time', '<=', $start->format('H:i'))
+    //         ->where('end_time', '>=', $end->format('H:i'))
+    //         ->exists();
+    // }
 
     private function findBlockingException(int $clinicId, int $therapistId, Carbon $start, Carbon $end): ?array {
 
@@ -348,6 +348,106 @@ class AvailabilityService
             'pending'   => (clone $baseQuery)->where('status', 'pending')->count(),
         ];
     }
+
+    private function isWithinEffectiveAvailability(int $clinicId, int $therapistId, Carbon $start, Carbon $end): bool {
+
+        $date = $start->toDateString();
+        $availability = [];
+
+        // Fetch exceptions
+        $exceptions = $this->getExceptionsForDate($clinicId, $therapistId, $start);
+
+        // ❌ Full day leave → nothing allowed
+        if ($exceptions->where('type', 'leave_full_day')->count()) {
+            return false;
+        }
+
+        // 1️⃣ Base weekly schedule
+        $weekly = UserWeeklySchedule::query()
+            ->active()
+            ->where('clinic_id', $clinicId)
+            ->where('user_id', $therapistId)
+            ->where('day_of_week', $start->isoWeekday())
+            ->get();
+
+        foreach ($weekly as $w) {
+            $availability[] = [
+                'from' => $w->start_time,
+                'to'   => $w->end_time,
+            ];
+        }
+
+        // 2️⃣ Override hours → REPLACE
+        $override = $exceptions->firstWhere('type', 'override_hours');
+        if ($override) {
+            $availability = [[
+                'from' => $override->start_time,
+                'to'   => $override->end_time,
+            ]];
+        }
+
+        // 3️⃣ Extra hours → ADD
+        foreach ($exceptions->where('type', 'extra_hours') as $ex) {
+            $availability[] = [
+                'from' => $ex->start_time,
+                'to'   => $ex->end_time,
+            ];
+        }
+
+        // 4️⃣ Subtract leave_partial + blocked_hours
+        foreach ($exceptions->whereIn('type', ['leave_partial', 'blocked_hours']) as $block) {
+            $availability = $this->subtractTimeRange(
+                $availability,
+                $block->start_time,
+                $block->end_time
+            );
+        }
+
+        // 5️⃣ Final check
+        foreach ($availability as $slot) {
+            if (
+                $start->format('H:i') >= $slot['from'] &&
+                $end->format('H:i')   <= $slot['to']
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function subtractTimeRange(array $slots, string $blockFrom, string $blockTo): array
+    {
+        $result = [];
+
+        foreach ($slots as $slot) {
+
+            // No overlap
+            if ($blockTo <= $slot['from'] || $blockFrom >= $slot['to']) {
+                $result[] = $slot;
+                continue;
+            }
+
+            // Left split
+            if ($blockFrom > $slot['from']) {
+                $result[] = [
+                    'from' => $slot['from'],
+                    'to'   => $blockFrom,
+                ];
+            }
+
+            // Right split
+            if ($blockTo < $slot['to']) {
+                $result[] = [
+                    'from' => $blockTo,
+                    'to'   => $slot['to'],
+                ];
+            }
+        }
+
+        return $result;
+    }
+
 
     private function throwAvailabilityError(string $code, string $message, array $details = []): void {
         throw ValidationException::withMessages([
