@@ -474,7 +474,7 @@ class AppointmentsTable
                     ->successNotification(function ($record) {
                         return Notification::make()
                             ->title('Appointment Deleted 🎉')
-                            ->body("The User **{$record->user->name}** appointment has been removed successfully.")
+                            ->body("Appointment has been removed successfully.")
                             ->success();
                     }),
                 RestoreAction::make()

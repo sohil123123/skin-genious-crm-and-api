@@ -318,6 +318,9 @@ class UnavailableSlotService
                     'therapist' => $a->therapist?->name,
                     'clinic'    => $a->clinic?->name,
                     'client'    => $a->client?->name,
+                    'type'      => $a->type->value,
+                    'assessment' => $a->assessment?->id,
+                    'session_title' => $a->treatmentSession?->title,
                 ],
             ];
         }
