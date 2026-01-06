@@ -191,16 +191,16 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                // Action::make('new_assessment')
-                //     ->label('New Assessment')
-                //     ->visible(fn ($record) => $record->hasRole('client'))
-                //     ->icon('heroicon-o-plus')
-                //     ->color('info')
-                //     ->action(function ($record) {
-                //         $assessmentUrl = new_assessment($record);
-                //         return redirect($assessmentUrl);
-                //     })
-                //     ->requiresConfirmation(),
+                Action::make('new_assessment')
+                    ->label('New Assessment')
+                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
 
                 Action::make('holiday')
                     ->visible(fn ($record) => $record->hasRole('therapist'))
@@ -210,13 +210,13 @@ class UsersTable
                     ->tooltip('Manage Holidays')
                     ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
 
-                Action::make('appointment')
-                    ->visible(fn ($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-calendar-days')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Appointments')
-                    ->url(fn ($record) => route('filament.admin.resources.users.appointments', ['record' => $record])),
+                // Action::make('appointment')
+                //     ->visible(fn ($record) => $record->hasRole('client'))
+                //     ->icon('heroicon-o-calendar-days')
+                //     ->iconButton()
+                //     ->color('info')
+                //     ->tooltip('Manage Appointments')
+                //     ->url(fn ($record) => route('filament.admin.resources.users.appointments', ['record' => $record])),
 
                 Action::make('assessment')
                     ->visible(fn ($record) => $record->hasRole('client'))

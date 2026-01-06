@@ -14,11 +14,12 @@ return new class extends Migration
         Schema::create('assessments', function (Blueprint $table) {
             $table->id()->comment('Primary key: Unique assessment ID');
 
+            $table->string('conversation_id')->nullable()->comment('Conversation ID of open ai conversation');
             $table->foreignId('parent_id')->nullable()->constrained('assessments')->cascadeOnDelete()->cascadeOnUpdate()->comment('Parent assessment ID if applicable');
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the user whose assessment is to be created');
             $table->foreignId('clinic_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Clinic associated with this assessment');
-            $table->foreignId('created_by')->nullable()->constrained('users')->cascadeOnDelete()->cascadeOnUpdate()->comment('Who created the assessment');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the user whose assessment is to be created');
 
+            $table->string('name')->nullable()->comment('Assessment name');
             $table->integer('age')->nullable()->comment('Patient age in years');
             $table->string('daily_sun_exposure_hours')->nullable()->comment('Average daily sun exposure in hours');
             $table->enum('social_event', ['yes', 'no'])->default('no')->comment('Whether the patient has recent or upcoming social events');
@@ -36,6 +37,7 @@ return new class extends Migration
             $table->enum('status', ['in_progress', 'pending', 'completed', 'incomplete', 'cancelled', 'overdue'])->default('in_progress')->comment('Status of the assessment');
             $table->text('therapist_notes')->nullable()->comment('Additional notes from the therapist');
 
+            $table->foreignId('created_by')->nullable()->constrained('users')->cascadeOnDelete()->cascadeOnUpdate()->comment('Who created the assessment');
             $table->softDeletes();
             $table->timestamps();
 

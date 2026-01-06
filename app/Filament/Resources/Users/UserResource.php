@@ -63,7 +63,7 @@ class UserResource extends Resource
             EditUser::class,
             ManageHolidays::class,
             ManageAssessments::class,
-            ManageAppointments::class,
+            // ManageAppointments::class,
         ]);
     }
 
@@ -84,7 +84,7 @@ class UserResource extends Resource
             'view' => ViewUser::route('/{record}'),
             'holidays' => ManageHolidays::route('/{record}/holidays'),
             'assessments' => ManageAssessments::route('/{record}/assessments'),
-            'appointments' => ManageAppointments::route('/{record}/appointments'),
+            // 'appointments' => ManageAppointments::route('/{record}/appointments'),
         ];
     }
 

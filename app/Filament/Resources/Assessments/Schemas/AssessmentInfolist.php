@@ -153,9 +153,9 @@ class AssessmentInfolist
                                             ->label('Current Score')
                                             ->getStateUsing(fn () => $item['current_score']),
 
-                                        TextEntry::make('target_score')
-                                            ->label('Target Score')
-                                            ->getStateUsing(fn () => $item['target_score']),
+                                        // TextEntry::make('target_score')
+                                        //     ->label('Target Score')
+                                        //     ->getStateUsing(fn () => $item['target_score']),
                                     ])->columns(3);
                                 })->toArray()
                             )

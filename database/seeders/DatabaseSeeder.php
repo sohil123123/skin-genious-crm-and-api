@@ -27,7 +27,11 @@ class DatabaseSeeder extends Seeder
             $this->call(PermissionSeeder::class);
             $this->call(RoleSeeder::class);
             $this->call(ClinicsTableSeeder::class);
-            $this->call(UserSeeder::class);
+            $this->call(UsersTableSeeder::class);
+            $this->call(ModelHasRolesTableSeeder::class);
+            $this->call(AssessmentsTableSeeder::class);
+            $this->call(TreatmentSessionsTableSeeder::class);
+            $this->call(MediaTableSeeder::class);
 
             $this->command->call('shield:generate', [
                 '--panel' => 'admin',

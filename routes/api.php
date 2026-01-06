@@ -5,7 +5,11 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Str;
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AutoCaptureController;
 use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AssessmentController;
+use App\Http\Controllers\Api\CommonController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -14,22 +18,22 @@ use App\Http\Controllers\Api\AppointmentController;
 // ----------------- public (Frontend) -------------------------
 Route::namespace('App\Http\Controllers\Api')->group(function () {
 
-    Route::post('/login', 'AuthController@login');
+    Route::post('/login', [AuthController::class, 'login']);
 
-    Route::get('device/connect', 'AutoCaptureController@capturePhotos');
+    Route::get('device/connect', [AutoCaptureController::class, 'capturePhotos']);
 
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
-        Route::get('/logout', 'AuthController@logout');
+        Route::get('/logout', [AuthController::class, 'logout']);
 
         // INFO: User CRUD Route
         Route::apiResource('users', 'UserController')->only(['index', 'show']);
 
         // INFO: Assessment CRUD Route
-        Route::get('/assessments/get-in-progress-assessment/{user_id}', 'AssessmentController@getInProgressAssessment');
-        Route::delete('/assessments/{assessment}/images/{assessment_type}', 'AssessmentController@deleteAllImage');
-        Route::delete('/assessments/{assessment}/images/{media}/{assessment_type}', 'AssessmentController@deleteImage');
-        Route::post('/assessments/{assessment}/images', 'AssessmentController@storeImage');
+        Route::get('/assessments/get-in-progress-assessment/{user_id}', [AssessmentController::class, 'getInProgressAssessment']);
+        Route::delete('/assessments/{assessment}/images/{assessment_type}', [AssessmentController::class, 'deleteAllImage']);
+        Route::delete('/assessments/{assessment}/images/{media}/{assessment_type}', [AssessmentController::class, 'deleteImage']);
+        Route::post('/assessments/{assessment}/images', [AssessmentController::class, 'storeImage']);
         Route::apiResource('assessments', 'AssessmentController');
 
         // INFO: Treatment Plan CRUD Route
@@ -43,10 +47,10 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::apiResource('appointments', 'AppointmentController');
 
         // INFO: Common Route
-        Route::get('get-clinics', 'CommonController@getClinics');
-        Route::get('get-users', 'CommonController@getUsers');
-        Route::get('get-assessments', 'CommonController@getAssessments');
-        Route::get('get-treatment-sessions', 'CommonController@getTreatmentSessions');
+        Route::get('get-clinics', [CommonController::class, 'getClinics']);
+        Route::get('get-users', [CommonController::class, 'getUsers']);
+        Route::get('get-assessments', [CommonController::class, 'getAssessments']);
+        Route::get('get-treatment-sessions', [CommonController::class, 'getTreatmentSessions']);
 
     });
 

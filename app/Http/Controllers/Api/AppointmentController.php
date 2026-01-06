@@ -148,8 +148,6 @@ class AppointmentController extends BaseApiController
             'appointment' => new AppointmentResource($appointment),
             'warning' => $warning,
         ]);
-
-
     }
 
     public function updateTreatmentSessionId(Request $request, $appointment_id)

@@ -72,12 +72,13 @@ abstract class BaseApiController extends Controller
         $query = addWhere($this->model, $this->request);
 
         // $result =  $this->addJoin($query)->find($id);
-        $result =  addJoin($query, $this->request)->find($id);
+        $result = addJoin($query, $this->request)->find($id);
 
         if (!$result)
             return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
 
-        return $this->success($this->crud_name.' get successfully', $result);
+        $collection = new $this->resourceClass($result);
+        return $this->success($this->crud_name.' get successfully', $collection);
     }
 
     public function destroy(Request $request, string $id)
