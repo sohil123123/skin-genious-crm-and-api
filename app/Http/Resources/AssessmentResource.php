@@ -15,8 +15,6 @@ class AssessmentResource extends BaseResource
      */
     public function toArray(Request $request): array
     {
-        // return parent::toArray($request);
-
         return [
             'id' => $this->id,
             'conversation_id' => $this->conversation_id,
@@ -34,25 +32,12 @@ class AssessmentResource extends BaseResource
             'breastfeeding' => $this->breastfeeding,
             'diagnosis' => $this->diagnosis,
             'parameters_with_abnormal_scores' => $this->parameters_with_abnormal_scores,
-            // 'treatment_plan_type' => $this->treatment_plan_type,
             'treatment_sessions' => $this->treatment_sessions,
             'selected_plan_type' => $this->selected_plan_type,
             'status' => $this->status,
             'therapist_notes' => $this->therapist_notes,
-            'images' => $this->getMedia('assessment_images')->map(function (Media $media) {
-                return [
-                    'id' => $media->id,
-                    'url' => $media->getUrl(),
-                    'name' => $media->name,
-                ];
-            })->toArray(),
-            'post_images' => $this->getMedia('post_assessment_images')->map(function (Media $media) {
-                return [
-                    'id' => $media->id,
-                    'url' => $media->getUrl(),
-                    'name' => $media->name,
-                ];
-            })->toArray(),
+            'images' => $this->images,
+            'post_images' => $this->post_images,
             'user' => new UserResource($this->whenLoaded('user')),
             'createdBy' => new UserResource($this->whenLoaded('createdBy')),
             // 'parentAssessment' => new AssessmentResource($this->whenLoaded('parentAssessment')),

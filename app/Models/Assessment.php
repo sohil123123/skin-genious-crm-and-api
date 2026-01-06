@@ -17,7 +17,7 @@ class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['parent_id', 'conversation_id', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'is_pregnant', 'breastfeeding', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'status', 'therapist_notes', 'created_by'];
+    protected $fillable = ['parent_id', 'conversation_id', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'skin_temp_for_cheeks', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'status', 'therapist_notes', 'created_by'];
 
     protected $casts = [
         'medical_history' => 'array',
@@ -86,6 +86,7 @@ class Assessment extends Model implements HasMedia
                 'name' => $media->name,
                 // 'mime_type' => $media->mime_type,
                 // 'size' => $media->size,
+                'custom_properties' => $media->custom_properties
             ];
         });
     }
@@ -97,6 +98,7 @@ class Assessment extends Model implements HasMedia
                 'id' => $media->id,
                 'url' => $media->getUrl(),
                 'name' => $media->name,
+                'custom_properties' => $media->custom_properties
             ];
         });
     }

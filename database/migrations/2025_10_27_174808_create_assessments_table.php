@@ -26,6 +26,10 @@ return new class extends Migration
             $table->enum('upcoming_travel', ['yes', 'no'])->default('no')->comment('Whether the patient has upcoming travel plans');
             $table->json('medical_history')->nullable()->comment('Patient medical history in JSON format');
             $table->json('allergies')->nullable()->comment('List of patient allergies in JSON format');
+            $table->string('skin_temp_for_head')->nullable()->comment('Skin temperature for head');
+            $table->string('skin_temp_for_cheeks')->nullable()->comment('Skin temperature for cheeks');
+            $table->enum('recent_peel_or_laser', ['yes', 'no'])->nullable()->comment('Recent peel or laser treatment');
+            $table->enum('retinol_used_last_night', ['yes', 'no'])->nullable()->comment('Retinol used last night');
             $table->boolean('is_pregnant')->default(false)->comment('Whether the user is pregnant (true/false)');
             $table->enum('breastfeeding', ['yes', 'no'])->nullable()->comment('Whether the patient is currently breastfeeding');
             $table->json('diagnosis')->nullable()->comment('Diagnosis details in JSON format');

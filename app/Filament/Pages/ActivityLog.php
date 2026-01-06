@@ -16,6 +16,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Actions\Action;
+use Filament\Infolists\Components\RepeatableEntry;
 
 use UnitEnum;
 use BackedEnum;
@@ -104,12 +105,13 @@ class ActivityLog extends Page implements HasTable
                             ]),
 
                         Section::make('Changes')
-                            ->visible(fn ($record) => $record->event != 'status_changed')
+                            ->visible(fn ($record) => isset($record->properties['attributes']) && isset($record->properties['old']))
                             ->schema([
                                 KeyValue::make('properties.attributes')
                                     ->label('New Values')
                                     ->keyLabel('Field')
-                                    ->valueLabel('Value'),
+                                    ->valueLabel('Value')
+                                    ->visible(fn ($record) => isset($record->properties['attributes'])),
                                 
                                 KeyValue::make('properties.old')
                                     ->label('Old Values')
@@ -118,15 +120,51 @@ class ActivityLog extends Page implements HasTable
                                     ->visible(fn ($record) => isset($record->properties['old'])),
                             ]),
                         
-                        Section::make('Changes')
-                            ->visible(fn ($record) => $record->event == 'status_changed')
+                        // Section::make('Changes')
+                        //     ->visible(fn ($record) => $record->event == 'status_changed')
+                        //     ->schema([
+                        //         TextEntry::make('properties.emergency_reason.capacity')->label('Available Capacity')->numeric(),
+                        //         TextEntry::make('properties.emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
+                        //         TextEntry::make('properties.emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
+                        //         TextEntry::make('properties.emergency_reason.is_emergency')->label('Emergency Override')->badge()->color(fn (bool $state) => $state ? 'danger' : 'gray')->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
+                        //     ])
+                        //     ->columns(3)
+
+                        Section::make('Emergency Overrides')
+                            ->visible(fn ($record) => filled($record->properties['emergency_reason'] ?? null))
                             ->schema([
-                                TextEntry::make('properties.emergency_reason.capacity')->label('Available Capacity')->numeric(),
-                                TextEntry::make('properties.emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
-                                TextEntry::make('properties.emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
-                                TextEntry::make('properties.emergency_reason.is_emergency')->label('Emergency Override')->badge()->color(fn (bool $state) => $state ? 'danger' : 'gray')->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
+                                RepeatableEntry::make('emergency_reason')
+                                    ->label('Emergency Reasons')
+                                    ->getStateUsing(fn ($record) => $record->properties['emergency_reason'] ?? [])
+                                    ->schema([
+                                        TextEntry::make('message')
+                                            ->label('Message')
+                                            ->badge()
+                                            ->color('danger')
+                                            ->columnSpanFull(),
+
+                                        // TextEntry::make('is_emergency')
+                                        //     ->label('Emergency')
+                                        //     ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No')
+                                        //     ->badge()
+                                        //     ->color(fn ($state) => $state ? 'danger' : 'gray'),
+
+                                        TextEntry::make('capacity')
+                                            ->label('Capacity')
+                                            ->placeholder('-')
+                                            ->numeric()
+                                            ->visible(fn ($state) => filled($state)),
+
+                                        TextEntry::make('confirmed')
+                                            ->label('Confirmed')
+                                            ->placeholder('-')
+                                            ->numeric()
+                                            ->visible(fn ($state) => filled($state)),
+                                    ])
+                                    ->columns(2),
                             ])
-                            ->columns(3)
+
+
                     ])
             ]);
     }

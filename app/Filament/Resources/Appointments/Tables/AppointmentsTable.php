@@ -470,6 +470,7 @@ class AppointmentsTable
                     })
                     ->requiresConfirmation(),
                 ViewAction::make(),
+                EditAction::make(),
                 DeleteAction::make()
                     ->successNotification(function ($record) {
                         return Notification::make()

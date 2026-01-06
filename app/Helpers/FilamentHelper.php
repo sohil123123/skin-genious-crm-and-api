@@ -146,7 +146,6 @@ if (!function_exists('can_start_session')) {
     }
 }
 
-
 if (!function_exists('time_options')) {
     function time_options($start = 7, $end = 23)
     {
@@ -160,7 +159,6 @@ if (!function_exists('time_options')) {
         return $options;
     }
 }
-
 
 if (!function_exists('disabled_sunday_dates')) {
     function disabled_sunday_dates($how_many_year = 1)

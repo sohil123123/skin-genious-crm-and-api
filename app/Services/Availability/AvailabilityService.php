@@ -74,11 +74,11 @@ class AvailabilityService
             }
 
             // Super admin → WARN
-            $warning = [
+            $warning[] = [
                 'code'    => self::ERR_NO_BED_AVAILABLE,
-                'message' => 'Clinic bed capacity exceeded. Emergency override applied.',
+                'message' => $status == 'confirmed' ? 'Clinic bed capacity exceeded. Emergency override applied.' : 'Clinic bed capacity exceeded.',
                 'emergency' => [
-                    'message' => 'Clinic bed capacity exceeded. Emergency override applied.',
+                    'message' => 'Clinic bed capacity exceeded, Emergency override applied.',
                     'capacity'   => $bed['capacity'] ?? null,
                     'confirmed'  => $bed['confirmed'] ?? null,
                     'is_emergency' => true,
@@ -89,7 +89,7 @@ class AvailabilityService
 
         // 🟠 Pending already exists but capacity not exceeded
         elseif ($bed['pending'] >= $bed['capacity']) {
-            $warning = [
+            $warning[] = [
                 'code'    => self::WARN_BED_CAPACITY,
                 'message' => 'Pending appointment exceeds bed capacity.',
                 'details' => $bed,
@@ -97,18 +97,31 @@ class AvailabilityService
         }
 
         // 5️⃣ Therapist overlap
-        if (!$isSuperAdmin) {
-            $overlap = Appointment::query()
-                ->where('clinic_id', $clinicId)
-                ->where('therapist_id', $therapistId)
-                ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
-                ->when($ignoreAppointmentId, fn ($q) => $q->where('id', '!=', $ignoreAppointmentId))
-                ->where(fn ($q) => $q->where('start_datetime', '<', $end)->where('end_datetime', '>', $start))
-                ->exists();
+        $overlap = Appointment::query()
+            ->where('clinic_id', $clinicId)
+            ->where('therapist_id', $therapistId)
+            // ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
+            ->whereIn('status', ['confirmed'])
+            ->when($ignoreAppointmentId, fn ($q) => $q->where('id', '!=', $ignoreAppointmentId))
+            ->where(fn ($q) => $q->where('start_datetime', '<', $end)->where('end_datetime', '>', $start))
+            ->exists();
 
+        if (!$isSuperAdmin) {
             if ($overlap) {
                 $this->throwAvailabilityError(self::ERR_ALREADY_BOOKED, 'Therapist already booked.');
             }
+        }
+
+        // Super admin → WARN
+        if ($overlap) {
+            $warning[] = [
+                'code'    => self::ERR_ALREADY_BOOKED,
+                'message' => $status == 'confirmed' ? 'Therapist already booked. Emergency override applied.' : 'Therapist already booked.',
+                'emergency' => [
+                    'message' => 'Therapist already booked, Emergency override applied.',
+                    'is_emergency' => true,
+                ],
+            ];
         }
 
         return $warning;
@@ -151,12 +164,20 @@ class AvailabilityService
                 );
             }
 
+            // 4️⃣ Bed capacity (confirmed only)
+            $bed = $this->getBedUsageDetailed($clinicId, $start, $end, $appointment->id);
+
+            if ($bed['confirmed'] >= $bed['capacity']) {
+                $this->throwAvailabilityError(self::ERR_NO_BED_AVAILABLE, 'Clinic bed capacity exceeded.', $bed);
+            }
+
             // 3️⃣ Therapist overlap
             $overlap = Appointment::query()
                 ->where('clinic_id', $clinicId)
                 ->where('therapist_id', $therapistId)
                 ->where('id', '!=', $appointment->id)
-                ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
+                // ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
+                ->whereIn('status', ['confirmed'])
                 ->where(function ($q) use ($start, $end) {
                     $q->where('start_datetime', '<', $end)
                     ->where('end_datetime',   '>', $start);
@@ -165,13 +186,6 @@ class AvailabilityService
 
             if ($overlap) {
                 $this->throwAvailabilityError(self::ERR_ALREADY_BOOKED, 'Therapist already has an appointment during this time.');
-            }
-
-            // 4️⃣ Bed capacity (confirmed only)
-            $bed = $this->getBedUsageDetailed($clinicId, $start, $end, $appointment->id);
-
-            if ($bed['confirmed'] >= $bed['capacity']) {
-                $this->throwAvailabilityError(self::ERR_NO_BED_AVAILABLE, 'Clinic bed capacity exceeded.', $bed);
             }
         }
 
@@ -182,46 +196,85 @@ class AvailabilityService
         */
 
         // Collect violations only for logging / warning
-        $violations = [];
+        // $violations = [];
+        $warning = [];
 
         if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
-            $violations[] = 'outside_working_hours';
+            // $violations[] = 'outside_working_hours';
+            $warning[] = [
+                'code'    => self::ERR_OUTSIDE_WORKING_HOURS,
+                'message' => 'Therapist outside working hours, Emergency override applied.',
+                'emergency' => [
+                    'message' => 'Therapist outside working hours, Emergency override applied.',
+                    'is_emergency' => true,
+                ],
+            ];
         }
 
         if ($exception = $this->findBlockingException($clinicId, $therapistId, $start, $end)) {
-            $violations[] = $exception['category'];
+            // $violations[] = $exception['category'];
+            $warning[] = [
+                'code'    => $exception['category'],
+                'message' => 'Appointment cannot be confirmed due to availability restrictions, Emergency override applied.',
+                'emergency' => [
+                    'message' => 'Appointment cannot be confirmed due to availability restrictions, Emergency override applied.',
+                    'is_emergency' => true,
+                ],
+            ];
+        }
+
+        $bed = $this->getBedUsageDetailed($clinicId, $start, $end, $appointment->id);
+
+        if ($bed['confirmed'] >= $bed['capacity']) {
+            // $violations[] = 'bed_capacity_exceeded';
+            $warning[] = [
+                'code'    => self::ERR_NO_BED_AVAILABLE,
+                'message' => 'Clinic bed capacity exceeded, Emergency override applied.',
+                'emergency' => [
+                    'message' => 'Clinic bed capacity exceeded, Emergency override applied.',
+                    'capacity'   => $bed['capacity'] ?? null,
+                    'confirmed'  => $bed['confirmed'] ?? null,
+                    'is_emergency' => true,
+                ],
+                'details' => $bed,
+            ];
         }
 
         $overlap = Appointment::query()
             ->where('clinic_id', $clinicId)
             ->where('therapist_id', $therapistId)
             ->where('id', '!=', $appointment->id)
-            ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
+            // ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
+            ->whereIn('status', ['confirmed'])
             ->where(function ($q) use ($start, $end) {
                 $q->where('start_datetime', '<', $end)->where('end_datetime',   '>', $start);
             })
             ->exists();
 
         if ($overlap) {
-            $violations[] = 'therapist_overlap';
-        }
-
-        $bed = $this->getBedUsageDetailed($clinicId, $start, $end, $appointment->id);
-
-        if ($bed['confirmed'] >= $bed['capacity']) {
-            $violations[] = 'bed_capacity_exceeded';
-        }
-
-        // Store emergency metadata for controller
-        if (!empty($violations)) {
-            $emergency = [
-                'violations' => $violations,
-                'capacity'   => $bed['capacity'] ?? null,
-                'confirmed'  => $bed['confirmed'] ?? null,
-                'is_emergency' => true,
+            // $violations[] = 'therapist_overlap';
+            $warning[] = [
+                'code'    => self::ERR_ALREADY_BOOKED,
+                'message' => 'Therapist already booked, Emergency override applied.',
+                'emergency' => [
+                    'message' => 'Therapist already booked, Emergency override applied.',
+                    'is_emergency' => true,
+                ],
             ];
         }
-        return $emergency;
+
+        return $warning;
+
+        // Store emergency metadata for controller
+        // if (!empty($violations)) {
+        //     $emergency = [
+        //         'message' => $violations,
+        //         'capacity'   => $bed['capacity'] ?? null,
+        //         'confirmed'  => $bed['confirmed'] ?? null,
+        //         'is_emergency' => true,
+        //     ];
+        // }
+        // return $emergency;
     }
 
     // private function isWithinWeeklySchedule(int $clinicId, int $therapistId, Carbon $start, Carbon $end): bool {
@@ -447,7 +500,6 @@ class AvailabilityService
 
         return $result;
     }
-
 
     private function throwAvailabilityError(string $code, string $message, array $details = []): void {
         throw ValidationException::withMessages([

@@ -43,17 +43,47 @@ class AppointmentInfolist
                     ])
                     ->columns(3),
 
+                // Section::make('Emergency Reason')
+                //     ->description('Emergency reason details')
+                //     ->icon('heroicon-o-exclamation-triangle')
+                //     ->visible(fn ($record) => ! empty($record->is_emergency))
+                //     ->schema([
+                //         TextEntry::make('emergency_reason.capacity')->label('Available Capacity')->numeric(),
+                //         TextEntry::make('emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
+                //         TextEntry::make('emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
+                //     ])
+                //     ->columns(3)
+                //     ->collapsible(),
+
                 Section::make('Emergency Reason')
                     ->description('Emergency reason details')
                     ->icon('heroicon-o-exclamation-triangle')
                     ->visible(fn ($record) => ! empty($record->is_emergency))
                     ->schema([
-                        TextEntry::make('emergency_reason.capacity')->label('Available Capacity')->numeric(),
-                        TextEntry::make('emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
-                        TextEntry::make('emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
-                    ])
-                    ->columns(3)
-                    ->collapsible(),
+                        RepeatableEntry::make('emergency_reason')
+                            ->label('Emergency Reasons')
+                            ->getStateUsing(fn ($record) => $record->emergency_reason ?? [])
+                            ->schema([
+                                TextEntry::make('message')
+                                    ->label('Message')
+                                    ->badge()
+                                    ->color('danger')
+                                    ->columnSpanFull(),
+
+                                TextEntry::make('capacity')
+                                    ->label('Available Capacity')
+                                    ->placeholder('-')
+                                    ->numeric()
+                                    ->visible(fn ($state) => filled($state)),
+
+                                TextEntry::make('confirmed')
+                                    ->label('Confirmed Cases')
+                                    ->placeholder('-')
+                                    ->numeric()
+                                    ->visible(fn ($state) => filled($state)),
+                            ])
+                            ->columns(2),
+                        ]),
 
                 Section::make('Treatment Session Details')
                     ->description('assessment id and treatment session title.')

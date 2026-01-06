@@ -53,9 +53,10 @@ class AppointmentController extends BaseApiController
             status: $status
         );
 
-        if ($status == 'confirmed' && !empty($warning) && $warning['code'] == 'NO_BED_AVAILABLE' && isset($warning['emergency'])) {
-            $data['is_emergency'] = $warning['emergency']['is_emergency'];
-            $data['emergency_reason'] = $warning['emergency'];
+        $emergencyData = collect($warning)->whereNotNull('emergency')->pluck('emergency')->values()->all();
+        if ($status == 'confirmed' && !empty($emergencyData)) {
+            $data['is_emergency'] = true;
+            $data['emergency_reason'] = $emergencyData;
 
             // Create the assessment record
             $appointment = $this->model->create($data);
@@ -66,7 +67,7 @@ class AppointmentController extends BaseApiController
                 ->performedOn($appointment)
                 ->causedBy(auth()->user())
                 ->withProperties([
-                    'emergency_reason' => $warning['emergency'],
+                    'emergency_reason' => $emergencyData,
                 ])
                 ->event('emergency_override')
                 ->log('Emergency Override');
@@ -210,24 +211,23 @@ class AppointmentController extends BaseApiController
         ]);
 
         $request_status = $validated['status'];
+        $update_input = [
+            'status' => $request_status,
+            'is_emergency' => false,
+            'emergency_reason' => null,
+        ];
 
         // Only re-validate when confirming
         if (($appointment->status->value === 'pending' && $request_status === 'confirmed') || ($appointment->status->value === 'confirmed' && $request_status === 'pending') || ($appointment->status->value === 'cancelled' && in_array($request_status, ['pending', 'confirmed']))) {
+            $warning = $availability->assertConfirmable($appointment);
+            $emergencyData = collect($warning)->whereNotNull('emergency')->pluck('emergency')->values()->all();
 
-            $emergency = $availability->assertConfirmable($appointment);
-
-            if (!empty($emergency)) {
-
-                // 🔕 Disable automatic model logging ONLY inside this block
-                $appointment->disableLogging();
-
-                $appointment->update([
+            if ($request_status === 'confirmed' && !empty($emergencyData)) {
+                $update_input = [
                     'status' => $request_status,
-                    'is_emergency' => $request_status === 'confirmed' ? $emergency['is_emergency'] : false,
-                    'emergency_reason' => $request_status === 'confirmed' ? $emergency : null,
-                ]);
-
-                $appointment->enableLogging();
+                    'is_emergency' => true,
+                    'emergency_reason' => $emergencyData,
+                ];
 
                 // ✅ SINGLE manual log
                 activity()
@@ -235,20 +235,27 @@ class AppointmentController extends BaseApiController
                     ->performedOn($appointment)
                     ->causedBy(auth()->user())
                     ->withProperties([
-                        'emergency_reason' => $emergency,
+                        'emergency_reason' => $emergencyData,
                     ])
                     ->event('emergency_override')
                     ->log('Emergency Override');
-
-                return $this->success(
-                    'Appointment status updated successfully',
-                    new AppointmentResource($appointment->fresh())
-                );
             }
+
+            // 🔕 Disable automatic model logging ONLY inside this block
+            $appointment->disableLogging();
+            
+            $appointment->update($update_input);
+
+            $appointment->enableLogging();
+
+            return $this->success('Appointment status updated successfully', [
+                'appointment' => new AppointmentResource($appointment->fresh()),
+                'warning' => $warning,
+            ]);
         }
 
         // Normal update → normal auto logging
-        $appointment->update($validated);
+        $appointment->update($update_input);
 
         return $this->success(
             'Appointment status updated successfully',
