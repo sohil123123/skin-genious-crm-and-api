@@ -53,11 +53,13 @@ class AssessmentsRelationManager extends RelationManager
                             ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
                             ->visible(fn ($record) => $record->clinic !== null)
                     )
+                    ->visible(fn () => check_role('super_admin'))
                     ->toggleable(),
-                TextColumn::make('createdBy.name')->label('Created By')->searchable(['first_name', 'last_name']),
-                TextColumn::make('selected_plan_type')->badge(),
-                TextColumn::make('total_time')->searchable(),
+                TextColumn::make('name')->placeholder('-')->searchable()->sortable(),
+                TextColumn::make('selected_plan_type')->badge()->placeholder('-'),
+                TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
+                TextColumn::make('createdBy.name')->label('Created By')->searchable(['first_name', 'last_name']),
                 TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()

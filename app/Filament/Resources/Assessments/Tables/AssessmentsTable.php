@@ -59,6 +59,7 @@ class AssessmentsTable
                     ->visible(fn () => check_role('super_admin'))
                     ->toggleable(),
                 TextColumn::make('user.name')->label('User Name')->searchable(['first_name', 'last_name']),
+                TextColumn::make('name')->placeholder('-')->searchable()->sortable(),
                 TextColumn::make('selected_plan_type')->badge()->placeholder('-'),
                 TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
