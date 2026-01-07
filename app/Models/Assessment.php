@@ -13,6 +13,9 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 use App\Models\User;
 
+use App\Enums\AssessmentSessionType;
+use App\Enums\AssessmentStatus;
+
 class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
@@ -27,6 +30,8 @@ class Assessment extends Model implements HasMedia
         'parameters_with_abnormal_scores' => 'array',
         'recommended_full_plan' => 'array',
         'is_pregnant' => 'boolean',
+        'selected_plan_type' => AssessmentSessionType::class,
+        'status' => AssessmentStatus::class,
     ];
 
     protected static function booted() {
@@ -118,46 +123,30 @@ class Assessment extends Model implements HasMedia
     // }
 
     // ---------------------------- Relationships --------------------------------
-    /**
-     * Parent Assessment (if applicable)
-     */
     public function parentAssessment()
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
 
-    /**
-     * User associated with the assessment
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Clinic associated with the assessment
-     */
     public function clinic()
     {
         return $this->belongsTo(Clinic::class);
     }
 
-    /**
-     * Creator of the assessment
-     */
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * Child assessments (if self-referencing)
-     */
     public function children()
     {
         return $this->hasMany(self::class, 'parent_id');
     }
-
 
     public function treatmentSessions()
     {

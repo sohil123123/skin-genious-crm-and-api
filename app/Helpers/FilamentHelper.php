@@ -54,6 +54,22 @@ if (!function_exists('get_treatment_session_duration')) {
     }
 }
 
+
+
+if (!function_exists('can_create_assessment')) {
+    function can_create_assessment($appointment)
+    {
+        $start = Carbon::parse($appointment->start_datetime)->subMinutes(10);
+        $end   = $appointment->end_datetime;
+
+        return $appointment->type->value === 'consult'
+        && in_array($appointment->status->value, ['confirmed'])
+        && is_null($appointment->assessment_id)
+        // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
+        && now()->between($start, $end);
+    }
+}
+
 if (!function_exists('new_assessment')) {
     function new_assessment($user, $appointment = [])
     {
@@ -75,30 +91,14 @@ if (!function_exists('new_assessment')) {
     }
 }
 
-// if (!function_exists('can_create_assessment')) {
-//     function can_create_assessment($appointment)
-//     {
-//         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
-//         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
-
-//         return $appointment->type->value === 'consult'
-//         && in_array($appointment->status->value, ['scheduled', 'confirmed'])
-//         && is_null($appointment->assessment_id);
-//         // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
-//         // && now()->between($start, $end);
-//     }
-// }
-
-if (!function_exists('can_create_assessment')) {
-    function can_create_assessment($appointment)
+if (!function_exists('can_start_session')) {
+    function can_start_session($appointment)
     {
         $start = Carbon::parse($appointment->start_datetime)->subMinutes(10);
         $end   = $appointment->end_datetime;
 
-        return $appointment->type->value === 'consult'
-        && in_array($appointment->status->value, ['confirmed'])
-        && is_null($appointment->assessment_id)
-        // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
+        return in_array($appointment->status->value, ['confirmed'])
+        && !is_null($appointment->treatment_session_id)
         && now()->between($start, $end);
     }
 }
@@ -119,30 +119,6 @@ if (!function_exists('start_session')) {
         $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment';
 
         return $assessmentUrl;
-    }
-}
-
-// if (!function_exists('can_start_session')) {
-//     function can_start_session($appointment)
-//     {
-//         $start = $appointment->appointment_datetime->clone()->subMinutes(10);
-//         $end   = $appointment->appointment_datetime->clone()->addMinutes($appointment->duration);
-
-//         return in_array($appointment->status->value, ['scheduled', 'confirmed'])
-//         && !is_null($appointment->treatment_session_id);
-//         // && now()->between($start, $end);
-//     }
-// }
-
-if (!function_exists('can_start_session')) {
-    function can_start_session($appointment)
-    {
-        $start = Carbon::parse($appointment->start_datetime)->subMinutes(10);
-        $end   = $appointment->end_datetime;
-
-        return in_array($appointment->status->value, ['confirmed'])
-        && !is_null($appointment->treatment_session_id)
-        && now()->between($start, $end);
     }
 }
 

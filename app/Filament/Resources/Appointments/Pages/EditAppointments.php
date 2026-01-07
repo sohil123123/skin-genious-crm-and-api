@@ -81,11 +81,10 @@ class EditAppointments extends EditRecord
                 status: $status,
                 ignoreAppointmentId: $this->getRecord()->id // IMPORTANT for edit
             );
-            // dd($warning);
-            $emergencyData = collect($warning)->whereNotNull('emergency')->pluck('emergency')->values()->all();
             
             // 3️⃣ Optional: show warning (super admin override)
             if (!empty($warning)) {
+                $emergencyData = collect($warning)->whereNotNull('emergency')->pluck('emergency')->values()->all();
                 if ($status == 'confirmed' && !empty($emergencyData)) {
                     $data['is_emergency'] = true;
                     $data['emergency_reason'] = $emergencyData;
@@ -100,7 +99,7 @@ class EditAppointments extends EditRecord
                         ->event('emergency_override')
                         ->log('Emergency Override');
                 }
-                // dd($warning);
+
                 $messages = collect($warning)->pluck('message')->filter()->implode(', ');
                 Notification::make()
                     ->title($messages ?? 'Availability warning')
@@ -127,8 +126,6 @@ class EditAppointments extends EditRecord
 
         // 5️⃣ Cleanup virtual fields
         unset($data['start_date'], $data['start_time'], $data['end_time']);
-
-        // dd($data);
 
         return $data;
     }
