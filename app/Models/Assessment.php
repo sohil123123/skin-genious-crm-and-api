@@ -36,7 +36,7 @@ class Assessment extends Model implements HasMedia
 
     protected static function booted() {
         static::creating(function ($assessment) {
-            $assessment->name = 'assessment_'. $assessment->user->assessments?->count() + 1;
+            $assessment->name = 'assessment #'. $assessment->user->assessments?->count() + 1;
             $assessment->created_by = auth()->user()->id;
             $selectedUser = User::find($assessment->user_id);
             if ($selectedUser && $selectedUser->clinic_id) {

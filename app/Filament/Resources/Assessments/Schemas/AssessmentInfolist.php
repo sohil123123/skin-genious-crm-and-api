@@ -67,18 +67,7 @@ class AssessmentInfolist
                                 ->badge()
                                 ->color(fn ($state) => $state === 'yes' ? 'warning' : 'gray'),
                             
-                            TextEntry::make('status')
-                                ->label('Status')
-                                ->badge()
-                                ->color(fn ($state) => match ($state) {
-                                    'in_progress' => 'info',
-                                    'pending' => 'gray',
-                                    'completed' => 'success',
-                                    'incomplete' => 'warning',
-                                    'cancelled' => 'danger',
-                                    'overdue' => 'danger',
-                                    default => 'gray',
-                                }),
+                            TextEntry::make('status')->badge(),
 
                             TextEntry::make('therapist_notes')
                                 ->label('Therapist Notes')
