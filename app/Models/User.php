@@ -10,6 +10,7 @@ use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 use Laravel\Sanctum\HasApiTokens;
 
@@ -119,9 +120,9 @@ class User extends Authenticatable
         return $this->belongsTo(Clinic::class);
     }
 
-    public function holidays() {
-        return $this->hasMany(Holiday::class);
-    }
+    // public function holidays() {
+    //     return $this->hasMany(Holiday::class);
+    // }
 
     public function assessments() {
         return $this->hasMany(Assessment::class);
@@ -134,6 +135,11 @@ class User extends Authenticatable
 
     public function appointments() {
         return $this->hasMany(Appointment::class);
+    }
+
+    public function holidays(): MorphMany
+    {
+        return $this->morphMany(AvailabilityException::class, 'exceptionable');
     }
 
     // -------------- Custom Functions ----------------

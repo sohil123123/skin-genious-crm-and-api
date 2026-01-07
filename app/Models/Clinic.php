@@ -8,6 +8,8 @@ use Cviebrock\EloquentSluggable\Sluggable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
 class Clinic extends Model
 {
     use HasFactory, SoftDeletes;
@@ -109,5 +111,10 @@ class Clinic extends Model
     public function appointments()
     {
         return $this->hasMany(Appointment::class);
+    }
+
+    public function holidays(): MorphMany
+    {
+        return $this->morphMany(AvailabilityException::class, 'exceptionable');
     }
 }
