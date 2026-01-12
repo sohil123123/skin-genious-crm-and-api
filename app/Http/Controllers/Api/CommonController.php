@@ -34,4 +34,20 @@ class CommonController extends BaseApiController
 
         return $this->success('Treatment sessions get successfully.', $response);
     }
+
+    public function pdfTest(Request $request)
+    {
+        $assessment = \App\Models\Assessment::find(47);
+
+        $html = view('pdf.diagnosis-report', ['record' => $assessment])->render();
+
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        
+        // Allow remote images if needed (though we use mostly local or base64)
+        $mpdf->showImageErrors = true; 
+        
+        $mpdf->WriteHTML($html);
+        return response($mpdf->Output('diagnosis-report.pdf', 'S'))
+                ->header('Content-Type', 'application/pdf');
+    }
 }

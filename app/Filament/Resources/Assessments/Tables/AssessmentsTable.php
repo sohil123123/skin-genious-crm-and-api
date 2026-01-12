@@ -28,6 +28,8 @@ use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
 use App\Models\Clinic;
 use App\Models\User;
+use App\Models\Assessment;
+
 
 class AssessmentsTable
 {
@@ -171,6 +173,20 @@ class AssessmentsTable
                     ->color('info')
                     ->tooltip('Manage Treatment Sessions')
                     ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
+                Action::make('diagnosis_pdf')
+                    ->label('Diagnosis PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->action(function (Assessment $record) {
+                        $html = view('pdf.diagnosis-report', ['record' => $record])->render();
+                        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                        $mpdf->showImageErrors = true;
+                        $mpdf->WriteHTML($html);
+                        
+                        return response()->streamDownload(function () use ($mpdf) {
+                            echo $mpdf->Output('', 'S');
+                        }, 'diagnosis-report-' . $record->id . '.pdf');
+                    }),
             ])
             ->groups([
                 // Group::make('parent_id')

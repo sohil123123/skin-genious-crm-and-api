@@ -52,6 +52,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::get('get-assessments', [CommonController::class, 'getAssessments']);
         Route::get('get-treatment-sessions', [CommonController::class, 'getTreatmentSessions']);
 
+        Route::get('pdf-test', [CommonController::class, 'pdfTest']);
+
     });
 
     // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
