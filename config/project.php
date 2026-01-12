@@ -15,6 +15,7 @@ return [
                     )",
 
     'mpdf_config' => [
+        'tempDir' => storage_path('app/mpdf'),
         'mode' => 'utf-8',
         'format' => 'A4',
         'margin_header' => 10,
