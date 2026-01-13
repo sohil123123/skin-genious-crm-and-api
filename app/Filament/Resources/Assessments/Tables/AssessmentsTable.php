@@ -23,6 +23,7 @@ use Filament\Tables\Filters\Indicator;
 
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
@@ -174,9 +175,10 @@ class AssessmentsTable
                     ->tooltip('Manage Treatment Sessions')
                     ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
                 Action::make('diagnosis_pdf')
-                    ->label('Diagnosis PDF')
                     ->icon('heroicon-o-arrow-down-tray')
+                    ->iconButton()
                     ->color('success')
+                    ->tooltip('Download Diagnosis PDF')
                     ->action(function (Assessment $record) {
                         $html = view('pdf.diagnosis-report', ['record' => $record])->render();
                         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
@@ -186,6 +188,19 @@ class AssessmentsTable
                         return response()->streamDownload(function () use ($mpdf) {
                             echo $mpdf->Output('', 'S');
                         }, 'diagnosis-report-' . $record->id . '.pdf');
+                    }),
+                Action::make('download_treatment_plan')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->iconButton()
+                    ->color('primary')
+                    ->tooltip('Download Treatment Plan Json')
+                    ->visible(fn ($record) =>
+                        Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
+                    )
+                    ->action(function ($record) {
+                        $name = "treatment_plans_#{$record->id}.json";
+                        $filePath = "treatment-plans/{$name}";
+                        return response()->download(Storage::disk('files')->path($filePath), $name);
                     }),
             ])
             ->groups([
