@@ -24,4 +24,5 @@ return [
         'margin_footer' => 0,
         'orientation' => 'P',
     ],
+    'assessment_image_order' => ['white', 'positive', 'negative', 'blue', 'uv', 'woods']
 ];

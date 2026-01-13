@@ -14,6 +14,7 @@ use App\Models\Assessment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Storage;
 
 class AssessmentController extends BaseApiController
 {
@@ -53,8 +54,15 @@ class AssessmentController extends BaseApiController
         }
 
         $assessment->update($update_input);
-        // dd($request->treatment_plans);
-        // \Log::info($request->all());
+
+        // Save Treatment Plans json file
+        if ($request->filled('treatment_plans')) {
+            $fileName = 'treatment_plans_#' . $assessment->id . '.json';
+            $jsonData = json_encode($request->treatment_plans, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            create_directory_if_not_exist('files', 'treatment-plans');
+            Storage::disk('files')->put('treatment-plans/' . $fileName, $jsonData);
+        }
+
         // Create treatment planes record
         if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plan']['treatments'])){
             foreach ($request->treatment_plans['treatment_plan']['treatments'] as $key => $treatment) {
@@ -150,7 +158,6 @@ class AssessmentController extends BaseApiController
 
         return $this->success('Assessment user images added successfully', $data);
     }
-
 
     public function deleteImage(Assessment $assessment, $mediaId, $assessment_type)
     {

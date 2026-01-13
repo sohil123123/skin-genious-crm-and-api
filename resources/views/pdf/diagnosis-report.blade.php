@@ -8,7 +8,7 @@
             font-family: 'Helvetica', 'Arial', sans-serif;
             color: #000;
             line-height: 1.4;
-            font-size: 11px;
+            font-size: 15px;
         }
 
         /* Define margins and connect headers/footers */
@@ -58,14 +58,14 @@
 
         .section-label {
             font-weight: bold;
-            font-size: 10px;
+            font-size: 13px;
             text-transform: uppercase;
             margin-bottom: 5px;
             color: #333;
         }
 
         .section-text {
-            font-size: 11px;
+            font-size: 14px;
             margin-bottom: 30px;
             text-align: justify;
             line-height: 1.5;
@@ -155,7 +155,24 @@
     @php
         $diagnosis = $record->diagnosis ?? [];
         $report = $diagnosis['diagnosis_report'] ?? [];
-        $images = $record->images;
+        
+        use Illuminate\Support\Str;
+
+        $imageOrder = config('project.assessment_image_order');
+
+        $sortedImages = [];
+        if ($record->images && count($record->images)) {
+            foreach ($imageOrder as $key) {
+                $found = collect($record->images)->first(function ($img) use ($key) {
+                    return Str::contains(Str::lower($img['url']), $key . '.');
+                });
+
+                if ($found) {
+                    $sortedImages[] = $found;
+                }
+            }
+        }
+
     @endphp
 
     @if(empty($report))
@@ -207,13 +224,8 @@
                             <div class="section-label">FACE IMAGE SHOWING AFFECTED AREAS</div>
                             <div class="img-box">
                                 @php
-                                    $imageSrc = null;
-                                    $imgIndex = isset($data['affected_area_image']) ? (int)$data['affected_area_image'] : null;
-                                    if ($imgIndex !== null && $images->count() > 0) {
-                                        $adj = $imgIndex > 0 ? $imgIndex - 1 : 0;
-                                        if (isset($images[$adj])) $imageSrc = $images[$adj]['url'];
-                                        elseif(isset($images[0])) $imageSrc = $images[0]['url'];
-                                    }
+                                    $imgIndex = isset($data['affected_area_image']) ? max(((int)$data['affected_area_image']) - 1, 0) : 0;
+                                    $imageSrc = $sortedImages[$imgIndex]['url'] ?? ($sortedImages[0]['url'] ?? null);
                                 @endphp
                                 
                                 @if($imageSrc)

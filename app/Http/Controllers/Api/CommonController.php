@@ -37,7 +37,7 @@ class CommonController extends BaseApiController
 
     public function pdfTest(Request $request)
     {
-        $assessment = \App\Models\Assessment::find(47);
+        $assessment = \App\Models\Assessment::find(50);
 
         $html = view('pdf.diagnosis-report', ['record' => $assessment])->render();
 

@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 use App\Models\Clinic;
 use App\Models\User;
@@ -105,5 +107,13 @@ if (!function_exists('getTreatmentSessions')) {
 if (!function_exists('check_role')) {
     function check_role($role_name){
         return auth()->user()?->hasRole($role_name) ?? false;
+    }
+}
+
+if (!function_exists('create_directory_if_not_exist')){
+    function create_directory_if_not_exist($disk, $path){
+        if(!Storage::disk($disk)->exists($path)) {
+            Storage::disk($disk)->makeDirectory($path);
+        }
     }
 }
