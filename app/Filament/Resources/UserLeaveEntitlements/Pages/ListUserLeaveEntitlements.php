@@ -21,6 +21,9 @@ class ListUserLeaveEntitlements extends ListRecords
         return [
             CreateAction::make()
                 ->modal()
+                ->icon('heroicon-o-plus')
+                ->label('Add Leave Entitlement')
+                // ->createAnother(false)
                 ->successNotification(
                     Notification::make()
                         ->success()
@@ -41,10 +44,10 @@ class ListUserLeaveEntitlements extends ListRecords
         ];
     }
 
-    public function getTable(): Table
-    {
-        return parent::getTable()->poll('5s');
-    }
+    // public function getTable(): Table
+    // {
+    //     return parent::getTable()->poll('5s');
+    // }
 
     public function getTabs(): array
     {

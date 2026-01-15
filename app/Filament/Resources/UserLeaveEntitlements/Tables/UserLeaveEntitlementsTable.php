@@ -80,11 +80,16 @@ class UserLeaveEntitlementsTable
                     }),
             ])
             ->groups([
-                Group::make('user.first_name')->label('User')->collapsible(),
+                Group::make('user_id')
+                    ->label('Therapist')
+                    ->collapsible()
+                    ->getKeyFromRecordUsing(fn ($record) => $record->user_id ?? 'no_therapist')
+                    ->getTitleFromRecordUsing(fn ($record) => $record->therapist?->first_name ?? 'Unassigned'),
                 Group::make('year')->label('Year')->collapsible(),
                 Group::make('leave_type')->label('Leave Type')->collapsible(),
                 Group::make('created_at')->date(),
             ])
+            ->defaultGroup('user_id')
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

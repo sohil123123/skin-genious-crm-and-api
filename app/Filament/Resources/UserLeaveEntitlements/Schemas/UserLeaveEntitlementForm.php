@@ -26,7 +26,7 @@ class UserLeaveEntitlementForm
                                 Grid::make(2)->schema([
                                     Select::make('user_id')
                                         ->label('Therapist')
-                                        ->relationship('therapists', 'first_name')
+                                        ->relationship('therapist', 'first_name')
                                         ->placeholder('Select Therapist')
                                         ->required(),
 

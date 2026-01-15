@@ -35,7 +35,7 @@ class UserLeaveEntitlement extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function therapists()
+    public function therapist()
     {
         return $this->user()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'));
     }
