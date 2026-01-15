@@ -10,6 +10,7 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -75,7 +76,6 @@ class ClinicsTable
             //         // ->collapsible(),
             // ])
             ->deferLoading()
-            ->recordUrl(null)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 // ImageColumn::make('logo')
@@ -186,7 +186,7 @@ class ClinicsTable
                     ->label('Status')
                     ->searchable(),
             ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(3)
+            ->filtersFormColumns(2)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 Action::make('clients')
@@ -195,56 +195,36 @@ class ClinicsTable
                     ->color('info')
                     ->tooltip('Manage Clients')
                     ->url(fn ($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
+
                 Action::make('holiday')
-                    ->icon('heroicon-o-rectangle-stack')
+                    ->icon('heroicon-o-no-symbol')
                     ->iconButton()
-                    ->color('info')
+                    ->color('danger')
                     ->tooltip('Manage Holidays')
                     ->url(fn ($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
-                ViewAction::make(),
-                EditAction::make(),
-                RestoreAction::make()
-                    ->successNotification(
-                        Notification::make()
-                            ->title('Clinic Restored 🎉')
-                            ->body('The selected clinics have been restored successfully.')
-                            ->success()
-                    ),
-                DeleteAction::make()
-                    ->successNotification(function ($record) {
-                        return Notification::make()
-                            ->title('Clinic Deleted 🎉')
-                            ->body("The User **{$record->name}** has been removed successfully.")
-                            ->success();
-                    }),
-                // Action::make('view_clinic_details')
-                //     ->label('Clinic Details')
-                //     ->button()
-                //     ->color('info')
-                //     // ->modalHeading(fn (Clinic $record): string => $record->clinic->name ?? 'No Clinic Assigned')
-                //     ->modalContent(fn (Clinic $record) => view('filament.modals.clinic-details', ['clinic' => $record]))
-                //     // ->visible(fn (Clinic $record): bool => $record->clinic !== null),
-                // Action::make('view_details')
-                //     ->label('View')
-                //     ->button()
-                //     ->color('info')
-                //     ->modalHeading(fn (Clinic $record): string => $record->name)
-                //     ->modalContent(fn (Clinic $record) => view('filament.modals.clinic-details', ['record' => $record])),
+                // ActionGroup::make([
+                    ViewAction::make(),
+                    // Action::make('view')
+                    //     ->iconButton()
+                    //     ->color('info')
+                    //     ->icon('heroicon-m-eye'),
+                    EditAction::make(),
+                    RestoreAction::make()
+                        ->successNotification(
+                            Notification::make()
+                                ->title('Clinic Restored 🎉')
+                                ->body('The selected clinics have been restored successfully.')
+                                ->success()
+                        ),
+                    DeleteAction::make()
+                        ->successNotification(function ($record) {
+                            return Notification::make()
+                                ->title('Clinic Deleted 🎉')
+                                ->body("The User **{$record->name}** has been removed successfully.")
+                                ->success();
+                        }),
+                // ]),
             ])
-            // ->toolbarActions([
-            //     BulkActionGroup::make([
-            //         DeleteBulkAction::make()
-            //             // ->visible(fn () => auth()->user()?->can('DeleteAny:User'))
-            //             ->successNotification(
-            //                 Notification::make()
-            //                     ->title('Clinic Deleted 🎉')
-            //                     ->body('The selected clinics have been deleted successfully.')
-            //                     ->success()
-            //             ),
-            //         ForceDeleteBulkAction::make(),
-            //         RestoreBulkAction::make(),
-            //     ]),
-            // ])
             ->emptyStateDescription('Once you create your first clinic, it will appear here.');
     }
 }

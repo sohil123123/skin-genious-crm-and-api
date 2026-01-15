@@ -1,10 +1,13 @@
 table.shimmer-loading tbody tr {
-  pointer-events: none; /* Prevent clicks during loading */
+  pointer-events: none;
+  /* Prevent clicks during loading */
 }
 
 table.shimmer-loading tbody td,
-table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) { /* Exclude sort icons if needed */
-  color: transparent !important; /* Hide text content */
+table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) {
+  /* Exclude sort icons if needed */
+  color: transparent !important;
+  /* Hide text content */
   background-color: #f6f7f8 !important;
   background-image: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%) !important;
   background-size: 800px 104px !important;
@@ -15,12 +18,28 @@ table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) { /* Exclude sort ic
   0% {
     background-position: -800px 0;
   }
+
   100% {
     background-position: 800px 0;
   }
 }
 
 /* In your theme.css */
-.fc-event-confirmed { border-left: 4px solid green !important; }
-.fc-day-today { background: rgba(59, 130, 246, 0.1); }  /* Highlight today */
-.fc-non-business { background-color: #f3f4f6 !important; opacity: 0.5; }
+.fc-event-confirmed {
+  border-left: 4px solid green !important;
+}
+
+.fc-day-today {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Highlight today */
+.fc-non-business {
+  background-color: #f3f4f6 !important;
+  opacity: 0.5;
+}
+
+.fi-section,
+.fi-wi-stats-overview-stat {
+  box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow) !important;
+}

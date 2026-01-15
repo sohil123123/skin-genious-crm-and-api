@@ -11,6 +11,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
@@ -204,9 +205,9 @@ class UsersTable
 
                 Action::make('holiday')
                     ->visible(fn ($record) => $record->hasRole('therapist'))
-                    ->icon('heroicon-o-rectangle-stack')
+                    ->icon('heroicon-o-no-symbol')
                     ->iconButton()
-                    ->color('info')
+                    ->color('danger')
                     ->tooltip('Manage Holidays')
                     ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
 
@@ -226,27 +227,10 @@ class UsersTable
                     ->tooltip('Manage Assessments')
                     ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
 
-                ViewAction::make(),
-                EditAction::make(),
-                ForceDeleteAction::make(),
-                RestoreAction::make()
-                    ->successNotification(
-                        Notification::make()
-                            ->title('Client Restored 🎉')
-                            ->body('The selected client have been restored successfully.')
-                            ->success()
-                    ),
-                DeleteAction::make()
-                    ->successNotification(function ($record) {
-                        return Notification::make()
-                            ->title('Client Deleted 🎉')
-                            ->body("The client **{$record->name}** has been removed successfully.")
-                            ->success();
-                    }),
                 Action::make('permissions')
-                    ->label('Permissions')
                     ->icon('heroicon-o-key')
                     ->color('success')
+                    ->iconButton()
                     ->slideOver() // or ->modalHeading("Manage permissions")
                     // ->modalHeading("Manage permissions")
                     ->form([
@@ -301,7 +285,7 @@ class UsersTable
                     //             ->collapsed();
                     //     })->values()->toArray();
                     // })
-                    ->visible(fn () => auth()->user()?->can('toggle_user_permissions'))
+                    ->visible(fn ($record) => ($record->hasRole('therapist') || $record->hasRole('clinic_manager')) && auth()->user()?->can('toggle_user_permissions'))
                     ->action(function (array $data, $record) {
                         if (! auth()->user()->can('toggle_user_permissions')) {
                             Notification::make()
@@ -336,6 +320,27 @@ class UsersTable
                             ->success()
                             ->send();
                     }),
+
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    ForceDeleteAction::make(),
+                    RestoreAction::make()
+                        ->successNotification(
+                            Notification::make()
+                                ->title('Client Restored 🎉')
+                                ->body('The selected client have been restored successfully.')
+                                ->success()
+                        ),
+                    DeleteAction::make()
+                        ->successNotification(function ($record) {
+                            return Notification::make()
+                                ->title('Client Deleted 🎉')
+                                ->body("The client **{$record->name}** has been removed successfully.")
+                                ->success();
+                        }),
+                ]),
+                
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
