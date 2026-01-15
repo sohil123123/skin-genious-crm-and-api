@@ -20,17 +20,18 @@ use Filament\Tables\Filters\Filter;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Filters\Indicator;
+use Filament\Actions\ActionGroup;
 
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
 use App\Models\Clinic;
 use App\Models\User;
 use App\Models\Assessment;
-
 
 class AssessmentsTable
 {
@@ -166,42 +167,88 @@ class AssessmentsTable
             )
             ->recordActions([
                 // ViewAction::make(),
-                Action::make('treatment-sessions')
-                    ->label('Treatment Sessions')
-                    // ->visible(fn ($record) => $record->hasRole('therapist'))
-                    ->icon('heroicon-s-clipboard-document-list')
-                    // ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Treatment Sessions')
-                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
-                Action::make('diagnosis_pdf')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->iconButton()
-                    ->color('success')
-                    ->tooltip('Download Diagnosis PDF')
-                    ->action(function (Assessment $record) {
-                        $html = view('pdf.diagnosis-report', ['record' => $record])->render();
-                        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                        $mpdf->showImageErrors = true;
-                        $mpdf->WriteHTML($html);
-                        
-                        return response()->streamDownload(function () use ($mpdf) {
-                            echo $mpdf->Output('', 'S');
-                        }, 'diagnosis-report-' . $record->id . '.pdf');
-                    }),
-                Action::make('download_treatment_plan')
-                    ->icon('heroicon-o-arrow-down-tray')
+                Action::make('treatment_sessions')
+                    ->icon('heroicon-o-clipboard-document-check')
                     ->iconButton()
                     ->color('primary')
-                    ->tooltip('Download Treatment Plan Json')
-                    ->visible(fn ($record) =>
-                        Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
-                    )
-                    ->action(function ($record) {
-                        $name = "treatment_plans_#{$record->id}.json";
-                        $filePath = "treatment-plans/{$name}";
-                        return response()->download(Storage::disk('files')->path($filePath), $name);
-                    }),
+                    ->tooltip('Manage Treatment Sessions')
+                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
+
+                ActionGroup::make([
+                   Action::make('diagnosis_pdf')
+                        ->label('Diagnosis PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        // ->iconButton()
+                        ->color('primary')
+                        // ->tooltip('Download Diagnosis PDF')
+                        ->action(function (Assessment $record) {
+                            $html = view('pdf.diagnosis-report', ['record' => $record])->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->showImageErrors = true;
+                            $mpdf->WriteHTML($html);
+                            
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'diagnosis-report-' . $record->id . '.pdf');
+                        }),
+                        
+                    Action::make('treatment_plan_pdf')
+                        ->label('Treatment Plan PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        // ->iconButton()
+                        ->color('primary')
+                        // ->tooltip('Download Treatment Plan PDF')
+                        ->action(function (Assessment $record) {
+                            $mpdf = new \Mpdf\Mpdf([
+                                'format' => 'A4',
+                                'margin_top' => 10,
+                                'margin_bottom' => 14,
+                                'margin_footer' => 5,
+                            ]);
+                            $mpdf->SetTitle('Treatment Plan');
+                            
+                            /** PAGE 1 — Client Details */
+                            $mpdf->WriteHTML(
+                                view('pdf.treatment-plan-cover', [
+                                    'client' => [
+                                        'name' => $record->user->name,
+                                        'date_of_birth' => $record->user->date_of_birth,
+                                        'gender' => $record->user->gender,
+                                    ],
+                                    'summary' => [
+                                        'duration' => $record->total_time,
+                                        'total_sessions' => $record->treatmentSessions['treatments']?->count() ?? 0,
+                                    ],
+                                ])->render()
+                            );
+
+                            /** Force new page */
+                            $mpdf->AddPage();
+
+                            $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
+                            $mpdf->WriteHTML($html);
+                            
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'treatment-plan-session-' . $record->id . '.pdf');
+                        }),
+
+                    Action::make('download_treatment_plan')
+                        ->label('Treatment Plan Json')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        // ->iconButton()
+                        ->color('primary')
+                        // ->tooltip('Download Treatment Plan Json')
+                        ->visible(fn ($record) =>
+                            Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
+                        )
+                        ->action(function ($record) {
+                            $name = "treatment_plans_#{$record->id}.json";
+                            $filePath = "treatment-plans/{$name}";
+                            return response()->download(Storage::disk('files')->path($filePath), $name);
+                        }),
+                ])
+                ->icon('heroicon-o-arrow-down-tray'),
             ])
             ->groups([
                 // Group::make('parent_id')

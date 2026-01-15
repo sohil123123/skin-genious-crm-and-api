@@ -20,7 +20,7 @@ return [
         'format' => 'A4',
         'margin_header' => 10,
         'margin_top' => 30,
-        'margin_bottom' => 10,
+        'margin_bottom' => 14,
         'margin_footer' => 0,
         'orientation' => 'P',
     ],
