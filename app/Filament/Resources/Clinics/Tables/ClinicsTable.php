@@ -195,6 +195,12 @@ class ClinicsTable
                     ->color('info')
                     ->tooltip('Manage Clients')
                     ->url(fn ($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
+                Action::make('holiday')
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Holidays')
+                    ->url(fn ($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
                 ViewAction::make(),
                 EditAction::make(),
                 RestoreAction::make()

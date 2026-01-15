@@ -7,6 +7,7 @@ use App\Filament\Resources\Clinics\Pages\EditClinic;
 use App\Filament\Resources\Clinics\Pages\ListClinics;
 use App\Filament\Resources\Clinics\Pages\ViewClinic;
 use App\Filament\Resources\Clinics\Pages\ManageClients;
+use App\Filament\Resources\Clinics\Pages\ManageHolidays;
 use App\Filament\Resources\Clinics\Schemas\ClinicForm;
 use App\Filament\Resources\Clinics\Tables\ClinicsTable;
 use App\Models\Clinic;
@@ -47,6 +48,7 @@ class ClinicResource extends Resource
             ViewClinic::class,
             EditClinic::class,
             ManageClients::class,
+            ManageHolidays::class,
         ]);
     }
 
@@ -65,6 +67,7 @@ class ClinicResource extends Resource
             'edit' => EditClinic::route('/{record}/edit'),
             'view' => ViewClinic::route('/{record}'),
             'clients' => ManageClients::route('/{record}/clients'),
+            'holidays' => ManageHolidays::route('/{record}/holidays'),
         ];
     }
 
