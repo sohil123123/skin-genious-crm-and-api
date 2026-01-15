@@ -39,7 +39,7 @@ table.shimmer-loading thead th:not(.fi-ta-header-cell-sort) {
   opacity: 0.5;
 }
 
-.fi-section,
+/* .fi-section,
 .fi-wi-stats-overview-stat {
   box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow) !important;
-}
+} */

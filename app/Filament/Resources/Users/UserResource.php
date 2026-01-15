@@ -8,7 +8,8 @@ use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Pages\ManageHolidays;
 use App\Filament\Resources\Users\Pages\ManageAssessments;
-use App\Filament\Resources\Users\Pages\ManageAppointments;
+use App\Filament\Resources\Users\Pages\ManageWeeklySchedule;
+// use App\Filament\Resources\Users\Pages\ManageAppointments;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 
@@ -63,6 +64,7 @@ class UserResource extends Resource
             EditUser::class,
             ManageHolidays::class,
             ManageAssessments::class,
+            ManageWeeklySchedule::class,
             // ManageAppointments::class,
         ]);
     }
@@ -84,6 +86,7 @@ class UserResource extends Resource
             'view' => ViewUser::route('/{record}'),
             'holidays' => ManageHolidays::route('/{record}/holidays'),
             'assessments' => ManageAssessments::route('/{record}/assessments'),
+            'weekly_schedule' => ManageWeeklySchedule::route('/{record}/weekly_schedule'),
             // 'appointments' => ManageAppointments::route('/{record}/appointments'),
         ];
     }

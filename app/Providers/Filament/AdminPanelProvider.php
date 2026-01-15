@@ -277,9 +277,9 @@ class AdminPanelProvider extends PanelProvider
 
 
 
-        FilamentAsset::register([
-            Css::make('custom-styles', Vite::asset('resources/css/custom.css')),
-            // Js::make('awin-hotfix', resource_path('js/awin-hotfix.js')),
-        ]);
+        // FilamentAsset::register([
+        //     Css::make('custom-styles', Vite::asset('resources/css/custom.css')),
+        //     // Js::make('awin-hotfix', resource_path('js/awin-hotfix.js')),
+        // ]);
     }
 }

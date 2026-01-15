@@ -117,6 +117,7 @@ class UserWeeklyScheduleForm
 
                             // Get all days
                             $days = $get('../../../../days') ?? [];
+                            // dd($days);
 
                             foreach ($days as $dayKey => $dayData) {
                                 foreach ($dayData['shifts'] ?? [] as $shiftIndex => $shift) {

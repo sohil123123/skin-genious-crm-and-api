@@ -227,6 +227,14 @@ class UsersTable
                     ->tooltip('Manage Assessments')
                     ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
 
+                Action::make('weekly_schedule')
+                    ->visible(fn ($record) => $record->hasRole('therapist'))
+                    ->icon('heroicon-o-calendar-days')
+                    ->iconButton()
+                    ->color('success')
+                    ->tooltip('Manage Weekly Schedule')
+                    ->url(fn ($record) => route('filament.admin.resources.users.weekly_schedule', ['record' => $record])),
+
                 Action::make('permissions')
                     ->icon('heroicon-o-key')
                     ->color('success')
