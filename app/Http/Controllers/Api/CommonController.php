@@ -81,21 +81,41 @@ class CommonController extends BaseApiController
         // $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
         // $mpdf->WriteHTML($html);
 
+        // // 
+        // $mpdf = new \Mpdf\Mpdf([
+        //     'format' => 'A4',
+        //     'margin_top' => 16,
+        //     'margin_bottom' => 14,
+        //     'margin_footer' => 5,
+        // ]);
+
+        // $html = view('pdf.post-treatment-comparison', [
+        //     'post_diagnosis'    => $record->post_diagnosis,
+        //     'patient' => $record->user,
+        // ])->render();
+
+        // $mpdf->WriteHTML($html);
+
         // 
         $mpdf = new \Mpdf\Mpdf([
+            'mode' => 'utf-8',
             'format' => 'A4',
             'margin_top' => 16,
             'margin_bottom' => 14,
             'margin_footer' => 5,
+            'default_font' => 'dejavusans', // Supports UTF-8
         ]);
 
-        $html = view('pdf.post-treatment-comparison', [
-            'post_diagnosis'    => $record->post_diagnosis,
-            'patient' => $record->user,
-        ])->render();
+        $html = view('pdf.visual-comparison-report', [
+            'reassessmentData'    => $record->post_diagnosis['reassessment'],
+            'assessmentImages' => $record->images,
+            'postAssessmentImages' => $record->post_images,
+            'patient' => $record->user
+        ])
+        ->render();
 
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output('post-treatment-comparison.pdf', 'S'))->header('Content-Type', 'application/pdf');
+        return response($mpdf->Output('visual-comparison-report.pdf', 'S'))->header('Content-Type', 'application/pdf');
     }
 }

@@ -193,6 +193,34 @@ class AssessmentsTable
                             }, 'diagnosis-report_#' . $record->id . '.pdf');
                         }),
 
+                    Action::make('visual_comparison_pdf')
+                        ->label('Visual Comparison PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Visual Comparison PDF')
+                        ->action(function (Assessment $record) {
+                            $html = view('pdf.visual-comparison-report', [
+                                'reassessmentData'    => $record->post_diagnosis['reassessment'],
+                                'assessmentImages' => $record->images,
+                                'postAssessmentImages' => $record->post_images,
+                                'patient' => $record->user
+                            ])
+                            ->render();
+                            $mpdf = new Mpdf([
+                                'mode' => 'utf-8',
+                                'format' => 'A4',
+                                'margin_top' => 16,
+                                'margin_bottom' => 14,
+                                'margin_footer' => 5,
+                                'default_font' => 'dejavusans',
+                            ]);
+                            $mpdf->WriteHTML($html);
+                            
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'visual-comparison-report_#' . $record->id . '.pdf');
+                        }),
+
                     Action::make('post_treatment_comparison')
                         ->label('Treatment Comparison PDF')
                         ->icon('heroicon-o-arrow-down-tray')
