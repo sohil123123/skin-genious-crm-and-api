@@ -198,6 +198,9 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('Visual Comparison PDF')
+                        ->visible(function (Assessment $record) {
+                            return $record->post_diagnosis && $record->images && $record->post_images;
+                        })
                         ->action(function (Assessment $record) {
                             $html = view('pdf.visual-comparison-report', [
                                 'reassessmentData'    => $record->post_diagnosis['reassessment'],
@@ -206,14 +209,7 @@ class AssessmentsTable
                                 'patient' => $record->user
                             ])
                             ->render();
-                            $mpdf = new Mpdf([
-                                'mode' => 'utf-8',
-                                'format' => 'A4',
-                                'margin_top' => 16,
-                                'margin_bottom' => 14,
-                                'margin_footer' => 5,
-                                'default_font' => 'dejavusans',
-                            ]);
+                            $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->WriteHTML($html);
                             
                             return response()->streamDownload(function () use ($mpdf) {
@@ -222,18 +218,16 @@ class AssessmentsTable
                         }),
 
                     Action::make('post_treatment_comparison')
-                        ->label('Treatment Comparison PDF')
+                        ->label('Comparison PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('Treatment Comparison PDF')
+                        ->visible(function (Assessment $record) {
+                            return $record->post_diagnosis;
+                        })
                         ->action(function (Assessment $record) {
                             $html = view('pdf.post-treatment-comparison', ['post_diagnosis' => $record->post_diagnosis, 'patient' => $record->user])->render();
-                            $mpdf = new Mpdf([
-                                'format' => 'A4',
-                                'margin_top' => 16,
-                                'margin_bottom' => 14,
-                                'margin_footer' => 5,
-                            ]);
+                            $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->WriteHTML($html);
                             
                             return response()->streamDownload(function () use ($mpdf) {
@@ -246,12 +240,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->action(function (Assessment $record) {
-                            $mpdf = new \Mpdf\Mpdf([
-                                'format' => 'A4',
-                                'margin_top' => 10,
-                                'margin_bottom' => 14,
-                                'margin_footer' => 5,
-                            ]);
+                            $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->SetTitle('Treatment Plan');
                             
                             /** PAGE 1 — Client Details */

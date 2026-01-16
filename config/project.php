@@ -18,11 +18,12 @@ return [
         'tempDir' => storage_path('app/mpdf'),
         'mode' => 'utf-8',
         'format' => 'A4',
-        'margin_header' => 10,
-        'margin_top' => 30,
+        // 'margin_header' => 10,
+        'margin_top' => 16,
         'margin_bottom' => 14,
-        'margin_footer' => 0,
+        'margin_footer' => 5,
         'orientation' => 'P',
+        'default_font' => 'dejavusans',
     ],
     'assessment_image_order' => ['white', 'positive', 'negative', 'blue', 'uv', 'woods']
 ];
