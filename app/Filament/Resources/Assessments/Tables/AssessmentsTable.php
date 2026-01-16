@@ -26,6 +26,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use Mpdf\Mpdf;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
@@ -175,7 +176,7 @@ class AssessmentsTable
                     ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
 
                 ActionGroup::make([
-                   Action::make('diagnosis_pdf')
+                    Action::make('diagnosis_pdf')
                         ->label('Diagnosis PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         // ->iconButton()
@@ -189,15 +190,33 @@ class AssessmentsTable
                             
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'diagnosis-report-' . $record->id . '.pdf');
+                            }, 'diagnosis-report_#' . $record->id . '.pdf');
+                        }),
+
+                    Action::make('post_treatment_comparison')
+                        ->label('Treatment Comparison PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Treatment Comparison PDF')
+                        ->action(function (Assessment $record) {
+                            $html = view('pdf.post-treatment-comparison', ['post_diagnosis' => $record->post_diagnosis, 'patient' => $record->user])->render();
+                            $mpdf = new Mpdf([
+                                'format' => 'A4',
+                                'margin_top' => 16,
+                                'margin_bottom' => 14,
+                                'margin_footer' => 5,
+                            ]);
+                            $mpdf->WriteHTML($html);
+                            
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'post-treatment-comparison_#' . $record->id . '.pdf');
                         }),
                         
                     Action::make('treatment_plan_pdf')
                         ->label('Treatment Plan PDF')
                         ->icon('heroicon-o-arrow-down-tray')
-                        // ->iconButton()
                         ->color('primary')
-                        // ->tooltip('Download Treatment Plan PDF')
                         ->action(function (Assessment $record) {
                             $mpdf = new \Mpdf\Mpdf([
                                 'format' => 'A4',
@@ -230,15 +249,13 @@ class AssessmentsTable
                             
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'treatment-plan-session-' . $record->id . '.pdf');
+                            }, 'treatment-plan-session_#' . $record->id . '.pdf');
                         }),
 
                     Action::make('download_treatment_plan')
                         ->label('Treatment Plan Json')
                         ->icon('heroicon-o-arrow-down-tray')
-                        // ->iconButton()
                         ->color('primary')
-                        // ->tooltip('Download Treatment Plan Json')
                         ->visible(fn ($record) =>
                             Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
                         )

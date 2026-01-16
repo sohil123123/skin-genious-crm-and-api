@@ -37,7 +37,7 @@ class CommonController extends BaseApiController
 
     public function pdfTest(Request $request)
     {
-        $record = \App\Models\Assessment::find(47);
+        $record = \App\Models\Assessment::find(45);
 
         // $html = view('pdf.diagnosis-report', ['record' => $assessment])->render();
 
@@ -51,36 +51,51 @@ class CommonController extends BaseApiController
         //         ->header('Content-Type', 'application/pdf');
 
         
+        // // 
+        // $mpdf = new \Mpdf\Mpdf([
+        //     'format' => 'A4',
+        //     'margin_top' => 10,
+        //     'margin_bottom' => 14,
+        //     'margin_footer' => 5,
+        // ]);
+        // $mpdf->SetTitle('Treatment Plan');
+        
+        // /** PAGE 1 — Client Details */
+        // $mpdf->WriteHTML(
+        //     view('pdf.treatment-plan-cover', [
+        //         'client' => [
+        //             'name' => $record->user->name,
+        //             'date_of_birth' => $record->user->date_of_birth,
+        //             'gender' => $record->user->gender,
+        //         ],
+        //         'summary' => [
+        //             'duration' => $record->total_time,
+        //             'total_sessions' => $record->treatmentSessions['treatments']?->count() ?? 0,
+        //         ],
+        //     ])->render()
+        // );
 
+        // /** Force new page */
+        // $mpdf->AddPage();
+
+        // $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
+        // $mpdf->WriteHTML($html);
+
+        // 
         $mpdf = new \Mpdf\Mpdf([
             'format' => 'A4',
-            'margin_top' => 10,
+            'margin_top' => 16,
             'margin_bottom' => 14,
             'margin_footer' => 5,
         ]);
-        $mpdf->SetTitle('Treatment Plan');
-        
-        /** PAGE 1 — Client Details */
-        $mpdf->WriteHTML(
-            view('pdf.treatment-plan-cover', [
-                'client' => [
-                    'name' => $record->user->name,
-                    'date_of_birth' => $record->user->date_of_birth,
-                    'gender' => $record->user->gender,
-                ],
-                'summary' => [
-                    'duration' => $record->total_time,
-                    'total_sessions' => $record->treatmentSessions['treatments']?->count() ?? 0,
-                ],
-            ])->render()
-        );
 
-        /** Force new page */
-        $mpdf->AddPage();
+        $html = view('pdf.post-treatment-comparison', [
+            'post_diagnosis'    => $record->post_diagnosis,
+            'patient' => $record->user,
+        ])->render();
 
-        $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output('treatment-plan-session.pdf', 'S'))->header('Content-Type', 'application/pdf');
+        return response($mpdf->Output('post-treatment-comparison.pdf', 'S'))->header('Content-Type', 'application/pdf');
     }
 }
