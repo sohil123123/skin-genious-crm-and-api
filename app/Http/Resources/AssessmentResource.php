@@ -36,6 +36,7 @@ class AssessmentResource extends BaseResource
             'is_pregnant' => $this->is_pregnant,
             'breastfeeding' => $this->breastfeeding,
             'diagnosis' => $this->diagnosis,
+            'post_diagnosis' => $this->post_diagnosis,
             'parameters_with_abnormal_scores' => $this->parameters_with_abnormal_scores,
             'treatment_sessions' => $this->treatment_sessions,
             'selected_plan_type' => $this->selected_plan_type,

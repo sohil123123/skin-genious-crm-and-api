@@ -314,6 +314,7 @@ class UnavailableSlotService
                 'type'       => 'appointment',
                 'status'     => is_object($a->status) ? $a->status->value : $a->status,
                 'bgcolor'    => $this->statusColor(is_object($a->status) ? $a->status->value : $a->status),
+                'textcolor'  => $this->statusTextColor(is_object($a->status) ? $a->status->value : $a->status),
                 'meta'       => [
                     'type'      => $a->type->value,
                     'clinic_id' => $a->clinic_id,
@@ -531,31 +532,58 @@ class UnavailableSlotService
             'duration'   => $duration,
             'type'       => $type,
             'bgcolor'    => $this->exceptionColor($type),
+            'textcolor'  => $this->exceptionTextColor($type),
         ];
     }
 
     private function statusColor(string $status): string
     {
         return match ($status) {
-            'confirmed'   => '#4CAF50', // green
-            'pending'     => '#FFC107', // amber
-            'in_progress' => '#2196F3', // blue
-            'completed'   => '#9E9E9E', // grey
-            'cancelled'   => '#F44336', // red
-            'no_show'     => '#E91E63', // pink
-            default       => '#607D8B', // fallback
+            'confirmed'   => '#C8E6C9', // soft green
+            'pending'     => '#FFECB3', // soft amber
+            'in_progress' => '#BBDEFB', // soft blue
+            'completed'   => '#EEEEEE', // light grey
+            'cancelled'   => '#FFCDD2', // soft red
+            'no_show'     => '#F8BBD0', // soft pink
+            default       => '#ECEFF1', // light blue-grey
+        };
+    }
+
+    private function statusTextColor(string $status): string
+    {
+        return match ($status) {
+            'confirmed'   => '#1B5E20', // dark green
+            'pending'     => '#5D4037', // brown
+            'in_progress' => '#0D47A1', // dark blue
+            'completed'   => '#37474F', // dark grey
+            'cancelled'   => '#B71C1C', // dark red
+            'no_show'     => '#880E4F', // dark pink
+            default       => '#37474F', // fallback
         };
     }
 
     private function exceptionColor(string $type): string
     {
         return match ($type) {
-            'override_hours'            => '#42A5F5',
-            'blocked_hours'             => '#9E9E9E',
-            'leave_full_day'            => '#E53935',
-            'leave_partial'             => '#FF7043',
-            'out_of_therapist_schedule'  => '#BDBDBD',
-            default                     => '#BDBDBD',
+            'override_hours'            => '#D0E6FA', // medium light blue
+            'blocked_hours'             => '#E0E0E0', // medium grey
+            'leave_full_day'            => '#FFD6D9', // medium light red
+            'leave_partial'             => '#FFE0B2', // medium light orange
+            'out_of_therapist_schedule' => '#DADFE3', // medium blue-grey
+            default                     => '#DADFE3',
         };
     }
+
+    private function exceptionTextColor(string $type): string
+    {
+         return match ($type) {
+            'override_hours'            => '#0D47A1', // deep blue
+            'blocked_hours'             => '#424242', // dark grey
+            'leave_full_day'            => '#B71C1C', // deep red
+            'leave_partial'             => '#E65100', // deep orange
+            'out_of_therapist_schedule' => '#455A64', // blue-grey dark
+            default                     => '#37474F',
+        };
+    }
+
 }
