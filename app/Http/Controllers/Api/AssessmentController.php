@@ -78,6 +78,7 @@ class AssessmentController extends BaseApiController
                     'preparations_checklist_for_therapist' => $treatment['preparations_checklist_for_therapist'] ?? [],
                     'concerns_addressed' => $treatment['concerns_addressed'] ?? [],
                     'steps' => $treatment['steps'] ?? [],
+                    'audio_text' => $treatment['script'] ?? null,
                 ]);
             }
         }

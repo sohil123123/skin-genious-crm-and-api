@@ -20,6 +20,7 @@ class TreatmentSession extends Model
         'preparations_checklist_for_therapist',
         'concerns_addressed',
         'steps',
+        'audio_text',
         'status'
     ];
 
