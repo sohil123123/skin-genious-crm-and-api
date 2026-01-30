@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\AutoCaptureController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\CommonController;
+use App\Http\Controllers\Api\AiController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -52,7 +53,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::get('get-assessments', [CommonController::class, 'getAssessments']);
         Route::get('get-treatment-sessions', [CommonController::class, 'getTreatmentSessions']);
 
-        
+        // INFO: AI Route
+        Route::post('/ai/conversations', [AiController::class, 'conversations']);
+        Route::post('/ai/responses', [AiController::class, 'responses']);
 
     });
 
