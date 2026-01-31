@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('assessment_id')->nullable()->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('Assessment ID if applicable');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete()->cascadeOnUpdate()->comment('The ID of the user whose assessment is to be created');
 
-            $table->enum('plan_type', ['single', 'multiple'])->index()->comment('Indicates if the user selected a single or multiple treatment plan');
+            $table->enum('plan_type', ['single', 'express', 'multiple'])->index()->comment('Indicates if the user selected a single or multiple treatment plan');
 
             $table->unsignedTinyInteger('session_number')->index()->comment('Sequential number of the session within the plan');
             $table->string('title')->comment('Title of the session/treatment');

@@ -44,7 +44,7 @@ class AssessmentRequest extends FormRequest
             'diagnosis' => 'nullable|array',
             'post_diagnosis' => 'nullable|array',
             'parameters_with_abnormal_scores' => 'nullable|array',
-            'selected_plan_type' => 'nullable|string|in:single,multiple',
+            'selected_plan_type' => 'nullable|string|in:single,express,multiple',
             'treatment_plans' => 'nullable|array',
             'status' => 'nullable|in:in_progress,pending,completed,incomplete,cancelled,overdue',
             'therapist_notes' => 'nullable|string',

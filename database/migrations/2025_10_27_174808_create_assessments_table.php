@@ -36,7 +36,7 @@ return new class extends Migration
             $table->json('diagnosis')->nullable()->comment('Diagnosis details in JSON format');
             $table->json('post_diagnosis')->nullable()->comment('Post diagnosis details in JSON format');
             $table->json('parameters_with_abnormal_scores')->nullable()->comment('Parameters with abnormal scores (JSON array or object)');
-            $table->enum('selected_plan_type', ['single', 'multiple'])->nullable()->index()->comment('Indicates which treatment plan type (single or multiple) was selected by the user');
+            $table->enum('selected_plan_type', ['single', 'express', 'multiple'])->nullable()->index()->comment('Indicates which treatment plan type (single or multiple) was selected by the user');
             $table->string('total_time')->nullable()->comment('Total duration of selected plan (e.g., 12 weeks)');
             $table->json('recommended_full_plan')->nullable()->comment('Stores the reference recommended full plan only when user selects a single plan');
             $table->enum('status', ['in_progress', 'pending', 'completed', 'incomplete', 'cancelled', 'overdue'])->default('in_progress')->comment('Status of the assessment');
