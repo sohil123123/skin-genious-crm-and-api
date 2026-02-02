@@ -20,6 +20,7 @@ class TreatmentSession extends Model
         'preparations_checklist_for_therapist',
         'concerns_addressed',
         'steps',
+        'daily_home_care_routine',
         'audio_text',
         'status'
     ];
@@ -28,6 +29,7 @@ class TreatmentSession extends Model
         'preparations_checklist_for_therapist' => 'array',
         'concerns_addressed' => 'array',
         'steps' => 'array',
+        'daily_home_care_routine' => 'array',
         'week' => 'integer',
         'session_number' => 'integer',
     ];

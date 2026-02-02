@@ -76,6 +76,7 @@ class Assessment extends Model implements HasMedia
                     "preparations_checklist_for_therapist" => $s->preparations_checklist_for_therapist ?? [],
                     "concerns_addressed" => $s->concerns_addressed ?? [],
                     "steps" => $s->steps ?? [],
+                    "daily_home_care_routine" => $s->daily_home_care_routine ?? [],
                     "script" => $s->audio_text ?? ''
                 ];
             })

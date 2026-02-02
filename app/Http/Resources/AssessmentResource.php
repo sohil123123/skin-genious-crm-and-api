@@ -17,6 +17,7 @@ class AssessmentResource extends BaseResource
     {
         return [
             'id' => $this->id,
+            'name' => $this->user->first_name . ' ' . $this->user->last_name,
             'conversation_id' => $this->conversation_id,
             'assessment_id' => $this->assessment_id,
             'user_id' => $this->user_id,

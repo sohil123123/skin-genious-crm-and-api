@@ -72,7 +72,9 @@ class AiController extends Controller
             'Authorization' => 'Bearer ' . $apiKey,
             'Content-Type'  => 'application/json',
         ])
+        ->connectTimeout(10)
         ->timeout(180)
+        ->retry(2, 1000)
         ->post('https://api.openai.com/v1/responses', $payload);
 
         if ($response->successful()) {
