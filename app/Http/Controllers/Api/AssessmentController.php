@@ -187,9 +187,9 @@ class AssessmentController extends BaseApiController
 
     public function getInProgressAssessment(Request $request, $user_id){
         $assessment_type = $request->type;
-        $yesterday = Carbon::yesterday();
-        $assessment = $this->model->whereBetween('created_at', [$yesterday, now()])
-            ->where('user_id', $user_id)
+        // $yesterday = Carbon::yesterday();
+        // $assessment = $this->model->whereBetween('created_at', [$yesterday, now()])
+        $assessment = $this->model->where('user_id', $user_id)
             ->where('status', 'in_progress')
             ->where('assessment_type', $assessment_type)
             ->latest()
