@@ -60,6 +60,18 @@ class AppointmentsCalendar extends FullCalendarWidget
     {
         return [
             // 🔹 Start Assessment
+            Action::make('new_iv_assessment')
+                    ->label('Create IV Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record->client, 'iv', $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+
             Action::make('new_assessment')
                     ->label('Create Assessment')
                     ->visible(fn ($record) => can_create_assessment($record))
@@ -250,7 +262,7 @@ class AppointmentsCalendar extends FullCalendarWidget
             // 'eventTimeFormat' => [ // for event times
             //     'hour' => '2-digit',
             //     'minute' => '2-digit',
-            //     'meridiem' => false, 
+            //     'meridiem' => false,
             //     'hour12' => false
             // ],
 

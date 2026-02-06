@@ -192,6 +192,17 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
+                Action::make('new_iv_assessment')
+                    ->label('New IV Assessment')
+                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record, 'iv');
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+
                 Action::make('new_assessment')
                     ->label('New Assessment')
                     ->visible(fn ($record) => $record->hasRole('client'))
@@ -348,7 +359,7 @@ class UsersTable
                                 ->success();
                         }),
                 ]),
-                
+
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -71,7 +71,7 @@ if (!function_exists('can_create_assessment')) {
 }
 
 if (!function_exists('new_assessment')) {
-    function new_assessment($user, $appointment = [])
+    function new_assessment($user, $type = 'assessment', $appointment = [])
     {
         // Generate short-lived Sanctum token (e.g., expires in 1 hour)
         $auth_user = auth()->user();
@@ -83,9 +83,9 @@ if (!function_exists('new_assessment')) {
 
         // Redirect to Assessment App with token and patient ID
         if($appointment)
-            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id. '&type=assessment';
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&appointment_id=' . $appointment->id. '&type='.$type;
         else
-            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&type=assessment';
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $user->id . '&type='.$type;
 
         return $assessmentUrl;
     }

@@ -36,6 +36,8 @@ class AssessmentResource extends BaseResource
             'retinol_used_last_night' => $this->retinol_used_last_night,
             'is_pregnant' => $this->is_pregnant,
             'breastfeeding' => $this->breastfeeding,
+            'iv_inputs' => $this->iv_inputs,
+            'assessment_type' => $this->assessment_type,
             'diagnosis' => $this->diagnosis,
             'post_diagnosis' => $this->post_diagnosis,
             'parameters_with_abnormal_scores' => $this->parameters_with_abnormal_scores,
