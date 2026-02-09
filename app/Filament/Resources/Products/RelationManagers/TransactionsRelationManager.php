@@ -106,7 +106,9 @@ class TransactionsRelationManager extends RelationManager
             ->filtersFormColumns(2)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->headerActions([
-                CreateAction::make()->icon('heroicon-o-plus'),
+                CreateAction::make()
+                    ->icon('heroicon-o-plus')
+                    ->visible(fn ($livewire) => in_array($livewire->getOwnerRecord()->type, ['product', 'iv_product'])),
                 // AssociateAction::make(),
             ])
             ->recordActions([
@@ -120,6 +122,6 @@ class TransactionsRelationManager extends RelationManager
                     // DeleteBulkAction::make(),
                 ]),
             ])
-            ->emptyStateDescription('Once you create your first clinic, it will appear here.');
+            ->emptyStateDescription('Once you create your first transaction, it will appear here.');
     }
 }

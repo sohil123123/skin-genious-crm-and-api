@@ -21,6 +21,15 @@ class ManageTransactions extends ManageRelatedRecords
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
+    // public function mount(int | string $record): void
+    // {
+    //     parent::mount($record);
+
+    //     if (! in_array($this->getRecord()->type, ['product', 'iv_product'])) {
+    //         abort(404);
+    //     }
+    // }
+
     public function getTitle(): string
     {
         return 'Manage Stock for "' . $this->record->name.'"';

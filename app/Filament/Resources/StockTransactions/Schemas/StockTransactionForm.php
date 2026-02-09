@@ -25,7 +25,7 @@ class StockTransactionForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     Select::make('product_id')
-                                        ->relationship('product', 'name')
+                                        ->relationship('product', 'name', fn ($query) => $query->whereIn('type', ['product', 'iv_product']))
                                         ->searchable()
                                         ->preload()
                                         ->required()

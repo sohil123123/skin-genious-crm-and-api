@@ -72,13 +72,6 @@ class ProductsTable
             ->filtersFormColumns(2)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                Action::make('transactions')
-                    ->icon('heroicon-o-clipboard-document-list')
-                    ->iconButton()
-                    ->color('primary')
-                    ->tooltip('View Stock Transactions')
-                    ->url(fn ($record) => route('filament.admin.resources.products.transactions', ['record' => $record])),
-
                 Action::make('addStock')
                     ->label('Add Stock')
                     ->icon('heroicon-o-plus')
@@ -127,6 +120,14 @@ class ProductsTable
                             ->send();
                     })
                     ->visible(fn (Product $record) => $record->type !== 'service'),
+
+                Action::make('transactions')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->iconButton()
+                    ->color('primary')
+                    ->tooltip('View Stock Transactions')
+                    ->url(fn ($record) => route('filament.admin.resources.products.transactions', ['record' => $record])),
+
                 EditAction::make(),
             ])
             ->toolbarActions([
