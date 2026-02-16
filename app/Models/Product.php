@@ -30,6 +30,17 @@ class Product extends Model
         'is_active' => 'boolean',
     ];
 
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeNonService($query)
+    {
+        return $query->where('type', '<>', 'service');
+    }
+
+
     public function transactions(): HasMany
     {
         return $this->hasMany(StockTransaction::class);

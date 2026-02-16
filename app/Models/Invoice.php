@@ -20,6 +20,8 @@ class Invoice extends Model
         'gst_total',
         'grand_total',
         'status',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [

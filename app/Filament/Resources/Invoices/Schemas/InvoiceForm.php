@@ -24,9 +24,6 @@ class InvoiceForm
     {
          return $schema
             ->components([
-                // ADDED: Hidden state for loading control
-                // Hidden::make('is_calculating')->default(false)->dehydrated(false),
-
                 Group::make()
                     ->schema([
                         Section::make('Invoice Details')
@@ -123,14 +120,14 @@ class InvoiceForm
                                 ->schema([
                                     Select::make('product_id')
                                         ->label('Product')
-                                        ->options(Product::all()->mapWithKeys(function ($product) {
-                                            $stockLabel = $product->stock <= 0 ? ' (Out of Stock)' : '';
+                                        ->options(Product::active()->get()->mapWithKeys(function ($product) {
+                                            $stockLabel = $product->type !== 'service' && $product->stock <= 0 ? ' (Out of Stock)' : '';
                                             return [$product->id => $product->name . $stockLabel];
                                         }))
                                         ->disableOptionWhen(function ($value, $state, Get $get) {
                                             // Check passed value (option being rendered) 
                                             // 1. Check if product is out of stock
-                                            $isOutOfStock = !empty($value) && Product::where('id', $value)->where('stock', '<=', 0)->exists();
+                                            $isOutOfStock = !empty($value) && Product::where('id', $value)->nonService()->where('stock', '<=', 0)->exists();
 
                                             // 2. Check if product is already selected in another row
                                             // Get all selected product IDs from the repeater
@@ -148,9 +145,6 @@ class InvoiceForm
                                         ->required()
                                         ->reactive()
                                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                            // ADDED: Set loading state
-                                            // $set('../../is_calculating', true);
-                                            
                                             if (!$state) {
                                                 // Product cleared - reset all fields
                                                 $set('unit_price', 0);
@@ -169,10 +163,6 @@ class InvoiceForm
                                             }
                                             self::updateLineTotal($get, $set);
                                             self::updateGrandTotal($get, $set);
-                                            
-                                            // ADDED: Clear loading state (with micro-delay for visibility)
-                                            usleep(200000); // 200ms
-                                            // $set('../../is_calculating', false);
                                         })
                                         ->distinct()
                                         ->searchable(),
@@ -183,15 +173,8 @@ class InvoiceForm
                                         ->default(1)
                                         ->live()
                                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                            // ADDED: Set loading state
-                                            // $set('../../is_calculating', true);
-                                            
                                             self::updateLineTotal($get, $set);
                                             self::updateGrandTotal($get, $set);
-                                            
-                                            // ADDED: Clear loading state
-                                            usleep(200000); // 200ms
-                                            // $set('../../is_calculating', false);
                                         })
                                         ->required(),
 
@@ -212,15 +195,8 @@ class InvoiceForm
                                                         ->default('flat')
                                                         ->live()
                                                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                            // ADDED: Set loading state
-                                                            // $set('../../is_calculating', true);
-                                                            
                                                             self::updateLineTotal($get, $set);
                                                             self::updateGrandTotal($get, $set);
-                                                            
-                                                            // ADDED: Clear loading state
-                                                            usleep(200000); // 200ms
-                                                            // $set('../../is_calculating', false);
                                                         }),
                                                     TextInput::make('discount_value')
                                                         ->label('Value')
@@ -229,15 +205,8 @@ class InvoiceForm
                                                         ->required()
                                                         ->live()
                                                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                            // ADDED: Set loading state
-                                                            // $set('../../is_calculating', true);
-                                                            
                                                             self::updateLineTotal($get, $set);
                                                             self::updateGrandTotal($get, $set);
-                                                            
-                                                            // ADDED: Clear loading state
-                                                            usleep(200000); // 200ms
-                                                            // $set('../../is_calculating', false);
                                                         }),
                                                 ]),
                                             Hidden::make('valid_discount_amount')->default(0)->dehydrated(),
@@ -269,14 +238,7 @@ class InvoiceForm
                                 // FIXED: Added afterStateUpdated to Repeater for add/delete/reorder triggers
                                 // This ensures grand total updates on row removal (fresh $get('items') available here)
                                 ->afterStateUpdated(function (Set $set, Get $get) {
-                                    // Set loading state
-                                    // $set('is_calculating', true);
-                                    
                                     self::updateGrandTotal($get, $set);
-                                    
-                                    // Clear loading state
-                                    usleep(200000); // 200ms
-                                    // $set('is_calculating', false);
                                 })
                                 ->live()
                                 ->defaultItems(1)
@@ -297,67 +259,41 @@ class InvoiceForm
                                         ->label('Subtotal')
                                         ->prefix('₹')
                                         ->inlineLabel()
-                                        ->readOnly()
+                                        ->disabled()
                                         ->dehydrated()
                                         ->numeric(),
-                                        // ->extraAttributes([
-                                        //     'x-show' => '!$wire.entangle("is_calculating").as("isCalculating")',
-                                        //     'x-text' => '$wire.entangle("subtotal").defer',
-                                        //     'class' => 'transition-opacity duration-200',
-                                        // ])
-                                        // ->suffix(fn (Get $get) => $get('is_calculating') ? '<span x-show="$wire.isCalculating" class="ml-2 text-gray-500">Calculating...</span>' : null),
 
                                     TextInput::make('taxable_value')
                                         ->label('Taxable Value')
                                         ->prefix('₹')
                                         ->inlineLabel()
-                                        ->readOnly()
+                                        ->disabled()
                                         ->dehydrated()
                                         ->numeric(),
-                                        // ->extraAttributes([
-                                        //     'x-show' => '!$wire.entangle("is_calculating").as("isCalculating")',
-                                        //     'x-text' => '$wire.entangle("taxable_value").defer',
-                                        //     'class' => 'transition-opacity duration-200',
-                                        // ]),
 
                                     TextInput::make('gst_total')
                                         ->label('GST')
                                         ->prefix('₹')
                                         ->inlineLabel()
-                                        ->readOnly()
+                                        ->disabled()
                                         ->dehydrated()
                                         ->numeric(),
-                                        // ->extraAttributes([
-                                        //     'x-show' => '!$wire.entangle("is_calculating").as("isCalculating")',
-                                        //     'x-text' => '$wire.entangle("gst_total").defer',
-                                        //     'class' => 'transition-opacity duration-200',
-                                        // ]),
 
                                     TextInput::make('discount_total')
                                         ->label('Discount')
                                         ->prefix('₹')
                                         ->inlineLabel()
-                                        ->readOnly()
+                                        ->disabled()
                                         ->dehydrated()
                                         ->numeric(),
-                                        // ->extraAttributes([
-                                        //     'x-show' => '!$wire.entangle("is_calculating").as("isCalculating")',
-                                        //     'x-text' => '$wire.entangle("discount_total").defer',
-                                        //     'class' => 'transition-opacity duration-200 text-success-600',
-                                        // ]),
 
                                     TextInput::make('grand_total')
                                         ->label('Grand Total')
                                         ->prefix('₹')
                                         ->inlineLabel()
-                                        ->readOnly()
+                                        ->disabled()
                                         ->dehydrated()
                                         ->numeric(),
-                                        // ->extraAttributes([
-                                        //     'x-show' => '!$wire.entangle("is_calculating").as("isCalculating")',
-                                        //     'x-text' => '$wire.entangle("grand_total").defer',
-                                        //     'class' => 'transition-opacity duration-200 text-xl font-bold text-primary-600',
-                                        // ]),
                                 ])
                                 ->columnSpan(4),
                         ]),

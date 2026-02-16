@@ -50,7 +50,7 @@ class CreateInvoice extends CreateRecord
     {
         // Create stock transaction for created items (Observer handles stock decrement)
         $this->record->items->each(function ($item) {
-            if ($item->product_id) {
+            if ($item->product_id && $item->product && $item->product->type !== 'service') {
                 StockTransaction::create([
                     'product_id' => $item->product_id,
                     'quantity' => $item->quantity, // Observer decrements for 'sale'

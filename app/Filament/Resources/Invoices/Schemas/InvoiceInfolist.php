@@ -86,10 +86,9 @@ class InvoiceInfolist
                         Section::make()
                             ->schema([
                                 TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
-                                TextEntry::make('discount_total')->money('INR')->label('Discount')->color('success')->inlineLabel(),
                                 TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
                                 TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
-
+                                TextEntry::make('discount_total')->money('INR')->label('Discount')->color('success')->inlineLabel(),
                                 TextEntry::make('grand_total')
                                     ->money('INR')
                                     ->label('Grand Total')
