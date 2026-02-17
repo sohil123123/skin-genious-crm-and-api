@@ -10,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action;
+use Filament\Tables\Grouping\Group;
 
 class StockTransactionsTable
 {
@@ -38,6 +39,12 @@ class StockTransactionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('product')
+                    ->relationship('product', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Product'),
+
                 SelectFilter::make('type')
                     ->options([
                         'purchase' => 'Purchase',
@@ -53,6 +60,22 @@ class StockTransactionsTable
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 // EditAction removed to enforce ledger integrity. Add correction instead.
+            ])
+            ->groups([
+                Group::make('product_id')
+                    ->label('Product')
+                    ->collapsible()
+                    ->getKeyFromRecordUsing(fn ($record) => $record->product_id ?? 'no_product')
+                    ->getTitleFromRecordUsing(fn ($record) => $record->product?->name ?? 'Unassigned'),
+                Group::make('type')->label('Type')->collapsible(),
+                Group::make('created_at')->date(),
+            ])
+            ->headerActions([
+                \Filament\Actions\ExportAction::make()
+                    ->exporter(\App\Filament\Exports\StockTransactionExporter::class)
+                    ->label('Export Report')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
