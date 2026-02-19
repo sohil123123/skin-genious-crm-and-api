@@ -14,7 +14,14 @@ use App\Models\Assessment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Storage;
+
+use App\Models\IvSession;
+use App\Models\IvSessionBag;
+use App\Models\IvSessionIngredient;
+use App\Models\IvSessionSnapshot;
+use App\Models\TreatmentSession;
 
 class AssessmentController extends BaseApiController
 {
@@ -84,6 +91,11 @@ class AssessmentController extends BaseApiController
             }
         }
 
+        // Process IV Treatment Sessions
+        if ($request->has('treatment_sessions')) {
+             $this->processIvTreatmentSessions($request->treatment_sessions, $assessment);
+        }
+
         // Upload multiple images to the 'assessment_images' collection
         if ($request->hasFile('images')) {
             $assessment->addMultipleMediaFromRequest(['images'])
@@ -104,6 +116,100 @@ class AssessmentController extends BaseApiController
         $resource = new AssessmentResource($assessment);
 
         return $this->success('Assessment updated successfully', $resource);
+    }
+
+    private function processIvTreatmentSessions($treatmentSessionsData, Assessment $assessment)
+    {
+        if (empty($treatmentSessionsData['treatments'])) {
+            return;
+        }
+
+        foreach ($treatmentSessionsData['treatments'] as $index => $treatment) {
+            $isPlan = Str::contains($treatment['protocol_id'] ?? '', 'PLAN');
+            $planType = $isPlan ? 'multiple' : 'single'; // Or handle express
+            $sessionNumber = $index + 1;
+
+            $treatmentSession = $assessment->treatmentSessions()->updateOrCreate(
+                [
+                    'session_number' => $sessionNumber, // Assuming consistent session numbers
+                ],
+                [
+                    'user_id' => $assessment->user_id,
+                    'plan_type' => $planType,
+                    'title' => $treatment['label_short'] ?? 'IV Session',
+                    'status' => 'pending',
+                    'treatment_time' => isset($treatment['ui_summary']['estimated_total_duration_minutes'])
+                        ? $treatment['ui_summary']['estimated_total_duration_minutes'] . ' mins'
+                        : null,
+                    'steps' => null,
+                    'concerns_addressed' => null,
+                    'preparations_checklist_for_therapist' => null,
+                    'daily_home_care_routine' => null,
+                    'audio_text' => null,
+                ]
+            );
+
+            // IV Session
+            $ivSession = IvSession::updateOrCreate(
+                ['treatment_session_id' => $treatmentSession->id],
+                [
+                    'assessment_id' => $assessment->id,
+                    'user_id' => $assessment->user_id,
+                    'selected_protocol_id' => $treatment['protocol_id'] ?? null,
+                    'selected_option_type' => $isPlan ? 'plan_option' : 'single_session_option_1',
+                    'is_plan' => $isPlan,
+                    'plan_week_index' => $isPlan ? $index : null,
+                    'status' => 'pending',
+                ]
+            );
+
+            // Snapshots
+            IvSessionSnapshot::updateOrCreate(
+                ['iv_session_id' => $ivSession->id],
+                [
+                    'generation_output' => [
+                        'ui_summary' => $treatment['ui_summary'] ?? null,
+                        'axis_targeting_intent' => $treatment['axis_targeting_intent'] ?? null,
+                        'budget_candidate_optional' => $treatment['budget_candidate_optional'] ?? null,
+                        'intended_benefits_tags' => $treatment['intended_benefits_tags'] ?? null,
+                    ]
+                ]
+            );
+
+            // Clear old children (bags/ingredients) for fresh update
+            $ivSession->ingredients()->delete();
+            $ivSession->bags()->delete();
+
+            if (isset($treatment['bags']) && is_array($treatment['bags'])) {
+                foreach ($treatment['bags'] as $bagData) {
+                    $bag = $ivSession->bags()->create([
+                        'bag_label' => $bagData['bag_id'] ?? null,
+                        'carrier' => $bagData['carrier'] ?? null,
+                        'volume_ml' => $bagData['bag_size_ml'] ?? null,
+                        'min_duration_minutes' => $bagData['min_duration_minutes'] ?? null,
+                        'rate_profile' => isset($bagData['rate_profile']) ? ['profile' => $bagData['rate_profile']] : null,
+                    ]);
+
+                    if (isset($bagData['ingredients'])) {
+                        foreach ($bagData['ingredients'] as $ing) {
+                            $isHero = in_array($ing['name'], $treatment['hero_ingredients'] ?? []);
+                            // The payload passes hero_ingredients at treatment level, not bag level strictly.
+                            // But usually hero_ingredients are gathered from all bags.
+                            // Here I check if the ingredient name is effectively promoted to hero.
+                            $heroList = $treatment['hero_ingredients'] ?? [];
+
+                            $ivSession->ingredients()->create([
+                                'iv_session_bag_id' => $bag->id,
+                                'ingredient_name' => $ing['name'],
+                                'dose_value' => $ing['dose_mg_optional'] ?? null,
+                                'dose_unit' => $ing['dose_units_optional'] ?? null,
+                                'is_hero' => $isHero,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public function storeImage(Request $request, Assessment $assessment)

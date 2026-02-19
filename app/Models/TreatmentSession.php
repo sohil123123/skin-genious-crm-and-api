@@ -52,4 +52,9 @@ class TreatmentSession extends Model
     {
         return $this->belongsTo(Assessment::class);
     }
+
+    public function ivSession()
+    {
+        return $this->hasOne(IVSession::class);
+    }
 }
