@@ -43,6 +43,7 @@ class AssessmentRequest extends FormRequest
             'breastfeeding' => 'nullable|in:yes,no',
             'iv_inputs' => 'nullable|array',
             'assessment_type' => 'nullable|string|in:iv,normal',
+            'feature_packet' => 'nullable|array',
             'diagnosis' => 'nullable|array',
             'post_diagnosis' => 'nullable|array',
             'parameters_with_abnormal_scores' => 'nullable|array',
