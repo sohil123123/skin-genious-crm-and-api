@@ -26,7 +26,7 @@
             text-align: center;
             border-bottom: 2px solid #000;
             padding-bottom: 10px;
-            margin-bottom: 0px; 
+            margin-bottom: 0px;
         }
         .header-content h1 {
             font-size: 24px;
@@ -98,10 +98,10 @@
             border-collapse: collapse;
             border: 1px solid #000;
         }
-        
+
         .score-table {
-            width: 100px; 
-            height: 100px; 
+            width: 100px;
+            height: 100px;
             margin: 0 auto;
         }
         .score-cell {
@@ -155,7 +155,7 @@
     @php
         $diagnosis = $record->diagnosis ?? [];
         $report = $diagnosis['diagnosis_report'] ?? [];
-        
+
         use Illuminate\Support\Str;
 
         $imageOrder = config('project.assessment_image_order');
@@ -182,7 +182,7 @@
     @else
         @foreach($report as $key => $data)
             @if(is_array($data))
-                
+
                 <!-- Parameter Title -->
                 <div class="parameter-title">
                     {{ $data['parameter_name'] ?? ucwords(str_replace('_', ' ', $key)) }}
@@ -200,7 +200,7 @@
                         <!-- Left Column -->
                         <td class="col-center">
                             <div class="section-label">SCORE / TEXT / SKIN TYPE</div>
-                            
+
                             <!-- Score Circle using Nested Table for perfect vertical centering in MPDF -->
                             <div style="margin: 15px 0;">
                                 <table class="score-circle">
@@ -227,7 +227,7 @@
                                     $imgIndex = isset($data['affected_area_image']) ? max(((int)$data['affected_area_image']) - 1, 0) : 0;
                                     $imageSrc = $sortedImages[$imgIndex]['url'] ?? ($sortedImages[0]['url'] ?? null);
                                 @endphp
-                                
+
                                 @if($imageSrc)
                                     <img src="{{ $imageSrc }}" style="max-width: 100%; max-height: 250px; border: 1px solid #ccc;">
                                 @else
@@ -242,7 +242,7 @@
                         <td style="text-align: left;">
                             <div class="section-label">EXPLANATION OF SCORE</div>
                             <div class="section-text">
-                                {{ $data['score_explanation'] ?? 'No analysis provided.' }}
+                                {{ $data['client_description'] ?? $data['score_explanation'] ?? 'No analysis provided.' }}
                             </div>
 
                             <div class="separator"></div>
