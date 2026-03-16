@@ -73,6 +73,7 @@ class AutoCaptureController extends BaseApiController
             $response = Http::withHeaders([
                 'X-API-KEY' => '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE',
             ])
+            ->timeout(120)
             ->withoutVerifying()
             ->get($endpoint);
 
