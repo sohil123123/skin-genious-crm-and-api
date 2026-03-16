@@ -109,7 +109,7 @@ class CaptureError(Exception):
         super().__init__(message)
 
 
-DEVICE = "192.168.31.177:5000"
+DEVICE = "192.168.31.177:5555"
 PACKAGE = "com.yiyuan.skin"
 CAMERA_ACTIVITY = "com.yiyuan.skin/.ui.activity.CameraActivity"
 
