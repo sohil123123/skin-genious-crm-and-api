@@ -50,6 +50,7 @@ class AssessmentRequest extends FormRequest
         'treatment_plans' => 'nullable|array',
             'treatment_sessions' => 'nullable|array',
             'iv_treatment_plan' => 'nullable|array',
+            'iv_selected_option' => 'nullable',
             'status' => 'nullable|in:in_progress,pending,completed,incomplete,cancelled,overdue',
             'therapist_notes' => 'nullable|string',
             // 'images' => 'required|array|min:1',

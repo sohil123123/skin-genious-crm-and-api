@@ -1,6 +1,6 @@
 <?php
 return [
-    'openai_api_key' => env('OPENAI_API_KEY', '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'),
+    'openai_api_key' => env('OPENAI_API_KEY', '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'),
     'appointment_consult_duration' => env('APPOINTMENT_CONSULT_DURATION', 90),
     'working_hours_per_day' => env('WORKING_HOURS_PER_DAY', 8),
     'pending_limit' => env('PENDING_LIMIT', 2),

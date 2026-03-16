@@ -92,7 +92,9 @@ class AssessmentController extends BaseApiController
         }
 
         // Process IV Treatment Sessions
-        if ($request->has('treatment_sessions')) {
+        if ($request->has('iv_selected_option') && is_array($request->iv_selected_option)) {
+             $this->processIvTreatmentSessions($request->iv_selected_option, $assessment);
+        } elseif ($request->has('treatment_sessions')) {
              $this->processIvTreatmentSessions($request->treatment_sessions, $assessment);
         }
 
@@ -120,24 +122,106 @@ class AssessmentController extends BaseApiController
 
     private function processIvTreatmentSessions($treatmentSessionsData, Assessment $assessment)
     {
-        if (empty($treatmentSessionsData['treatments'])) {
+        // Handle if it's a string (e.g. "single_session_option_1")
+        if (!is_array($treatmentSessionsData)) {
             return;
         }
 
-        foreach ($treatmentSessionsData['treatments'] as $index => $treatment) {
-            $isPlan = Str::contains($treatment['protocol_id'] ?? '', 'PLAN');
-            $planType = $isPlan ? 'multiple' : 'single'; // Or handle express
+        // Determine if we are dealing with the new iv_selected_option object structure
+        $isNewFormat = isset($treatmentSessionsData['option_type']);
+
+        $isPlan = false;
+        $sessionsToProcess = [];
+        $selectedOptionType = 'single_session_option_1';
+        $engineVersions = null;
+        $planMetadata = [];
+
+        if ($isNewFormat) {
+            $isPlan = ($treatmentSessionsData['option_type'] ?? '') === 'plan_option';
+            if ($isPlan && !empty($treatmentSessionsData['sessions'])) {
+                $sessionsToProcess = $treatmentSessionsData['sessions'];
+            } elseif (!empty($treatmentSessionsData['protocols'])) {
+                $sessionsToProcess = $treatmentSessionsData['protocols'];
+            }
+            $selectedOptionType = $treatmentSessionsData['option_type'] ?? ($isPlan ? 'plan_option' : 'single_session_option_1');
+
+            // Plan-level metadata for snapshots
+            $planMetadata = [
+                'constraint_report' => $treatmentSessionsData['constraint_report'] ?? null,
+                'dominant_axis_explainability' => $treatmentSessionsData['dominant_axis_explainability'] ?? null,
+                'outcome_intent_structured' => $treatmentSessionsData['outcome_intent_structured'] ?? null,
+                'client_facing_explanation' => $treatmentSessionsData['client_facing_explanation'] ?? null,
+                'ui_constraint_flags' => $treatmentSessionsData['ui_constraint_flags'] ?? null,
+                'plan_duration_weeks' => $treatmentSessionsData['plan_duration_weeks'] ?? null,
+                'schedule_description' => $treatmentSessionsData['schedule_description'] ?? null,
+                'name' => $treatmentSessionsData['name'] ?? null,
+            ];
+        } else {
+            $ivSessionData = $treatmentSessionsData['iv_session_data'] ?? [];
+            $isPlanInput = $ivSessionData['is_plan'] ?? false;
+            $isPlan = filter_var($isPlanInput, FILTER_VALIDATE_BOOLEAN);
+
+            // Legacy support: check protocol_id to detect plan
+            if (!$isPlan && !empty($treatmentSessionsData['treatments'])) {
+                $firstTreatment = $treatmentSessionsData['treatments'][0] ?? [];
+                $isPlan = Str::contains($firstTreatment['protocol_id'] ?? '', 'PLAN');
+            }
+
+            if ($isPlan && !empty($ivSessionData['all_plan_sessions'])) {
+                $sessionsToProcess = $ivSessionData['all_plan_sessions'];
+            } elseif (!empty($treatmentSessionsData['treatments'])) {
+                $sessionsToProcess = $treatmentSessionsData['treatments'];
+            }
+
+            $selectedOptionType = $ivSessionData['selected_option_type'] ?? ($isPlan ? 'plan_option' : 'single_session_option_1');
+            $engineVersions = $ivSessionData['engine_versions'] ?? null;
+        }
+
+        // Override selected_option_type if top-level iv_selected_option is a string
+        if (request()->has('iv_selected_option') && is_string(request()->iv_selected_option)) {
+            $selectedOptionType = request()->iv_selected_option;
+        }
+
+        if (empty($sessionsToProcess)) {
+            return;
+        }
+
+        // Delete existing IV-related treatment sessions to clear previous plan selections
+        $assessment->treatmentSessions()
+            ->whereHas('ivSession')
+            ->get()
+            ->each(function ($session) {
+                if ($session->ivSession) {
+                    $session->ivSession->ingredients()->delete();
+                    $session->ivSession->bags()->delete();
+                    $session->ivSession->snapshots()->delete();
+                    $session->ivSession->delete();
+                }
+                $session->delete();
+            });
+
+        foreach ($sessionsToProcess as $index => $sessionItem) {
+            // Determine if we're looking at a plan session item or a direct treatment object
+            $isPlanSessionItem = isset($sessionItem['recommended_protocol']);
+            $treatment = $isPlanSessionItem ? $sessionItem['recommended_protocol'] : $sessionItem;
+
+            if (empty($treatment)) {
+                continue;
+            }
+
+            $planType = $isPlan ? 'multiple' : 'single';
             $sessionNumber = $index + 1;
 
             $treatmentSession = $assessment->treatmentSessions()->updateOrCreate(
                 [
-                    'session_number' => $sessionNumber, // Assuming consistent session numbers
+                    'session_number' => $sessionNumber,
                 ],
                 [
                     'user_id' => $assessment->user_id,
                     'plan_type' => $planType,
                     'title' => $treatment['label_short'] ?? 'IV Session',
                     'status' => 'pending',
+                    'week' => $isPlan ? ($sessionItem['week_index'] ?? $sessionNumber) : null,
                     'treatment_time' => isset($treatment['ui_summary']['estimated_total_duration_minutes'])
                         ? $treatment['ui_summary']['estimated_total_duration_minutes'] . ' mins'
                         : null,
@@ -156,23 +240,34 @@ class AssessmentController extends BaseApiController
                     'assessment_id' => $assessment->id,
                     'user_id' => $assessment->user_id,
                     'selected_protocol_id' => $treatment['protocol_id'] ?? null,
-                    'selected_option_type' => $isPlan ? 'plan_option' : 'single_session_option_1',
+                    'selected_option_type' => $selectedOptionType,
                     'is_plan' => $isPlan,
-                    'plan_week_index' => $isPlan ? $index : null,
+                    'plan_week_index' => $isPlan ? ($sessionItem['week_index'] ?? $index) : null,
                     'status' => 'pending',
+                    'engine_versions' => $engineVersions,
                 ]
             );
 
             // Snapshots
+            $generationOutput = [
+                'ui_summary' => $treatment['ui_summary'] ?? null,
+                'axis_targeting_intent' => $treatment['axis_targeting_intent'] ?? null,
+                'budget_candidate_optional' => $treatment['budget_candidate_optional'] ?? null,
+                'intended_benefits_tags' => $treatment['intended_benefits_tags'] ?? null,
+                'phase_id' => $sessionItem['phase_id'] ?? null,
+                'session_goal_summary' => $sessionItem['session_goal_summary'] ?? null,
+                'candidate_generation_hint' => $sessionItem['candidate_generation_hint'] ?? null,
+                'note' => $sessionItem['note'] ?? null,
+            ];
+
+            if (!empty($planMetadata)) {
+                $generationOutput['plan_metadata'] = $planMetadata;
+            }
+
             IvSessionSnapshot::updateOrCreate(
                 ['iv_session_id' => $ivSession->id],
                 [
-                    'generation_output' => [
-                        'ui_summary' => $treatment['ui_summary'] ?? null,
-                        'axis_targeting_intent' => $treatment['axis_targeting_intent'] ?? null,
-                        'budget_candidate_optional' => $treatment['budget_candidate_optional'] ?? null,
-                        'intended_benefits_tags' => $treatment['intended_benefits_tags'] ?? null,
-                    ]
+                    'generation_output' => $generationOutput
                 ]
             );
 
@@ -193,10 +288,6 @@ class AssessmentController extends BaseApiController
                     if (isset($bagData['ingredients'])) {
                         foreach ($bagData['ingredients'] as $ing) {
                             $isHero = in_array($ing['name'], $treatment['hero_ingredients'] ?? []);
-                            // The payload passes hero_ingredients at treatment level, not bag level strictly.
-                            // But usually hero_ingredients are gathered from all bags.
-                            // Here I check if the ingredient name is effectively promoted to hero.
-                            $heroList = $treatment['hero_ingredients'] ?? [];
 
                             $ivSession->ingredients()->create([
                                 'iv_session_bag_id' => $bag->id,
