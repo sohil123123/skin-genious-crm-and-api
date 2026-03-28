@@ -35,6 +35,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::delete('/assessments/{assessment}/images/{assessment_type}', [AssessmentController::class, 'deleteAllImage']);
         Route::delete('/assessments/{assessment}/images/{media}/{assessment_type}', [AssessmentController::class, 'deleteImage']);
         Route::post('/assessments/{assessment}/images', [AssessmentController::class, 'storeImage']);
+        Route::post('/assessments/clear-conversation-id', [AssessmentController::class, 'clearConversationId']);
         Route::apiResource('assessments', 'AssessmentController');
 
         // INFO: Treatment Plan CRUD Route

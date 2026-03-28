@@ -396,4 +396,21 @@ class AssessmentController extends BaseApiController
         else
             return $this->success('In Progress Assessment get successfully', ['assessment_id' => $assessment->id, 'created_at' => $assessment->created_at]);
     }
+
+    public function clearConversationId(Request $request)
+    {
+        $request->validate([
+            'assessment_id' => 'required|exists:assessments,id',
+        ]);
+
+        $assessment = $this->model->find($request->assessment_id);
+        
+        if (!$assessment) {
+            return $this->error('Assessment not found', null, config('constants.NOT_FOUND', 404));
+        }
+
+        $assessment->update(['conversation_id' => null]);
+
+        return $this->success('Conversation ID cleared successfully');
+    }
 }

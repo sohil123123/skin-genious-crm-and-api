@@ -20,7 +20,7 @@ class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['parent_id', 'conversation_id', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'assessment_type', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'status', 'therapist_notes', 'created_by'];
+    protected $fillable = ['parent_id', 'conversation_id', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'assessment_type', 'feature_packet', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'status', 'therapist_notes', 'created_by'];
 
     protected $casts = [
         'medical_history' => 'array',
