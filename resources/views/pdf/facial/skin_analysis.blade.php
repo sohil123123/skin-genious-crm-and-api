@@ -20,7 +20,7 @@
         font-weight: bold;
         color: #0E2B5C;
         text-transform: uppercase;
-        letter-spacing: 4px;
+        letter-spacing: 2px;
         margin-bottom: 6px;
     }
     .report-subtitle {
@@ -55,7 +55,7 @@
         background-color: #0E2B5C;
     }
     .section-title {
-        font-size: 11px;
+        font-size: 14px;
         font-weight: bold;
         color: #FFFFFF;
         text-transform: uppercase;
@@ -64,9 +64,9 @@
     }
 
     .overview-text {
-        font-size: 11px;
+        font-size: 14px;
         color: #4A5568;
-        line-height: 1.7;
+        line-height: 1.5;
         text-align: justify;
         margin-bottom: 30px;
         padding: 0 5px;
@@ -84,7 +84,7 @@
         margin-bottom: 8px;
     }
     .stat-label {
-        font-size: 9px;
+        font-size: 16px;
         color: #4A5568;
         font-weight: bold;
         text-transform: uppercase;
@@ -96,7 +96,7 @@
         margin-bottom: 22px;
     }
     .param-name {
-        font-size: 11px;
+        font-size: 13px;
         font-weight: bold;
         color: #0E2B5C;
         margin-bottom: 6px;
@@ -106,7 +106,7 @@
         letter-spacing: 1px;
     }
     .param-desc {
-        font-size: 10.5px;
+        font-size: 13px;
         color: #718096;
         line-height: 1.5;
     }
@@ -117,7 +117,7 @@
 <div class="report_content_div">
     {{-- ── Report Title ── --}}
     <div class="report-header">
-        <div class="report-title">Advanced Skin Analysis</div>
+        <div class="report-title">SKIN ANALYSIS DIAGNOSTIC REPORT</div>
         <div class="report-subtitle">AI-Powered Clinical Diagnostics</div>
     </div>
 
@@ -208,7 +208,7 @@
             @foreach ($parameters->chunk(2) as $row)
             <tr>
                 @foreach ($row as $param)
-                <td width="48%" valign="top">
+                <td width="48%" valign="top" style="padding-bottom: 10px;">
                     <div class="param-block">
                         <div class="param-name">
                             <span style="color: #C29F5D; margin-right: 5px;">[{{ str_pad($loop->parent->iteration * 2 + $loop->iteration - 1, 2, '0', STR_PAD_LEFT) }}]</span>
