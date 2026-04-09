@@ -1,4 +1,11 @@
 <?php
+
+// INFO: Mpdf Configration
+$defaultConfig = (new \Mpdf\Config\ConfigVariables())->getDefaults();
+$fontDirs = $defaultConfig['fontDir'];
+$defaultFontConfig = (new \Mpdf\Config\FontVariables())->getDefaults();
+$fontData = $defaultFontConfig['fontdata'];
+
 return [
     'openai_api_key' => env('OPENAI_API_KEY', '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'),
     'appointment_consult_duration' => env('APPOINTMENT_CONSULT_DURATION', 90),
@@ -13,17 +20,33 @@ return [
                             IFNULL(CONCAT(UCASE(LEFT(last_name, 1)), LCASE(SUBSTRING(last_name, 2))), '')
                         )
                     )",
-
+    'assessment_image_order' => ['white', 'positive', 'negative', 'blue', 'uv', 'woods'],
     'mpdf_config' => [
-        'tempDir' => storage_path('app/mpdf'),
-        'mode' => 'utf-8',
-        'format' => 'A4',
-        // 'margin_header' => 10,
-        'margin_top' => 16,
-        'margin_bottom' => 14,
-        'margin_footer' => 5,
-        'orientation' => 'P',
-        'default_font' => 'dejavusans',
+        'margin_left' => 15,
+        'margin_right' => 15,
+        'margin_top' => 15,
+        'margin_bottom' => 50,
+        'margin_header' => 0,
+        'margin_footer' => 0,
+        'format' => [215.9, 279.4],
+        'tempDir' => storage_path('app/public/tmp'),
+        'fontDir' => array_merge($fontDirs, [
+        base_path('public/assets/fonts'),
+        ]),
+        'fontdata' => $fontData + [
+            'montserrat' => [
+                'R' => 'Montserrat-Regular.ttf',
+            ],
+            'montserratbold' => [
+                'R' => 'Montserrat-Bold.ttf',
+            ],
+            'montserratlight' => [
+                'R' => 'Montserrat-ExtraLight.ttf',
+            ],
+            'montserratmedium' => [
+                'R' => 'Montserrat-Medium.ttf',
+            ],
+        ],
     ],
-    'assessment_image_order' => ['white', 'positive', 'negative', 'blue', 'uv', 'woods']
+    'mpdf_font_dir' => '/assets/fonts/Montserrat',
 ];

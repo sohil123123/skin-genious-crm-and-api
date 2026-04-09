@@ -37,21 +37,21 @@ class CommonController extends BaseApiController
 
     public function pdfTest(Request $request)
     {
-        $record = \App\Models\Assessment::find(45);
+        $record = \App\Models\Assessment::find(4);
 
         // $html = view('pdf.diagnosis-report', ['record' => $assessment])->render();
 
         // $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        
+
         // // Allow remote images if needed (though we use mostly local or base64)
-        // $mpdf->showImageErrors = true; 
-        
+        // $mpdf->showImageErrors = true;
+
         // $mpdf->WriteHTML($html);
         // return response($mpdf->Output('diagnosis-report.pdf', 'S'))
         //         ->header('Content-Type', 'application/pdf');
 
-        
-        // // 
+
+        // //
         // $mpdf = new \Mpdf\Mpdf([
         //     'format' => 'A4',
         //     'margin_top' => 10,
@@ -59,7 +59,7 @@ class CommonController extends BaseApiController
         //     'margin_footer' => 5,
         // ]);
         // $mpdf->SetTitle('Treatment Plan');
-        
+
         // /** PAGE 1 — Client Details */
         // $mpdf->WriteHTML(
         //     view('pdf.treatment-plan-cover', [
@@ -81,7 +81,7 @@ class CommonController extends BaseApiController
         // $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
         // $mpdf->WriteHTML($html);
 
-        // // 
+        // //
         // $mpdf = new \Mpdf\Mpdf([
         //     'format' => 'A4',
         //     'margin_top' => 16,
@@ -96,7 +96,7 @@ class CommonController extends BaseApiController
 
         // $mpdf->WriteHTML($html);
 
-        // 
+        //
         $mpdf = new \Mpdf\Mpdf([
             'mode' => 'utf-8',
             'format' => 'A4',

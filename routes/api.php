@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\CommonController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\ReportController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -64,6 +65,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
     // Route::apiResource('appointments', 'AppointmentController');
 
     Route::get('pdf-test', [CommonController::class, 'pdfTest']);
+
+    Route::get('pdf/skin-analysis', [ReportController::class, 'skinAnalysis'])->name('skin-analysis');
 
 });
 
