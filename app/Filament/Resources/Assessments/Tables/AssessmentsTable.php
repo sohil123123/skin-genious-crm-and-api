@@ -183,11 +183,17 @@ class AssessmentsTable
                         ->color('primary')
                         // ->tooltip('Download Diagnosis PDF')
                         ->action(function (Assessment $record) {
-                            $html = view('pdf.diagnosis-report', ['record' => $record])->render();
+                            $html = view('pdf.facial.skin_analysis', [
+                                'data' => $record,
+                                'diagnosis' => $record->diagnosis,
+                                'key_parametrs' => collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores'] ?? []),
+                                'assessmentImages' => $record->images,
+                                'patient' => $record->user
+                            ])->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
                             $mpdf->showImageErrors = true;
                             $mpdf->WriteHTML($html);
-                            
+
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
                             }, 'diagnosis-report_#' . $record->id . '.pdf');
@@ -211,7 +217,7 @@ class AssessmentsTable
                             ->render();
                             $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->WriteHTML($html);
-                            
+
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
                             }, 'visual-comparison-report_#' . $record->id . '.pdf');
@@ -229,12 +235,12 @@ class AssessmentsTable
                             $html = view('pdf.post-treatment-comparison', ['post_diagnosis' => $record->post_diagnosis, 'patient' => $record->user])->render();
                             $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->WriteHTML($html);
-                            
+
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
                             }, 'post-treatment-comparison_#' . $record->id . '.pdf');
                         }),
-                        
+
                     Action::make('treatment_plan_pdf')
                         ->label('Treatment Plan PDF')
                         ->icon('heroicon-o-arrow-down-tray')
@@ -242,7 +248,7 @@ class AssessmentsTable
                         ->action(function (Assessment $record) {
                             $mpdf = new Mpdf(config('project.mpdf_config'));
                             $mpdf->SetTitle('Treatment Plan');
-                            
+
                             /** PAGE 1 — Client Details */
                             $mpdf->WriteHTML(
                                 view('pdf.treatment-plan-cover', [
@@ -263,7 +269,7 @@ class AssessmentsTable
 
                             $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
                             $mpdf->WriteHTML($html);
-                            
+
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
                             }, 'treatment-plan-session_#' . $record->id . '.pdf');

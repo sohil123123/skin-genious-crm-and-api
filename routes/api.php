@@ -59,12 +59,15 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::post('/ai/conversations', [AiController::class, 'conversations']);
         Route::post('/ai/responses', [AiController::class, 'responses']);
 
+        // INFO: Download Report
+        Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
+
     });
 
     // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
     // Route::apiResource('appointments', 'AppointmentController');
 
-    Route::get('pdf-test', [CommonController::class, 'pdfTest']);
+    // Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
 
 });
 

@@ -253,7 +253,7 @@
     </table>
 
     <div class="overview-text">
-        {{ $diagnosis['script'] }}
+        {{ $diagnosis['script'] ?? 'N/A' }}
     </div>
 
     {{-- ── Key Parameters ── --}}

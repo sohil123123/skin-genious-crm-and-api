@@ -30,46 +30,20 @@ class ReportController extends BaseApiController
         return $mpdf;
     }
 
+    public function downloadFacialReport($type, $assessment_id)
+    {
+        if($type == 'skin-analysis') {
+            return $this->skinAnalysis($assessment_id);
+        }
+    }
+
     // ─────────────────────────────────────────────
     //  1. Skin Analysis Diagnostic Report
     // ─────────────────────────────────────────────
-    public function skinAnalysis()
+    public function skinAnalysis($assessment_id)
     {
-        $data = [
-            'patient' => [
-                'name'         => 'Swati Mishra',
-                'age'          => 46,
-                'gender'       => 'Female',
-                'report_date'  => '16/03/2026',
-                'skin_profile' => 'Combination',
-            ],
-            'overview' => [
-                'mild'        => 6,
-                'moderate'    => 8,
-                'significant' => 1,
-            ],
-            // Use collect() so ->chunk(2) works in Blade
-            'parameters' => collect([
-                [
-                    'name'        => 'Skin Type Classification - Combination',
-                    'description' => 'Your skin shows a mix of oilier areas in the T-zone with more balanced cheeks. This is typical of combination skin and affects both product choice and treatment sequencing.',
-                ],
-                [
-                    'name'        => 'Barrier Health + Sensitivity - 3/5',
-                    'description' => 'Your barrier is mostly stable, with mild sensitivity and localized areas of compromise. The focus is protection, hydration support, and avoiding unnecessary irritation.',
-                ],
-                [
-                    'name'        => 'Visual Acne Grading - 2/5',
-                    'description' => 'Breakout activity is very mild, with small congestion and a few inflamed points. Acne severity is low and appears well controlled at present.',
-                ],
-                [
-                    'name'        => 'Skin Sebum Index - 3/5',
-                    'description' => 'Oil production is moderate overall, with a clear concentration in the T-zone. The aim is oil balance without over-drying the healthier zones of the face.',
-                ],
-            ]),
-        ];
 
-        $record = \App\Models\Assessment::find(4);
+        $record = \App\Models\Assessment::find($assessment_id);
 
         // echo "<pre>";
         // print_r($record->diagnosis);
