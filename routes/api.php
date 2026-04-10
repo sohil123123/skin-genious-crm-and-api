@@ -66,9 +66,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     Route::get('pdf-test', [CommonController::class, 'pdfTest']);
 
-    Route::get('pdf/skin-analysis', [ReportController::class, 'skinAnalysis'])->name('skin-analysis');
-
 });
+
+Route::get('pdf/skin-analysis', [ReportController::class, 'skinAnalysis'])->name('skin-analysis');
 
 Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (Request $request) {
     // Sanctum middleware auto-validates the token

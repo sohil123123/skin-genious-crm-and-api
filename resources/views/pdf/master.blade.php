@@ -14,7 +14,7 @@
             header: html_myheader;
             footer: html_myfooter;
             margin-top: 35mm;
-            margin-bottom: 0mm;
+            margin-bottom: 59mm;
             margin-left: 15mm;
             margin-right: 15mm;
         }
@@ -98,12 +98,12 @@
 <!-- ================= FOOTER ================= -->
 <htmlpagefooter name="myfooter">
     <!-- LAYER 1: Full width background image anchored to bottom left of page -->
-    <div style="position: absolute; bottom: 0; left: -15mm; right: -15mm; z-index: -1;">
+    <div style="position: absolute; bottom: -5px; left: -15mm; right: -15mm; z-index: -1;">
         <img src="{{ public_path('images/footer-shape-2.png') }}" style="display: block;" />
     </div>
 
     <!-- LAYER 2: Text explicitly separated as a block so mPDF doesn't push it below the image -->
-    <div style="position: absolute; bottom: 20mm; left: -15mm; right: -15mm; text-align: center; z-index: 10;">
+    <div style="position: absolute; bottom: 15mm; left: -15mm; right: -15mm; text-align: center; z-index: 10;">
         <div style="color: #c4b59d; font-size: 15px; padding-bottom: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
             Generated via AI Aesthetics Skin Diagnostic System
         </div>

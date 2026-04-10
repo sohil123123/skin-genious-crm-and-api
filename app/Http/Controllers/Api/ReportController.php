@@ -69,11 +69,27 @@ class ReportController extends BaseApiController
             ]),
         ];
 
-        $html  = view('pdf.facial.skin_analysis', $data)->render();
+        $record = \App\Models\Assessment::find(4);
+
+        // echo "<pre>";
+        // print_r($record->diagnosis);
+        // echo "</pre>";
+        // die;
+
+        $html  = view('pdf.facial.skin_analysis',
+            [
+                'data' => $record,
+                'diagnosis' => $record->diagnosis,
+                'key_parametrs' => collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores']),
+                'assessmentImages' => $record->images,
+                'patient' => $record->user
+            ]
+        )->render();
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
         $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
         $mpdf->SetDisplayMode('fullpage');
         $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
         return response($mpdf->Output('skin_analysis.pdf', 'S'), 200, [
