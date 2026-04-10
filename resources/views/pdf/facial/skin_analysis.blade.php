@@ -118,14 +118,33 @@
     .section-text {
         font-size: 12px;
         color: #4A5568;
-        line-height: 1.7;
+        line-height: 2;
         text-align: justify;
         margin-bottom: 15px;
     }
     .score-text{
-        font-size: 28px;
+        font-size: 20px;
         font-weight: bold;
         color: #297ab1;
+    }
+    .score-circle {
+        margin-bottom: 15px;
+    }
+    .score-cell {
+        background-color: #FFFFFF;
+        border: 1.5px solid #C29F5D;
+        text-align: center;
+        padding: 6px 15px;
+    }
+    .score-cell span {
+        color: #0E2B5C;
+        font-size: 14px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .score-cell span.text-small {
+        font-size: 13px;
     }
     .grid-layout {
         width: 100%;
@@ -334,9 +353,9 @@
                                             <div class="section-label">SCORE / TEXT / SKIN TYPE</div>
 
                                             <!-- Populated the badge structure to make UI better as requested -->
-                                            <table class="score-badge-table" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
+                                            <table class="score-circle" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
                                                 <tr>
-                                                    <td class="score-badge-cell">
+                                                    <td class="score-cell">
                                                         @php
                                                             $score = $data['score_or_label'] ?? '-';
                                                         @endphp
