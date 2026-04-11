@@ -32,8 +32,6 @@
     }
 
     /* ─── Info Cards ─── */
-    .info-card {
-    }
     .info-label {
         font-size: 9px;
         color: #718096;
@@ -93,17 +91,6 @@
     }
 
     /* ─── Diagnosis Cards ─── */
-    .parameter-title {
-        background-color: #0E2B5C;
-        color: #FFFFFF;
-        font-size: 15px;
-        font-weight: bold;
-        text-transform: uppercase;
-        padding: 8px 15px;
-        margin-top: 20px;
-        margin-bottom: 15px;
-        letter-spacing: 1.5px;
-    }
     .section-label {
         font-size: 12px;
         color: #C29F5D;
@@ -118,70 +105,46 @@
     .section-text {
         font-size: 12px;
         color: #4A5568;
-        line-height: 2;
+        line-height: 1.5;
         text-align: justify;
         margin-bottom: 15px;
     }
-    .score-text{
-        font-size: 20px;
-        font-weight: bold;
-        color: #297ab1;
-    }
-    .score-circle {
-        margin-bottom: 15px;
-    }
-    .score-cell {
-        background-color: #FFFFFF;
-        border: 1.5px solid #C29F5D;
-        text-align: center;
-        padding: 6px 15px;
-    }
-    .score-cell span {
-        color: #0E2B5C;
-        font-size: 14px;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .score-cell span.text-small {
-        font-size: 13px;
-    }
-    .grid-layout {
-        width: 100%;
+    .section-card {
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        padding: 20px;
         margin-top: 10px;
     }
-    .grid-layout-td-left {
-        vertical-align: top;
-        padding-right: 15px;
+    .section-header {
+        background: #0E2B5C;
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+        padding: 12px 16px;
+        border-radius: 8px;
     }
-    .grid-layout-td-right {
-        vertical-align: top;
-        padding-left: 15px;
+    .divider {
+        border-left: 1px solid #E5E7EB;
     }
     .score-circle {
-        margin-bottom: 15px;
-    }
-    .score-cell {
-        background-color: #FFFFFF;
-        border: 1.5px solid #C29F5D;
+        width: 50px;
         text-align: center;
-        padding: 6px 15px;
+        vertical-align: middle;
+        border: 4px solid #E0E7FF;
+        border-radius: 50%;
+        padding: 5px;
     }
-    .score-cell span {
-        color: #0E2B5C;
-        font-size: 14px;
+    .score-inner {
+        font-size: 30px;
         font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .score-cell span.text-small {
-        font-size: 13px;
+        color: #0E2B5C;
     }
     .img-box {
         background: #FFFFFF;
-        padding: 5px;
-        border: 1px solid #E2E8F0;
+        border: 1px dashed #D1D5DB;
+        padding: 10px;
         text-align: center;
+        border-radius: 8px;
     }
     .img-box img {
         max-width: 100%;
@@ -190,11 +153,15 @@
     }
     .causes-list {
         margin: 0;
-        padding-left: 20px;
+        padding-left: 15px;
+        font-size: 11px;
     }
-    .causes-list li {
-        margin-bottom: 6px;
+    li {
+        font-size: 12px;
         color: #4A5568;
+        line-height: 2;
+        text-align: justify;
+        margin-bottom: 15px;
     }
 </style>
 
@@ -327,125 +294,106 @@
     @else
         @foreach($report as $key => $data)
 
-        <!-- Force each parameter to start on its own full page -->
-        <pagebreak />
+            <pagebreak />
 
-        <table style="width: 100%; page-break-inside: avoid;">
-            <tr>
-                <td>
-                    <table class="section-title-table" cellpadding="0" cellspacing="0">
-                        <tr>
-                            <td class="section-title">{{ $data['parameter_name'] ?? ucwords(str_replace('_', ' ', $key)) }}</td>
-                        </tr>
-                    </table>
-                    <table style="width: 100%;">
-                        <tr>
-                            <td>
-                                <div class="section-label">EXPLANATION OF WHAT THE PARAMETER ENTAILS</div>
-                                <div class="section-text" style="margin-bottom: 20px;">
-                                    {{ $data['description'] ?? 'No description available for this parameter.' }}
-                                </div>
+            <!-- Header -->
+            <div class="section-header">
+                {{ $data['parameter_name'] ?? ucwords(str_replace('_', ' ', $key)) }}
+            </div>
 
-                                <table class="grid-layout" cellpadding="0" cellspacing="0">
+            <!-- Card -->
+            <div class="section-card">
+
+                <!-- Description -->
+                <div class="section-label">ABOUT THIS PARAMETER</div>
+                <div class="section-text" style="margin-bottom: 20px;">
+                    {{ $data['description'] ?? 'No description available.' }}
+                </div>
+
+                <table width="100%">
+                    <tr>
+
+                        <!-- LEFT -->
+                        <td width="45%" valign="top">
+                            <table>
+                                <tr>
+                                    <td style="padding-bottom: 10px;">
+                                        <div class="section-label">SCORE</div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table class="score-circle" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                                <tr>
+                                    <td align="center" valign="middle">
+                                        <div class="score-inner">
+                                            {{ $data['score_or_label'] ?? '-' }}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="margin-top:20px;">
+                                <table>
                                     <tr>
-                                        <!-- Left Column -->
-                                        <td class="grid-layout-td-left" width="45%">
-                                            <div class="section-label">SCORE / TEXT / SKIN TYPE</div>
-
-                                            <!-- Populated the badge structure to make UI better as requested -->
-                                            <table class="score-circle" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
-                                                <tr>
-                                                    <td class="score-cell">
-                                                        @php
-                                                            $score = $data['score_or_label'] ?? '-';
-                                                        @endphp
-                                                        <span class="score-text">{{ $score }}</span>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-
-                                        <!-- Divider Column -->
-                                        <td width="3%" style="border-left: 2px solid #E2E8F0;"></td>
-
-                                        <!-- Right Column -->
-                                        <td class="grid-layout-td-right" width="52%">
-                                            <div class="section-label">EXPLANATION OF SCORE</div>
-
-                                            <!-- Populated the badge structure to make UI better as requested -->
-                                            <table class="score-badge-table" cellpadding="0" cellspacing="0" style="margin-top: 10px;">
-                                                <tr>
-                                                    <td class="score-badge-cell">
-                                                        <div class="section-text" style="margin-bottom: 20px;">
-                                                            {{ $data['score_explanation'] ?? 'No explanation available for this score.' }}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <!-- Left Column -->
-                                        <td class="grid-layout-td-left" width="45%">
-                                            <div class="section-label">FACE IMAGE SHOWING AFFECTED AREAS</div>
-
-                                            <!-- Populated the badge structure to make UI better as requested -->
-                                            <table class="score-badge-table" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
-                                                <tr>
-                                                    <td>
-                                                        <div class="img-box">
-                                                    @php
-                                                        $imgIndex = isset($data['affected_area_image']) ? max(((int)$data['affected_area_image']) - 1, 0) : 0;
-                                                        $imageSrc = $sortedImages[$imgIndex]['url'] ?? ($sortedImages[0]['url'] ?? null);
-                                                    @endphp
-
-                                                    @if($imageSrc)
-                                                        <img src="{{ $imageSrc }}" style="width: 30%;">
-                                                    @else
-                                                        <div style="padding: 50px 20px; text-align:center; color: #999; font-size: 10px;">
-                                                            NO IMAGE FOUND
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-
-                                        <!-- Divider Column -->
-                                        <td width="3%" style="border-left: 2px solid #E2E8F0;"></td>
-
-                                        <!-- Right Column -->
-                                        <td class="grid-layout-td-right" width="52%" style="padding-top: 10px;">
-                                            <div class="section-label">POSSIBLE CAUSES OF THE ISSUE SEEN</div>
-
-                                            <!-- Populated the badge structure to make UI better as requested -->
-                                            <table class="score-badge-table" cellpadding="0" cellspacing="0" style="margin-top: 10px;">
-                                                <tr>
-                                                    <td class="score-badge-cell">
-                                                        <div class="section-text" style="margin-bottom: 20px;">
-                                                            @if(!empty($data['possible_causes']) && is_array($data['possible_causes']))
-                                                                <ul class="causes-list">
-                                                                    @foreach($data['possible_causes'] as $cause)
-                                                                        <li>{{ $cause }}</li>
-                                                                    @endforeach
-                                                                </ul>
-                                                            @else
-                                                                No specific causes listed.
-                                                            @endif
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </table>
+                                        <td style="padding-bottom: 10px;">
+                                            <div class="section-label">AFFECTED AREA</div>
                                         </td>
                                     </tr>
                                 </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
+
+                                <div class="img-box">
+                                    @php
+                                        $imgIndex = isset($data['affected_area_image']) ? max(((int)$data['affected_area_image']) - 1, 0) : 0;
+                                        $imageSrc = $sortedImages[$imgIndex]['url'] ?? ($sortedImages[0]['url'] ?? null);
+                                    @endphp
+
+                                    @if($imageSrc)
+                                        <img src="{{ $imageSrc }}" style="width: 25%;">
+                                    @else
+                                        <div style="padding: 30px; color:#999;">NO IMAGE</div>
+                                    @endif
+                                </div>
+                            </div>
+
+                        </td>
+
+                        <!-- DIVIDER -->
+                        <td width="5%" class="divider"></td>
+
+                        <!-- RIGHT -->
+                        <td width="50%" valign="top">
+
+                            <table>
+                                <tr>
+                                    <td style="padding-bottom: 5px;"><div class="section-label" style="margin-top: 20px;">SCORE EXPLANATION</div></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-bottom: 10px;"><div class="section-text" style="margin-bottom: 20px;">{{ $data['score_explanation'] ?? 'No explanation available.' }}</div></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-bottom: 5px;"><div class="section-label" style="margin-top: 20px;">POSSIBLE CAUSES</div></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        @if(!empty($data['possible_causes']))
+                                            <ul class="causes-list">
+                                                @foreach($data['possible_causes'] as $cause)
+                                                    <li>{{ $cause }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="section-text">No causes listed.</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+
+                    </tr>
+                </table>
+
+            </div>
+
         @endforeach
     @endif
 

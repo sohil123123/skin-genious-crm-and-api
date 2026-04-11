@@ -67,7 +67,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
     // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
     // Route::apiResource('appointments', 'AppointmentController');
 
-    // Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
+    Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
 
 });
 
