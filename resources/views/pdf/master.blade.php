@@ -52,7 +52,7 @@
             header: html_myheader;
             footer: html_myfooter;
             margin-top: 35mm;
-            margin-bottom: 59mm;
+            margin-bottom: 65mm;
             margin-left: 15mm;
             margin-right: 15mm;
         }
@@ -109,6 +109,13 @@
             right: 10px;
             color: #ffffff;
             font-size: 7pt;
+        }
+        .generated-note {
+            font-size: 9px;
+            color: #b1afafff;
+            text-align: center;
+            margin-top: 8px;
+            font-style: italic;
         }
     </style>
 </head>

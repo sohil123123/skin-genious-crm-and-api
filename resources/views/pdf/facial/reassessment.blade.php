@@ -97,14 +97,6 @@
         line-height: 1.5;
     }
 
-    .generated-note {
-        font-size: 9px;
-        color: #b1afafff;
-        text-align: center;
-        margin-top: 8px;
-        font-style: italic;
-    }
-
     .maintenance-dot {
         color: #C9A84C;
         font-size: 18px;
@@ -196,7 +188,7 @@
 
 
 {{-- ── Patient Info ── --}}
-<table width="100%" cel{{-- ── Key Parameters ── --}}lpadding="0" cellspacing="0" style="margin-bottom: 10px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
     <tr>
         <td width="48%" valign="top">
             <div class="info-card">
@@ -214,22 +206,22 @@
     </tr>
 </table>
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
-        <tr>
-            <td width="48%" valign="top">
-                <div class="info-card">
-                    <div class="info-label">Report Date</div>
-                    <div class="info-value">{{ date('d/m/Y') }}</div>
-                </div>
-            </td>
-            <td width="4%"></td>
-            <td width="48%" valign="top">
-                <div class="info-card">
-                    <div class="info-label">SKIN PROFILE</div>
-                    <div class="info-value">{{ $patient['skin_type'] ?? 'N/A' }}</div>
-                </div>
-            </td>
-        </tr>
-    </table>
+    <tr>
+        <td width="48%" valign="top">
+            <div class="info-card">
+                <div class="info-label">Report Date</div>
+                <div class="info-value">{{ date('d/m/Y') }}</div>
+            </div>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" valign="top">
+            <div class="info-card">
+                <div class="info-label">SKIN PROFILE</div>
+                <div class="info-value">{{ $patient['skin_type'] ?? 'N/A' }}</div>
+            </div>
+        </td>
+    </tr>
+</table>
 
 {{-- ── Results Summary ── --}}
 <div class="section-box">
@@ -262,11 +254,11 @@
     </table>
 </div>
 
-{{-- ── Key Improvements + Maintenance ── --}}
+{{-- ── Key Improvements ── --}}
 <pagebreak page-selector="report_content" />
-<table class="two-col-table" cellpadding="5" cellspacing="0">
+<table width="100%" class="two-col-table" cellpadding="5" cellspacing="0">
     <tr>
-        <td width="50%" class="col-box">
+        <td class="col-box">
 
             <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
@@ -278,7 +270,7 @@
                         <div class="improvement-row">
                             <table width="100%" cellpadding="0" cellspacing="0">
                                 <tr>
-                                    <td width="70%"><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
+                                    <td width="30%"><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
                                     @php
                                         $statusClass = 'improvement-badge';
                                         if (strtolower($item['status']) === 'improved') {
@@ -289,7 +281,8 @@
                                             $statusClass .= ' declined';
                                         }
                                     @endphp
-                                    <td width="30%" align="right" rowspan="2"><div class="{{ $statusClass }}">{{ $item['status'] }}</div></td>
+                                    <!-- <td width="30%" align="right" rowspan="2"><div class="{{ $statusClass }}">{{ $item['status'] }}</div></td> -->
+                                    <td width="70%">{{ $item['result'] }}</td>
                                 </tr>
                                 <tr>
                                     <td style="padding-bottom: 6px; padding-top: 2px;">
@@ -305,9 +298,16 @@
                 </tr>
             </table>
         </td>
-        <td width="3%"></td>
-        <td width="47%" class="col-box">
-            <table>
+    </tr>
+</table>
+
+{{-- ── Maintenance ── --}}
+
+<pagebreak page-selector="report_content" />
+<table width="100%" class="two-col-table" cellpadding="5" cellspacing="0">
+    <tr>
+        <td class="col-box">
+            <table width="100%">
                 <tr>
                     <td style="padding-bottom: 15px;" align="center"><div class="col-title">— MAINTENANCE PLAN —</div></td>
                 </tr>

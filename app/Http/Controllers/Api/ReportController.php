@@ -36,6 +36,8 @@ class ReportController extends BaseApiController
             return $this->skinAnalysis($assessment_id);
         }else if($type == 'reassessment') {
             return $this->reassessment($assessment_id);
+        }else if($type == 'treatment-plan') {
+            return $this->treatmentProtocol($assessment_id);
         }
     }
 
@@ -46,11 +48,6 @@ class ReportController extends BaseApiController
     {
 
         $record = \App\Models\Assessment::find($assessment_id);
-
-        // echo "<pre>";
-        // print_r($record->diagnosis);
-        // echo "</pre>";
-        // die;
 
         $html  = view('pdf.facial.skin_analysis',
             [
@@ -77,8 +74,9 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     //  2. Personalized Treatment Protocol
     // ─────────────────────────────────────────────
-    public function treatmentProtocol()
+    public function treatmentProtocol($assessment_id)
     {
+        $record = \App\Models\Assessment::find($assessment_id);
         $data = [
             'patient' => [
                 'name'   => 'Swati Mishra',
@@ -129,12 +127,40 @@ class ReportController extends BaseApiController
                         'focus'            => 'Results consolidation and sustained improvement',
                         'expected_outcome' => 'Overall quality improvement with sustained results',
                     ],
+                    [
+                        'number'           => 3,
+                        'week'             => 4,
+                        'name'             => 'RF Lift + Infusion + Under-eye',
+                        'duration'         => '60 min',
+                        'focus'            => 'Firmness, hydration, dark circle reduction',
+                        'expected_outcome' => 'Improved jawline support and reduced dark circles',
+                    ],
+                    [
+                        'number'           => 4,
+                        'week'             => 6,
+                        'name'             => 'Combination Peel + Hydration Finish',
+                        'duration'         => '60 min',
+                        'focus'            => 'Results consolidation and sustained improvement',
+                        'expected_outcome' => 'Overall quality improvement with sustained results',
+                    ],
                 ]),
             ],
         ];
+        // dd($record->treatmentSessions['treatments']);
+        $data['sessions'] = $record->treatmentSessions['treatments'];
+        $data['treatment_goals'] = collect($record->treatmentSessions['treatments'])
+        ->pluck('concerns_addressed')
+        ->flatten(1)
+        ->unique('concern')
+        ->values()
+        ->toArray();
 
-        $html = view('pdf.treatment_protocol', $data)->render();
-        $mpdf = $this->makeMpdf();
+        $html = view('pdf.facial.treatment_protocol', $data)->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
         return response($mpdf->Output('treatment_protocol.pdf', 'S'), 200, [
@@ -148,32 +174,6 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     public function reassessment($assessment_id)
     {
-        $data = [
-            'patient' => [
-                'name'   => 'Madhavi Kumar',
-                'age'    => 45,
-                'gender' => 'Female',
-            ],
-            'reassessment' => [
-                'treatment_period'    => '6 Weeks',
-                'sessions_completed'  => 4,
-                'total_sessions'      => 4,
-                'params_improved'     => 5,
-                'params_stable'       => 9,
-                'params_monitored'    => 1,
-                'improvements' => [
-                    ['name' => 'Barrier Health + Sensitivity', 'before' => '3/5', 'after' => '2/5'],
-                    ['name' => 'Skin Hydration Score',         'before' => '2/5', 'after' => '3/5'],
-                    ['name' => 'Skin Luminosity / Glow Index', 'before' => '2/5', 'after' => '3/5'],
-                    ['name' => 'Textural Radiance Index',      'before' => '3/5', 'after' => '2/5'],
-                ],
-                'maintenance' => [
-                    'Continue maintenance treatments every 4-6 weeks to sustain and enhance the improvements achieved.',
-                    'Maintain a consistent skincare routine with niacinamide / ceramide serums, hydrating moisturizers, and daily SPF 50+ protection.',
-                    'Schedule a follow-up re-assessment in 3 months to evaluate longer-term response and refine the plan if needed.',
-                ],
-            ],
-        ];
 
         $record = \App\Models\Assessment::find($assessment_id);
         $data['patient'] = $record->user;
@@ -181,7 +181,6 @@ class ReportController extends BaseApiController
         $data['counts'] = collect($data['reassessment'])
         ->pluck('status')
         ->countBy();
-
 
         $assessmentImages = $record->images;
         $postAssessmentImages = $record->post_images;
