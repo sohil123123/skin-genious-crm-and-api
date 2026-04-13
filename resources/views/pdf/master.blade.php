@@ -10,6 +10,44 @@
             padding: 0;
         }
 
+        /* ─── Typography ─── */
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #0E2B5C;
+            padding-bottom: 10px;
+        }
+        .report-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0E2B5C;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .report-subtitle {
+            font-size: 9.5px;
+            font-weight: bold;
+            color: #C29F5D;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+         /* ─── Info Cards ─── */
+        .info-label {
+            font-size: 9px;
+            color: #718096;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .info-value {
+            font-size: 14px;
+            color: #0E2B5C;
+            font-weight: bold;
+        }
+
         @page {
             header: html_myheader;
             footer: html_myfooter;

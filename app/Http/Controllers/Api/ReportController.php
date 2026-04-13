@@ -34,6 +34,8 @@ class ReportController extends BaseApiController
     {
         if($type == 'skin-analysis') {
             return $this->skinAnalysis($assessment_id);
+        }else if($type == 'reassessment') {
+            return $this->reassessment($assessment_id);
         }
     }
 
@@ -144,7 +146,7 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     //  3. Re-Assessment & Progress Report
     // ─────────────────────────────────────────────
-    public function reassessment()
+    public function reassessment($assessment_id)
     {
         $data = [
             'patient' => [
@@ -173,8 +175,26 @@ class ReportController extends BaseApiController
             ],
         ];
 
-        $html = view('pdf.reassessment', $data)->render();
-        $mpdf = $this->makeMpdf();
+        $record = \App\Models\Assessment::find($assessment_id);
+        $data['patient'] = $record->user;
+        $data['reassessment'] = $record->post_diagnosis['reassessment'];
+        $data['counts'] = collect($data['reassessment'])
+        ->pluck('status')
+        ->countBy();
+
+
+        $assessmentImages = $record->images;
+        $postAssessmentImages = $record->post_images;
+
+        $data['assessmentImages'] = $assessmentImages;
+        $data['postAssessmentImages'] = $postAssessmentImages;
+
+        $html = view('pdf.facial.reassessment', $data)->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
         return response($mpdf->Output('reassessment.pdf', 'S'), 200, [
