@@ -10,26 +10,8 @@ use Mpdf\Config\FontVariables;
 class ReportController extends BaseApiController
 {
     // ─────────────────────────────────────────────
-    //  Shared mPDF factory
+    //  1. Download Facial Report
     // ─────────────────────────────────────────────
-    private function makeMpdf(): Mpdf
-    {
-        $mpdf = new Mpdf([
-            'mode'           => 'utf-8',
-            'format'         => 'A4',
-            'margin_top'     => 38,   // leaves space for htmlpageheader
-            'margin_bottom'  => 28,   // leaves space for htmlpagefooter
-            'margin_left'    => 12,
-            'margin_right'   => 12,
-            'setAutoTopMargin'    => 'stretch',
-            'setAutoBottomMargin' => 'stretch',
-        ]);
-
-        $mpdf->SetDisplayMode('fullpage');
-
-        return $mpdf;
-    }
-
     public function downloadFacialReport($type, $assessment_id)
     {
         if($type == 'skin-analysis') {
@@ -199,6 +181,71 @@ class ReportController extends BaseApiController
         return response($mpdf->Output('reassessment.pdf', 'S'), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="reassessment.pdf"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  4. Download IV Report
+    // ─────────────────────────────────────────────
+    public function downloadIvReport($type, $assessment_id)
+    {
+        if($type == 'skin-analysis') {
+            return $this->ivSkinAnalysis($assessment_id);
+        }else if($type == 'reassessment') {
+            return $this->reassessment($assessment_id);
+        }else if($type == 'treatment-plan') {
+            return $this->treatmentProtocol($assessment_id);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  5. Download IV Report
+    // ─────────────────────────────────────────────
+    public function ivSkinAnalysis($assessment_id)
+    {
+        $record = \App\Models\Assessment::find($assessment_id);
+
+        $labels = [
+            'FENS' => 'Fluid & Electrolyte Need',
+            'PCCS' => 'Perfusion & Circulation Constraint',
+            'ASLS' => 'Autonomic Stress & Load',
+            'MONS' => 'Mitochondrial Output Need',
+            'ODS' => 'Oxidative / Detox Burden',
+            'ILS' => 'Inflammation / Immune Load',
+            'MSGS' => 'Metabolic Stability / Glycation',
+            'DGS' => 'Dermal Glow / Barrier Support',
+        ];
+        $what_it_means = $record->diagnosis['iv_scoring_output']['what_it_means'];
+        $primary_signals_reviewed = $record->diagnosis['iv_scoring_output']['primary_signals_reviewed'];
+        $scores = $record->diagnosis['iv_scoring_output']['scores_public_0_100'];
+
+        $iv_scors = collect($scores)->map(function ($value, $key) use ($labels, $what_it_means, $primary_signals_reviewed) {
+            return [
+                'code'  => $key,
+                'label' => $labels[$key] ?? null,
+                'score' => $value,
+                'what_it_means' => $what_it_means[$key] ?? null,
+                'primary_signals_reviewed' => $primary_signals_reviewed[$key] ?? null,
+            ];
+        })->values();
+
+        $html  = view('pdf.iv.wellness-analysis-report',
+            [
+                'data' => $record,
+                'patient' => $record->user,
+                'iv_scors' => $iv_scors,
+            ]
+        )->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('wellness-analysis-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="wellness-analysis-report.pdf"',
         ]);
     }
 }

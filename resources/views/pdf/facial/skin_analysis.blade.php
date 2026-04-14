@@ -133,7 +133,6 @@
     </div>
 
     {{-- ── Patient Info Cards ── --}}
-    {{-- We use individual tables per row to guarantee mPDF doesn't c style="page-break-inside: avoid;"ollapse widths --}}
     <table width="100%" cel{{-- ── Key Parameters ── --}}lpadding="0" cellspacing="0" style="margin-bottom: 10px;">
         <tr>
             <td width="48%" valign="top">

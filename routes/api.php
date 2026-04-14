@@ -69,6 +69,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
 
+    Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
+
 });
 
 Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (Request $request) {
