@@ -7,6 +7,8 @@ use Mpdf\Mpdf;
 use Mpdf\Config\ConfigVariables;
 use Mpdf\Config\FontVariables;
 
+use App\Models\Assessment;
+
 class ReportController extends BaseApiController
 {
     // ─────────────────────────────────────────────
@@ -29,7 +31,7 @@ class ReportController extends BaseApiController
     public function skinAnalysis($assessment_id)
     {
 
-        $record = \App\Models\Assessment::find($assessment_id);
+        $record = Assessment::find($assessment_id);
 
         $html  = view('pdf.facial.skin_analysis',
             [
@@ -58,7 +60,7 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     public function treatmentProtocol($assessment_id)
     {
-        $record = \App\Models\Assessment::find($assessment_id);
+        $record = Assessment::find($assessment_id);
         $data = [
             'patient' => [
                 'name'   => 'Swati Mishra',
@@ -157,7 +159,7 @@ class ReportController extends BaseApiController
     public function reassessment($assessment_id)
     {
 
-        $record = \App\Models\Assessment::find($assessment_id);
+        $record = Assessment::find($assessment_id);
         $data['patient'] = $record->user;
         $data['reassessment'] = $record->post_diagnosis['reassessment'];
         $data['counts'] = collect($data['reassessment'])
@@ -191,8 +193,8 @@ class ReportController extends BaseApiController
     {
         if($type == 'skin-analysis') {
             return $this->ivSkinAnalysis($assessment_id);
-        }else if($type == 'reassessment') {
-            return $this->reassessment($assessment_id);
+        }else if($type == 'plans') {
+            return $this->ivPlans($assessment_id);
         }else if($type == 'treatment-plan') {
             return $this->treatmentProtocol($assessment_id);
         }
@@ -203,7 +205,7 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     public function ivSkinAnalysis($assessment_id)
     {
-        $record = \App\Models\Assessment::find($assessment_id);
+        $record = Assessment::find($assessment_id);
 
         $labels = [
             'FENS' => 'Fluid & Electrolyte Need',
@@ -246,6 +248,36 @@ class ReportController extends BaseApiController
         return response($mpdf->Output('wellness-analysis-report.pdf', 'S'), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="wellness-analysis-report.pdf"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  6. Download IV Plans
+    // ─────────────────────────────────────────────
+    public function ivPlans($assessment_id)
+    {
+        $record = Assessment::find($assessment_id);
+
+        // dd($record->iv_treatment_plan['treatment_generation_output']['options']);
+
+        $html  = view('pdf.iv.iv-recommendation-report',
+            [
+                'age' => $record->age,
+                'report_date' => $record->created_at,
+                'patient' => $record->user,
+                'options' => $record->iv_treatment_plan['treatment_generation_output']['options'],
+            ]
+        )->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('iv-recommendation-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="iv-recommendation-report.pdf"',
         ]);
     }
 }
