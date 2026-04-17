@@ -64,10 +64,6 @@
     }
 
     /* Improvement row */
-    .improvement-row {
-        padding: 6px 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
     .improvement-name {
         font-size: 12px;
         font-weight: bold;
@@ -83,7 +79,7 @@
     .improvement-badge.stable { color: #C9A84C; }
     .improvement-badge.declined { color: #F44336; }
     .improvement-scores {
-        font-size: 10px;
+        font-size: 12px;
         color: #888;
         margin-top: 2px;
     }
@@ -238,17 +234,17 @@
         <tr>
             <td class="stat-cell" width="33%">
                 <div class="stat-number improved">{{ $counts['improved'] ?? 0 }}</div>
-                <div class="stat-label">PARAMETERS IMPROVED</div>
+                <div class="stat-label">SCORES IMPROVED</div>
             </td>
             <td width="1px" style="border-left: 1px solid #ddd;"></td>
             <td class="stat-cell" width="33%">
                 <div class="stat-number stable">{{ $counts['stable'] ?? 0 }}</div>
-                <div class="stat-label" style="text-align:center;">PARAMETERS STABLE</div>
+                <div class="stat-label" style="text-align:center;">SCORES STABLE</div>
             </td>
             <td width="1px" style="border-left: 1px solid #ddd;"></td>
             <td class="stat-cell" width="33%">
                 <div class="stat-number declined" style="text-align:right;">{{ $counts['declined'] ?? 0 }}</div>
-                <div class="stat-label" style="text-align:right;">PARAMETERS DECLINED</div>
+                <div class="stat-label" style="text-align:right;">SCORES DECLINED</div>
             </td>
         </tr>
     </table>
@@ -259,41 +255,63 @@
 <table width="100%" class="two-col-table" cellpadding="5" cellspacing="0">
     <tr>
         <td class="col-box">
-
+             @php
+                $reassessmentCollection = collect($reassessment);
+                $improvedItems = $reassessmentCollection->filter(fn($item) => strtolower($item['status'] ?? '') === 'improved');
+                $otherItems = $reassessmentCollection->filter(fn($item) => strtolower($item['status'] ?? '') !== 'improved');
+            @endphp
             <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                     <td style="padding-bottom: 15px;" align="center"><div class="col-title">— KEY IMPROVEMENTS —</div></td>
                 </tr>
                 <tr>
+                    <td style="padding-bottom: 10px;">
+                        {{-- ── Improved Group ── --}}
+                        @if($improvedItems->count() > 0)
+                            <div style="font-size: 13px; font-weight: bold; color: #4CAF50; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #4CAF50; width: 80px; padding-bottom: 2px;">Improved:</div>
+                            @foreach ($improvedItems as $item)
+                                <div class="improvement-row">
+                                    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom: 1px solid #f0f0f0; margin-bottom: 4px; margin-top: 4px;">
+                                        <tr>
+                                            <td width="30%" ><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
+                                            <td width="70%" style="font-size: 13px;">{{ $item['result'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-bottom: 6px; padding-top: 2px;">
+                                                <div class="improvement-scores">
+                                                    Before: {{ $item['before_treatment_score_or_label'] }} &nbsp;&nbsp; After: {{ $item['post_treatment_score_or_label'] }}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            @endforeach
+                        @endif
+                    </td>
+                </tr>
+                <tr>
                     <td>
-                         @foreach ($reassessment as $item)
-                        <div class="improvement-row">
-                            <table width="100%" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td width="30%"><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
-                                    @php
-                                        $statusClass = 'improvement-badge';
-                                        if (strtolower($item['status']) === 'improved') {
-                                            $statusClass .= ' improved';
-                                        } elseif (strtolower($item['status']) === 'stable') {
-                                            $statusClass .= ' stable';
-                                        } elseif (strtolower($item['status']) === 'declined') {
-                                            $statusClass .= ' declined';
-                                        }
-                                    @endphp
-                                    <!-- <td width="30%" align="right" rowspan="2"><div class="{{ $statusClass }}">{{ $item['status'] }}</div></td> -->
-                                    <td width="70%">{{ $item['result'] }}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding-bottom: 6px; padding-top: 2px;">
-                                        <div class="improvement-scores">
-                                            Before: {{ $item['before_treatment_score_or_label'] }} &nbsp;&nbsp; After: {{ $item['post_treatment_score_or_label'] }}
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                        @endforeach
+                        {{-- ── Other Actionable Group ── --}}
+                        @if($otherItems->count() > 0)
+                            <div style="font-size: 13px; font-weight: bold; color: #C9A84C; text-transform: uppercase; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #C9A84C; width: 180px; padding-bottom: 2px;">Other actionable scores:</div>
+                            @foreach ($otherItems as $item)
+                                <div class="improvement-row">
+                                    <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom: 1px solid #f0f0f0; margin-bottom: 4px; margin-top: 4px;">
+                                        <tr>
+                                            <td width="30%"><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
+                                            <td width="70%" style="font-size: 13px;">{{ $item['result'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-bottom: 6px; padding-top: 2px;">
+                                                <div class="improvement-scores">
+                                                    Before: {{ $item['before_treatment_score_or_label'] }} &nbsp;&nbsp; After: {{ $item['post_treatment_score_or_label'] }}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            @endforeach
+                        @endif
                     </td>
                 </tr>
             </table>

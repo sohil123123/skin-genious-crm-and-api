@@ -25,7 +25,7 @@ return [
         'margin_left' => 15,
         'margin_right' => 15,
         'margin_top' => 15,
-        'margin_bottom' => 50,
+        'margin_bottom' => 35,
         'margin_header' => 0,
         'margin_footer' => 0,
         'format' => [215.9, 279.4],

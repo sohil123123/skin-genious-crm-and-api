@@ -32,7 +32,7 @@ class ReportController extends BaseApiController
     {
 
         $record = Assessment::find($assessment_id);
-
+        // dd(collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores']));
         $html  = view('pdf.facial.skin_analysis',
             [
                 'data' => $record,
@@ -165,7 +165,7 @@ class ReportController extends BaseApiController
         $data['counts'] = collect($data['reassessment'])
         ->pluck('status')
         ->countBy();
-
+        // dd($data);
         $assessmentImages = $record->images;
         $postAssessmentImages = $record->post_images;
 
@@ -195,8 +195,8 @@ class ReportController extends BaseApiController
             return $this->ivSkinAnalysis($assessment_id);
         }else if($type == 'plans') {
             return $this->ivPlans($assessment_id);
-        }else if($type == 'treatment-plan') {
-            return $this->treatmentProtocol($assessment_id);
+        }else if($type == 'program-roadmap') {
+            return $this->programRoadmap($assessment_id);
         }
     }
 
@@ -278,6 +278,34 @@ class ReportController extends BaseApiController
         return response($mpdf->Output('iv-recommendation-report.pdf', 'S'), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="iv-recommendation-report.pdf"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  7. Download IV Program Roadmap
+    // ─────────────────────────────────────────────
+    public function programRoadmap($assessment_id)
+    {
+        $record = Assessment::find($assessment_id);
+        // dd($record->iv_treatment_plan['treatment_generation_output']['options'][2]);
+        $html  = view('pdf.iv.iv-program-roadmap-report',
+            [
+                'age' => $record->age,
+                'report_date' => $record->created_at,
+                'patient' => $record->user,
+                'program' => $record->iv_treatment_plan['treatment_generation_output']['options'][2],
+            ]
+        )->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('iv-program-roadmap-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="iv-program-roadmap-report.pdf"',
         ]);
     }
 }

@@ -52,7 +52,7 @@
             header: html_myheader;
             footer: html_myfooter;
             margin-top: 30mm;
-            margin-bottom: 65mm;
+            margin-bottom: 35mm;
             margin-left: 15mm;
             margin-right: 15mm;
         }
@@ -143,19 +143,19 @@
 <!-- ================= FOOTER ================= -->
 <htmlpagefooter name="myfooter">
     <!-- LAYER 1: Full width background image anchored to bottom left of page -->
-    <div style="position: absolute; bottom: -5px; left: -15mm; right: -15mm; z-index: -1;">
-        <img src="{{ public_path('images/footer-shape-2.png') }}" style="display: block;" />
+    <div style="position: absolute; bottom: -23mm; left: -15mm; right: -15mm; z-index: -1;">
+        <img src="{{ public_path('images/footer_hd.png') }}" style="display: block;" />
     </div>
 
     <!-- LAYER 2: Text explicitly separated as a block so mPDF doesn't push it below the image -->
-    <div style="position: absolute; bottom: 15mm; left: -15mm; right: -15mm; text-align: center; z-index: 10;">
-        <div style="color: #c4b59d; font-size: 15px; padding-bottom: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+    <div style="position: absolute; bottom: 4.5mm; left: -15mm; right: -15mm; text-align: center; z-index: 10;">
+        <div style="color: #c4b59d; font-size: 13px; padding-bottom: 5px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
             Generated via AI Aesthetics Skin Diagnostic System
         </div>
-        <div style="color: #ffffff; font-size: 18px; font-weight: bold; padding-bottom: 10px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <div style="color: #ffffff; font-size: 15px; font-weight: bold; padding-bottom: 5px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
             ADVANCED FACIALS &nbsp;|&nbsp; IV WELLNESS &nbsp;|&nbsp; LASER
         </div>
-        <div style="color: #ffffff; font-size: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <div style="color: #ffffff; font-size: 13px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
             Doctor-designed, AI Controlled and Human Delivered
         </div>
     </div>

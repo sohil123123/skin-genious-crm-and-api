@@ -177,46 +177,47 @@
     </table>
 
     <div class="overview-text">
-        {{ $diagnosis['script'] ?? 'N/A' }}
+        {!! preg_replace('/\*\*(.*?)\*\*/', '<b>$1</b>', e($diagnosis['script'] ?? 'N/A')) !!}
     </div>
 
     {{-- ── Key Parameters ── --}}
-    <table width="100%" cellpadding="0" cellspacing="0">
+    {{-- ── Key Parameters Table ── --}}
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
-            <td>
-                <table class="section-title-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td class="section-title">KEY PARAMETERS</td>
-                    </tr>
-                </table>
-
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
-                    @if(isset($key_parametrs) && count($key_parametrs) > 0)
-                        @foreach ($key_parametrs->chunk(2) as $row)
-                        <tr>
-                            @foreach ($row as $param)
-                            <td width="48%" valign="top" style="padding-bottom: 10px;">
-                                <div class="param-block">
-                                    <div class="param-name">
-                                        <span style="color: #C29F5D; margin-right: 5px;">[{{ str_pad($loop->parent->iteration * 2 + $loop->iteration - 1, 2, '0', STR_PAD_LEFT) }}]</span>
-                                        {{ $param['parameter'] }}
-                                    </div>
-                                    <div class="param-desc">{{ $param['reason_for_selection'] }}</div>
-                                </div>
-                            </td>
-                            @if($loop->iteration == 1)
-                                <td width="4%"></td>
-                            @endif
-                            @endforeach
-                            @if ($row->count() < 2)
-                            <td width="48%"></td>
-                            @endif
-                        </tr>
-                        @endforeach
-                    @endif
-                </table>
-            </td>
+            <td class="section-title">KEY PARAMETERS</td>
         </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px; border: 1px solid #E2E8F0; border-collapse: collapse;">
+        <thead>
+            <tr style="color: #0E2B5C;">
+                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Parameter name</th>
+                <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Current score</th>
+                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Short Explanation</th>
+                <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D;">Expected Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if(isset($key_parametrs) && count($key_parametrs) > 0)
+                @foreach ($key_parametrs as $param)
+                <tr style="background-color: {{ $loop->iteration % 2 == 0 ? '#F8FAFC' : '#FFFFFF' }};">
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 12px; width: 22%;">
+                        <!-- <span style="color: #C29F5D; margin-right: 5px;">[{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}]</span> -->
+                        {{ $param['parameter'] }}
+                    </td>
+                    <td align="center" style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px; width: 12%;">
+                        {{ $param['current_score'] ?? '-' }}
+                    </td>
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-size: 11px; color: #4A5568; line-height: 1.4; width: 50%;">
+                        {{ $param['reason_for_selection'] ?? 'Based on diagnostic data analysis' }}
+                    </td>
+                    <td align="center" style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; font-size: 14px; color: #C29F5D; font-weight: bold; line-height: 1.4; width: 12%;">
+                        {{ $param['target_single_session_score'] ?? 'Improvement targeted' }}
+                    </td>
+                </tr>
+                @endforeach
+            @endif
+        </tbody>
     </table>
 
     {{-- ── Skin Images ── --}}
