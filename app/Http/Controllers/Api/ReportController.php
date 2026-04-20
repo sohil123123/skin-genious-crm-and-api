@@ -287,25 +287,39 @@ class ReportController extends BaseApiController
     public function programRoadmap($assessment_id)
     {
         $record = Assessment::find($assessment_id);
-        // dd($record->iv_treatment_plan['treatment_generation_output']['options'][2]);
-        $html  = view('pdf.iv.iv-program-roadmap-report',
-            [
+        $selected_plan = $record->iv_selected_option;
+
+        // If it's a single session option (not the multi-session roadmap 'plan_option')
+        if (isset($selected_plan['option_type']) && $selected_plan['option_type'] !== 'plan_option') {
+            $html = view('pdf.iv.iv-single-session-report', [
                 'age' => $record->age,
                 'report_date' => $record->created_at,
                 'patient' => $record->user,
-                'program' => $record->iv_treatment_plan['treatment_generation_output']['options'][2],
-            ]
-        )->render();
+                'program' => $selected_plan,
+            ])->render();
+
+            $filename = 'iv-single-session-report.pdf';
+        } else {
+            $html = view('pdf.iv.iv-multi-session-report', [
+                'age' => $record->age,
+                'report_date' => $record->created_at,
+                'patient' => $record->user,
+                'program' => $selected_plan,
+            ])->render();
+
+            $filename = 'iv-multi-session-report.pdf';
+        }
+
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
         $mpdf->SetDisplayMode('fullpage');
         $mpdf->shrink_tables_to_fit = 1;
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output('iv-program-roadmap-report.pdf', 'S'), 200, [
+        return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="iv-program-roadmap-report.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 }

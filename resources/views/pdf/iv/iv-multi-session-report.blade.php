@@ -2,6 +2,73 @@
 
 @section('content')
 
+<style>
+    .roadmap-title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #0E2B5C;
+        margin-bottom: 25px;
+        text-transform: capitalize;
+    }
+    .goal-box {
+        border: 1px solid #e1ceb0;
+        background-color: #fafafa;
+        padding: 15px 20px;
+        border-radius: 4px;
+        margin-bottom: 30px;
+    }
+    .goal-header {
+        font-size: 13px;
+        font-weight: bold;
+        color: #0E2B5C;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .goal-text {
+        font-size: 12px;
+        color: #334155;
+        line-height: 1.5;
+    }
+    .roadmap-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        border: 1px solid #e2e8f0;
+    }
+    .roadmap-table th {
+        background-color: #0E2B5C;
+        color: #FFFFFF;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        padding: 12px 10px;
+        text-align: left;
+        border-right: 1px solid #1a3a6e;
+    }
+    .roadmap-table td {
+        background-color: #FFFFFF;
+        font-size: 11px;
+        color: #334155;
+        padding: 15px 10px;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+        line-height: 1.4;
+    }
+    .roadmap-table tr:nth-child(even) td {
+        background-color: #fcfaf7; /* Subtle warm tint for roadmap */
+    }
+    .phase-col { width: 15%; font-weight: bold; color: #0E2B5C; }
+    .weeks-col { width: 12%; text-align: center; }
+    .focus-col { width: 28%; }
+    .understand-col { width: 45%; border-right: none; }
+
+    .roadmap-table tr:last-child td {
+        border-bottom: none;
+    }
+</style>
+
 <pagebreak page-selector="report_content" />
 
 <div class="report_content_div">
@@ -46,72 +113,6 @@
             </td>
         </tr>
     </table>
-    <style>
-        .roadmap-title {
-            font-size: 22px;
-            font-weight: bold;
-            color: #0E2B5C;
-            margin-bottom: 25px;
-            text-transform: capitalize;
-        }
-        .goal-box {
-            border: 1px solid #e1ceb0;
-            background-color: #fafafa;
-            padding: 15px 20px;
-            border-radius: 4px;
-            margin-bottom: 30px;
-        }
-        .goal-header {
-            font-size: 13px;
-            font-weight: bold;
-            color: #0E2B5C;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-        }
-        .goal-text {
-            font-size: 12px;
-            color: #334155;
-            line-height: 1.5;
-        }
-        .roadmap-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-            border: 1px solid #e2e8f0;
-        }
-        .roadmap-table th {
-            background-color: #0E2B5C;
-            color: #FFFFFF;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            padding: 12px 10px;
-            text-align: left;
-            border-right: 1px solid #1a3a6e;
-        }
-        .roadmap-table td {
-            background-color: #FFFFFF;
-            font-size: 11px;
-            color: #334155;
-            padding: 15px 10px;
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-            vertical-align: top;
-            line-height: 1.4;
-        }
-        .roadmap-table tr:nth-child(even) td {
-            background-color: #fcfaf7; /* Subtle warm tint for roadmap */
-        }
-        .phase-col { width: 15%; font-weight: bold; color: #0E2B5C; }
-        .weeks-col { width: 12%; text-align: center; }
-        .focus-col { width: 28%; }
-        .understand-col { width: 45%; border-right: none; }
-        
-        .roadmap-table tr:last-child td {
-            border-bottom: none;
-        }
-    </style>
 
     {{-- ── Roadmap Content ── --}}
     <div class="roadmap-title">{{ $program['plan_duration_weeks'] ?? 'Multi' }}-Week Roadmap Overview</div>
