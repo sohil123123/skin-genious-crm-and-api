@@ -7,7 +7,7 @@ use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ListProducts;
 use App\Filament\Resources\Products\Schemas\ProductForm;
 use App\Filament\Resources\Products\Tables\ProductsTable;
-use App\Filament\Resources\Products\Pages\ManageTransactions;
+// use App\Filament\Resources\Products\Pages\ManageTransactions;
 
 use App\Models\Product;
 use BackedEnum;
@@ -23,6 +23,11 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->hasRole('super_admin');
+    }
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
 
     protected static string | UnitEnum | null $navigationGroup = 'Inventory';
@@ -31,7 +36,7 @@ class ProductResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+    // protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     public static function form(Schema $schema): Schema
     {
@@ -43,13 +48,13 @@ class ProductResource extends Resource
         return ProductsTable::configure($table);
     }
 
-     public static function getRecordSubNavigation(Page $page): array
-    {
-        return $page->generateNavigationItems([
-            EditProduct::class,
-            ManageTransactions::class,
-        ]);
-    }
+    // public static function getRecordSubNavigation(Page $page): array
+    // {
+    //     return $page->generateNavigationItems([
+    //         EditProduct::class,
+    //         // ManageTransactions::class,
+    //     ]);
+    // }
 
     public static function getRelations(): array
     {
@@ -64,7 +69,7 @@ class ProductResource extends Resource
             'index' => ListProducts::route('/'),
             'create' => CreateProduct::route('/create'),
             'edit' => EditProduct::route('/{record}/edit'),
-            'transactions' => ManageTransactions::route('/{record}/transactions'),
+            // 'transactions' => ManageTransactions::route('/{record}/transactions'),
         ];
     }
 }

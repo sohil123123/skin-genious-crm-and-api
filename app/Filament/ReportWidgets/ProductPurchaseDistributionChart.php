@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class ProductPurchaseDistributionChart extends ChartWidget
 {
     protected ?string $heading = 'Top Purchased Products';
-    
+
     // protected ?string $maxHeight = '300px';
 
     protected static ?int $sort = 2;
@@ -40,13 +40,15 @@ class ProductPurchaseDistributionChart extends ChartWidget
 
     public ?string $startDate = null;
     public ?string $endDate = null;
+    public ?int $clinicId = null;
 
     protected $listeners = ['updateReportDates' => 'updateDates'];
 
-    public function updateDates(string $startDate, string $endDate): void
+    public function updateDates(string $startDate, string $endDate, ?int $clinicId = null): void
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->clinicId = $clinicId;
         $this->updateChartData();
     }
 
@@ -55,13 +57,16 @@ class ProductPurchaseDistributionChart extends ChartWidget
         $startDate = $this->startDate ? Carbon::parse($this->startDate) : now()->startOfMonth();
         $endDate = $this->endDate ? Carbon::parse($this->endDate) : now()->endOfMonth();
 
-        $data = StockTransaction::query()
-            ->select('products.name', DB::raw('SUM(stock_transactions.quantity) as total_quantity'))
-            ->join('products', 'stock_transactions.product_id', '=', 'products.id')
-            ->where('stock_transactions.type', 'purchase')
-            ->whereDate('stock_transactions.created_at', '>=', $startDate)
-            ->whereDate('stock_transactions.created_at', '<=', $endDate)
-            ->groupBy('products.name')
+        $data = \App\Models\PurchaseItem::query()
+            ->select('products.name', 'products.type', DB::raw('SUM(purchase_items.quantity) as total_quantity'))
+            ->join('products', 'purchase_items.product_id', '=', 'products.id')
+            ->join('purchases', 'purchase_items.purchase_id', '=', 'purchases.id')
+            ->whereIn('products.type', ['product', 'iv_product'])
+            ->whereDate('purchases.purchase_date', '>=', $startDate)
+            ->whereDate('purchases.purchase_date', '<=', $endDate)
+            ->when($this->clinicId, fn ($q) => $q->where('purchases.clinic_id', $this->clinicId))
+            ->when(!$this->clinicId && !auth()->user()->hasRole('super_admin'), fn ($q) => $q->where('purchases.clinic_id', auth()->user()->clinic_id))
+            ->groupBy('products.name', 'products.type')
             ->orderByDesc('total_quantity')
             ->limit(10)
             ->get();
@@ -78,7 +83,7 @@ class ProductPurchaseDistributionChart extends ChartWidget
                     'borderWidth' => 0,
                 ],
             ],
-            'labels' => $data->pluck('name')->toArray(),
+            'labels' => $data->map(fn($item) => "{$item->name} (" . str_replace('_', ' ', $item->type) . ")")->toArray(),
         ];
     }
 

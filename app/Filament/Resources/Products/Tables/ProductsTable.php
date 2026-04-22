@@ -46,8 +46,10 @@ class ProductsTable
                     ->suffix('%')
                     ->sortable(),
                 TextColumn::make('unit')->sortable()->placeholder('N/A'),
-                TextColumn::make('stock')->badge()->sortable(),
                 TextColumn::make('sku')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('barcode')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 ToggleColumn::make('is_active')
@@ -72,62 +74,6 @@ class ProductsTable
             ->filtersFormColumns(2)
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                Action::make('addStock')
-                    ->label('Add Stock')
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->form([
-                        Group::make()
-                            ->schema([
-                                Section::make('Stock Transaction Details')
-                                    ->icon('heroicon-o-clipboard-document-list')
-                                    ->schema([
-                                        Grid::make(2)->schema([
-                                            Select::make('type')
-                                                ->options([
-                                                    'purchase' => 'Purchase',
-                                                    'return_in' => 'Return In',
-                                                    // 'adjustment_add' => 'Adjustment (Add)',
-                                                ])
-                                                ->default('purchase')
-                                                ->required(),
-                                            TextInput::make('quantity')
-                                                ->numeric()
-                                                ->required()
-                                                ->label('Quantity to Add')
-                                                ->default(1),
-                                        ]),
-                                        Grid::make(1)->schema([
-                                            Textarea::make('note')
-                                                ->placeholder('Optional note')
-                                                ->columnSpanFull(),
-                                        ]),
-                                    ]),
-                            ]),
-                    ])
-                    ->action(function (Product $record, array $data): void {
-                        StockTransaction::create([
-                            'product_id' => $record->id,
-                            'quantity' => $data['quantity'],
-                            'type' => $data['type'],
-                            'note' => $data['note'],
-                        ]);
-                        
-                        Notification::make()
-                            ->title('Stock Added 🎉')
-                            ->body('The stock have been successfully added.')
-                            ->success()
-                            ->send();
-                    })
-                    ->visible(fn (Product $record) => $record->type !== 'service'),
-
-                Action::make('transactions')
-                    ->icon('heroicon-o-clipboard-document-list')
-                    ->iconButton()
-                    ->color('primary')
-                    ->tooltip('View Stock Transactions')
-                    ->url(fn ($record) => route('filament.admin.resources.products.transactions', ['record' => $record])),
-
                 EditAction::make(),
             ])
             ->toolbarActions([

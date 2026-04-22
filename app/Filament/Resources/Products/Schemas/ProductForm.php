@@ -40,12 +40,20 @@ class ProductForm
                                         ->reactive()
                                         ->placeholder('Select type'),
                                 ]),
-                                Grid::make(2)->schema([
+                                Grid::make(3)->schema([
+                                    TextInput::make('barcode')
+                                        ->label('Barcode (UPC/EAN)')
+                                        ->maxLength(255)
+                                        ->placeholder('Enter Barcode')
+                                        ->visible(fn ($get) => in_array($get('type'), ['product', 'iv_product']))
+                                        ->required(fn ($get) => in_array($get('type'), ['product', 'iv_product'])),
                                     TextInput::make('sell_price')
                                         ->numeric()
                                         ->prefix('₹')
                                         ->required()
-                                        ->placeholder('0.00'),
+                                        ->placeholder('0.00')
+                                        ->visible(fn ($get) => in_array($get('type'), ['product', 'service']))
+                                        ->required(fn ($get) => in_array($get('type'), ['product', 'service'])),
                                     TextInput::make('purchase_price')
                                         ->numeric()
                                         ->prefix('₹')

@@ -16,11 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->enum('type', ['product', 'service', 'iv_product']);
             $table->string('sku')->nullable()->unique();
+            $table->string('barcode')->nullable()->nullable();
             $table->decimal('sell_price', 10, 2);
             $table->decimal('purchase_price', 10, 2)->nullable();
             $table->decimal('gst', 10, 2)->nullable();
             $table->string('unit')->nullable(); // ml, mg
-            $table->integer('stock')->default(0);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

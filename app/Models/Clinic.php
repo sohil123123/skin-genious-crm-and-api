@@ -117,4 +117,14 @@ class Clinic extends Model
     {
         return $this->morphMany(AvailabilityException::class, 'exceptionable');
     }
+
+    public function clinicInventories()
+    {
+        return $this->hasMany(ClinicInventory::class);
+    }
+
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class);
+    }
 }

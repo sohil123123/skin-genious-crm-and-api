@@ -14,11 +14,11 @@ class Product extends Model
         'name',
         'type', // product, service, iv_product
         'sku',
+        'barcode',
         'sell_price',
         'purchase_price',
         'gst',
         'unit', // ml, mg
-        'stock',
         'description',
         'is_active',
     ];
@@ -26,7 +26,6 @@ class Product extends Model
     protected $casts = [
         'sell_price' => 'decimal:2',
         'purchase_price' => 'decimal:2',
-        'stock' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -49,5 +48,14 @@ class Product extends Model
     public function invoiceItems(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    public function clinicInventories(): HasMany
+    {
+        return $this->hasMany(ClinicInventory::class);
+    }
+    public function purchaseItems(): HasMany
+    {
+        return $this->hasMany(PurchaseItem::class);
     }
 }

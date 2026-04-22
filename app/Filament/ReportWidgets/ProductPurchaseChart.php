@@ -44,13 +44,15 @@ class ProductPurchaseChart extends ChartWidget
 
     public ?string $startDate = null;
     public ?string $endDate = null;
+    public ?int $clinicId = null;
 
     protected $listeners = ['updateReportDates' => 'updateDates'];
 
-    public function updateDates(string $startDate, string $endDate): void
+    public function updateDates(string $startDate, string $endDate, ?int $clinicId = null): void
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->clinicId = $clinicId;
         $this->updateChartData();
     }
 
@@ -61,16 +63,20 @@ class ProductPurchaseChart extends ChartWidget
 
         // Use raw DB query for aggregation
         $dateFormat = match (DB::getDriverName()) {
-            'sqlite' => "strftime('%Y-%m-%d', created_at)",
-            'pgsql' => "to_char(created_at, 'YYYY-MM-DD')",
-            default => "DATE(created_at)", // MySQL, MariaDB
+            'sqlite' => "strftime('%Y-%m-%d', purchases.purchase_date)",
+            'pgsql' => "to_char(purchases.purchase_date, 'YYYY-MM-DD')",
+            default => "DATE(purchases.purchase_date)", // MySQL, MariaDB
         };
 
-        $data = StockTransaction::query()
-            ->selectRaw("$dateFormat as date, SUM(quantity) as aggregate")
-            ->where('type', 'purchase')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
+        $data = \App\Models\PurchaseItem::query()
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->join('products', 'products.id', '=', 'purchase_items.product_id')
+            ->selectRaw("$dateFormat as date, SUM(purchase_items.quantity) as aggregate")
+            ->whereIn('products.type', ['product', 'iv_product'])
+            ->whereDate('purchases.purchase_date', '>=', $startDate)
+            ->whereDate('purchases.purchase_date', '<=', $endDate)
+            ->when($this->clinicId, fn ($q) => $q->where('purchases.clinic_id', $this->clinicId))
+            ->when(!$this->clinicId && !auth()->user()->hasRole('super_admin'), fn ($q) => $q->where('purchases.clinic_id', auth()->user()->clinic_id))
             ->groupBy('date')
             ->orderBy('date')
             ->get();
