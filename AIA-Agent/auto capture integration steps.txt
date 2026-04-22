@@ -113,6 +113,10 @@
     - sudo launchctl bootout system/com.aia.agent
     - sudo launchctl bootstrap system /Library/LaunchDaemons/com.aia.agent.plist
 
+9) reload service
+    - sudo launchctl unload /Library/LaunchDaemons/com.aia.agent.plist
+    - sudo launchctl load /Library/LaunchDaemons/com.aia.agent.plist
+
 
 -------------------------------------------- cloudflare autoload (macOS)---------------------------------
 1) sudo cloudflared service install
