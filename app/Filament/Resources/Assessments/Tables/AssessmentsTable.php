@@ -65,8 +65,13 @@ class AssessmentsTable
                     ->toggleable(),
                 TextColumn::make('user.name')->label('User Name')->searchable(['first_name', 'last_name']),
                 TextColumn::make('name')->placeholder('-')->searchable()->sortable(),
-                TextColumn::make('selected_plan_type')->badge()->placeholder('-'),
-                TextColumn::make('total_time')->searchable()->placeholder('-'),
+                TextColumn::make('assessment_type')
+                    ->label('Type')
+                    ->badge()
+                    ->color(fn ($state) => $state === 'normal' ? 'success' : 'info')
+                    ->formatStateUsing(fn ($state) => $state === 'normal' ? 'Facial' : 'IV'),
+                TextColumn::make('selected_plan_type')->label('Selected Plan')->badge()->placeholder('-'),
+                // TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('createdBy.name')->label('Created By')->searchable(['first_name', 'last_name']),
                 TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
@@ -173,15 +178,17 @@ class AssessmentsTable
                     ->iconButton()
                     ->color('primary')
                     ->tooltip('Manage Treatment Sessions')
-                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record])),
+                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record]))
+                    ->visible(fn ($record) => $record->assessment_type === 'normal'),
 
                 ActionGroup::make([
+                    // --- Facial Reports (Normal Type) ---
                     Action::make('diagnosis_pdf')
-                        ->label('Diagnosis PDF')
+                        ->label('Facial Skin Analysis Report')
                         ->icon('heroicon-o-arrow-down-tray')
-                        // ->iconButton()
                         ->color('primary')
-                        // ->tooltip('Download Diagnosis PDF')
+                        ->tooltip('Facial Skin Analysis Report')
+                        ->visible(fn ($record) => $record->assessment_type === 'normal')
                         ->action(function (Assessment $record) {
                             $html = view('pdf.facial.skin_analysis', [
                                 'data' => $record,
@@ -191,6 +198,10 @@ class AssessmentsTable
                                 'patient' => $record->user
                             ])->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
                             $mpdf->showImageErrors = true;
                             $mpdf->WriteHTML($html);
 
@@ -200,22 +211,32 @@ class AssessmentsTable
                         }),
 
                     Action::make('visual_comparison_pdf')
-                        ->label('Visual Comparison PDF')
+                        ->label('Facial Re-Assessment & Progress Report')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
-                        ->tooltip('Visual Comparison PDF')
+                        ->tooltip('Facial Re-Assessment & Progress Report')
                         ->visible(function (Assessment $record) {
-                            return $record->post_diagnosis && $record->images && $record->post_images;
+                            return $record->assessment_type === 'normal' && $record->post_diagnosis && $record->images && $record->post_images;
                         })
                         ->action(function (Assessment $record) {
-                            $html = view('pdf.visual-comparison-report', [
-                                'reassessmentData'    => $record->post_diagnosis['reassessment'],
-                                'assessmentImages' => $record->images,
-                                'postAssessmentImages' => $record->post_images,
-                                'patient' => $record->user
-                            ])
-                            ->render();
+                            $data['patient'] = $record->user;
+                            $data['reassessment'] = $record->post_diagnosis['reassessment'];
+                            $data['counts'] = collect($data['reassessment'])
+                            ->pluck('status')
+                            ->countBy();
+                            $assessmentImages = $record->images;
+                            $postAssessmentImages = $record->post_images;
+
+                            $data['assessmentImages'] = $assessmentImages;
+                            $data['postAssessmentImages'] = $postAssessmentImages;
+
+                            $html = view('pdf.facial.reassessment', $data)->render();
                             $mpdf = new Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->showImageErrors = true;
                             $mpdf->WriteHTML($html);
 
                             return response()->streamDownload(function () use ($mpdf) {
@@ -223,51 +244,27 @@ class AssessmentsTable
                             }, 'visual-comparison-report_#' . $record->id . '.pdf');
                         }),
 
-                    Action::make('post_treatment_comparison')
-                        ->label('Comparison PDF')
-                        ->icon('heroicon-o-arrow-down-tray')
-                        ->color('primary')
-                        ->tooltip('Treatment Comparison PDF')
-                        ->visible(function (Assessment $record) {
-                            return $record->post_diagnosis;
-                        })
-                        ->action(function (Assessment $record) {
-                            $html = view('pdf.post-treatment-comparison', ['post_diagnosis' => $record->post_diagnosis, 'patient' => $record->user])->render();
-                            $mpdf = new Mpdf(config('project.mpdf_config'));
-                            $mpdf->WriteHTML($html);
-
-                            return response()->streamDownload(function () use ($mpdf) {
-                                echo $mpdf->Output('', 'S');
-                            }, 'post-treatment-comparison_#' . $record->id . '.pdf');
-                        }),
-
                     Action::make('treatment_plan_pdf')
                         ->label('Treatment Plan PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
+                        ->visible(fn ($record) => $record->assessment_type === 'normal')
                         ->action(function (Assessment $record) {
-                            $mpdf = new Mpdf(config('project.mpdf_config'));
-                            $mpdf->SetTitle('Treatment Plan');
 
-                            /** PAGE 1 — Client Details */
-                            $mpdf->WriteHTML(
-                                view('pdf.treatment-plan-cover', [
-                                    'client' => [
-                                        'name' => $record->user->name,
-                                        'date_of_birth' => $record->user->date_of_birth,
-                                        'gender' => $record->user->gender,
-                                    ],
-                                    'summary' => [
-                                        'duration' => $record->total_time,
-                                        'total_sessions' => $record->treatmentSessions['treatments']?->count() ?? 0,
-                                    ],
-                                ])->render()
-                            );
+                            $data['sessions'] = $record->treatmentSessions['treatments'];
+                            $data['treatment_goals'] = collect($record->treatmentSessions['treatments'])
+                                ->pluck('concerns_addressed')
+                                ->flatten(1)
+                                ->unique('concern')
+                                ->values()
+                                ->toArray();
 
-                            /** Force new page */
-                            $mpdf->AddPage();
-
-                            $html = view('pdf.treatment-plan-session', ['sessions' => $record->treatmentSessions])->render();
+                            $html = view('pdf.facial.treatment_protocol', $data)->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
                             $mpdf->WriteHTML($html);
 
                             return response()->streamDownload(function () use ($mpdf) {
@@ -280,12 +277,132 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->visible(fn ($record) =>
+                            $record->assessment_type === 'normal' &&
                             Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
                         )
                         ->action(function ($record) {
                             $name = "treatment_plans_#{$record->id}.json";
                             $filePath = "treatment-plans/{$name}";
                             return response()->download(Storage::disk('files')->path($filePath), $name);
+                        }),
+
+                    // --- IV Reports (IV Type) ---
+                    Action::make('iv_wellness_analysis_pdf')
+                        ->label('IV Wellness Analysis Report')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('IV Wellness Analysis Report')
+                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->diagnosis['iv_scoring_output'])
+                        ->action(function (Assessment $record) {
+                            $labels = [
+                                'FENS' => 'Fluid & Electrolyte Need',
+                                'PCCS' => 'Perfusion & Circulation Constraint',
+                                'ASLS' => 'Autonomic Stress & Load',
+                                'MONS' => 'Mitochondrial Output Need',
+                                'ODS' => 'Oxidative / Detox Burden',
+                                'ILS' => 'Inflammation / Immune Load',
+                                'MSGS' => 'Metabolic Stability / Glycation',
+                                'DGS' => 'Dermal Glow / Barrier Support',
+                            ];
+                            $what_it_means = $record->diagnosis['iv_scoring_output']['what_it_means'];
+                            $primary_signals_reviewed = $record->diagnosis['iv_scoring_output']['primary_signals_reviewed'];
+                            $scores = $record->diagnosis['iv_scoring_output']['scores_public_0_100'];
+
+                            $iv_scors = collect($scores)->map(function ($value, $key) use ($labels, $what_it_means, $primary_signals_reviewed) {
+                                return [
+                                    'code'  => $key,
+                                    'label' => $labels[$key] ?? null,
+                                    'score' => $value,
+                                    'what_it_means' => $what_it_means[$key] ?? null,
+                                    'primary_signals_reviewed' => $primary_signals_reviewed[$key] ?? null,
+                                ];
+                            })->values();
+
+                            $html  = view('pdf.iv.wellness-analysis-report',
+                                [
+                                    'data' => $record,
+                                    'patient' => $record->user,
+                                    'iv_scors' => $iv_scors,
+                                ]
+                            )->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'diagnosis-report_#' . $record->id . '.pdf');
+                        }),
+
+                    Action::make('iv_recommendation_pdf')
+                        ->label('IV Recommendation Report')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('IV Recommendation Report')
+                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->iv_treatment_plan)
+                        ->action(function (Assessment $record) {
+                            $html  = view('pdf.iv.iv-recommendation-report',
+                                [
+                                    'age' => $record->age,
+                                    'report_date' => $record->created_at,
+                                    'patient' => $record->user,
+                                    'options' => $record->iv_treatment_plan['treatment_generation_output']['options'],
+                                ]
+                            )->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, 'iv-recommendation-report_#' . $record->id . '.pdf');
+                        }),
+
+                    Action::make('iv_program_roadmap_pdf')
+                        ->label('IV Program Roadmap Report')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('IV Program Roadmap Report')
+                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->iv_selected_option)
+                        ->action(function (Assessment $record) {
+                            $selected_plan = $record->iv_selected_option;
+
+                            // If it's a single session option (not the multi-session roadmap 'plan_option')
+                            if (isset($selected_plan['option_type']) && $selected_plan['option_type'] !== 'plan_option') {
+                                $html = view('pdf.iv.iv-single-session-report', [
+                                    'age' => $record->age,
+                                    'report_date' => $record->created_at,
+                                    'patient' => $record->user,
+                                    'program' => $selected_plan,
+                                ])->render();
+
+                                $filename = 'iv-single-session-report';
+                            } else {
+                                $html = view('pdf.iv.iv-multi-session-report', [
+                                    'age' => $record->age,
+                                    'report_date' => $record->created_at,
+                                    'patient' => $record->user,
+                                    'program' => $selected_plan,
+                                ])->render();
+
+                                $filename = 'iv-multi-session-report';
+                            }
+
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, $filename.'_#'.$record->id.'.pdf');
                         }),
                 ])
                 ->icon('heroicon-o-arrow-down-tray'),

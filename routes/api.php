@@ -61,6 +61,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Download Report
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
+        Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
     });
 

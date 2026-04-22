@@ -61,75 +61,7 @@ class ReportController extends BaseApiController
     public function treatmentProtocol($assessment_id)
     {
         $record = Assessment::find($assessment_id);
-        $data = [
-            'patient' => [
-                'name'   => 'Swati Mishra',
-                'age'    => 46,
-                'gender' => 'Female',
-            ],
-            'protocol' => [
-                'total_sessions' => 4,
-                'duration'       => '6 Weeks',
-                'goals' => [
-                    'Refine pore size and smooth visible texture in the T-zone.',
-                    'Even out superficial pigmentation and enhance skin radiance.',
-                    'Improve hydration support and barrier resilience.',
-                    'Support jawline definition and overall firmness.',
-                ],
-                'modalities' => 'This plan uses Hydrafacial, chemical peels, radiofrequency tightening, Q-Switch laser, and LED light therapy, integrated into a cohesive protocol calibrated for visible results, comfort, and progressive skin improvement.',
-                // Use collect() so ->chunk(2) works in Blade
-                'sessions' => collect([
-                    [
-                        'number'           => 1,
-                        'week'             => 0,
-                        'name'             => 'Pore Decongestion + Resurfacing + RF Lift',
-                        'duration'         => '70 min',
-                        'focus'            => 'Pore refinement, texture smoothing, jawline support',
-                        'expected_outcome' => 'Improved pore clarity and reduced congestion',
-                    ],
-                    [
-                        'number'           => 2,
-                        'week'             => 2,
-                        'name'             => 'Carbon Facial (Q-Switch) + Tone Evening',
-                        'duration'         => '60 min',
-                        'focus'            => 'Pore clarity, radiance enhancement, oil control',
-                        'expected_outcome' => 'Enhanced radiance and more refined texture',
-                    ],
-                    [
-                        'number'           => 3,
-                        'week'             => 4,
-                        'name'             => 'RF Lift + Infusion + Under-eye',
-                        'duration'         => '60 min',
-                        'focus'            => 'Firmness, hydration, dark circle reduction',
-                        'expected_outcome' => 'Improved jawline support and reduced dark circles',
-                    ],
-                    [
-                        'number'           => 4,
-                        'week'             => 6,
-                        'name'             => 'Combination Peel + Hydration Finish',
-                        'duration'         => '60 min',
-                        'focus'            => 'Results consolidation and sustained improvement',
-                        'expected_outcome' => 'Overall quality improvement with sustained results',
-                    ],
-                    [
-                        'number'           => 3,
-                        'week'             => 4,
-                        'name'             => 'RF Lift + Infusion + Under-eye',
-                        'duration'         => '60 min',
-                        'focus'            => 'Firmness, hydration, dark circle reduction',
-                        'expected_outcome' => 'Improved jawline support and reduced dark circles',
-                    ],
-                    [
-                        'number'           => 4,
-                        'week'             => 6,
-                        'name'             => 'Combination Peel + Hydration Finish',
-                        'duration'         => '60 min',
-                        'focus'            => 'Results consolidation and sustained improvement',
-                        'expected_outcome' => 'Overall quality improvement with sustained results',
-                    ],
-                ]),
-            ],
-        ];
+
         // dd($record->treatmentSessions['treatments']);
         $data['sessions'] = $record->treatmentSessions['treatments'];
         $data['treatment_goals'] = collect($record->treatmentSessions['treatments'])

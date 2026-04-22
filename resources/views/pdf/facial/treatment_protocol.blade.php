@@ -181,7 +181,7 @@
                 </tr>
                 <tr><td style="padding-bottom: 10px;"></td></tr>
                 <tr>
-                    <td width="100%" class="modality-text">{{ $protocol['modalities'] }}</td>
+                    <td width="100%" class="modality-text">{{ $protocol['modalities'] ?? 'N/A' }}</td>
                 </tr>
             </table>
         </td>
