@@ -274,7 +274,7 @@
                                     <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom: 1px solid #f0f0f0; margin-bottom: 4px; margin-top: 4px;">
                                         <tr>
                                             <td width="30%" ><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
-                                            <td width="70%" style="font-size: 13px;">{{ $item['result'] }}</td>
+                                            <td width="70%" style="font-size: 13px;">{{ $item['score_explanation'] }}</td>
                                         </tr>
                                         <tr>
                                             <td style="padding-bottom: 6px; padding-top: 2px;">
@@ -299,7 +299,7 @@
                                     <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom: 1px solid #f0f0f0; margin-bottom: 4px; margin-top: 4px;">
                                         <tr>
                                             <td width="30%"><div class="improvement-name">{{ $item['parameter_name'] }}</div></td>
-                                            <td width="70%" style="font-size: 13px;">{{ $item['result'] }}</td>
+                                            <td width="70%" style="font-size: 13px;">{{ $item['score_explanation'] }}</td>
                                         </tr>
                                         <tr>
                                             <td style="padding-bottom: 6px; padding-top: 2px;">

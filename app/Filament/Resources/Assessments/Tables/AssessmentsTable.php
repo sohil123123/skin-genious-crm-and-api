@@ -68,8 +68,18 @@ class AssessmentsTable
                 TextColumn::make('assessment_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn ($state) => $state === 'normal' ? 'success' : 'info')
-                    ->formatStateUsing(fn ($state) => $state === 'normal' ? 'Facial' : 'IV'),
+                    ->color(fn ($state) => match ($state) {
+                        'normal' => 'success',
+                        'iv' => 'info',
+                        'instant-facial' => 'warning',
+                        default => 'info',
+                    })
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'normal' => 'Facial',
+                        'iv' => 'IV',
+                        'instant-facial' => 'Instant Facial',
+                        default => '-',
+                    }),
                 TextColumn::make('selected_plan_type')->label('Selected Plan')->badge()->placeholder('-'),
                 // TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
@@ -188,7 +198,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('Facial Skin Analysis Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'normal')
+                        ->visible(fn ($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'instant-facial')
                         ->action(function (Assessment $record) {
                             $html = view('pdf.facial.skin_analysis', [
                                 'data' => $record,

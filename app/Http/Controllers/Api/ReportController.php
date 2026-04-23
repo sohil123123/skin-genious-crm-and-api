@@ -95,7 +95,7 @@ class ReportController extends BaseApiController
         $data['patient'] = $record->user;
         $data['reassessment'] = $record->post_diagnosis['reassessment'];
         $data['counts'] = collect($data['reassessment'])
-        ->pluck('status')
+        ->pluck('result')
         ->countBy();
         // dd($data);
         $assessmentImages = $record->images;
