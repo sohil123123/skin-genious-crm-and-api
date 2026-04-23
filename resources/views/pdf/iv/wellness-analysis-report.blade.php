@@ -342,6 +342,141 @@
         </div>
     </div>
 
+    <pagebreak page-selector="report_content" />
+
+    {{--  What was reviewed in the analysis  --}}
+    <div class="profile-heading" style="margin-top: 10px; font-size: 24px;">What was reviewed in the analysis</div>
+
+    <table class="profile-table" cellpadding="0" cellspacing="0" style="margin-bottom: 30px; margin-top: 20px;">
+        <thead>
+            <tr>
+                <th>Input domain</th>
+                <th>Why it matters</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="background-color: #FFFFFF;">
+                <td style="padding: 15px 12px; font-weight: 500; font-size: 13px; color: #2D3748;">Symptoms & intent</td>
+                <td style="padding: 15px 12px; font-size: 13px; line-height: 1.5; color: #2D3748;">Fatigue, stress, brain fog tendency, standing dizziness, recovery quality, desired intensity.</td>
+            </tr>
+            <tr style="background-color: #FAF6F2;">
+                <td style="padding: 15px 12px; font-weight: 500; font-size: 13px; color: #2D3748;">Vitals</td>
+                <td style="padding: 15px 12px; font-size: 13px; line-height: 1.5; color: #2D3748;">Blood pressure, heart rate, oxygen saturation, temperature, orthostatic cues where available.</td>
+            </tr>
+            <tr style="background-color: #FFFFFF;">
+                <td style="padding: 15px 12px; font-weight: 500; font-size: 13px; color: #2D3748;">Body composition</td>
+                <td style="padding: 15px 12px; font-size: 13px; line-height: 1.5; color: #2D3748;">TBW%, BMI / visceral-fat context, muscle reserve and other body-composition readings.</td>
+            </tr>
+            <tr style="background-color: #FAF6F2;">
+                <td style="padding: 15px 12px; font-weight: 500; font-size: 13px; color: #2D3748;">Autonomic metrics</td>
+                <td style="padding: 15px 12px; font-size: 13px; line-height: 1.5; color: #2D3748;">HRV / lnRMSSD, perfusion index, resting strain, recovery indicators.</td>
+            </tr>
+            <tr style="background-color: #FFFFFF;">
+                <td style="padding: 15px 12px; font-weight: 500; font-size: 13px; color: #2D3748;">Skin-linked refiners</td>
+                <td style="padding: 15px 12px; font-size: 13px; line-height: 1.5; color: #2D3748;">Oxidative haze, barrier instability, dullness/clarity and other capped skin-derived refiners when available.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {{--  Key reasons the top scores are elevated  --}}
+    <div class="profile-heading" style="font-size: 24px;">Key reasons the top scores are elevated</div>
+    <div class="score-legend-container" style="margin-top: 15px;">
+        <table cellpadding="0" cellspacing="0" style="margin-bottom: 5px; width: 100%;">
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 12px; color: #2D3748;">
+                    <strong>Autonomic strain</strong> appears elevated because the pattern combines stress, recovery load, and HRV-linked fatigue.
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 12px; color: #2D3748;">
+                    <strong>Energy-output need</strong> is high because the profile suggests poor reserve rather than just temporary dehydration.
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 12px; color: #2D3748;">
+                    <strong>Hydration-recovery support</strong> matters because TBW% and symptoms suggest that comfort and replenishment should be built into the session.
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 12px; color: #2D3748;">
+                    <strong>Antioxidant support</strong> is relevant because lifestyle strain and oxidative proxies support a recovery-and-glow layer, not just a stimulant-style build.
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <pagebreak page-selector="report_content" />
+
+    {{-- Confidence and trust layer --}}
+    @php
+        $confValue = (float)($telemetry['confidence_0_1'] ?? 0);
+        $confLabel = 'Good';
+        $confDescription = 'Signals available from symptoms, vitals, body composition, and recovery metrics were sufficient to support a confident treatment-planning view.';
+
+        if ($confValue >= 0.8) {
+            $confLabel = 'Excellent';
+        } elseif ($confValue >= 0.4) {
+            $confLabel = 'Good';
+        } else {
+            $confLabel = 'Moderate';
+            $confDescription = 'Some readings were estimated or missing; the engine has operated conservatively based on available signals.';
+        }
+    @endphp
+
+    <div class="profile-heading" style="margin-top: 10px; font-size: 24px;">Confidence and trust layer</div>
+
+    <div style="background-color: #f7f3ef; border-radius: 4px; padding: 25px; margin-top: 20px; width: 100%;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td width="25%" align="center" style="border-right: 1px solid #e2dfd2; padding-right: 15px;">
+                    <div style="font-size: 11px; color: #718096; text-transform: uppercase; font-weight: bold; line-height: 1.4;">Interpretation<br>confidence</div>
+                </td>
+                <td width="25%" align="center" style="border-right: 1px solid #e2dfd2; padding: 0 15px;">
+                    <div style="font-size: 32px; font-weight: bold; color: #1B3A6B;">{{ $confLabel }}</div>
+                </td>
+                <td style="padding-left: 20px;">
+                    <div style="font-size: 13px; color: #2D3748; line-height: 1.5;">
+                        {{ $confDescription }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="score-legend-container" style="margin-top: 25px;">
+        <table cellpadding="0" cellspacing="0" style="margin-bottom: 5px; width: 100%;">
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 18px; color: #2D3748;">
+                    If critical readings are missing, the engine can still operate, but confidence is presented more conservatively.
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 18px; color: #2D3748;">
+                    Hard safety checks and doctor-approval gates are not marketing language; they remain part of the actual protocol-selection system.
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" style="color: #C9A84C; font-size: 20px; line-height: 20px; padding-top: 2px; padding-right: 12px; width: 15px;">&bull;</td>
+                <td class="score-legend-item" style="font-size: 14px; line-height: 1.6; padding-bottom: 18px; color: #2D3748;">
+                    The treatment recommendation is therefore designed to feel premium while remaining clinically constrained.
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="border: 1px solid #e2dfd2; border-radius: 4px; padding: 25px; margin-top: 20px;">
+        <div style="font-size: 14px; font-weight: bold; color: #1B3A6B; margin-bottom: 8px;">Client-facing trust message</div>
+        <div style="font-size: 14px; color: #2D3748; line-height: 1.6;">
+            Your IV session is not chosen from a fixed menu alone. It is selected after today’s signals are reviewed, then filtered through safety constraints, dosing rules, and protocol logic before being recommended.
+        </div>
+    </div>
+
 </div>
 
 @endsection
