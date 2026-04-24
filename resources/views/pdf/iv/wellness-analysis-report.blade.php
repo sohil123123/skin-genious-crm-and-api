@@ -436,7 +436,7 @@
                     <div style="font-size: 11px; color: #718096; text-transform: uppercase; font-weight: bold; line-height: 1.4;">Interpretation<br>confidence</div>
                 </td>
                 <td width="25%" align="center" style="border-right: 1px solid #e2dfd2; padding: 0 15px;">
-                    <div style="font-size: 32px; font-weight: bold; color: #1B3A6B;">{{ $confLabel }}</div>
+                    <div style="font-size: 26px; font-weight: bold; color: #1B3A6B;">{{ $confLabel }}</div>
                 </td>
                 <td style="padding-left: 20px;">
                     <div style="font-size: 13px; color: #2D3748; line-height: 1.5;">

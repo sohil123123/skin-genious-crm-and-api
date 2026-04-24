@@ -304,7 +304,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Wellness Analysis Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->diagnosis['iv_scoring_output'])
+                        ->visible(fn ($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis['iv_scoring_output'])
                         ->action(function (Assessment $record) {
                             $labels = [
                                 'FENS' => 'Fluid & Electrolyte Need',
@@ -335,6 +335,7 @@ class AssessmentsTable
                                     'data' => $record,
                                     'patient' => $record->user,
                                     'iv_scors' => $iv_scors,
+                                    'telemetry' => $record->diagnosis['iv_scoring_output']['telemetry'] ?? null,
                                 ]
                             )->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
