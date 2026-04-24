@@ -42,7 +42,7 @@ class AssessmentRequest extends FormRequest
             'is_pregnant' => 'nullable|boolean',
             'breastfeeding' => 'nullable|in:yes,no',
             'iv_inputs' => 'nullable|array',
-            'assessment_type' => 'nullable|string|in:iv,instant-facial,normal',
+            'assessment_type' => 'nullable|string|in:iv,instant-normal,normal,instant-iv',
             'feature_packet' => 'nullable|array',
             'diagnosis' => 'nullable|array',
             'post_diagnosis' => 'nullable|array',

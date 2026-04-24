@@ -384,11 +384,18 @@ class AssessmentController extends BaseApiController
 
     public function getInProgressAssessment(Request $request, $user_id){
         $assessment_type = $request->type;
+
+        if($assessment_type == 'iv'){
+            $filter_types = ['iv', 'instant-iv'];
+        }else{
+            $filter_types = ['instant-normal', 'normal'];
+        }
+
         // $yesterday = Carbon::yesterday();
         // $assessment = $this->model->whereBetween('created_at', [$yesterday, now()])
         $assessment = $this->model->where('user_id', $user_id)
             ->where('status', 'in_progress')
-            ->where('assessment_type', $assessment_type)
+            ->whereIn('assessment_type', $filter_types)
             ->latest()
             ->first();
         if(!$assessment)
@@ -404,7 +411,7 @@ class AssessmentController extends BaseApiController
         ]);
 
         $assessment = $this->model->find($request->assessment_id);
-        
+
         if (!$assessment) {
             return $this->error('Assessment not found', null, config('constants.NOT_FOUND', 404));
         }
