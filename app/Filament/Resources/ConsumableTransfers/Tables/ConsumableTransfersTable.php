@@ -1,13 +1,12 @@
 <?php
 
-namespace App\Filament\Resources\Purchases\Tables;
+namespace App\Filament\Resources\ConsumableTransfers\Tables;
 
-use App\Filament\Exports\PurchaseExporter;
-use App\Models\Purchase;
-use App\Services\PurchasePdfService;
+use App\Models\ConsumableTransfer;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\ExportBulkAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -21,7 +20,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
-class PurchasesTable
+class ConsumableTransfersTable
 {
     public static function configure(Table $table): Table
     {
@@ -31,17 +30,17 @@ class PurchasesTable
                     ->searchable()
                     ->sortable()
                     ->visible(fn () => auth()->user()->hasRole('super_admin')),
-                TextColumn::make('supplier_name')
-                    ->searchable(),
+                TextColumn::make('transfer_date')
+                    ->date()
+                    ->sortable(),
                 TextColumn::make('items_count')
                     ->counts('items')
                     ->label('Items')
-                    ->badge()
-                    ->color('gray'),
+                    ->badge(),
                 TextColumn::make('items_summary')
                     ->label('Product Summary')
-                    ->state(fn (Purchase $record): string => $record->items->map(fn ($item) => "{$item->product->name} (x{$item->quantity})")->join(', '))
-                    ->limit(30)
+                    ->state(fn (ConsumableTransfer $record): string => $record->items->map(fn ($item) => "{$item->product->name} (x{$item->quantity_used})")->join(', '))
+                    ->limit(40)
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('items.product', fn ($q) => $q->where('name', 'like', "%{$search}%"));
                     })
@@ -49,7 +48,7 @@ class PurchasesTable
                     ->size('xs')
                     ->action(
                         Action::make('view_items')
-                            ->modalHeading('Purchase Items')
+                            ->modalHeading('Consumption Details')
                             ->modalSubmitAction(false)
                             ->modalCancelActionLabel('Close')
                             ->infolist([
@@ -57,65 +56,47 @@ class PurchasesTable
                                     ->label('Items List')
                                     ->schema([
                                         TextEntry::make('product.name')->label('Product Name'),
-                                        TextEntry::make('quantity')->label('Quantity'),
-                                        TextEntry::make('purchase_price')
-                                            ->label('Rate')
-                                            ->money('INR'),
-                                        TextEntry::make('total')
-                                            ->label('Amount')
-                                            ->money('INR'),
+                                        TextEntry::make('quantity_used')->label('Quantity Used'),
                                     ])
-                                    ->columns(4)
+                                    ->columns(2)
                             ])
                     ),
-                TextColumn::make('purchase_date')
-                    ->date()
+                TextColumn::make('creator.first_name')
+                    ->label('Created By')
                     ->sortable(),
-                TextColumn::make('total_amount')
-                    ->money('INR')
-                    ->sortable(),
-                TextColumn::make('payment_mode')
-                    ->searchable()
-                    ->badge(),
-                TextColumn::make('status')
-                    ->searchable()
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Paid' => 'success',
-                        'Partial' => 'warning',
-                        'Unpaid' => 'danger',
-                        default => 'gray',
-                    }),
+                TextColumn::make('notes')
+                    ->limit(50)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
+             ->filters([
                 SelectFilter::make('clinic_id')
                     ->relationship('clinic', 'name')
                     ->searchable()
                     ->preload()
                     ->visible(fn () => auth()->user()->hasRole('super_admin')),
 
-                Filter::make('purchase_date')
+                Filter::make('transfer_date_filter')
                     ->form([
                         Grid::make(2)->schema([
                             DatePicker::make('from')
-                                ->label('Created from'),
+                                ->label('Date from'),
                             DatePicker::make('until')
-                                ->label('Created until'),
+                                ->label('Date until'),
                         ])
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('purchase_date', '>=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('transfer_date', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('purchase_date', '<=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('transfer_date', '<=', $date),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -134,17 +115,10 @@ class PurchasesTable
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary'))
             ->recordActions([
                 EditAction::make(),
-                Action::make('download')
-                    ->label('Download PDF')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(fn (Purchase $record, PurchasePdfService $service) => $service->download($record)),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
-                    ExportBulkAction::make()
-                        ->exporter(PurchaseExporter::class)
-                        ->label('Export Selected'),
+                    // DeleteBulkAction::make(),
                 ]),
             ]);
     }

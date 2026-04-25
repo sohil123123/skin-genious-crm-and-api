@@ -24,11 +24,11 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
     use InteractsWithTable;
     use InteractsWithForms;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-shopping-bag';
 
     protected string $view = 'filament.pages.product-purchase-report';
-    
-    protected static string | \UnitEnum | null $navigationGroup = 'Reports';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
     protected static ?int $navigationSort = 2;
 
@@ -59,8 +59,9 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                             ->reactive()
                             ->afterStateUpdated(function ($state) {
                                 $this->startDate = $state;
-                                $this->dispatch('updateReportDates', 
-                                    startDate: $this->startDate, 
+                                $this->dispatch(
+                                    'updateReportDates',
+                                    startDate: $this->startDate,
                                     endDate: $this->endDate ?? now()->endOfMonth()->toDateString(),
                                     clinicId: $this->clinicId
                                 );
@@ -71,23 +72,25 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                             ->reactive()
                             ->afterStateUpdated(function ($state) {
                                 $this->endDate = $state;
-                                $this->dispatch('updateReportDates', 
-                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(), 
+                                $this->dispatch(
+                                    'updateReportDates',
+                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(),
                                     endDate: $this->endDate,
                                     clinicId: $this->clinicId
                                 );
                             }),
                         \Filament\Forms\Components\Select::make('clinicId')
                             ->label('Clinic')
-                            ->options(\App\Models\Clinic::pluck('name', 'id'))
+                            ->options(\App\Models\Clinic::active()->pluck('name', 'id'))
                             ->placeholder('All Clinics')
                             ->searchable()
                             ->reactive()
-                            ->visible(fn () => auth()->user()->hasRole('super_admin'))
+                            ->visible(fn() => auth()->user()->hasRole('super_admin'))
                             ->afterStateUpdated(function ($state) {
                                 $this->clinicId = $state;
-                                $this->dispatch('updateReportDates', 
-                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(), 
+                                $this->dispatch(
+                                    'updateReportDates',
+                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(),
                                     endDate: $this->endDate ?? now()->endOfMonth()->toDateString(),
                                     clinicId: $this->clinicId
                                 );
@@ -104,7 +107,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
         ];
     }
 
-    public function getFooterWidgetsColumns(): int | array
+    public function getFooterWidgetsColumns(): int|array
     {
         return 2;
     }
@@ -115,48 +118,54 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
             ->query(function () {
                 return Product::query()
                     ->whereIn('type', ['product', 'iv_product'])
-                    ->withSum(['purchaseItems as total_purchased_qty' => function (Builder $query) {
-                        $query->whereHas('purchase', function ($q) {
-                            if ($this->startDate) {
-                                $q->whereDate('purchase_date', '>=', $this->startDate);
-                            }
-                            if ($this->endDate) {
-                                $q->whereDate('purchase_date', '<=', $this->endDate);
-                            }
-                            if ($this->clinicId) {
-                                $q->where('clinic_id', $this->clinicId);
-                            } elseif (!auth()->user()->hasRole('super_admin')) {
-                                $q->where('clinic_id', auth()->user()->clinic_id);
-                            }
-                        });
-                    }], 'quantity')
-                    ->withSum(['purchaseItems as actual_cost' => function (Builder $query) {
-                        $query->whereHas('purchase', function ($q) {
-                            if ($this->startDate) {
-                                $q->whereDate('purchase_date', '>=', $this->startDate);
-                            }
-                            if ($this->endDate) {
-                                $q->whereDate('purchase_date', '<=', $this->endDate);
-                            }
-                            if ($this->clinicId) {
-                                $q->where('clinic_id', $this->clinicId);
-                            } elseif (!auth()->user()->hasRole('super_admin')) {
-                                $q->where('clinic_id', auth()->user()->clinic_id);
-                            }
-                        });
-                    }], 'total')
-                    ->withSum(['clinicInventories as current_stock' => function (Builder $query) {
-                        if ($this->clinicId) {
-                            $query->where('clinic_id', $this->clinicId);
-                        } elseif (!auth()->user()->hasRole('super_admin')) {
-                            $query->where('clinic_id', auth()->user()->clinic_id);
+                    ->withSum([
+                        'purchaseItems as total_purchased_qty' => function (Builder $query) {
+                            $query->whereHas('purchase', function ($q) {
+                                if ($this->startDate) {
+                                    $q->whereDate('purchase_date', '>=', $this->startDate);
+                                }
+                                if ($this->endDate) {
+                                    $q->whereDate('purchase_date', '<=', $this->endDate);
+                                }
+                                if ($this->clinicId) {
+                                    $q->where('clinic_id', $this->clinicId);
+                                } elseif (!auth()->user()->hasRole('super_admin')) {
+                                    $q->where('clinic_id', auth()->user()->clinic_id);
+                                }
+                            });
                         }
-                    }], 'stock_quantity');
+                    ], 'quantity')
+                    ->withSum([
+                        'purchaseItems as actual_cost' => function (Builder $query) {
+                            $query->whereHas('purchase', function ($q) {
+                                if ($this->startDate) {
+                                    $q->whereDate('purchase_date', '>=', $this->startDate);
+                                }
+                                if ($this->endDate) {
+                                    $q->whereDate('purchase_date', '<=', $this->endDate);
+                                }
+                                if ($this->clinicId) {
+                                    $q->where('clinic_id', $this->clinicId);
+                                } elseif (!auth()->user()->hasRole('super_admin')) {
+                                    $q->where('clinic_id', auth()->user()->clinic_id);
+                                }
+                            });
+                        }
+                    ], 'total')
+                    ->withSum([
+                        'clinicInventories as current_stock' => function (Builder $query) {
+                            if ($this->clinicId) {
+                                $query->where('clinic_id', $this->clinicId);
+                            } elseif (!auth()->user()->hasRole('super_admin')) {
+                                $query->where('clinic_id', auth()->user()->clinic_id);
+                            }
+                        }
+                    ], 'stock_quantity');
             })
             ->columns([
                 TextColumn::make('name')
                     ->label('Product Name')
-                    ->state(fn (Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
+                    ->state(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('total_purchased_qty')

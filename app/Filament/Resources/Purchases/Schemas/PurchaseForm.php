@@ -29,14 +29,16 @@ class PurchaseForm
                             ->schema([
                                 Grid::make(4)->schema([
                                     auth()->user()->hasRole('super_admin')
-                                        ? Select::make('clinic_id')
-                                            ->relationship('clinic', 'name')
-                                            ->required()
-                                            ->searchable()
-                                            ->disabledOn('edit')
-                                            ->columnSpan(1)
-                                        : Hidden::make('clinic_id')
-                                            ->default(fn () => auth()->user()->clinic_id),
+                                    ? Select::make('clinic_id')
+                                        ->relationship('clinic', 'name')
+                                        ->required()
+                                        // ->searchable()
+                                        ->native(false)
+                                        ->reactive()
+                                        ->disabledOn('edit')
+                                        ->columnSpan(1)
+                                    : Hidden::make('clinic_id')
+                                        ->default(fn() => auth()->user()->clinic_id),
                                     DatePicker::make('purchase_date')
                                         ->label('Invoice Date')
                                         ->required()
@@ -98,15 +100,15 @@ class PurchaseForm
                                                 name: 'product',
                                                 titleAttribute: 'name',
                                                 modifyQueryUsing: function (\Illuminate\Database\Eloquent\Builder $query, Get $get) {
-                                                    $query->whereIn('type', ['product', 'iv_product']); // Filter only products and iv_products
-                                                    
+                                                    $query->active()->whereIn('type', ['product', 'iv_product']); // Filter only products and iv_products
+
                                                     $items = $get('../../items') ?? [];
                                                     $currentProductId = $get('product_id');
 
                                                     $otherProductIds = collect($items)
                                                         ->pluck('product_id')
                                                         ->filter()
-                                                        ->reject(fn ($id) => $id == $currentProductId)
+                                                        ->reject(fn($id) => $id == $currentProductId)
                                                         ->toArray();
 
                                                     if (!empty($otherProductIds)) {
@@ -114,7 +116,7 @@ class PurchaseForm
                                                     }
                                                 }
                                             )
-                                            ->getOptionLabelFromRecordUsing(fn (\App\Models\Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
+                                            ->getOptionLabelFromRecordUsing(fn(\App\Models\Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
                                             ->required()
                                             ->searchable()
                                             ->preload()
@@ -177,7 +179,7 @@ class PurchaseForm
                                             ->dehydrated()
                                             ->default(0),
                                     ])
-                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::updateParentTotals($get, $set))
+                                    ->afterStateUpdated(fn(Set $set, Get $get) => self::updateParentTotals($get, $set))
                                     ->live()
                                     ->defaultItems(1)
                                     ->minItems(1)

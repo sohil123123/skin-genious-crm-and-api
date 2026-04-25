@@ -1,17 +1,16 @@
 <?php
 
-namespace App\Filament\Resources\Purchases\Pages;
+namespace App\Filament\Resources\ConsumableTransfers\Pages;
 
-use App\Filament\Resources\Purchases\PurchaseResource;
+use App\Filament\Resources\ConsumableTransfers\ConsumableTransferResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
-
-class EditPurchase extends EditRecord
+class EditConsumableTransfer extends EditRecord
 {
-    protected static string $resource = PurchaseResource::class;
+    protected static string $resource = ConsumableTransferResource::class;
 
     protected function getHeaderActions(): array
     {
@@ -23,14 +22,14 @@ class EditPurchase extends EditRecord
 
     protected function getRedirectUrl(): string
     {
-        return static::getResource()::getUrl('index');
+        return $this->getResource()::getUrl('index');
     }
 
     protected function getSavedNotification(): ?Notification
     {
         return Notification::make()
-            ->title('Purchase updated 🎉')
-            ->body('The purchase details have been successfully updated.')
+            ->title('Transfer updated 🎉')
+            ->body('The transfer details have been successfully updated.')
             ->success();
     }
 }

@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Models\Product::observe(\App\Observers\ProductObserver::class);
-        \App\Models\StockTransaction::observe(\App\Observers\StockTransactionObserver::class);
+        // \App\Models\StockTransaction::observe(\App\Observers\StockTransactionObserver::class);
 
         \Livewire\Livewire::component('app.filament.report-widgets.product-purchase-chart', \App\Filament\ReportWidgets\ProductPurchaseChart::class);
         \Livewire\Livewire::component('app.filament.report-widgets.product-sales-chart', \App\Filament\ReportWidgets\ProductSalesChart::class);
