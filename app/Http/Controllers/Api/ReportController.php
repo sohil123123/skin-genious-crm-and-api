@@ -129,6 +129,8 @@ class ReportController extends BaseApiController
             return $this->ivPlans($assessment_id);
         }else if($type == 'program-roadmap') {
             return $this->programRoadmap($assessment_id);
+        }else if($type == 'reassessment') {
+            return $this->ivReassessment($assessment_id);
         }
     }
 
@@ -253,6 +255,31 @@ class ReportController extends BaseApiController
         return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  8. Download IV Reassessment Report
+    // ─────────────────────────────────────────────
+    public function ivReassessment($assessment_id)
+    {
+        $record = Assessment::find($assessment_id);
+
+        $data['age'] = $record->age;
+        $data['report_date'] = $record->created_at;
+        $data['patient'] = $record->user;
+
+        $html = view('pdf.iv.iv-progress-reassessment-report', $data)->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('iv-progress-reassessment-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="iv-progress-reassessment-report.pdf"',
         ]);
     }
 }
