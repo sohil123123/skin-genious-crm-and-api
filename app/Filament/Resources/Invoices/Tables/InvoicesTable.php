@@ -24,6 +24,7 @@ use App\Services\InvoicePdfService;
 
 use App\Models\User;
 use App\Models\Clinic;
+use Illuminate\Support\HtmlString;
 
 
 class InvoicesTable
@@ -34,6 +35,12 @@ class InvoicesTable
             ->deferLoading()
             // ->recordUrl(null)
             ->columns([
+                TextColumn::make('invoice_number')
+                    ->label('Invoice #')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->weight('bold'),
                 TextColumn::make('clinic.name')
                     ->badge()
                     ->visible(fn () => check_role('super_admin'))
@@ -52,12 +59,14 @@ class InvoicesTable
                 TextColumn::make('grand_total')
                     ->money('INR')
                     ->sortable(),
-                TextColumn::make('payment_mode')
-                    ->badge(),
+                // TextColumn::make('payment_mode')
+                //     ->badge(),
                 SelectColumn::make('status')
                     ->options([
                         'draft' => 'Draft',
                         'paid' => 'Paid',
+                        'partial' => 'Partial',
+                        'unpaid' => 'Unpaid',
                         'pending' => 'Pending',
                         'cancelled' => 'Cancelled',
                     ])
@@ -108,6 +117,8 @@ class InvoicesTable
                                             ->options([
                                                 'draft' => 'Draft',
                                                 'paid' => 'Paid',
+                                                'partial' => 'Partial',
+                                                'unpaid' => 'Unpaid',
                                                 'pending' => 'Pending',
                                                 'cancelled' => 'Cancelled',
                                             ])
@@ -169,8 +180,62 @@ class InvoicesTable
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
-            ->actions([ // Filament v3 uses actions() instead of recordActions? Or this is v4 with unified configure? 
+            ->actions([ // Filament v3 uses actions() instead of recordActions? Or this is v4 with unified configure?
                 // // The existing file had ->recordActions([...]) so I'll stick to that
+                Action::make('record_payment')
+                    ->label('Record Payment')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->hidden(fn ($record) => in_array($record->status, ['paid', 'cancelled']))
+                    ->form(function ($record) {
+                        return [
+                            \Filament\Forms\Components\Placeholder::make('summary')
+                                ->label('Payment Summary')
+                                ->content(new HtmlString("Invoice Total: ₹" . number_format($record->grand_total, 2) . "<br>Amount Paid: ₹" . number_format($record->amount_paid, 2) . "<br><strong>Remaining Balance: ₹" . number_format($record->grand_total - $record->amount_paid, 2) . "</strong>")),
+                            \Filament\Forms\Components\DatePicker::make('payment_date')
+                                ->label('Payment Date')
+                                ->default(now())
+                                ->required(),
+                            \Filament\Forms\Components\TextInput::make('amount')
+                                ->label('Amount')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01)
+                                ->maxValue($record->grand_total - $record->amount_paid),
+                            \Filament\Forms\Components\Select::make('payment_method')
+                                ->label('Payment Method')
+                                ->options([
+                                    'cash' => 'Cash',
+                                    'card' => 'Card',
+                                    'upi' => 'UPI',
+                                    'bank_transfer' => 'Bank Transfer',
+                                    'other' => 'Other',
+                                ])
+                                ->required()
+                                ->live(),
+                            \Filament\Forms\Components\TextInput::make('reference_number')
+                                ->label('Reference Number')
+                                ->placeholder('e.g. Transaction ID, Check #')
+                                ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('payment_method') === 'cash')
+                                ->required(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null),
+                        ];
+                    })
+                    ->action(function ($record, array $data) {
+                        \App\Models\InvoicePayment::create([
+                            'invoice_id' => $record->id,
+                            'payment_date' => $data['payment_date'],
+                            'amount' => $data['amount'],
+                            'payment_method' => $data['payment_method'],
+                            'reference_number' => $data['reference_number'] ?? null,
+                            'created_by' => auth()->id(),
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Payment Recorded ✅')
+                            ->body("₹" . number_format($data['amount'], 2) . " has been recorded for Invoice #{$record->id}.")
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('download_pdf')
                     ->label('PDF')
                     ->icon('heroicon-o-arrow-down-tray')

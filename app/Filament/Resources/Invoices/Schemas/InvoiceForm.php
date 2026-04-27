@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Invoices\Schemas;
 
 use App\Models\Product;
 use App\Models\User;
+use App\Models\ClinicInventory;
 use Filament\Forms\Components\DatePicker;
 use Filament\Schemas\Components\Group;
 use Filament\Forms\Components\Repeater;
@@ -34,17 +35,15 @@ class InvoiceForm
                                     ->required()
                                     ->live()
                                     ->columnSpan(1),
+                                TextInput::make('invoice_number')
+                                    ->label('Invoice #')
+                                    ->placeholder('Auto-generated')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->visible(fn ($record) => $record !== null)
+                                    ->columnSpan(1),
                                 DatePicker::make('invoice_date')
                                     ->default(now())
-                                    ->required()
-                                    ->columnSpan(1),
-                                Select::make('payment_mode')
-                                    ->options([
-                                        'UPI' => 'UPI',
-                                        'Cash' => 'Cash',
-                                        'Card' => 'Card',
-                                        'NetBanking' => 'NetBanking',
-                                    ])
                                     ->required()
                                     ->columnSpan(1),
                                 TextInput::make('source_note')
@@ -88,16 +87,18 @@ class InvoiceForm
                                     ->dehydrated(false)
                                     ->placeholder('e.g. abc@xyz.com')
                                     ->columnSpan(1),
-                                Select::make('status')
-                                    ->options([
-                                        'draft' => 'Draft',
-                                        'paid' => 'Paid',
-                                        'pending' => 'Pending',
-                                        'cancelled' => 'Cancelled',
-                                    ])
-                                    ->required()
-                                    ->default('paid')
-                                    ->columnSpan(1),
+                                // Select::make('status')
+                                //     ->options([
+                                //         'draft' => 'Draft',
+                                //         'paid' => 'Paid',
+                                //         'partial' => 'Partial',
+                                //         'unpaid' => 'Unpaid',
+                                //         'pending' => 'Pending',
+                                //         'cancelled' => 'Cancelled',
+                                //     ])
+                                //     ->required()
+                                //     ->default('paid')
+                                //     ->columnSpan(1),
                             ]),
                         ]),
 
@@ -120,27 +121,41 @@ class InvoiceForm
                                 ->schema([
                                     Select::make('product_id')
                                         ->label('Product')
-                                        ->options(Product::active()->get()->mapWithKeys(function ($product) {
-                                            $stockLabel = $product->type !== 'service' && $product->stock <= 0 ? ' (Out of Stock)' : '';
-                                            return [$product->id => $product->name . $stockLabel];
-                                        }))
+                                        ->placeholder(fn (Get $get) => empty($get('../../clinic_id')) ? 'Select Clinic first' : 'Select Product')
+                                        ->disabled(fn (Get $get) => empty($get('../../clinic_id')))
+                                        ->options(function (Get $get) {
+                                            $clinicId = $get('../../clinic_id');
+
+                                            if (!$clinicId) {
+                                                return [];
+                                            }
+
+                                            return Product::active()->get()->mapWithKeys(function ($product) use ($clinicId) {
+                                                $stockLabel = '';
+                                                if ($product->type !== 'service') {
+                                                    $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                        ->where('product_id', $product->id)
+                                                        ->first();
+                                                    $stock = $inventory?->stock_quantity ?? 0;
+                                                    $stockLabel = $stock <= 0 ? ' (Out of Stock)' : " ({$stock} available)";
+                                                }
+                                                return [$product->id => $product->name . $stockLabel];
+                                            });
+                                        })
                                         ->disableOptionWhen(function ($value, $state, Get $get) {
-                                            // Check passed value (option being rendered) 
-                                            // 1. Check if product is out of stock
-                                            $isOutOfStock = !empty($value) && Product::where('id', $value)->nonService()->where('stock', '<=', 0)->exists();
+                                            if (empty($value)) return false;
+                                            $product = Product::find($value);
+                                            if ($product && $product->type !== 'service') {
+                                                $clinicId = $get('../../clinic_id');
+                                                if (!$clinicId) return true;
 
-                                            // 2. Check if product is already selected in another row
-                                            // Get all selected product IDs from the repeater
-                                            $selectedProductIds = collect($get('../../items'))
-                                                ->pluck('product_id')
-                                                ->filter() // Remove empty values
-                                                ->unique(); // Ensure uniqueness
-                                            
-                                            // Verify if current option matches any selected ID, 
-                                            // BUT exclude the current row's selection (so it doesn't disable itself)
-                                            $isAlreadySelected = $selectedProductIds->contains($value) && $value != $state;
-
-                                            return $isOutOfStock || $isAlreadySelected;
+                                                $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                    ->where('product_id', $value)
+                                                    ->first();
+                                                if (!$inventory || $inventory->stock_quantity <= 0) return true;
+                                            }
+                                            $selectedProductIds = collect($get('../../items'))->pluck('product_id')->filter()->unique();
+                                            return $selectedProductIds->contains($value) && $value != $state;
                                         })
                                         ->required()
                                         ->reactive()
@@ -228,7 +243,7 @@ class InvoiceForm
                                         ->numeric(),
 
                                     TextInput::make('line_total')
-                                        ->label('Total')
+                                        ->label('Amount')
                                         ->prefix('₹')
                                         ->disabled()
                                         ->dehydrated()
@@ -304,7 +319,6 @@ class InvoiceForm
             ]);
     }
 
-    // updateLineTotal and updateGrandTotal remain unchanged
     public static function updateLineTotal(Get $get, Set $set): void
     {
         $price = (float) $get('unit_price') ?: 0;
@@ -313,44 +327,43 @@ class InvoiceForm
         $discountValue = (float) $get('discount_value') ?: 0;
         $gstPercent = (float) $get('gst_percentage') ?: 0;
 
-        $grossAmount = $price * $qty;
-        
-        // Calculate GST on Gross Amount (Before Discount)
-        $gstAmount = $grossAmount * ($gstPercent / 100);
-        
-        $totalBeforeDiscount = $grossAmount + $gstAmount;
-        
+        // Total inclusive of tax before discount
+        $totalIncludingTaxBeforeDiscount = $price * $qty;
+
         $discountAmount = 0;
         if ($discountType === 'percentage') {
-            $discountAmount = $totalBeforeDiscount * ($discountValue / 100);
+            $discountAmount = $totalIncludingTaxBeforeDiscount * ($discountValue / 100);
         } else {
-            $discountAmount = $discountValue; 
+            $discountAmount = $discountValue;
         }
 
-        $totalIncludingTax = max(0, $totalBeforeDiscount - $discountAmount);
-        
+        $finalLineTotal = max(0, $totalIncludingTaxBeforeDiscount - $discountAmount);
+
+        // Custom GST calculation: GST = Total * (Percent / 100)
+        // Base = Total - GST
+        $gstAmount = $finalLineTotal * ($gstPercent / 100);
+        $taxableValue = $finalLineTotal - $gstAmount;
+
         $set('gst_amount', number_format($gstAmount, 2, '.', ''));
         $set('valid_discount_amount', number_format($discountAmount, 2, '.', ''));
-        $set('line_total', number_format($totalIncludingTax, 2, '.', ''));
+        $set('line_total', number_format($finalLineTotal, 2, '.', ''));
     }
 
     public static function updateGrandTotal(Get $get, Set $set): void
     {
-        // Try getting items from root, or fallback to relative path (if called from within repeater)
         $items = $get('items') ?? $get('../../items');
-        
+
         if (!is_array($items)) {
             return;
         }
 
-        $subtotal = 0;
+        $subtotalInclusive = 0;
         $discountTotal = 0;
         $taxableValueTotal = 0;
         $gstTotal = 0;
         $grandTotal = 0;
 
         foreach ($items as $item) {
-            // OPTIONAL SAFETY: If unit_price is still null (stale state), recalc it here from product_id
             if (empty($item['unit_price']) && !empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
@@ -358,37 +371,38 @@ class InvoiceForm
                     $item['gst_percentage'] ??= $product->gst ?? 18;
                 }
             }
-            
+
             $price = (float) ($item['unit_price'] ?? 0);
             $qty = (int) ($item['quantity'] ?? 1);
-            $gross = $price * $qty;
-            
             $gstP = (float) ($item['gst_percentage'] ?? 0);
-            $gst = $gross * ($gstP / 100);
-            
+
+            $lineInclusiveBeforeDiscount = $price * $qty;
+
             $disc = (float) ($item['discount_value'] ?? 0);
             $dType = $item['discount_type'] ?? 'flat';
-            
+
             $dAmount = 0;
             if ($dType === 'percentage') {
-                $dAmount = ($gross + $gst) * ($disc / 100);
+                $dAmount = $lineInclusiveBeforeDiscount * ($disc / 100);
             } else {
                 $dAmount = $disc;
             }
-            
-            $itemTotal = max(0, ($gross + $gst) - $dAmount);
-            
-            $subtotal += $gross;
+
+            $lineInclusiveFinal = max(0, $lineInclusiveBeforeDiscount - $dAmount);
+
+            // Custom GST calculation matching row logic
+            $itemGstAmount = $lineInclusiveFinal * ($gstP / 100);
+            $itemTaxableValue = $lineInclusiveFinal - $itemGstAmount;
+
+            $subtotalInclusive += $lineInclusiveFinal; // Now subtracting discount from subtotal as well
             $discountTotal += $dAmount;
-            $taxableValueTotal += $gross; 
-            $gstTotal += $gst;
-            $grandTotal += $itemTotal;
+            $taxableValueTotal += $itemTaxableValue;
+            $gstTotal += $itemGstAmount;
+            $grandTotal += $lineInclusiveFinal;
         }
 
-        // FIXED: Use relative paths to set root-level fields from child context
-        // But if called from Repeater level, use direct paths
         $subtotalPath = $get('items') ? 'subtotal' : '../../subtotal';
-        $set($subtotalPath, number_format($subtotal, 2, '.', ''));
+        $set($subtotalPath, number_format($subtotalInclusive, 2, '.', ''));
         $set($subtotalPath === 'subtotal' ? 'discount_total' : '../../discount_total', number_format($discountTotal, 2, '.', ''));
         $set($subtotalPath === 'subtotal' ? 'taxable_value' : '../../taxable_value', number_format($taxableValueTotal, 2, '.', ''));
         $set($subtotalPath === 'subtotal' ? 'gst_total' : '../../gst_total', number_format($gstTotal, 2, '.', ''));

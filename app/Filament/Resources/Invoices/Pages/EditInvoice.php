@@ -8,11 +8,13 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
-use App\Models\StockTransaction;
-
 class EditInvoice extends EditRecord
 {
     protected static string $resource = InvoiceResource::class;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-pencil-square';
+
+    protected static ?string $navigationLabel = 'Edit';
 
     protected function getHeaderActions(): array
     {
@@ -34,41 +36,11 @@ class EditInvoice extends EditRecord
             ->body('The invoice details have been successfully updated.')
             ->success();
     }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $data['updated_by'] = auth()->id();
 
         return $data;
-    }
-    
-    protected function beforeSave(): void
-    {
-        // Restore stock via adjustment
-        $this->record->items->each(function ($item) {
-            if ($item->product_id) {
-                StockTransaction::create([
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity, // Observer increments for 'adjustment_add'
-                    'type' => 'adjustment_add',
-                    'note' => "Invoice #{$this->record->id} Update (Restock)",
-                ]);
-            }
-        });
-    }
-
-    protected function afterSave(): void
-    {
-        // Deduct new stock via sale
-        $this->record->refresh();
-        $this->record->items->each(function ($item) {
-            if ($item->product_id && $item->product && $item->product->type !== 'service') {
-                StockTransaction::create([
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity, // Observer decrements for 'sale'
-                    'type' => 'sale',
-                    'note' => "Invoice #{$this->record->id} Update (Consume)",
-                ]);
-            }
-        });
     }
 }

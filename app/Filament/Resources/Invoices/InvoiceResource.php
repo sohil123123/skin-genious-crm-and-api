@@ -14,6 +14,11 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
+use App\Filament\Resources\Invoices\Pages\ViewInvoice;
+use App\Filament\Resources\Invoices\Pages\ManageInvoicePayments;
+use Filament\Pages\Enums\SubNavigationPosition;
+use Filament\Resources\Pages\Page;
+
 use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
 
 class InvoiceResource extends Resource
@@ -26,6 +31,8 @@ class InvoiceResource extends Resource
 
     protected static ?int $navigationSort = 7;
 
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
+
     public static function form(Schema $schema): Schema
     {
         return InvoiceForm::configure($schema);
@@ -36,10 +43,19 @@ class InvoiceResource extends Resource
         return InvoicesTable::configure($table);
     }
 
+    public static function getRecordSubNavigation(Page $page): array
+    {
+        return $page->generateNavigationItems([
+            ViewInvoice::class,
+            EditInvoice::class,
+            ManageInvoicePayments::class,
+        ]);
+    }
+
     public static function getRelations(): array
     {
         return [
-            //
+            // Relations handled via sub-navigation
         ];
     }
 
@@ -48,7 +64,9 @@ class InvoiceResource extends Resource
         return [
             'index' => ListInvoices::route('/'),
             'create' => CreateInvoice::route('/create'),
+            'view' => ViewInvoice::route('/{record}'),
             'edit' => EditInvoice::route('/{record}/edit'),
+            'payments' => ManageInvoicePayments::route('/{record}/payments'),
         ];
     }
 

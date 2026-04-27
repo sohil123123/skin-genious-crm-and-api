@@ -7,8 +7,6 @@ use Filament\Resources\Pages\CreateRecord;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
-use App\Models\StockTransaction;
-
 class CreateInvoice extends CreateRecord
 {
     protected static string $resource = InvoiceResource::class;
@@ -44,20 +42,5 @@ class CreateInvoice extends CreateRecord
         $data['created_by'] = auth()->id();
 
         return $data;
-    }
-
-    protected function afterCreate(): void
-    {
-        // Create stock transaction for created items (Observer handles stock decrement)
-        $this->record->items->each(function ($item) {
-            if ($item->product_id && $item->product && $item->product->type !== 'service') {
-                StockTransaction::create([
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity, // Observer decrements for 'sale'
-                    'type' => 'sale',
-                    'note' => "Invoice #{$this->record->id}",
-                ]);
-            }
-        });
     }
 }

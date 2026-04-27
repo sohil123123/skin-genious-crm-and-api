@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ClinicInventory;
 
 class InvoiceItem extends Model
 {
@@ -38,5 +39,74 @@ class InvoiceItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    protected static function booted()
+    {
+        static::created(function ($item) {
+            $product = $item->product;
+            if ($product && $product->type !== 'service') {
+                $clinicId = $item->invoice->clinic_id;
+                $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                    ->where('product_id', $item->product_id)
+                    ->first();
+                
+                if ($inventory) {
+                    $inventory->decrement('stock_quantity', $item->quantity);
+                }
+            }
+        });
+
+        static::updated(function ($item) {
+            $product = $item->product;
+            if ($product && $product->type !== 'service') {
+                $clinicId = $item->invoice->clinic_id;
+                
+                // If product changed
+                if ($item->isDirty('product_id')) {
+                    // Restore stock to old product
+                    $oldProduct = Product::find($item->getOriginal('product_id'));
+                    if ($oldProduct && $oldProduct->type !== 'service') {
+                        $oldInventory = ClinicInventory::where('clinic_id', $clinicId)
+                            ->where('product_id', $item->getOriginal('product_id'))
+                            ->first();
+                        if ($oldInventory) {
+                            $oldInventory->increment('stock_quantity', $item->getOriginal('quantity'));
+                        }
+                    }
+
+                    // Deduct stock from new product
+                    $newInventory = ClinicInventory::where('clinic_id', $clinicId)
+                        ->where('product_id', $item->product_id)
+                        ->first();
+                    if ($newInventory) {
+                        $newInventory->decrement('stock_quantity', $item->quantity);
+                    }
+                } elseif ($item->isDirty('quantity')) {
+                    // Just quantity changed
+                    $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                        ->where('product_id', $item->product_id)
+                        ->first();
+                    if ($inventory) {
+                        $diff = $item->quantity - $item->getOriginal('quantity');
+                        $inventory->decrement('stock_quantity', $diff);
+                    }
+                }
+            }
+        });
+
+        static::deleted(function ($item) {
+            $product = $item->product;
+            if ($product && $product->type !== 'service') {
+                $clinicId = $item->invoice->clinic_id;
+                $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                    ->where('product_id', $item->product_id)
+                    ->first();
+                
+                if ($inventory) {
+                    $inventory->increment('stock_quantity', $item->quantity);
+                }
+            }
+        });
     }
 }

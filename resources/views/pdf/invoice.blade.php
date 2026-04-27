@@ -201,7 +201,7 @@
             <td width="40%" valign="top">
                 <div class="invoice-title">INVOICE</div>
                 <div class="invoice-meta">
-                    Invoice #: <strong>{{ $invoice->id }}</strong><br>
+                    Invoice #: <strong>{{ $invoice->invoice_number }}</strong><br>
                     Date: <strong>{{ $invoice->invoice_date->format('d M, Y') }}</strong><br>
                     Status: <span class="status-{{ $invoice->status }}">{{ ucfirst($invoice->status) }}</span>
                 </div>
@@ -292,8 +292,42 @@
                 <td class="grand-total-label">Grand Total</td>
                 <td class="grand-total-value">₹{{ number_format($invoice->grand_total, 2) }}</td>
             </tr>
+            <tr>
+                <td class="label font-bold">Amount Paid</td>
+                <td class="value font-bold" style="color: #16a34a;">₹{{ number_format($invoice->amount_paid, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="label font-bold">Balance Due</td>
+                <td class="value font-bold" style="color: #dc2626;">₹{{ number_format($invoice->amount_due, 2) }}</td>
+            </tr>
         </table>
         <div style="clear: both;"></div>
     </div>
+
+    @if($invoice->payments->count() > 0)
+    <div style="margin-top: 40px;">
+        <div class="info-title">Payment History</div>
+        <table class="items-table" style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th width="25%">Date</th>
+                    <th width="35%">TXN ID</th>
+                    <th width="20%">Method</th>
+                    <th width="20%" class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($invoice->payments as $payment)
+                <tr>
+                    <td>{{ $payment->payment_date->format('d M, Y') }}</td>
+                    <td style="font-size: 8pt;">{{ $payment->transaction_id }}</td>
+                    <td>{{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}</td>
+                    <td class="text-right font-bold">₹{{ number_format($payment->amount, 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @endif
 </body>
 </html>
