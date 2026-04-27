@@ -120,6 +120,46 @@
         border-top: 1px solid #fef3c7;
     }
 
+    /* ─── Roadmap Table Additions ─── */
+    .roadmap-title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #0E2B5C;
+        margin-bottom: 25px;
+        text-transform: capitalize;
+    }
+    .roadmap-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        border: 1px solid #e2e8f0;
+    }
+    .roadmap-table th {
+        background-color: #0E2B5C;
+        color: #FFFFFF;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        padding: 12px 10px;
+        text-align: left;
+        border-right: 1px solid #1a3a6e;
+    }
+    .roadmap-table td {
+        background-color: #FFFFFF;
+        font-size: 11px;
+        color: #334155;
+        padding: 15px 10px;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+        line-height: 1.4;
+    }
+    .roadmap-table tr:nth-child(even) td {
+        background-color: #fcfaf7;
+    }
+    .roadmap-table tr:last-child td {
+        border-bottom: none;
+    }
 </style>
 
 <pagebreak page-selector="report_content" />
@@ -178,39 +218,7 @@
                 {{ $program['client_facing_explanation']['why_today'] ?? 'Targeted IV support based on your clinical assessment profile.' }}
             </div>
 
-            <table width="100%" cellpadding="0" cellspacing="0" class="outcome-table">
-                <tr>
-                    <td width="48%" valign="top">
-                        <div class="outcome-card">
-                            <div class="outcome-header">Same-Day Expectations</div>
-                            <ul class="outcome-list">
-                                @if(isset($program['client_facing_explanation']['what_you_may_feel_today']))
-                                    @foreach($program['client_facing_explanation']['what_you_may_feel_today'] as $item)
-                                        <li>{{ $item }}</li>
-                                    @endforeach
-                                @else
-                                    <li>Enhanced hydration and vital nutrient support.</li>
-                                @endif
-                            </ul>
-                        </div>
-                    </td>
-                    <td width="4%"></td>
-                    <td width="48%" valign="top">
-                        <div class="outcome-card">
-                            <div class="outcome-header">Next 7-14 Days</div>
-                            <ul class="outcome-list">
-                                @if(isset($program['client_facing_explanation']['what_you_may_see_over_7_14_days']))
-                                    @foreach($program['client_facing_explanation']['what_you_may_see_over_7_14_days'] as $item)
-                                        <li>{{ $item }}</li>
-                                    @endforeach
-                                @else
-                                    <li>Gradual improvement in cellular resilience and glow.</li>
-                                @endif
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-            </table>
+            {{-- Dynamic data mapped to the timeline table below --}}
 
             <div><span class="section-title">Session Formulation</span></div>
             <div class="formula-section">
@@ -262,6 +270,58 @@
             @endif --}}
         </div>
     </div>
-</div>
 
+    <pagebreak page-selector="report_content" />
+
+    <div class="roadmap-title">Expected timeline of change</div>
+    
+    <table class="roadmap-table" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
+        <thead>
+            <tr>
+                <th style="width: 20%;">When</th>
+                <th style="width: 40%;">Most likely early wins</th>
+                <th style="width: 40%;">Often takes longer</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php
+                $feels = isset($program['client_facing_explanation']['what_you_may_feel_today']) ? $program['client_facing_explanation']['what_you_may_feel_today'] : [];
+                $sees = isset($program['client_facing_explanation']['what_you_may_see_over_7_14_days']) ? $program['client_facing_explanation']['what_you_may_see_over_7_14_days'] : [];
+                $maxCount = max(count($feels), count($sees));
+                $whenLabels = ['After session 1', 'After sessions 2–3', 'After sessions 4–6'];
+            @endphp
+            @if($maxCount > 0)
+                @for ($i = 0; $i < $maxCount; $i++)
+                <tr>
+                    <td style="font-weight: bold; color: #0E2B5C;">{{ $whenLabels[$i] ?? ('Phase ' . ($i + 1)) }}</td>
+                    <td>{{ $feels[$i] ?? '' }}</td>
+                    <td>{{ $sees[$i] ?? '' }}</td>
+                </tr>
+                @endfor
+            @else
+                <tr>
+                    <td style="font-weight: bold; color: #0E2B5C;">After session 1</td>
+                    <td>Hydration comfort, calm, less drained feeling</td>
+                    <td>Consistent energy and visible freshness</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold; color: #0E2B5C;">After sessions 2–3</td>
+                    <td>Better recovery quality, steadier weekly feel</td>
+                    <td>More reliable resilience and visible clarity</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: bold; color: #0E2B5C;">After sessions 4–6</td>
+                    <td>More stable overall experience, clearer pattern of response</td>
+                    <td>Longer-term maintenance strategy</td>
+                </tr>
+            @endif
+        </tbody>
+    </table>
+
+    <ul style="color: #64748b; font-size: 12px; margin-bottom: 30px; padding-left: 20px;">
+        <li style="margin-bottom: 8px;">Expectation-setting should remain aspirational but honest.</li>
+        <li>This report helps sell programs without sounding salesy because it frames the package as a monitored progression.</li>
+    </ul>
+
+</div>
 @endsection

@@ -191,8 +191,6 @@ class ReportController extends BaseApiController
     {
         $record = Assessment::find($assessment_id);
 
-        // dd($record->iv_treatment_plan['treatment_generation_output']['options']);
-
         $html  = view('pdf.iv.iv-recommendation-report',
             [
                 'age' => $record->age,
@@ -221,7 +219,9 @@ class ReportController extends BaseApiController
     {
         $record = Assessment::find($assessment_id);
         $selected_plan = $record->iv_selected_option;
-
+        // echo '<pre>';
+        // print_r($selected_plan);
+        // die;
         // If it's a single session option (not the multi-session roadmap 'plan_option')
         if (isset($selected_plan['option_type']) && $selected_plan['option_type'] !== 'plan_option') {
             $html = view('pdf.iv.iv-single-session-report', [
