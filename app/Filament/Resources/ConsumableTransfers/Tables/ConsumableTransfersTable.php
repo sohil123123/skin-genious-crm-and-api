@@ -2,16 +2,18 @@
 
 namespace App\Filament\Resources\ConsumableTransfers\Tables;
 
+use App\Filament\Exports\ConsumableTransferExporter;
 use App\Models\ConsumableTransfer;
-use Filament\Actions\Action;
+use App\Services\ConsumableTransferPdfService;
+use Filament\Actions\Action as ActionsAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
@@ -72,7 +74,7 @@ class ConsumableTransfersTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-             ->filters([
+            ->filters([
                 SelectFilter::make('clinic_id')
                     ->relationship('clinic', 'name')
                     ->searchable()
@@ -115,10 +117,17 @@ class ConsumableTransfersTable
             ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary'))
             ->recordActions([
                 EditAction::make(),
+                Action::make('download_pdf')
+                    ->label('Download PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(fn (ConsumableTransfer $record, ConsumableTransferPdfService $service) => $service->download($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    // DeleteBulkAction::make(),
+                    ExportBulkAction::make()
+                        ->exporter(ConsumableTransferExporter::class)
+                        ->label('Export Selected'),
                 ]),
             ]);
     }

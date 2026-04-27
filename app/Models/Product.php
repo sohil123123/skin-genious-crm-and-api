@@ -40,10 +40,10 @@ class Product extends Model
     }
 
 
-    public function transactions(): HasMany
-    {
-        return $this->hasMany(StockTransaction::class);
-    }
+    // public function transactions(): HasMany
+    // {
+    //     return $this->hasMany(StockTransaction::class);
+    // }
 
     public function invoiceItems(): HasMany
     {

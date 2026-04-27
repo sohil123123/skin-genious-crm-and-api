@@ -15,11 +15,6 @@ class ProductObserver
         if (empty($product->sku)) {
             $product->sku = 'SKU-' . strtoupper(\Illuminate\Support\Str::random(8));
         }
-        
-        // Ensure stock defaults to 0 if not set, though DB default handles this.
-        if (!isset($product->stock)) {
-            $product->stock = 0;
-        }
     }
 
     /**

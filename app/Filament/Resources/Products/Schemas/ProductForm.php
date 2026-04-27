@@ -54,11 +54,11 @@ class ProductForm
                                         ->placeholder('0.00')
                                         ->visible(fn ($get) => in_array($get('type'), ['product', 'service']))
                                         ->required(fn ($get) => in_array($get('type'), ['product', 'service'])),
-                                    TextInput::make('purchase_price')
-                                        ->numeric()
-                                        ->prefix('₹')
-                                        ->visible(fn ($get) => in_array($get('type'), ['product', 'iv_product']))
-                                        ->placeholder('0.00'),
+                                    // TextInput::make('purchase_price')
+                                    //     ->numeric()
+                                    //     ->prefix('₹')
+                                    //     ->visible(fn ($get) => in_array($get('type'), ['product', 'iv_product']))
+                                    //     ->placeholder('0.00'),
                                     TextInput::make('gst')
                                         ->label('GST (%)')
                                         ->numeric()
