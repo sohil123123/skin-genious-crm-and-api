@@ -154,7 +154,7 @@
             <td width="48%" valign="top">
                 <div class="info-card">
                     <div class="info-label">AGE / GENDER</div>
-                    <div class="info-value">{{ $age ?? 'N/A' }} / {{ strtoupper(substr($patient['gender'] ?? 'N/A', 0, 1)) }}</div>
+                    <div class="info-value">{{ $patient['age'] }} / {{ strtoupper(substr($patient['gender'] ?? 'N/A', 0, 1)) }}</div>
                 </div>
             </td>
         </tr>

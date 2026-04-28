@@ -202,13 +202,16 @@ class AssessmentsTable
                         ->tooltip('Facial Skin Analysis Report')
                         ->visible(fn ($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'instant-normal')
                         ->action(function (Assessment $record) {
-                            $html = view('pdf.facial.skin_analysis', [
-                                'data' => $record,
-                                'diagnosis' => $record->diagnosis,
-                                'key_parametrs' => collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores'] ?? []),
-                                'assessmentImages' => $record->images,
-                                'patient' => $record->user
-                            ])->render();
+
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['data'] = $record;
+                            $data['diagnosis'] = $record->diagnosis;
+                            $data['key_parametrs'] = collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores'] ?? []);
+                            $data['assessmentImages'] = $record->images;
+
+                            $html = view('pdf.facial.skin_analysis', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
                             $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
@@ -231,10 +234,13 @@ class AssessmentsTable
                             return $record->assessment_type === 'normal' && $record->post_diagnosis && $record->images && $record->post_images;
                         })
                         ->action(function (Assessment $record) {
-                            $data['patient'] = $record->user;
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['report_date'] = $record->created_at;
                             $data['reassessment'] = $record->post_diagnosis['reassessment'];
                             $data['counts'] = collect($data['reassessment'])
-                            ->pluck('status')
+                            ->pluck('result')
                             ->countBy();
                             $assessmentImages = $record->images;
                             $postAssessmentImages = $record->post_images;
@@ -262,7 +268,10 @@ class AssessmentsTable
                         ->color('primary')
                         ->visible(fn ($record) => $record->assessment_type === 'normal')
                         ->action(function (Assessment $record) {
-
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['report_date'] = $record->created_at;
                             $data['sessions'] = $record->treatmentSessions['treatments'];
                             $data['treatment_goals'] = collect($record->treatmentSessions['treatments'])
                                 ->pluck('concerns_addressed')
@@ -330,14 +339,14 @@ class AssessmentsTable
                                 ];
                             })->values();
 
-                            $html  = view('pdf.iv.wellness-analysis-report',
-                                [
-                                    'data' => $record,
-                                    'patient' => $record->user,
-                                    'iv_scors' => $iv_scors,
-                                    'telemetry' => $record->diagnosis['iv_scoring_output']['telemetry'] ?? null,
-                                ]
-                            )->render();
+                            $data['data'] = $record;
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['iv_scors'] = $iv_scors;
+                            $data['telemetry'] = $record->diagnosis['iv_scoring_output']['telemetry'] ?? null;
+
+                            $html  = view('pdf.iv.wellness-analysis-report', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
                             $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
@@ -357,14 +366,14 @@ class AssessmentsTable
                         ->tooltip('IV Recommendation Report')
                         ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->iv_treatment_plan)
                         ->action(function (Assessment $record) {
-                            $html  = view('pdf.iv.iv-recommendation-report',
-                                [
-                                    'age' => $record->age,
-                                    'report_date' => $record->created_at,
-                                    'patient' => $record->user,
-                                    'options' => $record->iv_treatment_plan['treatment_generation_output']['options'],
-                                ]
-                            )->render();
+
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['report_date'] = $record->created_at;
+                            $data['options'] = $record->iv_treatment_plan['treatment_generation_output']['options'];
+
+                            $html  = view('pdf.iv.iv-recommendation-report', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
                             $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
@@ -387,21 +396,24 @@ class AssessmentsTable
 
                             // If it's a single session option (not the multi-session roadmap 'plan_option')
                             if (isset($selected_plan['option_type']) && $selected_plan['option_type'] !== 'plan_option') {
-                                $html = view('pdf.iv.iv-single-session-report', [
-                                    'age' => $record->age,
-                                    'report_date' => $record->created_at,
-                                    'patient' => $record->user,
-                                    'program' => $selected_plan,
-                                ])->render();
+
+                                $data['patient'] = $record->user->toArray();
+                                $data['patient']['name'] = $record->user->name;
+                                $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                                $data['report_date'] = $record->created_at;
+                                $data['program'] = $selected_plan;
+
+                                $html = view('pdf.iv.iv-single-session-report', $data)->render();
 
                                 $filename = 'iv-single-session-report';
                             } else {
-                                $html = view('pdf.iv.iv-multi-session-report', [
-                                    'age' => $record->age,
-                                    'report_date' => $record->created_at,
-                                    'patient' => $record->user,
-                                    'program' => $selected_plan,
-                                ])->render();
+                                $data['patient'] = $record->user->toArray();
+                                $data['patient']['name'] = $record->user->name;
+                                $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                                $data['report_date'] = $record->created_at;
+                                $data['program'] = $selected_plan;
+
+                                $html = view('pdf.iv.iv-multi-session-report', $data)->render();
 
                                 $filename = 'iv-multi-session-report';
                             }

@@ -82,7 +82,7 @@
             <td width="48%" valign="top">
                 <div class="info-card">
                     <div class="info-label">AGE / GENDER</div>
-                    <div class="info-value">{{ $age ?? 'N/A' }} / {{ strtoupper(substr($patient['gender'] ?? 'N/A', 0, 1)) }}</div>
+                    <div class="info-value">{{ $patient['age'] }} / {{ strtoupper(substr($patient['gender'] ?? 'N/A', 0, 1)) }}</div>
                 </div>
             </td>
         </tr>
@@ -106,7 +106,7 @@
     </table>
 
     <div class="section-title">Baseline vs current profile</div>
-    
+
     <table class="reassessment-table">
         <thead>
             <tr>
@@ -178,7 +178,7 @@
     <pagebreak page-selector="report_content" />
 
     <div class="section-title" style="margin-top: 30px;">Where the biggest movement occurred</div>
-    
+
     <ul style="color: #334155; font-size: 13px; line-height: 1.6; margin-bottom: 40px; padding-left: 18px;">
         <li style="margin-bottom: 12px; color: #C29F5D;"><span style="color: #334155;">Stress & nervous system load improved materially, suggesting the plan is helping the client feel less strained and more recovered.</span></li>
         <li style="margin-bottom: 12px; color: #C29F5D;"><span style="color: #334155;">Energy-output need also reduced, which is often one of the most meaningful client-perceived changes.</span></li>
@@ -196,7 +196,7 @@
     <pagebreak page-selector="report_content" />
 
     <div class="section-title" style="margin-top: 30px;">Subjective and objective change summary</div>
-    
+
     <table class="reassessment-table">
         <thead>
             <tr>

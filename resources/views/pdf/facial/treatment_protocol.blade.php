@@ -144,7 +144,7 @@
         <td width="48%" valign="top">
             <div class="info-card">
                 <div class="info-label">Report Date</div>
-                <div class="info-value">{{ date('d/m/Y') }}</div>
+                <div class="info-value">{{ date('d/m/Y', strtotime($report_date)) ?? 'N/A' }}</div>
             </div>
         </td>
         <td width="4%"></td>
@@ -160,7 +160,7 @@
 {{-- ── Goals + Modalities ── --}}
 <table class="two-col-table" cellpadding="5" cellspacing="0" style="page-break-inside: avoid;">
     <tr>
-        <td width="48%" class="col-box">
+        <td class="col-box">
             <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                     <td width="100%" class="col-title">— TREATMENT GOALS —</td>
@@ -173,7 +173,7 @@
                 @endforeach
             </table>
         </td>
-        <td width="4%"></td>
+        <!-- <td width="4%"></td>
         <td width="48%" class="col-box">
             <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
@@ -184,7 +184,7 @@
                     <td width="100%" class="modality-text">{{ $protocol['modalities'] ?? 'N/A' }}</td>
                 </tr>
             </table>
-        </td>
+        </td> -->
     </tr>
 </table>
 

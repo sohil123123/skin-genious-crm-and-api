@@ -206,7 +206,7 @@
         <td width="48%" valign="top">
             <div class="info-card">
                 <div class="info-label">Report Date</div>
-                <div class="info-value">{{ date('d/m/Y') }}</div>
+                <div class="info-value">{{ date('d/m/Y', strtotime($report_date)) ?? 'N/A' }}</div>
             </div>
         </td>
         <td width="4%"></td>
@@ -257,8 +257,8 @@
         <td class="col-box">
              @php
                 $reassessmentCollection = collect($reassessment);
-                $improvedItems = $reassessmentCollection->filter(fn($item) => strtolower($item['status'] ?? '') === 'improved');
-                $otherItems = $reassessmentCollection->filter(fn($item) => strtolower($item['status'] ?? '') !== 'improved');
+                $improvedItems = $reassessmentCollection->filter(fn($item) => strtolower($item['result'] ?? '') === 'improved');
+                $otherItems = $reassessmentCollection->filter(fn($item) => strtolower($item['result'] ?? '') !== 'improved');
             @endphp
             <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
