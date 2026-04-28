@@ -9,6 +9,7 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Pages\ManageHolidays;
 use App\Filament\Resources\Users\Pages\ManageAssessments;
 use App\Filament\Resources\Users\Pages\ManageWeeklySchedule;
+use App\Filament\Resources\Users\Pages\ManageInvoices;
 // use App\Filament\Resources\Users\Pages\ManageAppointments;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
@@ -31,6 +32,7 @@ use App\Filament\Widgets\UserStats;
 use App\Models\User;
 
 // use App\Filament\Resources\Users\RelationManagers\HolidaysRelationManager;
+use App\Filament\Resources\Users\RelationManagers\InvoicesRelationManager;
 use App\Filament\Resources\Users\Schemas\UserInfolist;
 
 class UserResource extends Resource
@@ -65,6 +67,7 @@ class UserResource extends Resource
             ManageHolidays::class,
             ManageAssessments::class,
             ManageWeeklySchedule::class,
+            ManageInvoices::class,
             // ManageAppointments::class,
         ]);
     }
@@ -74,6 +77,7 @@ class UserResource extends Resource
     {
         return [
             // HolidaysRelationManager::class,
+            // InvoicesRelationManager::class,
         ];
     }
 
@@ -87,6 +91,7 @@ class UserResource extends Resource
             'holidays' => ManageHolidays::route('/{record}/holidays'),
             'assessments' => ManageAssessments::route('/{record}/assessments'),
             'weekly_schedule' => ManageWeeklySchedule::route('/{record}/weekly_schedule'),
+            'invoices' => ManageInvoices::route('/{record}/invoices'),
             // 'appointments' => ManageAppointments::route('/{record}/appointments'),
         ];
     }

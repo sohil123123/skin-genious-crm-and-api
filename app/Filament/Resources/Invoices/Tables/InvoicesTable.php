@@ -258,8 +258,8 @@ class InvoicesTable
                     }),
 
                 ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
+                    ViewAction::make()->modalWidth('7xl'),
+                    EditAction::make()->modalWidth('7xl'),
                     DeleteAction::make(),
                 ]),
 
