@@ -68,8 +68,20 @@ class AssessmentsTable
                 TextColumn::make('assessment_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn ($state) => $state === 'normal' ? 'success' : 'info')
-                    ->formatStateUsing(fn ($state) => $state === 'normal' ? 'Facial' : 'IV'),
+                    ->color(fn ($state) => match ($state) {
+                        'normal' => 'success',
+                        'iv' => 'info',
+                        'instant-normal' => 'warning',
+                        'instant-iv' => 'primary',
+                        default => 'info',
+                    })
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'normal' => 'Facial',
+                        'iv' => 'IV',
+                        'instant-normal' => 'Instant Facial',
+                        'instant-iv' => 'Instant IV',
+                        default => '-',
+                    }),
                 TextColumn::make('selected_plan_type')->label('Selected Plan')->badge()->placeholder('-'),
                 // TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
@@ -188,7 +200,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('Facial Skin Analysis Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'normal')
+                        ->visible(fn ($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'instant-normal')
                         ->action(function (Assessment $record) {
                             $html = view('pdf.facial.skin_analysis', [
                                 'data' => $record,
@@ -292,7 +304,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Wellness Analysis Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->diagnosis['iv_scoring_output'])
+                        ->visible(fn ($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis['iv_scoring_output'])
                         ->action(function (Assessment $record) {
                             $labels = [
                                 'FENS' => 'Fluid & Electrolyte Need',
@@ -323,6 +335,7 @@ class AssessmentsTable
                                     'data' => $record,
                                     'patient' => $record->user,
                                     'iv_scors' => $iv_scors,
+                                    'telemetry' => $record->diagnosis['iv_scoring_output']['telemetry'] ?? null,
                                 ]
                             )->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));

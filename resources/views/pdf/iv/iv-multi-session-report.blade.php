@@ -67,6 +67,63 @@
     .roadmap-table tr:last-child td {
         border-bottom: none;
     }
+
+    /* ─── Additions for Timeline and Explanation ─── */
+    .protocol-container {
+        border: 1px solid #e2e8f0;
+        margin-bottom: 25px;
+        background-color: #ffffff;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .protocol-body {
+        padding: 20px;
+    }
+    .section-title {
+        color: #0E2B5C;
+        font-size: 14px;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-bottom: 2px solid #C29F5D;
+        padding-bottom: 4px;
+        margin-bottom: 15px;
+        display: inline-block;
+    }
+    .rationale-box {
+        background-color: #f8fafc;
+        padding: 15px;
+        margin-bottom: 25px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #334155;
+    }
+    .outcome-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 25px;
+    }
+    .outcome-card {
+        background-color: #ffffff;
+        padding: 15px;
+        height: 100%;
+    }
+    .outcome-header {
+        font-size: 11px;
+        font-weight: bold;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        letter-spacing: 0.5px;
+    }
+    .outcome-list {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 12px;
+        color: #334155;
+    }
+    .outcome-list li {
+        margin-bottom: 6px;
+    }
 </style>
 
 <pagebreak page-selector="report_content" />
@@ -175,6 +232,60 @@
             @endforeach
         </tbody>
     </table>
+
+    <pagebreak page-selector="report_content" />
+
+    <div class="report_content_div">
+        <div class="roadmap-title">Expected timeline of change</div>
+
+        <table class="roadmap-table" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
+            <thead>
+                <tr>
+                    <th style="width: 20%;">When</th>
+                    <th style="width: 40%;">Most likely early wins</th>
+                    <th style="width: 40%;">Often takes longer</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php
+                    $feels = isset($program['client_facing_explanation']['what_you_may_feel_today']) ? $program['client_facing_explanation']['what_you_may_feel_today'] : [];
+                    $sees = isset($program['client_facing_explanation']['what_you_may_see_over_7_14_days']) ? $program['client_facing_explanation']['what_you_may_see_over_7_14_days'] : [];
+                    $maxCount = max(count($feels), count($sees));
+                    $whenLabels = ['After session 1', 'After sessions 2–3', 'After sessions 4–6'];
+                @endphp
+                @if($maxCount > 0)
+                    @for ($i = 0; $i < $maxCount; $i++)
+                    <tr>
+                        <td style="font-weight: bold; color: #0E2B5C;">{{ $whenLabels[$i] ?? ('Phase ' . ($i + 1)) }}</td>
+                        <td>{{ $feels[$i] ?? '' }}</td>
+                        <td>{{ $sees[$i] ?? '' }}</td>
+                    </tr>
+                    @endfor
+                @else
+                    <tr>
+                        <td style="font-weight: bold; color: #0E2B5C;">After session 1</td>
+                        <td>Hydration comfort, calm, less drained feeling</td>
+                        <td>Consistent energy and visible freshness</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #0E2B5C;">After sessions 2–3</td>
+                        <td>Better recovery quality, steadier weekly feel</td>
+                        <td>More reliable resilience and visible clarity</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #0E2B5C;">After sessions 4–6</td>
+                        <td>More stable overall experience, clearer pattern of response</td>
+                        <td>Longer-term maintenance strategy</td>
+                    </tr>
+                @endif
+            </tbody>
+        </table>
+
+        <ul style="color: #64748b; font-size: 12px; margin-bottom: 30px; padding-left: 20px;">
+            <li style="margin-bottom: 8px;">Expectation-setting should remain aspirational but honest.</li>
+            <li>This report helps sell programs without sounding salesy because it frames the package as a monitored progression.</li>
+        </ul>
+    </div>
 </div>
 
 @endsection

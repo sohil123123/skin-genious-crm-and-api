@@ -95,7 +95,7 @@ class ReportController extends BaseApiController
         $data['patient'] = $record->user;
         $data['reassessment'] = $record->post_diagnosis['reassessment'];
         $data['counts'] = collect($data['reassessment'])
-        ->pluck('status')
+        ->pluck('result')
         ->countBy();
         // dd($data);
         $assessmentImages = $record->images;
@@ -129,6 +129,8 @@ class ReportController extends BaseApiController
             return $this->ivPlans($assessment_id);
         }else if($type == 'program-roadmap') {
             return $this->programRoadmap($assessment_id);
+        }else if($type == 'reassessment') {
+            return $this->ivReassessment($assessment_id);
         }
     }
 
@@ -168,6 +170,7 @@ class ReportController extends BaseApiController
                 'data' => $record,
                 'patient' => $record->user,
                 'iv_scors' => $iv_scors,
+                'telemetry' => $record->diagnosis['iv_scoring_output']['telemetry'] ?? null,
             ]
         )->render();
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
@@ -189,8 +192,6 @@ class ReportController extends BaseApiController
     public function ivPlans($assessment_id)
     {
         $record = Assessment::find($assessment_id);
-
-        // dd($record->iv_treatment_plan['treatment_generation_output']['options']);
 
         $html  = view('pdf.iv.iv-recommendation-report',
             [
@@ -220,7 +221,9 @@ class ReportController extends BaseApiController
     {
         $record = Assessment::find($assessment_id);
         $selected_plan = $record->iv_selected_option;
-
+        // echo '<pre>';
+        // print_r($selected_plan);
+        // die;
         // If it's a single session option (not the multi-session roadmap 'plan_option')
         if (isset($selected_plan['option_type']) && $selected_plan['option_type'] !== 'plan_option') {
             $html = view('pdf.iv.iv-single-session-report', [
@@ -252,6 +255,31 @@ class ReportController extends BaseApiController
         return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  8. Download IV Reassessment Report
+    // ─────────────────────────────────────────────
+    public function ivReassessment($assessment_id)
+    {
+        $record = Assessment::find($assessment_id);
+
+        $data['age'] = $record->age;
+        $data['report_date'] = $record->created_at;
+        $data['patient'] = $record->user;
+
+        $html = view('pdf.iv.iv-progress-reassessment-report', $data)->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('iv-progress-reassessment-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="iv-progress-reassessment-report.pdf"',
         ]);
     }
 }

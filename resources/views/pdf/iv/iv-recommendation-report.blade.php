@@ -281,7 +281,7 @@
                             $type = $row['option_type'] ?? '';
                             if (str_contains($type, 'option_1')) $optionLabel = 'Option 1';
                             elseif (str_contains($type, 'option_2')) $optionLabel = 'Option 2';
-                            elseif ($type === 'plan_option') $optionLabel = 'Recommended Program';
+                            elseif ($type === 'plan_option') $optionLabel = 'Program';
                             elseif ($type === 'budget_option') $optionLabel = 'Core Option';
                             else $optionLabel = ucwords(str_replace('_', ' ', $type));
                         @endphp
@@ -294,7 +294,9 @@
                             <td>
                                 {{ implode(', ', $row['client_facing_explanation']['what_you_may_see_over_7_14_days'] ?? []) }}
                             </td>
-                            <td class="length-col">{{ $row['protocols'][0]['ui_summary']['estimated_total_duration_minutes'] ?? 'N/A' }} min</td>
+                            <td class="length-col">{{
+                                $type === 'plan_option' ? 'Multi-session' : $row['protocols'][0]['ui_summary']['estimated_total_duration_minutes'] . ' min' ?? 'N/A'
+                                }}</td>
                         </tr>
                     @endforeach
                 </tbody>
