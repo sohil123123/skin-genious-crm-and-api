@@ -24,7 +24,7 @@ class ManageInvoicePayments extends ManageRelatedRecords
     {
         return $table
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()->icon('heroicon-o-plus'),
             ]);
     }
 }

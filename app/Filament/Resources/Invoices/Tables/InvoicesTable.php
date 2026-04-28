@@ -7,6 +7,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\SelectColumn;
@@ -55,6 +56,16 @@ class InvoicesTable
                     ->searchable(['first_name', 'last_name', 'mobile']),
                 TextColumn::make('invoice_date')
                     ->date()
+                    ->sortable(),
+                TextColumn::make('amount_paid')
+                    ->money('INR')
+                    ->badge()
+                    ->color('success')
+                    ->sortable(),
+                TextColumn::make('amount_due')
+                    ->money('INR')
+                    ->badge()
+                    ->color('danger')
                     ->sortable(),
                 TextColumn::make('grand_total')
                     ->money('INR')
@@ -182,8 +193,8 @@ class InvoicesTable
             )
             ->actions([ // Filament v3 uses actions() instead of recordActions? Or this is v4 with unified configure?
                 // // The existing file had ->recordActions([...]) so I'll stick to that
-                Action::make('record_payment')
-                    ->label('Record Payment')
+                Action::make('payment')
+                    ->label('Payment')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
                     ->hidden(fn ($record) => in_array($record->status, ['paid', 'cancelled']))
@@ -245,9 +256,13 @@ class InvoicesTable
                         $pdfService = app(InvoicePdfService::class);
                         return $pdfService->download($record);
                     }),
-                ViewAction::make(),
-                EditAction::make(),
-                DeleteAction::make(),
+
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ]),
+
             ])
             ->bulkActions([ // Similarly for bulkActions
                 BulkActionGroup::make([

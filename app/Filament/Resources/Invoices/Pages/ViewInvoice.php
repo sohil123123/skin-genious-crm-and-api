@@ -3,8 +3,9 @@
 namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\Invoices\InvoiceResource;
-use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Actions\Action;
 
 class ViewInvoice extends ViewRecord
 {
@@ -17,7 +18,8 @@ class ViewInvoice extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
+            DeleteAction::make(),
+            Action::make('back')->label('Back to List')->icon('heroicon-o-arrow-left')->url(static::getResource()::getUrl('index'))->color('gray'),
         ];
     }
 }
