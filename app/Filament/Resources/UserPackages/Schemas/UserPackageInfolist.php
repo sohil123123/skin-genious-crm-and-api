@@ -20,18 +20,18 @@ class UserPackageInfolist
                     Section::make('Package Details')
                         ->icon('heroicon-o-rectangle-stack')
                         ->schema([
-                            Grid::make(3)->schema([
-                                TextEntry::make('package_name')
-                                    ->label('Package Name')
-                                    ->weight('bold')
-                                    ->columnSpan(3),
+                            TextEntry::make('package_name')
+                                ->label('Package Name')
+                                ->weight('bold')
+                                ->size('lg')
+                                ->columnSpanFull(),
 
+                            Grid::make(3)->schema([
                                 TextEntry::make('clinic.name')
                                     ->label('Clinic')
                                     ->icon('heroicon-o-building-office')
                                     ->badge()
-                                    ->color('success')
-                                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                                    ->color('success'),
 
                                 TextEntry::make('user.name')
                                     ->label('Patient')
@@ -91,12 +91,22 @@ class UserPackageInfolist
                                     ->placeholder('N/A'),
                                 TextEntry::make('service_snapshot.sell_price')
                                     ->label('Price at Purchase')
-                                    ->prefix('₹'),
+                                    ->money('INR'),
                                 TextEntry::make('service_snapshot.captured_at')
                                     ->label('Captured At')
                                     ->dateTime(),
                             ]),
                         ]),
+
+                    Section::make('Notes')
+                        ->icon('heroicon-o-pencil-square')
+                        ->schema([
+                            TextEntry::make('notes')
+                                ->label('Internal Notes')
+                                ->markdown()
+                                ->placeholder('No internal notes recorded for this package.'),
+                        ])
+                        ->collapsible(),
                 ])
                 ->columnSpan(['lg' => 2]),
 

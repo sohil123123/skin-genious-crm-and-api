@@ -286,8 +286,15 @@ class UserPackagesTable
                     }),
 
                 ActionGroup::make([
-                    ViewAction::make(),
-                    EditAction::make(),
+                    ViewAction::make()->modalWidth('7xl'),
+                    EditAction::make()
+                        ->modalWidth('7xl')
+                        ->successNotification(
+                            Notification::make()
+                                ->success()
+                                ->title('Package Updated! ✨')
+                                ->body('The package details have been refreshed successfully.')
+                        ),
                     DeleteAction::make(),
                 ]),
             ])

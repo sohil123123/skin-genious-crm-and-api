@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -41,10 +42,10 @@ class UserPackageForm
                                     ->relationship('clinic', 'name')
                                     ->required()
                                     ->live()
-                                    ->visible(fn () => auth()->user()->hasRole('super_admin'))
+                                    ->visible(fn ($livewire) => auth()->user()->hasRole('super_admin') && !($livewire instanceof RelationManager))
                                     ->columnSpan(1),
 
-                                Select::make('user_id')
+                                 Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (Get $get) {
                                         $clinicId = $get('clinic_id');
@@ -65,6 +66,7 @@ class UserPackageForm
                                     ->native(false)
                                     ->required()
                                     ->preload()
+                                    ->hidden(fn ($livewire) => $livewire instanceof RelationManager)
                                     ->columnSpan(1),
 
                                 Select::make('service_id')
