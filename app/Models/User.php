@@ -147,6 +147,11 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class);
     }
 
+    public function packages(): HasMany
+    {
+        return $this->hasMany(UserPackage::class);
+    }
+
     public function holidays(): MorphMany
     {
         return $this->morphMany(AvailabilityException::class, 'exceptionable');

@@ -58,4 +58,9 @@ class Product extends Model
     {
         return $this->hasMany(PurchaseItem::class);
     }
+
+    public function userPackages(): HasMany
+    {
+        return $this->hasMany(UserPackage::class, 'service_id');
+    }
 }
