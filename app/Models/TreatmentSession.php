@@ -22,7 +22,8 @@ class TreatmentSession extends Model
         'steps',
         'daily_home_care_routine',
         'audio_text',
-        'status'
+        'status',
+        'iv_prep_data',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class TreatmentSession extends Model
         'concerns_addressed' => 'array',
         'steps' => 'array',
         'daily_home_care_routine' => 'array',
+        'iv_prep_data' => 'array',
         'week' => 'integer',
         'session_number' => 'integer',
     ];
