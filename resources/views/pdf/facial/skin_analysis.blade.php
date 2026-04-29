@@ -191,27 +191,27 @@
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px; border: 1px solid #E2E8F0; border-collapse: collapse;">
         <thead>
             <tr style="color: #0E2B5C;">
-                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Parameter name</th>
-                <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Current score</th>
-                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Short Explanation</th>
-                <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D;">Expected Change</th>
+                <th align="left" style="padding: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Parameter name</th>
+                <th align="center" style="padding: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Current score</th>
+                <th align="left" style="padding: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Short Explanation</th>
+                <th align="center" style="padding: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D;">Expected Change</th>
             </tr>
         </thead>
         <tbody>
             @if(isset($key_parametrs) && count($key_parametrs) > 0)
                 @foreach ($key_parametrs as $param)
                 <tr style="background-color: {{ $loop->iteration % 2 == 0 ? '#F8FAFC' : '#FFFFFF' }};">
-                    <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 12px; width: 22%;">
+                    <td style="padding: 10px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px; width: 24%;">
                         <!-- <span style="color: #C29F5D; margin-right: 5px;">[{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}]</span> -->
                         {{ $param['parameter'] }}
                     </td>
-                    <td align="center" style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px; width: 12%;">
+                    <td align="center" style="padding: 10px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px; width: 10%;">
                         {{ $param['current_score'] ?? '-' }}
                     </td>
-                    <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-size: 11px; color: #4A5568; line-height: 1.4; width: 50%;">
-                        {{ $param['reason_for_selection'] ?? 'Based on diagnostic data analysis' }}
+                    <td style="padding: 10px 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-size: 11px; color: #4A5568; line-height: 1.4; width: 50%;">
+                        {{ $param['short_description'] ?? 'Based on diagnostic data analysis' }}
                     </td>
-                    <td align="center" style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; font-size: 14px; color: #C29F5D; font-weight: bold; line-height: 1.4; width: 12%;">
+                    <td align="center" style="padding: 10px 10px; border-bottom: 1px solid #E2E8F0; font-size: 14px; color: #C29F5D; font-weight: bold; line-height: 1.4; width: 12%;">
                         {{ $param['target_single_session_score'] ?? 'Improvement targeted' }}
                     </td>
                 </tr>
