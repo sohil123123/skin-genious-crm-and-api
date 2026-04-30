@@ -138,11 +138,19 @@ class AssessmentController extends BaseApiController
 
         if ($isNewFormat) {
             $isPlan = ($treatmentSessionsData['option_type'] ?? '') === 'plan_option';
-            if ($isPlan && !empty($treatmentSessionsData['sessions'])) {
-                $sessionsToProcess = $treatmentSessionsData['sessions'];
-            } elseif (!empty($treatmentSessionsData['protocols'])) {
-                $sessionsToProcess = $treatmentSessionsData['protocols'];
+            
+            if ($isPlan) {
+                if (!empty($treatmentSessionsData['protocols'][0]['sessions'])) {
+                    $sessionsToProcess = $treatmentSessionsData['protocols'][0]['sessions'];
+                } elseif (!empty($treatmentSessionsData['sessions'])) {
+                    $sessionsToProcess = $treatmentSessionsData['sessions'];
+                } else {
+                    $sessionsToProcess = [];
+                }
+            } else {
+                $sessionsToProcess = $treatmentSessionsData['protocols'] ?? ($treatmentSessionsData['sessions'] ?? []);
             }
+            
             $selectedOptionType = $treatmentSessionsData['option_type'] ?? ($isPlan ? 'plan_option' : 'single_session_option_1');
 
             // Plan-level metadata for snapshots
@@ -152,8 +160,8 @@ class AssessmentController extends BaseApiController
                 'outcome_intent_structured' => $treatmentSessionsData['outcome_intent_structured'] ?? null,
                 'client_facing_explanation' => $treatmentSessionsData['client_facing_explanation'] ?? null,
                 'ui_constraint_flags' => $treatmentSessionsData['ui_constraint_flags'] ?? null,
-                'plan_duration_weeks' => $treatmentSessionsData['plan_duration_weeks'] ?? null,
-                'schedule_description' => $treatmentSessionsData['schedule_description'] ?? null,
+                'plan_duration_weeks' => $treatmentSessionsData['protocols'][0]['plan_duration_weeks'] ?? ($treatmentSessionsData['plan_duration_weeks'] ?? null),
+                'schedule_description' => $treatmentSessionsData['protocols'][0]['schedule_description'] ?? ($treatmentSessionsData['schedule_description'] ?? null),
                 'name' => $treatmentSessionsData['name'] ?? null,
             ];
         } else {
