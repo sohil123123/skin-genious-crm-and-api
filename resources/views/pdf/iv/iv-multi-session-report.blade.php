@@ -250,8 +250,33 @@
                 @php
                     $feels = isset($program['client_facing_explanation']['what_you_may_feel_today']) ? $program['client_facing_explanation']['what_you_may_feel_today'] : [];
                     $sees = isset($program['client_facing_explanation']['what_you_may_see_over_7_14_days']) ? $program['client_facing_explanation']['what_you_may_see_over_7_14_days'] : [];
-                    $maxCount = max(count($feels), count($sees));
-                    $whenLabels = ['After session 1', 'After sessions 2–3', 'After sessions 4–6'];
+                    
+                    if (isset($program['outcome_intent_structured'])) {
+                        $feels = array_values(array_unique(array_merge(
+                            $feels, 
+                            $program['outcome_intent_structured']['same_day_feel_markers'] ?? [], 
+                            $program['outcome_intent_structured']['same_day_goals'] ?? []
+                        )));
+                        $sees = array_values(array_unique(array_merge(
+                            $sees, 
+                            $program['outcome_intent_structured']['days_7_14_visible_markers'] ?? [], 
+                            $program['outcome_intent_structured']['days_7_14_goals'] ?? []
+                        )));
+                    }
+
+                    $whenLabels = [];
+                    if (isset($phases) && !empty($phases)) {
+                        foreach ($phases as $details) {
+                            $minW = min($details['weeks']);
+                            $maxW = max($details['weeks']);
+                            $weekDisplay = ($minW == $maxW) ? "Week $minW" : "Weeks {$minW}–{$maxW}";
+                            $whenLabels[] = trim($details['name']) . " (" . $weekDisplay . ")";
+                        }
+                    } else {
+                        $whenLabels = ['After session 1', 'After sessions 2–3', 'After sessions 4–6', 'After sessions 7–10', 'After sessions 11–14'];
+                    }
+
+                    $maxCount = max(count($feels), count($sees), count($whenLabels));
                 @endphp
                 @if($maxCount > 0)
                     @for ($i = 0; $i < $maxCount; $i++)

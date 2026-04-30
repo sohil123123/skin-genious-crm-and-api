@@ -246,6 +246,7 @@ class ReportController extends BaseApiController
             $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
             $data['report_date'] = $record->created_at;
             $data['program'] = $selected_plan;
+            $data['program']['sessions'] = $selected_plan['protocols'][0]['sessions'] ?? [];
 
             $html = view('pdf.iv.iv-multi-session-report', $data)->render();
 
@@ -276,6 +277,10 @@ class ReportController extends BaseApiController
         $data['patient']['name'] = $record->user->name;
         $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
         $data['report_date'] = $record->created_at;
+        $data['reassessment'] = $record->post_diagnosis['reassessment'];
+        $data['counts'] = collect($data['reassessment'])
+            ->pluck('result')
+            ->countBy();
 
         $html = view('pdf.iv.iv-progress-reassessment-report', $data)->render();
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
