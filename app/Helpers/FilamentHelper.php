@@ -114,11 +114,16 @@ if (!function_exists('start_session')) {
             ['assessment'], // Abilities/scopes
             // now()->addHour() // Expiration
         )->plainTextToken;
+        $assessment_type = $appointment->assessment->assessment_type;
 
         // Redirect to Assessment App with token and patient ID
-        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment';
-
-        return $assessmentUrl;
+        if($assessment_type == 'iv'){
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=iv-treatment';
+            return $assessmentUrl;
+        } else {
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment';
+            return $assessmentUrl;
+        }
     }
 }
 

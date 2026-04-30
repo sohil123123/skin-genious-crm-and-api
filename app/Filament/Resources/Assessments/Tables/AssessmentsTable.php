@@ -412,6 +412,7 @@ class AssessmentsTable
                                 $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
                                 $data['report_date'] = $record->created_at;
                                 $data['program'] = $selected_plan;
+                                $data['program']['sessions'] = $selected_plan['protocols'][0]['sessions'] ?? [];
 
                                 $html = view('pdf.iv.iv-multi-session-report', $data)->render();
 
