@@ -58,6 +58,7 @@ class UsersTable
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
+                    ->visible(fn () => check_role('super_admin'))
                     ->action(
                         ViewAction::make('view_clinic')
                             ->record(fn (User $record) => $record->clinic)
@@ -238,8 +239,24 @@ class UsersTable
                     ->tooltip('Manage Assessments')
                     ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
 
+                Action::make('packages')
+                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Packages')
+                    ->url(fn ($record) => route('filament.admin.resources.users.packages', ['record' => $record])),
+
+                Action::make('invoice')
+                    ->visible(fn($record) => $record->hasRole('client'))
+                    ->icon('heroicon-o-document-text')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('Manage Invoices')
+                    ->url(fn($record) => route('filament.admin.resources.users.invoices', ['record' => $record])),
+
                 Action::make('weekly_schedule')
-                    ->visible(fn ($record) => $record->hasRole('therapist'))
+                    ->visible(fn($record) => $record->hasRole('therapist'))
                     ->icon('heroicon-o-calendar-days')
                     ->iconButton()
                     ->color('success')

@@ -20,7 +20,7 @@ class ViewUserPackage extends ViewRecord
                 ->icon('heroicon-o-arrow-left')
                 ->url(static::getResource()::getUrl('index'))
                 ->color('gray'),
-            EditAction::make()->icon('heroicon-o-pencil-square'),
+            // EditAction::make()->icon('heroicon-o-pencil-square'),
             DeleteAction::make()->icon('heroicon-o-trash'),
         ];
     }

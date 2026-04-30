@@ -27,7 +27,7 @@ class InvoiceInfolist
                 Section::make('Invoice Details')
                     ->icon('heroicon-o-document-text')
                     ->schema([
-                        TextEntry::make('id')
+                        TextEntry::make('invoice_number')
                             ->label('Invoice #')
                             ->weight(FontWeight::Bold)
                             ->size(TextSize::Large)
@@ -69,7 +69,17 @@ class InvoiceInfolist
                                     TextEntry::make('product.name')->label('Product'),
                                     TextEntry::make('quantity')->label('Qty'),
                                     TextEntry::make('unit_price')->label('Price')->money('INR'),
-                                    TextEntry::make('discount_value')->label('Disc.')->money('INR'),
+                                    TextEntry::make('discount_value')
+                                        ->label('Discount')
+                                        ->formatStateUsing(function ($record) {
+                                            $actualDiscount = $record->valid_discount_amount ?? $record->discount_amount ?? 0;
+                                            if ($record->discount_type === 'percentage') {
+                                                return ($record->discount_value ?? 0) . '% (₹' . number_format($actualDiscount, 2) . ')';
+                                            }
+                                            return '₹' . number_format($actualDiscount, 2);
+                                        })
+                                        ->badge()
+                                        ->color('info'),
                                     TextEntry::make('gst_amount')
                                         ->label('GST')
                                         ->formatStateUsing(fn ($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
@@ -82,7 +92,7 @@ class InvoiceInfolist
                     ->collapsible(),
 
                     Grid::make(12)->schema([
-                        Group::make()->columnSpan(6),
+                        Group::make()->columnSpan(8),
                         Section::make()
                             ->schema([
                                 TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
@@ -98,7 +108,7 @@ class InvoiceInfolist
                                     ->inlineLabel(),
 
                             ])
-                            ->columnSpan(6),
+                            ->columnSpan(4),
                     ]),
             ])
             ->columns(1);

@@ -6,15 +6,20 @@ use App\Filament\Resources\UserPackages\Pages\CreateUserPackage;
 use App\Filament\Resources\UserPackages\Pages\EditUserPackage;
 use App\Filament\Resources\UserPackages\Pages\ListUserPackages;
 use App\Filament\Resources\UserPackages\Pages\ViewUserPackage;
+use App\Filament\Resources\UserPackages\Pages\ManageInvoices;
 use App\Filament\Resources\UserPackages\Schemas\UserPackageForm;
 use App\Filament\Resources\UserPackages\Schemas\UserPackageInfolist;
 use App\Filament\Resources\UserPackages\Tables\UserPackagesTable;
+// use App\Filament\Resources\UserPackages\RelationManagers\InvoiceRelationManager;
+use Filament\Pages\Enums\SubNavigationPosition;
 use App\Models\UserPackage;
 use BackedEnum;
 use UnitEnum;
+use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+
 
 class UserPackageResource extends Resource
 {
@@ -31,6 +36,8 @@ class UserPackageResource extends Resource
     protected static ?string $recordTitleAttribute = 'package_name';
 
     protected static ?int $navigationSort = 8;
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     // protected static string|UnitEnum|null $navigationGroup = 'Clients';
 
@@ -60,6 +67,15 @@ class UserPackageResource extends Resource
         return UserPackagesTable::configure($table);
     }
 
+    public static function getRecordSubNavigation(Page $page): array
+    {
+        return $page->generateNavigationItems([
+            ViewUserPackage::class,
+            EditUserPackage::class,
+            ManageInvoices::class,
+        ]);
+    }
+
     public static function infolist(Schema $schema): Schema
     {
         return UserPackageInfolist::configure($schema);
@@ -67,7 +83,9 @@ class UserPackageResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            // InvoiceRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
@@ -77,6 +95,7 @@ class UserPackageResource extends Resource
             'create' => CreateUserPackage::route('/create'),
             'view' => ViewUserPackage::route('/{record}'),
             'edit' => EditUserPackage::route('/{record}/edit'),
+            'invoice' => ManageInvoices::route('/{record}/invoice'),
         ];
     }
 }

@@ -228,6 +228,8 @@ class UserForm
                                                 $selectedRole = Role::find($state);
                                                 if ($selectedRole?->name === 'super_admin') {
                                                     $set('clinic_id', null);
+                                                } else {
+                                                    $set('clinic_id', auth()->user()->clinic_id);
                                                 }
                                             } else {
                                                 $set('clinic_id', null);
@@ -236,10 +238,15 @@ class UserForm
 
                                     Select::make('clinic_id')
                                         ->label('Assigned Clinic')
-                                        ->relationship('clinic', 'name')
+                                        ->relationship(
+                                            name: 'clinic',
+                                            titleAttribute: 'name',
+                                            modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => auth()->user()->clinic_id ? $query->where('id', auth()->user()->clinic_id) : $query
+                                        )
                                         // ->searchable()
                                         // ->preload()
                                         ->placeholder('Select a clinic')
+                                        ->default(fn () => auth()->user()->clinic_id)
                                         ->native(false)
                                         ->reactive()
                                         ->visible(fn ($get) => has_clinic_related_role($get('role_id')))

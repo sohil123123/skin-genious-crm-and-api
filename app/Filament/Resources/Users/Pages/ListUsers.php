@@ -34,34 +34,34 @@ class ListUsers extends ListRecords
         return [
             'all' => Tab::make('All')
                 ->icon('heroicon-o-users')
-                ->badge($this->getModel()::count())
+                ->badge(UserResource::getEloquentQuery()->count())
                 ->badgeColor('gray'),
-            
+
             'client' => Tab::make('Clients')
                 ->icon('heroicon-o-user')
                 ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'client')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'client'))->count())
+                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'client'))->count())
                 ->badgeColor('gray'),
 
             'therapist' => Tab::make('Therapists')
                 ->icon('heroicon-o-hand-raised') // alt: heroicon-o-heart
                 ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'therapist')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count())
+                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count())
                 ->badgeColor('success'),
 
             'clinic_manager' => Tab::make('Clinic Managers')
                 ->icon('heroicon-o-building-office')
                 ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count())
+                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count())
                 ->badgeColor('info'),
 
             'super_admin' => Tab::make('Super Admins')
                 ->icon('heroicon-o-shield-check')
                 ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'super_admin')))
-                ->badge($this->getModel()::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
+                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
                 ->badgeColor('danger'),
 
-            
+
         ];
     }
 

@@ -14,7 +14,7 @@ class ManageInvoices extends ManageRelatedRecords
 
     protected static string $relationship = 'invoices';
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     public function getTitle(): string
     {
@@ -54,7 +54,7 @@ class ManageInvoices extends ManageRelatedRecords
         }
 
         // Assuming both clients and therapists can have invoices, or maybe just clients
-        // Adjust based on your business logic. 
+        // Adjust based on your business logic.
         return $record->hasRole('client');
     }
 }

@@ -98,12 +98,34 @@ class UserResource extends Resource
         ];
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
+    public static function getEloquentQuery(): Builder
     {
-        return parent::getRecordRouteBindingEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = auth()->user();
+        if ($user && $user->clinic_id) {
+            $query->where('clinic_id', $user->clinic_id);
+        }
+
+        return $query;
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        $query = parent::getRecordRouteBindingEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+
+        $user = auth()->user();
+        if ($user && $user->clinic_id) {
+            $query->where('clinic_id', $user->clinic_id);
+        }
+
+        return $query;
     }
 
     public static function getWidgets(): array

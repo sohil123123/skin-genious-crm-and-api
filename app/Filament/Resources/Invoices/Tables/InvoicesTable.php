@@ -20,18 +20,20 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action;
-
+use Filament\Schemas\Components\Utilities\Get;
 use App\Services\InvoicePdfService;
 
 use App\Models\User;
 use App\Models\Clinic;
-use Illuminate\Support\HtmlString;
+use App\Filament\Resources\Users\RelationManagers\InvoicesRelationManager;
 
 
 class InvoicesTable
 {
     public static function configure(Table $table): Table
     {
+        $isUserRelation = $table->getLivewire() instanceof InvoicesRelationManager;
+
         return $table
             ->deferLoading()
             // ->recordUrl(null)
@@ -42,6 +44,17 @@ class InvoicesTable
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
+                TextColumn::make('invoice_type')
+                    ->label('Type')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'package' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+                TextColumn::make('package.package_name')
+                    ->label('Package Ref')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('clinic.name')
                     ->badge()
                     ->visible(fn () => check_role('super_admin'))
@@ -121,7 +134,8 @@ class InvoicesTable
                                             })
                                             ->reactive()
                                             ->searchable()
-                                            ->placeholder('Select Client'),
+                                            ->placeholder('Select Client')
+                                            ->hidden($isUserRelation),
 
                                         Select::make('status')
                                             ->label('Status')
@@ -135,15 +149,23 @@ class InvoicesTable
                                             ])
                                             ->placeholder('All Statuses'),
 
-                                        Select::make('payment_mode')
-                                            ->label('Payment Mode')
+                                        Select::make('invoice_type')
+                                            ->label('Invoice Type')
                                             ->options([
-                                                'UPI' => 'UPI',
-                                                'Cash' => 'Cash',
-                                                'Card' => 'Card',
-                                                'NetBanking' => 'NetBanking',
+                                                'standard' => 'Standard',
+                                                'package' => 'Package',
                                             ])
-                                            ->placeholder('All Payment Modes'),
+                                            ->placeholder('All Types'),
+
+                                        // Select::make('payment_mode')
+                                        //     ->label('Payment Mode')
+                                        //     ->options([
+                                        //         'UPI' => 'UPI',
+                                        //         'Cash' => 'Cash',
+                                        //         'Card' => 'Card',
+                                        //         'NetBanking' => 'NetBanking',
+                                        //     ])
+                                        //     ->placeholder('All Payment Modes'),
 
                                     ]),
                             ])
@@ -155,7 +177,8 @@ class InvoicesTable
                             ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
                             ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
                             ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
-                            ->when($data['payment_mode'] ?? null, fn ($q, $mode) => $q->where('payment_mode', $mode));
+                            ->when($data['invoice_type'] ?? null, fn ($q, $type) => $q->where('invoice_type', $type));
+                            // ->when($data['payment_mode'] ?? null, fn ($q, $mode) => $q->where('payment_mode', $mode));
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
@@ -178,9 +201,13 @@ class InvoicesTable
                             $indicators[] = Indicator::make('Status: ' . $data['status'])->removeField('status');
                         }
 
-                        if ($data['payment_mode'] ?? null) {
-                            $indicators[] = Indicator::make('Payment Mode: ' . $data['payment_mode'])->removeField('payment_mode');
+                        if ($data['invoice_type'] ?? null) {
+                            $indicators[] = Indicator::make('Type: ' . ucfirst($data['invoice_type']))->removeField('invoice_type');
                         }
+
+                        // if ($data['payment_mode'] ?? null) {
+                        //     $indicators[] = Indicator::make('Payment Mode: ' . $data['payment_mode'])->removeField('payment_mode');
+                        // }
 
                         return $indicators;
                     }),
@@ -193,43 +220,70 @@ class InvoicesTable
             )
             ->actions([ // Filament v3 uses actions() instead of recordActions? Or this is v4 with unified configure?
                 // // The existing file had ->recordActions([...]) so I'll stick to that
-                Action::make('payment')
-                    ->label('Payment')
+                Action::make('make_payment')
+                    ->label('Make Payment')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
                     ->hidden(fn ($record) => in_array($record->status, ['paid', 'cancelled']))
+                    ->modalHeading('Create Invoice Payment')
+                    ->modalWidth('5xl')
                     ->form(function ($record) {
                         return [
-                            \Filament\Forms\Components\Placeholder::make('summary')
-                                ->label('Payment Summary')
-                                ->content(new HtmlString("Invoice Total: ₹" . number_format($record->grand_total, 2) . "<br>Amount Paid: ₹" . number_format($record->amount_paid, 2) . "<br><strong>Remaining Balance: ₹" . number_format($record->grand_total - $record->amount_paid, 2) . "</strong>")),
-                            \Filament\Forms\Components\DatePicker::make('payment_date')
-                                ->label('Payment Date')
-                                ->default(now())
-                                ->required(),
-                            \Filament\Forms\Components\TextInput::make('amount')
-                                ->label('Amount')
-                                ->numeric()
-                                ->required()
-                                ->minValue(0.01)
-                                ->maxValue($record->grand_total - $record->amount_paid),
-                            \Filament\Forms\Components\Select::make('payment_method')
-                                ->label('Payment Method')
-                                ->options([
-                                    'cash' => 'Cash',
-                                    'card' => 'Card',
-                                    'upi' => 'UPI',
-                                    'bank_transfer' => 'Bank Transfer',
-                                    'other' => 'Other',
+                        Grid::make(12)->schema([
+                            Section::make('Invoice Information')
+                                ->icon('heroicon-o-document-text')
+                                ->schema([
+                                    \Filament\Forms\Components\TextInput::make('invoice_number')
+                                        ->label('Invoice')
+                                        ->default($record->invoice_number)
+                                        ->disabled()
+                                        ->dehydrated(false),
+                                    \Filament\Forms\Components\Placeholder::make('current_balance_due')
+                                        ->label('Current Balance Due')
+                                        ->content('₹ ' . number_format($record->amount_due, 2)),
                                 ])
-                                ->required()
-                                ->live(),
-                            \Filament\Forms\Components\TextInput::make('reference_number')
-                                ->label('Reference Number')
-                                ->placeholder('e.g. Transaction ID, Check #')
-                                ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('payment_method') === 'cash')
-                                ->required(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null),
-                        ];
+                                ->columnSpan(['default' => 12, 'md' => 5]),
+
+                            Section::make('Payment Details')
+                                ->icon('heroicon-o-banknotes')
+                                ->schema([
+                                    \Filament\Forms\Components\DatePicker::make('payment_date')
+                                        ->label('Payment Date')
+                                        ->default(now())
+                                        ->required(),
+                                    \Filament\Forms\Components\TextInput::make('amount')
+                                        ->label('Payment Amount')
+                                        ->numeric()
+                                        ->required()
+                                        ->minValue(0.01)
+                                        ->maxValue($record->amount_due)
+                                        ->default($record->amount_due)
+                                        ->prefix('₹'),
+                                    \Filament\Forms\Components\Select::make('payment_method')
+                                        ->label('Payment Method')
+                                        ->options([
+                                            'cash' => 'Cash',
+                                            'card' => 'Card',
+                                            'upi' => 'UPI',
+                                            'bank_transfer' => 'Bank Transfer',
+                                            'other' => 'Other',
+                                        ])
+                                        ->required()
+                                        ->live(),
+                                    \Filament\Forms\Components\TextInput::make('reference_number')
+                                        ->label('Reference Number / TXN ID')
+                                        ->placeholder('# Transaction ID, Check #, etc.')
+                                        ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
+                                        ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null),
+                                    \Filament\Forms\Components\Textarea::make('notes')
+                                        ->label('Payment Notes')
+                                        ->placeholder('Add any relevant notes about this payment...')
+                                        ->columnSpanFull(),
+                                ])
+                                ->columns(2)
+                                ->columnSpan(['default' => 12, 'md' => 7]),
+                        ])
+                    ];
                     })
                     ->action(function ($record, array $data) {
                         \App\Models\InvoicePayment::create([

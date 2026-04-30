@@ -23,6 +23,8 @@ class Invoice extends Model
         'amount_paid',
         'amount_due',
         'status',
+        'invoice_type',
+        'package_id',
         'created_by',
         'updated_by',
     ];
@@ -56,6 +58,11 @@ class Invoice extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(UserPackage::class, 'package_id');
     }
 
     protected static function booted()

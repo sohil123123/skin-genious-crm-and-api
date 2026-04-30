@@ -42,6 +42,12 @@ class InvoiceForm
                                     ->dehydrated(false)
                                     ->visible(fn ($record) => $record !== null)
                                     ->columnSpan(1),
+                                Select::make('package_id')
+                                    ->relationship('package', 'package_name')
+                                    ->label('Linked Package')
+                                    ->disabled()
+                                    ->visible(fn ($record) => $record && $record->package_id)
+                                    ->columnSpan(1),
                                 DatePicker::make('invoice_date')
                                     ->default(now())
                                     ->required()

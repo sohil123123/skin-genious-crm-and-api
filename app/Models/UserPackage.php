@@ -7,10 +7,45 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class UserPackage extends Model
 {
     use HasFactory;
+
+    protected static function booted()
+    {
+        static::updated(function ($package) {
+            // Check if the package has an invoice
+            if ($package->invoice) {
+                $invoice = $package->invoice;
+                
+                // Update the invoice financials
+                $invoice->update([
+                    'subtotal' => $package->total_amount,
+                    'discount_total' => $package->discount_amount,
+                    'taxable_value' => $package->final_amount,
+                    'grand_total' => $package->final_amount,
+                    'amount_due' => max(0, $package->final_amount - $invoice->amount_paid),
+                ]);
+
+                // Update the associated invoice item
+                $invoiceItem = $invoice->items()->first();
+                if ($invoiceItem) {
+                    $invoiceItem->update([
+                        'unit_price' => $package->total_amount,
+                        'discount_type' => $package->discount_type,
+                        'discount_value' => $package->discount_value,
+                        'valid_discount_amount' => $package->discount_amount,
+                        'line_total' => $package->final_amount,
+                    ]);
+                }
+                
+                // Recalculate invoice status (e.g., if price drops to match amount paid, it becomes 'paid')
+                $invoice->recalculatePaymentStatus();
+            }
+        });
+    }
 
     protected $fillable = [
         'clinic_id',
@@ -106,6 +141,11 @@ class UserPackage extends Model
     public function usages(): HasMany
     {
         return $this->hasMany(UserPackageUsage::class);
+    }
+
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class, 'package_id');
     }
 
     // ----------- Business Logic -------------------------
