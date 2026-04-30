@@ -323,6 +323,7 @@ class AppointmentsTable
                                             ->placeholder('Select clinic')
                                             ->native(true)
                                             ->live()
+                                            ->afterStateUpdated(fn (callable $set) => $set('user_id', null))
                                             ->visible(fn () => auth()->user()->hasRole('super_admin')),
 
                                         // Client

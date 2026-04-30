@@ -141,14 +141,14 @@ class UserPackagesTable
             ->filters([
                 TernaryFilter::make('is_active')
                     ->label('Status')
-                    ->trueLabel('Active Only')
-                    ->falseLabel('Inactive Only')
+                    ->trueLabel('Active')
+                    ->falseLabel('Inactive')
                     ->placeholder('All Packages'),
 
-                Filter::make('expired')
-                    ->label('Expired Packages')
-                    ->query(fn (Builder $query) => $query->whereNotNull('expired_at')->where('expired_at', '<', now()))
-                    ->toggle(),
+                // Filter::make('expired')
+                //     ->label('Expired Packages')
+                //     ->query(fn (Builder $query) => $query->whereNotNull('expired_at')->where('expired_at', '<', now()))
+                //     ->toggle(),
 
                 Filter::make('exhausted')
                     ->label('Fully Used Packages')
@@ -158,7 +158,7 @@ class UserPackagesTable
                 Filter::make('advanced')
                     ->label('Advanced Filters')
                     ->form([
-                        Section::make('Patient & Service')
+                        Section::make('Clinic & Clients')
                             ->icon('heroicon-o-user')
                             ->schema([
                                 Grid::make(1)->schema([
@@ -168,25 +168,23 @@ class UserPackagesTable
                                         ->searchable()
                                         ->preload()
                                         ->placeholder('Select Clinic')
+                                        ->native(true)
                                         ->live()
+                                        ->afterStateUpdated(fn (callable $set) => $set('user_id', null))
                                         ->visible(fn () => auth()->user()->hasRole('super_admin')),
 
                                     Select::make('user_id')
                                         ->label('Patient')
                                         ->options(function (callable $get) {
                                             $clinicId = $get('clinic_id');
-                                            if (!$clinicId) {
+                                            if (!$clinicId)
                                                 $clinicId = auth()->user()->clinic_id;
-                                            }
 
-                                            return User::active()
-                                                ->role('client')
-                                                ->when($clinicId, fn($q) => $q->where('clinic_id', $clinicId))
-                                                ->get()
-                                                ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                            return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                                         })
+                                        ->reactive()
                                         ->searchable()
-                                        ->placeholder('All Patients'),
+                                        ->placeholder('All Clients'),
                                 ]),
                             ])
                             ->collapsible(),
