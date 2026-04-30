@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\CommonController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\TreatmentSessionController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -58,6 +59,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         // INFO: AI Route
         Route::post('/ai/conversations', [AiController::class, 'conversations']);
         Route::post('/ai/responses', [AiController::class, 'responses']);
+
+        Route::post('/treatment-sessions/{treatmentSession}/iv-prep-data', [TreatmentSessionController::class, 'saveIvPrepData']);
+        Route::post('/treatment-sessions/status/{treatmentSession}', [TreatmentSessionController::class, 'updateStatus']);
 
         // INFO: Download Report
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');

@@ -95,7 +95,9 @@ if (!function_exists('getTreatmentSessions')) {
         $query = addWhere($query, $request);
 
         if($request->has('is_dropdown') && $request->is_dropdown)
-            $query = $query->select(DB::raw("CONCAT('Session #', session_number, ' - ', title) AS label"), DB::raw("id AS value"));
+            $query = $query->select(DB::raw("CONCAT('Session #', session_number, ' - ', title) AS label"), DB::raw("id AS value"), DB::raw("CAST(REPLACE(treatment_time, ' mins', '') AS UNSIGNED) as treatment_time"))->where('status', '!=', 'completed');
+        else
+            $query = $query->select('*', DB::raw("CAST(REPLACE(treatment_time, ' mins', '') AS UNSIGNED) as treatment_time_minutes"));
 
         if($request->has('take') && $request->take)
             $query = $query->take($request->take);
