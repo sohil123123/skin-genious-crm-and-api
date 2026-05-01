@@ -41,7 +41,7 @@ class ExpensesTable
                 TextColumn::make('clinic.name')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn () => check_role('super_admin')),
 
                 TextColumn::make('category.name')
                     ->label('Category')
@@ -78,7 +78,7 @@ class ExpensesTable
 
                 TextColumn::make('creator.name')
                     ->label('Created By')
-                    ->searchable()
+                    ->searchable(['first_name', 'last_name'])
                     ->toggleable(),
 
                 TextColumn::make('approval_status')
@@ -90,7 +90,7 @@ class ExpensesTable
 
                 TextColumn::make('approver.name')
                     ->label('Approved By')
-                    ->searchable()
+                    ->searchable(['first_name', 'last_name'])
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('approved_at')
