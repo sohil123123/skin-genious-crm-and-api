@@ -147,6 +147,16 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class);
     }
 
+    public function createdExpenses(): HasMany
+    {
+        return $this->hasMany(Expense::class, 'created_by');
+    }
+
+    public function approvedExpenses(): HasMany
+    {
+        return $this->hasMany(Expense::class, 'approved_by');
+    }
+
     public function packages(): HasMany
     {
         return $this->hasMany(UserPackage::class);

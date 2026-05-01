@@ -127,4 +127,9 @@ class Clinic extends Model
     {
         return $this->hasMany(Purchase::class);
     }
+
+    public function expenses()
+    {
+        return $this->hasMany(Expense::class);
+    }
 }

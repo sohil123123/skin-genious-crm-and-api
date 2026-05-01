@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 use App\Traits\HasAuditColumns;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Purchase extends Model
 {
@@ -41,5 +42,10 @@ class Purchase extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function expense(): MorphOne
+    {
+        return $this->morphOne(Expense::class, 'reference', 'reference_type', 'reference_id');
     }
 }

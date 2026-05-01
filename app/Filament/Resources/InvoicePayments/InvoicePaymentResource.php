@@ -19,9 +19,9 @@ class InvoicePaymentResource extends Resource
 
     protected static \BackedEnum|string|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Financials';
+    protected static \UnitEnum|string|null $navigationGroup = 'Finance';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {
