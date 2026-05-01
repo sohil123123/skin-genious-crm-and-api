@@ -226,30 +226,67 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                         ->label('Payment Date')
                                         ->default(now())
                                         ->required(),
-                                    \Filament\Forms\Components\TextInput::make('amount')
-                                        ->label('Payment Amount')
-                                        ->numeric()
-                                        ->required()
-                                        ->minValue(0.01)
-                                        ->maxValue($record->amount_due)
-                                        ->default($record->amount_due)
-                                        ->prefix('₹'),
-                                    \Filament\Forms\Components\Select::make('payment_method')
-                                        ->label('Payment Method')
-                                        ->options([
-                                            'cash' => 'Cash',
-                                            'card' => 'Card',
-                                            'upi' => 'UPI',
-                                            'bank_transfer' => 'Bank Transfer',
-                                            'other' => 'Other',
+                                    \Filament\Forms\Components\Repeater::make('payments')
+                                        ->label('Payment Methods')
+                                        ->schema([
+                                            \Filament\Forms\Components\Select::make('payment_method')
+                                                ->label('Method')
+                                                ->options([
+                                                    'cash' => 'Cash',
+                                                    'card' => 'Card',
+                                                    'upi' => 'UPI',
+                                                    'bank_transfer' => 'Bank Transfer',
+                                                    'other' => 'Other',
+                                                ])
+                                                ->required()
+                                                ->live()
+                                                ->prefixIcon('heroicon-o-credit-card'),
+
+                                            \Filament\Forms\Components\TextInput::make('amount')
+                                                ->label('Amount')
+                                                ->numeric()
+                                                ->required()
+                                                ->minValue(0.01)
+                                                ->prefix('₹')
+                                                ->live(onBlur: true),
+
+                                            \Filament\Forms\Components\TextInput::make('reference_number')
+                                                ->label('Ref / TXN ID')
+                                                ->placeholder('Optional')
+                                                ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
+                                                // ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null)
+                                                ->prefixIcon('heroicon-o-hashtag'),
                                         ])
-                                        ->required()
-                                        ->live(),
-                                    \Filament\Forms\Components\TextInput::make('reference_number')
-                                        ->label('Reference Number / TXN ID')
-                                        ->placeholder('# Transaction ID, Check #, etc.')
-                                        ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
-                                        ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null),
+                                        ->columns(3)
+                                        ->defaultItems(1)
+                                        ->addActionLabel('Add Payment Split')
+                                        ->live()
+                                        ->columnSpanFull()
+                                        ->rules([
+                                            function () use ($record) {
+                                                return function (string $attribute, $value, $fail) use ($record) {
+                                                    $remaining = $record->amount_due;
+                                                    $total = collect($value)->sum(fn($p) => floatval($p['amount'] ?? 0));
+
+                                                    if (round($total, 2) > round($remaining, 2)) {
+                                                        $fail("Total amount (₹" . number_format($total, 2) . ") exceeds remaining balance (₹" . number_format($remaining, 2) . ").");
+                                                    }
+                                                    if ($total <= 0) {
+                                                        $fail("Total payment amount must be greater than 0.");
+                                                    }
+                                                };
+                                            }
+                                        ]),
+
+                                    \Filament\Forms\Components\Placeholder::make('total_paid_preview')
+                                        ->label('Total Payment Scheduled')
+                                        ->content(function (Get $get) {
+                                            $payments = $get('payments') ?? [];
+                                            $total = collect($payments)->sum(fn($p) => floatval($p['amount'] ?? 0));
+                                            return new \Illuminate\Support\HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
+                                        })
+                                        ->columnSpanFull(),
+
                                     \Filament\Forms\Components\Textarea::make('notes')
                                         ->label('Payment Notes')
                                         ->placeholder('Add any relevant notes about this payment...')
@@ -262,21 +299,27 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                 })
                 ->action(function (array $data) {
                     $record = $this->record->invoice;
-                    \App\Models\InvoicePayment::create([
-                        'invoice_id' => $record->id,
-                        'payment_date' => $data['payment_date'],
-                        'amount' => $data['amount'],
-                        'payment_method' => $data['payment_method'],
-                        'reference_number' => $data['reference_number'] ?? null,
-                        'notes' => $data['notes'] ?? null,
-                        'created_by' => auth()->id(),
-                    ]);
+                    $payments = $data['payments'] ?? [];
+                    $total = 0;
+
+                    foreach ($payments as $paymentData) {
+                        \App\Models\InvoicePayment::create([
+                            'invoice_id' => $record->id,
+                            'payment_date' => $data['payment_date'],
+                            'amount' => $paymentData['amount'],
+                            'payment_method' => $paymentData['payment_method'],
+                            'reference_number' => $paymentData['reference_number'] ?? null,
+                            'notes' => $data['notes'] ?? null,
+                            'created_by' => auth()->id(),
+                        ]);
+                        $total += (float) $paymentData['amount'];
+                    }
 
                     $record->recalculatePaymentStatus();
 
                     Notification::make()
                         ->title('Payment Recorded ✅')
-                        ->body("₹" . number_format($data['amount'], 2) . " has been recorded for Invoice #{$record->id}.")
+                        ->body("₹" . number_format($total, 2) . " has been recorded for Invoice #{$record->id}.")
                         ->success()
                         ->send();
                 }),

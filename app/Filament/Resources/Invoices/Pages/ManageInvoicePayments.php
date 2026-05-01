@@ -24,7 +24,37 @@ class ManageInvoicePayments extends ManageRelatedRecords
     {
         return $table
             ->headerActions([
-                CreateAction::make()->icon('heroicon-o-plus'),
+                \Filament\Tables\Actions\CreateAction::make()
+                    ->icon('heroicon-o-plus')
+                    ->using(function (array $data, string $model): \Illuminate\Database\Eloquent\Model {
+                        $payments = $data['payments'] ?? [];
+                        $firstPayment = null;
+
+                        if (empty($payments)) {
+                            $data['created_by'] = auth()->id();
+                            return $model::create($data);
+                        }
+
+                        $invoiceId = $this->getOwnerRecord()->id;
+
+                        foreach ($payments as $paymentData) {
+                            $record = $model::create([
+                                'invoice_id' => $invoiceId,
+                                'payment_date' => $data['payment_date'],
+                                'amount' => $paymentData['amount'],
+                                'payment_method' => $paymentData['payment_method'],
+                                'reference_number' => $paymentData['reference_number'] ?? null,
+                                'notes' => $data['notes'] ?? null,
+                                'created_by' => auth()->id(),
+                            ]);
+
+                            if (!$firstPayment) {
+                                $firstPayment = $record;
+                            }
+                        }
+
+                        return $firstPayment ?? new $model();
+                    }),
             ]);
     }
 }
