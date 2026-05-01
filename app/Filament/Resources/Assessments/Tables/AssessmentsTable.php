@@ -222,7 +222,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'diagnosis-report_#' . $record->id . '.pdf');
+                            }, $record->user->name. '_facial_skin_analysis_report.pdf');
                         }),
 
                     Action::make('visual_comparison_pdf')
@@ -259,7 +259,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'visual-comparison-report_#' . $record->id . '.pdf');
+                            }, $record->user->name. '_facial_reassessment_report.pdf');
                         }),
 
                     Action::make('treatment_plan_pdf')
@@ -290,7 +290,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'treatment-plan-session_#' . $record->id . '.pdf');
+                            }, $record->user->name. '_treatment_plan.pdf');
                         }),
 
                     Action::make('download_treatment_plan')
@@ -302,7 +302,7 @@ class AssessmentsTable
                             Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
                         )
                         ->action(function ($record) {
-                            $name = "treatment_plans_#{$record->id}.json";
+                            $name = $record->user->name. '_treatment_plan.json';
                             $filePath = "treatment-plans/{$name}";
                             return response()->download(Storage::disk('files')->path($filePath), $name);
                         }),
@@ -356,7 +356,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'diagnosis-report_#' . $record->id . '.pdf');
+                            }, $record->user->name.'_IV_Wellness_Analysis_Report.pdf');
                         }),
 
                     Action::make('iv_recommendation_pdf')
@@ -382,7 +382,7 @@ class AssessmentsTable
                             $mpdf->WriteHTML($html);
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, 'iv-recommendation-report_#' . $record->id . '.pdf');
+                            }, $record->user->name.'_IV_Recommendation_Report.pdf');
                         }),
 
                     Action::make('iv_program_roadmap_pdf')
@@ -404,8 +404,6 @@ class AssessmentsTable
                                 $data['program'] = $selected_plan;
 
                                 $html = view('pdf.iv.iv-single-session-report', $data)->render();
-
-                                $filename = 'iv-single-session-report';
                             } else {
                                 $data['patient'] = $record->user->toArray();
                                 $data['patient']['name'] = $record->user->name;
@@ -415,8 +413,6 @@ class AssessmentsTable
                                 $data['program']['sessions'] = $selected_plan['protocols'][0]['sessions'] ?? [];
 
                                 $html = view('pdf.iv.iv-multi-session-report', $data)->render();
-
-                                $filename = 'iv-multi-session-report';
                             }
 
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
@@ -428,7 +424,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $filename.'_#'.$record->id.'.pdf');
+                            }, $record->user->name.'_IV_Program_Roadmap.pdf');
                         }),
                 ])
                 ->icon('heroicon-o-arrow-down-tray'),

@@ -201,7 +201,25 @@
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 8px; padding-bottom: 10px;">
-                                        @foreach ($option['protocols'][0]['hero_ingredients'] as $ingredient)
+                                        @php
+                                            $heroIngredients = [];
+                                            $isPlanOption = isset($option['option_type']) && $option['option_type'] === 'plan_option';
+                                            
+                                            if ($isPlanOption) {
+                                                $sessions = $option['protocols'][0]['sessions'] ?? [];
+                                                foreach ($sessions as $session) {
+                                                    $ingredients = $session['recommended_protocol']['hero_ingredients'] ?? [];
+                                                    foreach ($ingredients as $ing) {
+                                                        if (!in_array($ing, $heroIngredients)) {
+                                                            $heroIngredients[] = $ing;
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                $heroIngredients = $option['protocols'][0]['hero_ingredients'] ?? [];
+                                            }
+                                        @endphp
+                                        @foreach ($heroIngredients as $ingredient)
                                             <table style="display:inline-table; margin-right:6px; margin-bottom:6px;">
                                                 <tr>
                                                     <td style="
@@ -221,7 +239,11 @@
                                 </tr>
                                 <tr>
                                     <td class="duration-badge">
-                                        <strong>Estimated Treatment Time:</strong> {{$option['protocols'][0]['ui_summary']['estimated_total_duration_minutes']}} minutes
+                                        @if($isPlanOption)
+                                            <strong>Schedule:</strong> {{$option['protocols'][0]['schedule_description'] ?? ''}}
+                                        @else
+                                            <strong>Estimated Treatment Time:</strong> {{$option['protocols'][0]['ui_summary']['estimated_total_duration_minutes'] ?? ''}} minutes
+                                        @endif
                                     </td>
                                 </tr>
                             </table>

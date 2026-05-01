@@ -35,6 +35,12 @@ class TreatmentSessionController extends Controller
             'status' => $request->status,
         ]);
 
+        if ($treatmentSession->ivSession) {
+            $treatmentSession->ivSession->update([
+                'status' => $request->status,
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Treatment Session status updated successfully.',
