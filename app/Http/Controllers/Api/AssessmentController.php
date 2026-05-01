@@ -138,7 +138,7 @@ class AssessmentController extends BaseApiController
 
         if ($isNewFormat) {
             $isPlan = ($treatmentSessionsData['option_type'] ?? '') === 'plan_option';
-            
+
             if ($isPlan) {
                 if (!empty($treatmentSessionsData['protocols'][0]['sessions'])) {
                     $sessionsToProcess = $treatmentSessionsData['protocols'][0]['sessions'];
@@ -150,7 +150,7 @@ class AssessmentController extends BaseApiController
             } else {
                 $sessionsToProcess = $treatmentSessionsData['protocols'] ?? ($treatmentSessionsData['sessions'] ?? []);
             }
-            
+
             $selectedOptionType = $treatmentSessionsData['option_type'] ?? ($isPlan ? 'plan_option' : 'single_session_option_1');
 
             // Plan-level metadata for snapshots
@@ -220,6 +220,19 @@ class AssessmentController extends BaseApiController
             $planType = $isPlan ? 'multiple' : 'single';
             $sessionNumber = $index + 1;
 
+            $treatmentTimeStr = null;
+            if (isset($treatment['ui_summary']['estimated_total_duration_minutes'])) {
+                $treatmentTimeStr = $treatment['ui_summary']['estimated_total_duration_minutes'] . ' mins';
+            } elseif (isset($treatment['bags']) && is_array($treatment['bags'])) {
+                $minutes = 0;
+                foreach ($treatment['bags'] as $bag) {
+                    $minutes += $bag['min_duration_minutes'] ?? 0;
+                }
+                if ($minutes > 0) {
+                    $treatmentTimeStr = $minutes . ' mins';
+                }
+            }
+
             $treatmentSession = $assessment->treatmentSessions()->updateOrCreate(
                 [
                     'session_number' => $sessionNumber,
@@ -230,9 +243,7 @@ class AssessmentController extends BaseApiController
                     'title' => $treatment['label_short'] ?? 'IV Session',
                     'status' => 'pending',
                     'week' => $isPlan ? ($sessionItem['week_index'] ?? $sessionNumber) : null,
-                    'treatment_time' => isset($treatment['ui_summary']['estimated_total_duration_minutes'])
-                        ? $treatment['ui_summary']['estimated_total_duration_minutes'] . ' mins'
-                        : null,
+                    'treatment_time' => $treatmentTimeStr,
                     'steps' => null,
                     'concerns_addressed' => null,
                     'preparations_checklist_for_therapist' => null,
