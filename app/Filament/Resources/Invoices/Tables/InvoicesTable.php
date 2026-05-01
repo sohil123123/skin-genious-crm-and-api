@@ -22,6 +22,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Utilities\Get;
 use App\Services\InvoicePdfService;
+use Filament\Tables\Columns\Summarizers\Sum;
 
 use App\Models\User;
 use App\Models\Clinic;
@@ -74,14 +75,17 @@ class InvoicesTable
                     ->money('INR')
                     ->badge()
                     ->color('success')
+                    ->summarize(Sum::make()->money('INR'))
                     ->sortable(),
                 TextColumn::make('amount_due')
                     ->money('INR')
                     ->badge()
                     ->color('danger')
+                    ->summarize(Sum::make()->money('INR'))
                     ->sortable(),
                 TextColumn::make('grand_total')
                     ->money('INR')
+                    ->summarize(Sum::make()->money('INR'))
                     ->sortable(),
                 // TextColumn::make('payment_mode')
                 //     ->badge(),

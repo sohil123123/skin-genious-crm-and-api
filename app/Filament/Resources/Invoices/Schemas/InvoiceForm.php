@@ -29,7 +29,7 @@ class InvoiceForm
                     ->schema([
                         Section::make('Invoice Details')
                         ->schema([
-                            Grid::make(4)->schema([
+                            // Grid::make(4)->schema([
                                 Select::make('clinic_id')
                                     ->relationship('clinic', 'name')
                                     ->required()
@@ -55,8 +55,8 @@ class InvoiceForm
                                 TextInput::make('source_note')
                                     ->placeholder('e.g. RWA Saket camp')
                                     ->columnSpan(1),
-                            ]),
-                            Grid::make(4)->schema([
+                            // ]),
+                            // Grid::make(4)->schema([
                                 Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (callable $get) {
@@ -105,8 +105,9 @@ class InvoiceForm
                                 //     ->required()
                                 //     ->default('paid')
                                 //     ->columnSpan(1),
-                            ]),
-                        ]),
+                            // ]),
+                        ])
+                        ->columns(4),
 
                     Section::make('Line Items')
                         ->headerActions([

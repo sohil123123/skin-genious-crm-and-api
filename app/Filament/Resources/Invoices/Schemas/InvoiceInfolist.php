@@ -43,12 +43,12 @@ class InvoiceInfolist
                                 default => 'info',
                             }),
                         TextEntry::make('invoice_date')->date(),
-                        TextEntry::make('payment_mode')->badge(),
+                        TextEntry::make('payment_mode')->badge()->placeholder('-'),
                         TextEntry::make('source_note')->label('Note')->placeholder('-'),
                         TextEntry::make('created_at')->dateTime()->label('Created At'),
                         TextEntry::make('updated_at')->dateTime()->label('Last Updated'),
                     ])
-                    ->columns(3),
+                    ->columns(4),
 
                 Section::make('Client Details')
                     ->icon('heroicon-o-user')

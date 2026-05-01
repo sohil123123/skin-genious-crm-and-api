@@ -46,7 +46,7 @@ class InvoiceResource extends Resource
     public static function getRecordSubNavigation(Page $page): array
     {
         return $page->generateNavigationItems([
-            ViewInvoice::class,
+            // ViewInvoice::class,
             EditInvoice::class,
             ManageInvoicePayments::class,
         ]);
@@ -64,7 +64,7 @@ class InvoiceResource extends Resource
         return [
             'index' => ListInvoices::route('/'),
             'create' => CreateInvoice::route('/create'),
-            'view' => ViewInvoice::route('/{record}'),
+            // 'view' => ViewInvoice::route('/{record}'),
             'edit' => EditInvoice::route('/{record}/edit'),
             'payments' => ManageInvoicePayments::route('/{record}/payments'),
         ];

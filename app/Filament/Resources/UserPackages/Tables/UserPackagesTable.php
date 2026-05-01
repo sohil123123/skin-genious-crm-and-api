@@ -25,6 +25,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
+use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Models\Appointment;
 use App\Models\Invoice;
 use App\Filament\Resources\Users\RelationManagers\UserPackagesRelationManager;
@@ -113,19 +115,6 @@ class UserPackagesTable
                     ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))
                     ->afterStateUpdated(function ($state, $record) {
-                        // if (! auth()->user()->can('toggle_user_status')) {
-                        //     Notification::make()
-                        //         ->title('Access Denied')
-                        //         ->body('You do not have permission to update user status.')
-                        //         ->danger()
-                        //         ->send();
-
-                        //     $record->is_active = ! $state;
-                        //     $record->save();
-
-                        //     return;
-                        // }
-
                         $record->is_active = $state;
                         $record->save();
 
@@ -145,17 +134,6 @@ class UserPackagesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                // TernaryFilter::make('is_active')
-                //     ->label('Status')
-                //     ->trueLabel('Active')
-                //     ->falseLabel('Inactive')
-                //     ->placeholder('All Packages'),
-
-                // Filter::make('expired')
-                //     ->label('Expired Packages')
-                //     ->query(fn (Builder $query) => $query->whereNotNull('expired_at')->where('expired_at', '<', now()))
-                //     ->toggle(),
-
                 Filter::make('exhausted')
                     ->label('Fully Used Packages')
                     ->query(fn (Builder $query) => $query->whereColumn('used_sessions', '>=', 'quantity'))
@@ -277,6 +255,19 @@ class UserPackagesTable
                             ->send();
                     })
                     ->requiresConfirmation(),
+
+                Action::make('view_invoice')
+                    ->visible(fn ($record) => $record->invoice !== null)
+                    ->icon('heroicon-o-document-text')
+                    ->iconButton()
+                    ->color('info')
+                    ->tooltip('View Invoice')
+                    ->infolist(fn (Schema $schema, $record): Schema => InvoiceInfolist::configure($schema->record($record->invoice)))
+                    ->modal()
+                    ->modalHeading(fn ($record) => 'Invoice ' . $record->invoice->invoice_number)
+                    ->modalWidth('7xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
 
                 // ─── Record a Session Usage ─────────────────────────────
                 Action::make('use_session')
