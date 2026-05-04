@@ -11,6 +11,8 @@ use Filament\Tables\Filters\Filter;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Actions\Action;
 
 class InvoicePaymentsTable
 {
@@ -27,14 +29,14 @@ class InvoicePaymentsTable
 
                 TextColumn::make('invoice.invoice_number')
                     ->label('Invoice #')
-                    ->searchable()
+                    ->searchable(['invoice_number'])
                     ->sortable()
                     ->url(fn ($record) => "/admin/invoices/{$record->invoice_id}/edit"),
 
                 TextColumn::make('invoice.client.first_name')
                     ->label('Patient')
                     ->formatStateUsing(fn ($record) => $record->invoice->client?->name ?? 'N/A')
-                    ->searchable(['invoice.client.first_name', 'invoice.client.last_name']),
+                    ->searchable(['first_name', 'last_name']),
 
                 TextColumn::make('payment_date')
                     ->date()
@@ -56,7 +58,8 @@ class InvoicePaymentsTable
                     }),
 
                 TextColumn::make('reference_number')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->placeholder('-'),
 
                 TextColumn::make('invoice.status')
                     ->label('Invoice Status')
@@ -111,7 +114,11 @@ class InvoicePaymentsTable
                                 fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '<=', $date),
                             );
                     })
-            ])
+            ],layout: FiltersLayout::Modal)
+            ->filtersFormColumns(1)
+            ->filtersTriggerAction(
+                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+            )
             ->actions([
                 EditAction::make(),
                 DeleteAction::make(),

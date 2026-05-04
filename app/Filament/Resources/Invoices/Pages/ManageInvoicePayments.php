@@ -4,9 +4,10 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\InvoicePayments\InvoicePaymentResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Tables\Table;
+use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 
 class ManageInvoicePayments extends ManageRelatedRecords
 {
@@ -20,11 +21,18 @@ class ManageInvoicePayments extends ManageRelatedRecords
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('back')->label('Back to List')->icon('heroicon-o-arrow-left')->url(static::getResource()::getUrl('index'))->color('gray'),
+        ];
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->headerActions([
-                \Filament\Tables\Actions\CreateAction::make()
+                CreateAction::make('create_payment')
                     ->icon('heroicon-o-plus')
                     ->using(function (array $data, string $model): \Illuminate\Database\Eloquent\Model {
                         $payments = $data['payments'] ?? [];

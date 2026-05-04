@@ -348,6 +348,7 @@ class InvoicesTable
                             ->success()
                             ->send();
                     }),
+
                 Action::make('download_pdf')
                     ->label('PDF')
                     ->icon('heroicon-o-arrow-down-tray')
@@ -357,6 +358,13 @@ class InvoicesTable
                         $pdfService = app(InvoicePdfService::class);
                         return $pdfService->download($record);
                     }),
+
+                Action::make('payment_history')
+                    ->icon('heroicon-o-document-text')
+                    ->iconButton()
+                    ->color('success')
+                    ->tooltip('Payment History')
+                    ->url(fn ($record) => route('filament.admin.resources.invoices.payments', ['record' => $record])),
 
                 ActionGroup::make([
                     ViewAction::make()->modalWidth('7xl'),
