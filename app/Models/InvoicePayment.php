@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Services\LoyaltyPointService;
 
 class InvoicePayment extends Model
 {
@@ -33,6 +35,11 @@ class InvoicePayment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyPointTransaction::class);
+    }
+
     protected static function booted()
     {
         static::creating(function ($payment) {
@@ -52,6 +59,13 @@ class InvoicePayment extends Model
 
         static::created(function ($payment) {
             $payment->invoice->recalculatePaymentStatus();
+
+            // Auto-earn loyalty points (skips loyalty_points payment method)
+            try {
+                app(LoyaltyPointService::class)->earnPoints($payment);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Loyalty earn failed: ' . $e->getMessage());
+            }
         });
 
         static::updated(function ($payment) {
@@ -59,6 +73,13 @@ class InvoicePayment extends Model
         });
 
         static::deleted(function ($payment) {
+            // Reverse any loyalty points earned/redeemed for this payment
+            try {
+                app(LoyaltyPointService::class)->reversePoints($payment);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Loyalty reverse failed: ' . $e->getMessage());
+            }
+
             $payment->invoice->recalculatePaymentStatus();
         });
     }

@@ -21,12 +21,23 @@ use Filament\Schemas\Components\Section;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use App\Services\InvoicePdfService;
+use App\Services\LoyaltyPointService;
+use App\Services\LoyaltyOtpService;
 use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Repeater;
+use Filament\Schemas\Components\Group;
 
 use App\Models\User;
 use App\Models\Clinic;
+use App\Models\Setting;
 use App\Filament\Resources\Users\RelationManagers\InvoicesRelationManager;
+use App\Filament\Resources\InvoicePayments\Schemas\InvoicePaymentForm;
 
 
 class InvoicesTable
@@ -38,6 +49,10 @@ class InvoicesTable
         return $table
             ->deferLoading()
             // ->recordUrl(null)
+            ->recordClasses(fn ($record) => match ($record->status) {
+                'paid' => '!bg-green-50 dark:!bg-green-900/20',
+                default => '',
+            })
             ->columns([
                 TextColumn::make('invoice_number')
                     ->label('Invoice #')
@@ -222,132 +237,8 @@ class InvoicesTable
             ->filtersTriggerAction(
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
-            ->actions([ // Filament v3 uses actions() instead of recordActions? Or this is v4 with unified configure?
-                // // The existing file had ->recordActions([...]) so I'll stick to that
-                Action::make('make_payment')
-                    ->label('Make Payment')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('success')
-                    ->hidden(fn ($record) => in_array($record->status, ['paid', 'cancelled']))
-                    ->modalHeading('Create Invoice Payment')
-                    ->modalWidth('5xl')
-                    ->form(function ($record) {
-                        return [
-                        Grid::make(12)->schema([
-                            Section::make('Invoice Information')
-                                ->icon('heroicon-o-document-text')
-                                ->schema([
-                                    \Filament\Forms\Components\TextInput::make('invoice_number')
-                                        ->label('Invoice')
-                                        ->default($record->invoice_number)
-                                        ->disabled()
-                                        ->dehydrated(false),
-                                    \Filament\Forms\Components\Placeholder::make('current_balance_due')
-                                        ->label('Current Balance Due')
-                                        ->content('₹ ' . number_format($record->amount_due, 2)),
-                                ])
-                                ->columnSpan(['default' => 12, 'md' => 5]),
-
-                            Section::make('Payment Details')
-                                ->icon('heroicon-o-banknotes')
-                                ->schema([
-                                    \Filament\Forms\Components\DatePicker::make('payment_date')
-                                        ->label('Payment Date')
-                                        ->default(now())
-                                        ->required(),
-                                    \Filament\Forms\Components\Repeater::make('payments')
-                                        ->label('Payment Methods')
-                                        ->schema([
-                                            \Filament\Forms\Components\Select::make('payment_method')
-                                                ->label('Method')
-                                                ->options([
-                                                    'cash' => 'Cash',
-                                                    'card' => 'Card',
-                                                    'upi' => 'UPI',
-                                                    'bank_transfer' => 'Bank Transfer',
-                                                    'other' => 'Other',
-                                                ])
-                                                ->required()
-                                                ->live()
-                                                ->prefixIcon('heroicon-o-credit-card'),
-
-                                            \Filament\Forms\Components\TextInput::make('amount')
-                                                ->label('Amount')
-                                                ->numeric()
-                                                ->required()
-                                                ->minValue(0.01)
-                                                ->prefix('₹')
-                                                ->live(onBlur: true),
-
-                                            \Filament\Forms\Components\TextInput::make('reference_number')
-                                                ->label('Ref / TXN ID')
-                                                ->placeholder('Optional')
-                                                ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
-                                                // ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null)
-                                                ->prefixIcon('heroicon-o-hashtag'),
-                                        ])
-                                        ->columns(3)
-                                        ->defaultItems(1)
-                                        ->addActionLabel('Add Payment Split')
-                                        ->live()
-                                        ->columnSpanFull()
-                                        ->rules([
-                                            function ($record) {
-                                                return function (string $attribute, $value, $fail) use ($record) {
-                                                    $remaining = $record->amount_due;
-                                                    $total = collect($value)->sum(fn($p) => floatval($p['amount'] ?? 0));
-
-                                                    if (round($total, 2) > round($remaining, 2)) {
-                                                        $fail("Total amount (₹" . number_format($total, 2) . ") exceeds remaining balance (₹" . number_format($remaining, 2) . ").");
-                                                    }
-                                                    if ($total <= 0) {
-                                                        $fail("Total payment amount must be greater than 0.");
-                                                    }
-                                                };
-                                            }
-                                        ]),
-
-                                    \Filament\Forms\Components\Placeholder::make('total_paid_preview')
-                                        ->label('Total Payment Scheduled')
-                                        ->content(function (Get $get) {
-                                            $payments = $get('payments') ?? [];
-                                            $total = collect($payments)->sum(fn($p) => floatval($p['amount'] ?? 0));
-                                            return new \Illuminate\Support\HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
-                                        })
-                                        ->columnSpanFull(),
-
-                                    \Filament\Forms\Components\Textarea::make('notes')
-                                        ->label('Payment Notes')
-                                        ->placeholder('Add any relevant notes about this payment...')
-                                        ->columnSpanFull(),
-                                ])
-                                ->columns(2)
-                                ->columnSpan(['default' => 12, 'md' => 7]),
-                        ])
-                    ];
-                    })
-                    ->action(function ($record, array $data) {
-                        $payments = $data['payments'] ?? [];
-                        $total = 0;
-
-                        foreach ($payments as $paymentData) {
-                            \App\Models\InvoicePayment::create([
-                                'invoice_id' => $record->id,
-                                'payment_date' => $data['payment_date'],
-                                'amount' => $paymentData['amount'],
-                                'payment_method' => $paymentData['payment_method'],
-                                'reference_number' => $paymentData['reference_number'] ?? null,
-                                'created_by' => auth()->id(),
-                            ]);
-                            $total += (float) $paymentData['amount'];
-                        }
-
-                        \Filament\Notifications\Notification::make()
-                            ->title('Payment Recorded ✅')
-                            ->body("₹" . number_format($total, 2) . " has been recorded for Invoice #{$record->id}.")
-                            ->success()
-                            ->send();
-                    }),
+            ->actions([
+                InvoicePaymentForm::getMakePaymentAction()->hidden(fn ($record) => in_array($record->status, ['paid', 'cancelled'])),
 
                 Action::make('download_pdf')
                     ->label('PDF')

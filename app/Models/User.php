@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\LoyaltyPointTransaction;
 
 // use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 // use App\Observers\UserObserver;
@@ -165,6 +166,28 @@ class User extends Authenticatable
     public function holidays(): MorphMany
     {
         return $this->morphMany(AvailabilityException::class, 'exceptionable');
+    }
+
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyPointTransaction::class);
+    }
+
+    /**
+     * Get the current loyalty points balance from the users table column.
+     */
+    public function getLoyaltyBalance(): int
+    {
+        return (int) $this->loyalty_points;
+    }
+
+    /**
+     * Recalculate loyalty points from the ledger and sync to the users table.
+     */
+    public function syncLoyaltyBalance(): void
+    {
+        $balance = $this->loyaltyTransactions()->sum('points');
+        $this->update(['loyalty_points' => $balance]);
     }
 
     // -------------- Custom Functions ----------------

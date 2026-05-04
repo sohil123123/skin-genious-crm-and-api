@@ -26,11 +26,11 @@ class ActivityLog extends Page implements HasTable
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
-    protected static string | UnitEnum | null $navigationGroup = 'System';
-    protected static ?string $navigationLabel = 'Audit Logs';
+    protected static string | UnitEnum | null $navigationGroup = 'Others';
+    // protected static ?string $navigationLabel = 'Others';
     protected static ?string $title = 'Activity Logs';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 41;
 
     protected string $view = 'filament.pages.activity-log';
 
@@ -112,14 +112,14 @@ class ActivityLog extends Page implements HasTable
                                     ->keyLabel('Field')
                                     ->valueLabel('Value')
                                     ->visible(fn ($record) => isset($record->properties['attributes'])),
-                                
+
                                 KeyValue::make('properties.old')
                                     ->label('Old Values')
                                     ->keyLabel('Field')
                                     ->valueLabel('Value')
                                     ->visible(fn ($record) => isset($record->properties['old'])),
                             ]),
-                        
+
                         // Section::make('Changes')
                         //     ->visible(fn ($record) => $record->event == 'status_changed')
                         //     ->schema([

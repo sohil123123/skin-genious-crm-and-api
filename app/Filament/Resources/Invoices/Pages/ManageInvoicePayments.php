@@ -4,10 +4,13 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\InvoicePayments\InvoicePaymentResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Services\LoyaltyPointService;
 use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Tables\Table;
 use Filament\Actions\CreateAction;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use App\Filament\Resources\InvoicePayments\Schemas\InvoicePaymentForm;
 
 class ManageInvoicePayments extends ManageRelatedRecords
 {
@@ -21,6 +24,8 @@ class ManageInvoicePayments extends ManageRelatedRecords
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
 
+    protected string $view = 'filament.resources.invoices.pages.manage-invoice-payments';
+
     protected function getHeaderActions(): array
     {
         return [
@@ -32,37 +37,10 @@ class ManageInvoicePayments extends ManageRelatedRecords
     {
         return $table
             ->headerActions([
-                CreateAction::make('create_payment')
-                    ->icon('heroicon-o-plus')
-                    ->using(function (array $data, string $model): \Illuminate\Database\Eloquent\Model {
-                        $payments = $data['payments'] ?? [];
-                        $firstPayment = null;
-
-                        if (empty($payments)) {
-                            $data['created_by'] = auth()->id();
-                            return $model::create($data);
-                        }
-
-                        $invoiceId = $this->getOwnerRecord()->id;
-
-                        foreach ($payments as $paymentData) {
-                            $record = $model::create([
-                                'invoice_id' => $invoiceId,
-                                'payment_date' => $data['payment_date'],
-                                'amount' => $paymentData['amount'],
-                                'payment_method' => $paymentData['payment_method'],
-                                'reference_number' => $paymentData['reference_number'] ?? null,
-                                'notes' => $data['notes'] ?? null,
-                                'created_by' => auth()->id(),
-                            ]);
-
-                            if (!$firstPayment) {
-                                $firstPayment = $record;
-                            }
-                        }
-
-                        return $firstPayment ?? new $model();
-                    }),
+                InvoicePaymentForm::getMakePaymentAction('create')
+                    ->label('New invoice payment')
+                    ->hidden(fn () => in_array($this->getOwnerRecord()->status, ['paid', 'cancelled'])),
             ]);
     }
 }
+

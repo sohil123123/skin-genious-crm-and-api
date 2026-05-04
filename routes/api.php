@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CommonController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TreatmentSessionController;
+use App\Http\Controllers\Api\LoyaltyController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -66,6 +67,14 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         // INFO: Download Report
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
         Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
+
+        // INFO: Loyalty Points Routes
+        Route::prefix('loyalty')->group(function () {
+            Route::get('/balance', [LoyaltyController::class, 'balance']);
+            Route::get('/history', [LoyaltyController::class, 'history']);
+            Route::post('/request-otp', [LoyaltyController::class, 'requestOtp']);
+            Route::post('/verify-otp', [LoyaltyController::class, 'verifyOtp']);
+        });
 
     });
 

@@ -13,11 +13,23 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action;
+use Filament\Tables\Filters\Indicator;
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Section;
+
+use App\Models\User;
+use App\Models\Clinic;
+use App\Models\Invoice;
+
+use App\Filament\Resources\Users\RelationManagers\InvoicesRelationManager;
 
 class InvoicePaymentsTable
 {
     public static function configure(Table $table): Table
     {
+        $isUserRelation = $table->getLivewire() instanceof InvoicesRelationManager;
+
         return $table
             ->columns([
                 TextColumn::make('transaction_id')
@@ -51,10 +63,11 @@ class InvoicePaymentsTable
                     ->badge()
                     ->formatStateUsing(fn ($state) => ucfirst(str_replace('_', ' ', $state)))
                     ->color(fn ($state) => match($state) {
-                        'cash' => 'success',
-                        'upi' => 'info',
-                        'card' => 'warning',
-                        default => 'gray',
+                        'cash'           => 'success',
+                        'upi'            => 'info',
+                        'card'           => 'warning',
+                        'loyalty_points' => 'primary',
+                        default          => 'gray',
                     }),
 
                 TextColumn::make('reference_number')
@@ -81,39 +94,141 @@ class InvoicePaymentsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            // ->filters([
+            //     SelectFilter::make('clinic_id')
+            //         ->label('Clinic')
+            //         ->relationship('invoice.clinic', 'name')
+            //         ->searchable()
+            //         ->preload()
+            //         ->visible(fn () => auth()->user()->hasRole('super_admin')),
+
+            //     SelectFilter::make('payment_method')
+            //         ->options([
+            //             'cash'           => 'Cash',
+            //             'card'           => 'Card',
+            //             'upi'            => 'UPI',
+            //             'bank_transfer'  => 'Bank Transfer',
+            //             'loyalty_points' => 'Loyalty Points',
+            //             'other'          => 'Other',
+            //         ]),
+
+            //     Filter::make('payment_date')
+            //         ->form([
+            //             DatePicker::make('from'),
+            //             DatePicker::make('until'),
+            //         ])
+            //         ->query(function (Builder $query, array $data): Builder {
+            //             return $query
+            //                 ->when(
+            //                     $data['from'],
+            //                     fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '>=', $date),
+            //                 )
+            //                 ->when(
+            //                     $data['until'],
+            //                     fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '<=', $date),
+            //                 );
+            //         })
+            // ],layout: FiltersLayout::Modal)
             ->filters([
-                SelectFilter::make('clinic_id')
-                    ->label('Clinic')
-                    ->relationship('invoice.clinic', 'name')
-                    ->searchable()
-                    ->preload()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
-
-                SelectFilter::make('payment_method')
-                    ->options([
-                        'cash' => 'Cash',
-                        'card' => 'Card',
-                        'upi' => 'UPI',
-                        'bank_transfer' => 'Bank Transfer',
-                        'other' => 'Other',
-                    ]),
-
-                Filter::make('payment_date')
+                Filter::make('advanced')
+                    ->label('Advanced Filters')
                     ->form([
-                        DatePicker::make('from'),
-                        DatePicker::make('until'),
+                        Section::make('Clinic & Clients')
+                            ->icon('heroicon-o-building-office-2')
+                            ->description('Filter by clinic and assigned clients.')
+                            ->schema([
+                                Grid::make(1)
+                                    ->schema([
+                                        // Clinic
+                                        Select::make('clinic_id')
+                                            ->label('Clinic')
+                                            ->options(Clinic::pluck('name', 'id'))
+                                            ->searchable()
+                                            ->preload()
+                                            ->placeholder('Select clinic')
+                                            ->native(true)
+                                            ->live()
+                                            ->visible(fn () => auth()->user()->hasRole('super_admin')),
+
+                                        // Client
+                                        Select::make('user_id')
+                                            ->label('Client')
+                                            ->options(function (callable $get) {
+                                                $clinicId = $get('clinic_id');
+                                                if (!$clinicId)
+                                                    $clinicId = auth()->user()->clinic_id;
+
+                                                return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                            })
+                                            ->reactive()
+                                            ->searchable()
+                                            ->placeholder('Select Client')
+                                            ->hidden($isUserRelation),
+
+                                        // Client
+                                        Select::make('invoice_id')
+                                            ->label('Invoice')
+                                            ->options(function (callable $get) {
+                                                $userId = $get('user_id');
+                                                if (!$userId)
+                                                    $userId = auth()->user()->id;
+
+                                                return Invoice::where('status', '!=', 'paid')->where('user_id', $userId)->pluck('invoice_number', 'id');
+                                            })
+                                            ->reactive()
+                                            ->searchable()
+                                            ->placeholder('Select Invoice')
+                                            ->hidden($isUserRelation),
+
+                                        DatePicker::make('from'),
+                                        DatePicker::make('until'),
+
+                                    ]),
+                            ])
+                            ->columns(1)
+                            ->collapsible(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
-                            ->when(
-                                $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '>=', $date),
-                            )
-                            ->when(
-                                $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('payment_date', '<=', $date),
-                            );
+                            ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('clinic_id', $id)))
+                            ->when($data['user_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('user_id', $id)))
+                            ->when($data['invoice_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('id', $id)))
+                            ->when($data['from'] ?? null, fn ($q, $date) => $q->whereDate('payment_date', '>=', $date))
+                            ->when($data['until'] ?? null, fn ($q, $date) => $q->whereDate('payment_date', '<=', $date));
                     })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['clinic_id'] ?? null) {
+                            $clinic = Clinic::find($data['clinic_id']);
+                            if ($clinic) {
+                                $indicators[] = Indicator::make('Clinic: ' . $clinic->name)->removeField('clinic_id');
+                            }
+                        }
+
+                        if ($data['user_id'] ?? null) {
+                            $user = User::find($data['user_id']);
+                            if ($user) {
+                                $indicators[] = Indicator::make('Client: ' . $user->name)->removeField('user_id');
+                            }
+                        }
+
+                        if ($data['invoice_id'] ?? null) {
+                            $invoice = Invoice::find($data['invoice_id']);
+                            if ($invoice) {
+                                $indicators[] = Indicator::make('Invoice #: ' . $invoice->invoice_number)->removeField('invoice_id');
+                            }
+                        }
+
+                        if ($data['from'] ?? null) {
+                            $indicators[] = Indicator::make('From: ' . $data['from'])->removeField('from');
+                        }
+
+                        if ($data['until'] ?? null) {
+                            $indicators[] = Indicator::make('To: ' . $data['until'])->removeField('until');
+                        }
+                        return $indicators;
+                    }),
             ],layout: FiltersLayout::Modal)
             ->filtersFormColumns(1)
             ->filtersTriggerAction(

@@ -11,6 +11,7 @@ use App\Filament\Resources\Users\Pages\ManageAssessments;
 use App\Filament\Resources\Users\Pages\ManageWeeklySchedule;
 use App\Filament\Resources\Users\Pages\ManageInvoices;
 use App\Filament\Resources\Users\Pages\ManagePackages;
+use App\Filament\Resources\Users\Pages\ManageLoyaltyPoints;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 
@@ -69,6 +70,7 @@ class UserResource extends Resource
             ManageWeeklySchedule::class,
             ManageInvoices::class,
             ManagePackages::class,
+            ManageLoyaltyPoints::class,
             // ManageAppointments::class,
         ]);
     }
@@ -94,6 +96,7 @@ class UserResource extends Resource
             'weekly_schedule' => ManageWeeklySchedule::route('/{record}/weekly_schedule'),
             'invoices' => ManageInvoices::route('/{record}/invoices'),
             'packages' => ManagePackages::route('/{record}/packages'),
+            'loyalty_points' => ManageLoyaltyPoints::route('/{record}/loyalty-points'),
             // 'appointments' => ManageAppointments::route('/{record}/appointments'),
         ];
     }
