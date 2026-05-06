@@ -46,7 +46,8 @@ class InvoicePaymentForm
                     $invoice = $livewire->getOwnerRecord();
                 }
 
-                if (!$invoice) return [];
+                if (!$invoice)
+                    return [];
 
                 return [
                     Section::make('Payment Details')
@@ -62,12 +63,12 @@ class InvoicePaymentForm
                                     Select::make('payment_method')
                                         ->label('Method')
                                         ->options([
-                                            'cash'           => '💵 Cash',
-                                            'card'           => '💳 Card',
-                                            'upi'            => '📱 UPI',
-                                            'bank_transfer'  => '🏦 Bank Transfer',
+                                            'cash' => '💵 Cash',
+                                            'card' => '💳 Card',
+                                            'upi' => '📱 UPI',
+                                            'bank_transfer' => '🏦 Bank Transfer',
                                             'loyalty_points' => '⭐ Loyalty Points',
-                                            'other'          => '📋 Other',
+                                            'other' => '📋 Other',
                                         ])
                                         ->required()
                                         ->live()
@@ -88,10 +89,10 @@ class InvoicePaymentForm
                                                         $set('payment_method', null);
                                                         return;
                                                     }
-                                                    app(LoyaltyOtpService::class)->sendOtp($client);
+                                                    $loyaltyOtp = app(LoyaltyOtpService::class)->sendOtp($client);
                                                     Notification::make()
                                                         ->title('OTP Sent 📲')
-                                                        ->body("Verification OTP has been sent to {$client->mobile}. Available balance: {$balance} pts.")
+                                                        ->body("Verification OTP ({$loyaltyOtp->otp}) has been sent to {$client->mobile}. Available balance: {$balance} pts.")
                                                         ->info()
                                                         ->send();
                                                 }
@@ -99,7 +100,7 @@ class InvoicePaymentForm
                                         }),
 
                                     TextInput::make('amount')
-                                        ->label(fn (Get $get) => $get('payment_method') === 'loyalty_points' ? 'Points to Redeem' : 'Amount')
+                                        ->label(fn(Get $get) => $get('payment_method') === 'loyalty_points' ? 'Points to Redeem' : 'Amount')
                                         ->numeric()
                                         ->required()
                                         ->minValue(0.01)
@@ -109,27 +110,10 @@ class InvoicePaymentForm
                                             }
                                             return null;
                                         })
-                                        ->prefix(fn (Get $get) => $get('payment_method') === 'loyalty_points' ? '⭐' : '₹')
-                                        // ->helperText(function (Get $get) use ($invoice) {
-                                        //     if ($get('payment_method') === 'loyalty_points' && $invoice && $invoice->client) {
-                                        //         $balance = $invoice->client->getLoyaltyBalance();
-                                        //         return "Available balance: {$balance} points";
-                                        //     }
-                                        //     return null;
-                                        // })
-                                        ->helperText(function (Get $get, $livewire) {
+                                        ->prefix(fn(Get $get) => $get('payment_method') === 'loyalty_points' ? '⭐' : '₹')
+                                        ->helperText(function (Get $get) use ($invoice) {
                                             if ($get('payment_method') !== 'loyalty_points') {
                                                 return null;
-                                            }
-
-                                            $invoice = null;
-                                            if ($livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords) {
-                                                $invoice = $livewire->getOwnerRecord();
-                                            } else {
-                                                $invoiceId = $get('../../invoice_id');
-                                                if ($invoiceId) {
-                                                    $invoice = Invoice::find($invoiceId);
-                                                }
                                             }
 
                                             if ($invoice && $invoice->client) {
@@ -148,12 +132,12 @@ class InvoicePaymentForm
                                         ->required()
                                         ->prefixIcon('heroicon-o-lock-closed')
                                         ->helperText('OTP sent to client\'s registered mobile')
-                                        ->visible(fn (Get $get) => $get('payment_method') === 'loyalty_points'),
+                                        ->visible(fn(Get $get) => $get('payment_method') === 'loyalty_points'),
 
                                     TextInput::make('reference_number')
                                         ->label('Ref / TXN ID')
                                         ->placeholder('Optional')
-                                        ->hidden(fn (Get $get) => in_array($get('payment_method'), ['cash', 'loyalty_points']))
+                                        ->hidden(fn(Get $get) => in_array($get('payment_method'), ['cash', 'loyalty_points']))
                                         ->prefixIcon('heroicon-o-hashtag'),
                                 ])
                                 ->columns(3)
@@ -162,16 +146,10 @@ class InvoicePaymentForm
                                 ->live()
                                 ->columnSpanFull()
                                 ->rules([
-                                    function (Get $get, $livewire) {
-                                        return function (string $attribute, $value, $fail) use ($get, $livewire) {
-                                            if ($livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords) {
-                                                $invoice = $livewire->getOwnerRecord();
-                                            } else {
-                                                $invoiceId = $get('invoice_id');
-                                                if (!$invoiceId) return;
-                                                $invoice = Invoice::find($invoiceId);
-                                            }
-                                            if (!$invoice) return;
+                                    function (Get $get) use ($invoice) {
+                                        return function (string $attribute, $value, $fail) use ($get, $invoice) {
+                                            if (!$invoice)
+                                                return;
 
                                             $remaining = $invoice->grand_total - $invoice->amount_paid;
                                             $total = collect($value)->sum(fn($p) => floatval($p['amount'] ?? 0));
@@ -251,7 +229,8 @@ class InvoicePaymentForm
                     $invoice = $livewire->getOwnerRecord();
                 }
 
-                if (!$invoice) return;
+                if (!$invoice)
+                    return;
 
                 $payments = $data['payments'] ?? [];
                 $loyaltyService = app(LoyaltyPointService::class);
@@ -273,22 +252,22 @@ class InvoicePaymentForm
                         }
                     } else {
                         InvoicePayment::create([
-                            'invoice_id'       => $invoice->id,
-                            'payment_date'     => $data['payment_date'],
-                            'amount'           => $paymentData['amount'],
-                            'payment_method'   => $paymentData['payment_method'],
+                            'invoice_id' => $invoice->id,
+                            'payment_date' => $data['payment_date'],
+                            'amount' => $paymentData['amount'],
+                            'payment_method' => $paymentData['payment_method'],
                             'reference_number' => $paymentData['reference_number'] ?? null,
-                            'notes'            => $data['notes'] ?? null,
-                            'created_by'       => auth()->id(),
+                            'notes' => $data['notes'] ?? null,
+                            'created_by' => auth()->id(),
                         ]);
                     }
                 }
 
-                // Force refresh
-                if ($livewire) {
-                    $livewire->js('window.location.reload()');
-                }
-
+                // // Force refresh
+                // if ($livewire) {
+                //     $livewire->js('window.location.reload()');
+                // }
+    
                 Notification::make()
                     ->title('Payment Processed ✅')
                     ->body('Payments have been recorded and invoice status updated.')
@@ -323,21 +302,22 @@ class InvoicePaymentForm
                                         $set('user_id', null);
                                         $set('invoice_id', null);
                                     })
-                                    ->visible(fn () => auth()->user()->hasRole('super_admin'))
-                                    ->hidden(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords),
+                                    ->visible(fn() => auth()->user()->hasRole('super_admin'))
+                                    ->hidden(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords),
 
                                 // ─── Client ──────────────────────────
                                 Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (Get $get) {
                                         $clinicId = $get('clinic_id') ?: auth()->user()->clinic_id;
-                                        if (!$clinicId) return [];
+                                        if (!$clinicId)
+                                            return [];
 
                                         return User::where('clinic_id', $clinicId)
                                             ->role('client')
                                             ->orderBy('first_name')
                                             ->get()
-                                            ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                            ->mapWithKeys(fn($u) => [$u->id => $u->name]);
                                     })
                                     ->searchable()
                                     ->placeholder('Select client')
@@ -347,8 +327,8 @@ class InvoicePaymentForm
                                             $set('user_id', $record->invoice->user_id);
                                         }
                                     })
-                                    ->afterStateUpdated(fn (Set $set) => $set('invoice_id', null))
-                                    ->hidden(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords),
+                                    ->afterStateUpdated(fn(Set $set) => $set('invoice_id', null))
+                                    ->hidden(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords),
 
                                 // ─── Invoice ─────────────────────────
                                 Select::make('invoice_id')
@@ -365,15 +345,16 @@ class InvoicePaymentForm
                                             $query->where('clinic_id', $clinicId);
                                         }
 
-                                        return $query->get()->mapWithKeys(fn ($inv) =>
+                                        return $query->get()->mapWithKeys(
+                                            fn($inv) =>
                                             [$inv->id => "#{$inv->invoice_number} — {$inv->client?->name} (₹" . number_format($inv->grand_total, 2) . ")"]
                                         );
                                     })
                                     ->searchable()
                                     ->required()
                                     ->live()
-                                    ->disabled(fn (?InvoicePayment $record) => $record !== null)
-                                    ->hidden(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords)
+                                    ->disabled(fn(?InvoicePayment $record) => $record !== null)
+                                    ->hidden(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\ManageRelatedRecords)
                                     ->afterStateUpdated(function (Set $set, $state) {
                                         if ($state) {
                                             $invoice = Invoice::find($state);
@@ -394,11 +375,13 @@ class InvoicePaymentForm
                                             $invoice = $livewire->getOwnerRecord();
                                         } else {
                                             $invoiceId = $get('invoice_id');
-                                            if (!$invoiceId) return 'Select an invoice first';
+                                            if (!$invoiceId)
+                                                return 'Select an invoice first';
                                             $invoice = Invoice::find($invoiceId);
                                         }
 
-                                        if (!$invoice) return 'Invoice not found';
+                                        if (!$invoice)
+                                            return 'Invoice not found';
                                         return new HtmlString('<span style="color: #dc2626; font-size: 1.25rem; font-weight: bold;">₹' . number_format($invoice->grand_total - $invoice->amount_paid, 2) . '</span>');
                                     }),
                             ]),
@@ -415,12 +398,12 @@ class InvoicePaymentForm
                                         Select::make('payment_method')
                                             ->label('Method')
                                             ->options([
-                                                'cash'           => '💵 Cash',
-                                                'card'           => '💳 Card',
-                                                'upi'            => '📱 UPI',
-                                                'bank_transfer'  => '🏦 Bank Transfer',
+                                                'cash' => '💵 Cash',
+                                                'card' => '💳 Card',
+                                                'upi' => '📱 UPI',
+                                                'bank_transfer' => '🏦 Bank Transfer',
                                                 'loyalty_points' => '⭐ Loyalty Points',
-                                                'other'          => '📋 Other',
+                                                'other' => '📋 Other',
                                             ])
                                             ->required()
                                             ->live()
@@ -454,12 +437,11 @@ class InvoicePaymentForm
                                                         }
 
                                                         // Send OTP automatically
-                                                        $otpService = app(LoyaltyOtpService::class);
-                                                        $otpService->sendOtp($client);
+                                                        $loyaltyOtp = app(LoyaltyOtpService::class)->sendOtp($client);
 
                                                         Notification::make()
                                                             ->title('OTP Sent 📲')
-                                                            ->body("Verification OTP has been sent to {$client->mobile}. Available balance: {$balance} pts.")
+                                                            ->body("Verification OTP ({$loyaltyOtp->otp}) has been sent to {$client->mobile}. Available balance: {$balance} pts.")
                                                             ->info()
                                                             ->send();
                                                     }
@@ -470,11 +452,11 @@ class InvoicePaymentForm
                                             }),
 
                                         TextInput::make('amount')
-                                            ->label(fn (Get $get) => $get('payment_method') === 'loyalty_points' ? 'Points to Redeem' : 'Amount')
+                                            ->label(fn(Get $get) => $get('payment_method') === 'loyalty_points' ? 'Points to Redeem' : 'Amount')
                                             ->numeric()
                                             ->required()
                                             ->minValue(0.01)
-                                            ->prefix(fn (Get $get) => $get('payment_method') === 'loyalty_points' ? '⭐' : '₹')
+                                            ->prefix(fn(Get $get) => $get('payment_method') === 'loyalty_points' ? '⭐' : '₹')
                                             ->live(onBlur: true)
                                             ->helperText(function (Get $get, $livewire) {
                                                 if ($get('payment_method') !== 'loyalty_points') {
@@ -505,13 +487,13 @@ class InvoicePaymentForm
                                             ->maxLength(6)
                                             ->required()
                                             ->prefixIcon('heroicon-o-lock-closed')
-                                            ->visible(fn (Get $get) => $get('payment_method') === 'loyalty_points')
+                                            ->visible(fn(Get $get) => $get('payment_method') === 'loyalty_points')
                                             ->helperText('OTP sent to client\'s registered mobile'),
 
                                         TextInput::make('reference_number')
                                             ->label('Ref / TXN ID')
                                             ->placeholder('Optional')
-                                            ->hidden(fn (Get $get) => in_array($get('payment_method'), ['cash', 'loyalty_points']))
+                                            ->hidden(fn(Get $get) => in_array($get('payment_method'), ['cash', 'loyalty_points']))
                                             // ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null)
                                             ->prefixIcon('heroicon-o-hashtag'),
                                     ])
@@ -519,7 +501,7 @@ class InvoicePaymentForm
                                     ->defaultItems(1)
                                     ->addActionLabel('Add Payment Split')
                                     ->live()
-                                    ->visible(fn (?InvoicePayment $record) => $record === null)
+                                    ->visible(fn(?InvoicePayment $record) => $record === null)
                                     ->columnSpanFull()
                                     ->rules([
                                         function (Get $get, $livewire) {
@@ -528,10 +510,12 @@ class InvoicePaymentForm
                                                     $invoice = $livewire->getOwnerRecord();
                                                 } else {
                                                     $invoiceId = $get('invoice_id');
-                                                    if (!$invoiceId) return;
+                                                    if (!$invoiceId)
+                                                        return;
                                                     $invoice = Invoice::find($invoiceId);
                                                 }
-                                                if (!$invoice) return;
+                                                if (!$invoice)
+                                                    return;
 
                                                 $remaining = $invoice->grand_total - $invoice->amount_paid;
                                                 $total = collect($value)->sum(fn($p) => floatval($p['amount'] ?? 0));
@@ -591,22 +575,22 @@ class InvoicePaymentForm
                                         $total = collect($payments)->sum(fn($p) => floatval($p['amount'] ?? 0));
                                         return new HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
                                     })
-                                    ->visible(fn (?InvoicePayment $record) => $record === null),
-                                    // ->columnSpanFull(),
+                                    ->visible(fn(?InvoicePayment $record) => $record === null),
+                                // ->columnSpanFull(),
 
-                                 DatePicker::make('payment_date')
-                                        ->label('Payment Date')
-                                        ->default(now())
-                                        ->required()
-                                        ->prefixIcon('heroicon-o-calendar'),
+                                DatePicker::make('payment_date')
+                                    ->label('Payment Date')
+                                    ->default(now())
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-calendar'),
 
-                        Textarea::make('notes')
-                            ->label('Payment Notes')
-                            ->placeholder('Add any relevant notes about this payment...')
-                            ->rows(3)
-                            ->columnSpanFull(),
+                                Textarea::make('notes')
+                                    ->label('Payment Notes')
+                                    ->placeholder('Add any relevant notes about this payment...')
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                            ]),
                     ]),
-                ]),
             ]);
     }
 }

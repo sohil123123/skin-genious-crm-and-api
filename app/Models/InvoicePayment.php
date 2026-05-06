@@ -76,7 +76,7 @@ class InvoicePayment extends Model
 
         static::deleting(function ($payment) {
             // Reverse any loyalty points earned/redeemed for this payment
-            // We do this in 'deleting' because the database will nullify the 
+            // We do this in 'deleting' because the database will nullify the
             // invoice_payment_id in transactions upon deletion (nullOnDelete).
             try {
                 app(LoyaltyPointService::class)->reversePoints($payment);
