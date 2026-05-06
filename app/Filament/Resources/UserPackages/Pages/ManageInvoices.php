@@ -4,26 +4,32 @@ namespace App\Filament\Resources\UserPackages\Pages;
 
 use App\Filament\Resources\UserPackages\UserPackageResource;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Actions\Action;
-use Illuminate\Support\HtmlString;
 use Filament\Schemas\Schema;
-use Filament\Infolists\Components;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Concerns\InteractsWithInfolists;
 use Filament\Infolists\Contracts\HasInfolists;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
-use BackedEnum;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
-use Filament\Infolists\Components\RepeatableEntry;
+use Illuminate\Support\HtmlString;
+use BackedEnum;
 
 class ManageInvoices extends Page implements HasForms, HasInfolists
 {
@@ -99,9 +105,9 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                         RepeatableEntry::make('items')
                             ->schema([
                                 Grid::make(6)->schema([
-                                    TextEntry::make('product.name')->label('Product'),
-                                    TextEntry::make('quantity')->label('Qty'),
-                                    TextEntry::make('unit_price')->label('Price')->money('INR'),
+                                    TextEntry::make('product.name')->label('Service'),
+                                    TextEntry::make('quantity')->label('Sessions'),
+                                    TextEntry::make('unit_price')->label('Price / Session')->money('INR'),
                                     TextEntry::make('discount_value')
                                         ->label('Discount')
                                         ->formatStateUsing(function ($record) {
@@ -160,6 +166,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                 ->hidden(fn () => $this->record->invoice !== null)
                 ->action(function () {
                     $package = $this->record;
+                    $package->load('items');
 
                     $invoice = Invoice::create([
                         'clinic_id' => $package->clinic_id,
@@ -167,8 +174,8 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                         'package_id' => $package->id,
                         'invoice_type' => 'package',
                         'invoice_date' => now(),
-                        'source_note' => "Package: {$package->package_name} ({$package->quantity} sessions)",
-                        'subtotal' => $package->total_amount,
+                        'source_note' => "Package: {$package->package_name}",
+                        'subtotal' => $package->subtotal,
                         'discount_total' => $package->discount_amount,
                         'taxable_value' => $package->final_amount,
                         'grand_total' => $package->final_amount,
@@ -177,15 +184,18 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                         'created_by' => auth()->id(),
                     ]);
 
-                    $invoice->items()->create([
-                        'product_id' => $package->service_id,
-                        'quantity' => 1,
-                        'unit_price' => $package->total_amount,
-                        'discount_type' => $package->discount_type,
-                        'discount_value' => $package->discount_value,
-                        'valid_discount_amount' => $package->discount_amount,
-                        'line_total' => $package->final_amount,
-                    ]);
+                    // Create an invoice item for each package service
+                    foreach ($package->items as $item) {
+                        $invoice->items()->create([
+                            'product_id' => $item->service_id,
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->price_per_unit,
+                            'discount_type' => null,
+                            'discount_value' => 0,
+                            'valid_discount_amount' => 0,
+                            'line_total' => $item->total_amount,
+                        ]);
+                    }
 
                     Notification::make()
                         ->title('Invoice Created Successfully')
@@ -208,12 +218,12 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                             Section::make('Invoice Information')
                                 ->icon('heroicon-o-document-text')
                                 ->schema([
-                                    \Filament\Forms\Components\TextInput::make('invoice_number')
+                                    TextInput::make('invoice_number')
                                         ->label('Invoice')
                                         ->default($record->invoice_number)
                                         ->disabled()
                                         ->dehydrated(false),
-                                    \Filament\Forms\Components\Placeholder::make('current_balance_due')
+                                    Placeholder::make('current_balance_due')
                                         ->label('Current Balance Due')
                                         ->content('₹ ' . number_format($record->amount_due, 2)),
                                 ])
@@ -222,14 +232,14 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                             Section::make('Payment Details')
                                 ->icon('heroicon-o-banknotes')
                                 ->schema([
-                                    \Filament\Forms\Components\DatePicker::make('payment_date')
+                                    DatePicker::make('payment_date')
                                         ->label('Payment Date')
                                         ->default(now())
                                         ->required(),
-                                    \Filament\Forms\Components\Repeater::make('payments')
+                                    Repeater::make('payments')
                                         ->label('Payment Methods')
                                         ->schema([
-                                            \Filament\Forms\Components\Select::make('payment_method')
+                                            Select::make('payment_method')
                                                 ->label('Method')
                                                 ->options([
                                                     'cash' => 'Cash',
@@ -242,7 +252,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                                 ->live()
                                                 ->prefixIcon('heroicon-o-credit-card'),
 
-                                            \Filament\Forms\Components\TextInput::make('amount')
+                                            TextInput::make('amount')
                                                 ->label('Amount')
                                                 ->numeric()
                                                 ->required()
@@ -250,11 +260,10 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                                 ->prefix('₹')
                                                 ->live(onBlur: true),
 
-                                            \Filament\Forms\Components\TextInput::make('reference_number')
+                                            TextInput::make('reference_number')
                                                 ->label('Ref / TXN ID')
                                                 ->placeholder('Optional')
                                                 ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
-                                                // ->required(fn (Get $get) => $get('payment_method') !== 'cash' && $get('payment_method') !== null)
                                                 ->prefixIcon('heroicon-o-hashtag'),
                                         ])
                                         ->columns(3)
@@ -278,16 +287,16 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                             }
                                         ]),
 
-                                    \Filament\Forms\Components\Placeholder::make('total_paid_preview')
+                                    Placeholder::make('total_paid_preview')
                                         ->label('Total Payment Scheduled')
                                         ->content(function (Get $get) {
                                             $payments = $get('payments') ?? [];
                                             $total = collect($payments)->sum(fn($p) => floatval($p['amount'] ?? 0));
-                                            return new \Illuminate\Support\HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
+                                            return new HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
                                         })
                                         ->columnSpanFull(),
 
-                                    \Filament\Forms\Components\Textarea::make('notes')
+                                    Textarea::make('notes')
                                         ->label('Payment Notes')
                                         ->placeholder('Add any relevant notes about this payment...')
                                         ->columnSpanFull(),
@@ -303,7 +312,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                     $total = 0;
 
                     foreach ($payments as $paymentData) {
-                        \App\Models\InvoicePayment::create([
+                        InvoicePayment::create([
                             'invoice_id' => $record->id,
                             'payment_date' => $data['payment_date'],
                             'amount' => $paymentData['amount'],

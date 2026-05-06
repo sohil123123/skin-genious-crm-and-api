@@ -11,7 +11,7 @@ class UserPackageUsage extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_package_id',
+        'user_package_item_id',
         'sessions_used',
         'notes',
         'appointment_id',
@@ -25,9 +25,24 @@ class UserPackageUsage extends Model
 
     // ----------- Relationships -------------------------
 
-    public function userPackage(): BelongsTo
+    public function packageItem(): BelongsTo
     {
-        return $this->belongsTo(UserPackage::class);
+        return $this->belongsTo(UserPackageItem::class, 'user_package_item_id');
+    }
+
+    /**
+     * Access the parent package through the item.
+     */
+    public function package()
+    {
+        return $this->hasOneThrough(
+            UserPackage::class,
+            UserPackageItem::class,
+            'id',                    // user_package_items.id
+            'id',                    // user_packages.id
+            'user_package_item_id',  // user_package_usages.user_package_item_id
+            'user_package_id',       // user_package_items.user_package_id
+        );
     }
 
     public function appointment(): BelongsTo

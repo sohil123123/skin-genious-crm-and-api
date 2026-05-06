@@ -54,13 +54,14 @@ class Product extends Model
     {
         return $this->hasMany(ClinicInventory::class);
     }
+
     public function purchaseItems(): HasMany
     {
         return $this->hasMany(PurchaseItem::class);
     }
 
-    public function userPackages(): HasMany
+    public function packageItems(): HasMany
     {
-        return $this->hasMany(UserPackage::class, 'service_id');
+        return $this->hasMany(UserPackageItem::class, 'service_id');
     }
 }

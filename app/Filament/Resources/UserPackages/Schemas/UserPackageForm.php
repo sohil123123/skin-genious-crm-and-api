@@ -7,6 +7,8 @@ use App\Models\Product;
 use App\Models\User;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +20,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Notifications\Notification;
+use Illuminate\Support\HtmlString;
 
 class UserPackageForm
 {
@@ -30,22 +34,22 @@ class UserPackageForm
                     Section::make('Package Details')
                         ->icon('heroicon-o-rectangle-stack')
                         ->schema([
-                            Grid::make(2)->schema([
+                            Grid::make(3)->schema([
                                 TextInput::make('package_name')
                                     ->label('Package Name')
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder('e.g. Gold Facial Package - 5 Sessions')
-                                    ->columnSpan(2),
+                                    ->placeholder('e.g. Skin Glow Combo')
+                                    ->columnSpan(3),
 
                                 Select::make('clinic_id')
                                     ->relationship('clinic', 'name')
                                     ->required()
                                     ->live()
-                                    ->visible(fn ($livewire) => auth()->user()->hasRole('super_admin') && !($livewire instanceof RelationManager))
+                                    ->visible(fn($livewire) => auth()->user()->hasRole('super_admin') && !($livewire instanceof RelationManager))
                                     ->columnSpan(1),
 
-                                 Select::make('user_id')
+                                Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (Get $get) {
                                         $clinicId = $get('clinic_id');
@@ -60,91 +64,150 @@ class UserPackageForm
                                             ->role('client')
                                             ->when($effectiveClinicId, fn($q) => $q->where('clinic_id', $effectiveClinicId))
                                             ->get()
-                                            ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                            ->mapWithKeys(fn($u) => [$u->id => $u->name]);
                                     })
                                     ->searchable()
                                     ->native(false)
                                     ->required()
                                     ->preload()
-                                    ->hidden(fn ($livewire) => $livewire instanceof RelationManager)
+                                    ->hidden(fn($livewire) => $livewire instanceof RelationManager)
                                     ->columnSpan(1),
-
-                                Select::make('service_id')
-                                    ->label('Service')
-                                    ->options(fn () =>
-                                        Product::active()
-                                            ->where('type', 'service')
-                                            ->get()
-                                            ->mapWithKeys(fn ($p) => [$p->id => $p->name])
-                                    )
-                                    ->searchable()
-                                    ->native(false)
-                                    ->required()
-                                    ->preload()
-                                    ->live()
-                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                        if (!$state) {
-                                            $set('price_per_unit', null);
-                                            $set('service_snapshot', null);
-                                            return;
-                                        }
-                                        $product = Product::find($state);
-                                        if ($product) {
-                                            $set('price_per_unit', $product->sell_price);
-                                            // Capture snapshot for historical preservation
-                                            $set('service_snapshot', json_encode([
-                                                'id'             => $product->id,
-                                                'name'           => $product->name,
-                                                'sku'            => $product->sku,
-                                                'sell_price'     => $product->sell_price,
-                                                'gst'            => $product->gst,
-                                                'description'    => $product->description,
-                                                'captured_at'    => now()->toDateTimeString(),
-                                            ]));
-                                        }
-                                        // Recalculate totals when service changes
-                                        self::recalculate($set, $get('price_per_unit'), $get('quantity'), $get('discount_type'), $get('discount_value'));
-                                    })
-                                    ->helperText('Only services are shown here.')
-                                    ->columnSpan(1),
-
-                                // Hidden snapshot field
-                                Hidden::make('service_snapshot')->dehydrated(),
-                            ]),
-                        ]),
-
-                    // ─── Sessions ───────────────────────────────────────────
-                    Section::make('Sessions & Pricing')
-                        ->icon('heroicon-o-calendar-days')
-                        ->schema([
-                            Grid::make(3)->schema([
-                                TextInput::make('quantity')
-                                    ->label('Total Sessions')
-                                    ->numeric()
-                                    ->minValue(1)
-                                    ->default(1)
-                                    ->required()
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) =>
-                                        self::recalculate($set, $get('price_per_unit'), $get('quantity'), $get('discount_type'), $get('discount_value'))
-                                    )
-                                    ->suffix('sessions'),
-
-                                TextInput::make('price_per_unit')
-                                    ->label('Price per Session')
-                                    ->numeric()
-                                    ->prefix('₹')
-                                    ->required()
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) =>
-                                        self::recalculate($set, $get('price_per_unit'), $get('quantity'), $get('discount_type'), $get('discount_value'))
-                                    ),
 
                                 DatePicker::make('expired_at')
                                     ->label('Expires On')
                                     ->nullable()
-                                    ->minDate(now()),
+                                    ->minDate(now())
+                                    ->columnSpan(1),
                             ]),
+                        ]),
+
+                    // ─── Package Services (Multi-Service Repeater) ─────────
+                    Section::make('Package Services')
+                        ->icon('heroicon-o-sparkles')
+                        ->description('Add one or more services to this package. Each service tracks its own sessions and pricing.')
+                        ->schema([
+                            Repeater::make('items')
+                                ->relationship()
+                                ->label('')
+                                ->schema([
+                                    Grid::make(12)->schema([
+                                        Select::make('service_id')
+                                            ->label('Service')
+                                            ->options(
+                                                fn() =>
+                                                Product::active()
+                                                    ->where('type', 'service')
+                                                    ->get()
+                                                    ->mapWithKeys(fn($p) => [$p->id => $p->name])
+                                            )
+                                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                            ->searchable()
+                                            ->native(false)
+                                            ->required()
+                                            ->preload()
+                                            ->live()
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                if (!$state) {
+                                                    $set('price_per_unit', null);
+                                                    $set('service_snapshot', null);
+                                                    return;
+                                                }
+                                                $product = Product::find($state);
+                                                if ($product) {
+                                                    $set('price_per_unit', $product->sell_price);
+                                                    // Capture snapshot
+                                                    $set('service_snapshot', json_encode([
+                                                        'id' => $product->id,
+                                                        'name' => $product->name,
+                                                        'sku' => $product->sku,
+                                                        'sell_price' => $product->sell_price,
+                                                        'gst' => $product->gst,
+                                                        'description' => $product->description,
+                                                        'captured_at' => now()->toDateTimeString(),
+                                                    ]));
+                                                }
+                                                // Recalculate item + package totals
+                                                self::recalculateAllFromItem($set, $get);
+                                            })
+                                            ->helperText('Only services are shown.')
+                                            ->columnSpan(4),
+
+                                        TextInput::make('quantity')
+                                            ->label('Sessions')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->default(1)
+                                            ->required()
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                if ((int) $state < 1) {
+                                                    $set('quantity', 1);
+                                                }
+                                                self::recalculateAllFromItem($set, $get);
+                                            })
+                                            ->extraInputAttributes(['min' => 1, 'step' => 1])
+                                            ->columnSpan(2),
+
+                                        TextInput::make('price_per_unit')
+                                            ->label('Price / Session')
+                                            ->numeric()
+                                            ->prefix('₹')
+                                            ->required()
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(fn(Get $get, Set $set) => self::recalculateAllFromItem($set, $get))
+                                            ->extraInputAttributes(['min' => 1, 'step' => 1])
+                                            ->columnSpan(3),
+
+                                        TextInput::make('total_amount')
+                                            ->label('Item Total')
+                                            ->prefix('₹')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->numeric()
+                                            ->columnSpan(3),
+
+                                        // Hidden snapshot field
+                                        Hidden::make('service_snapshot')->dehydrated(),
+                                    ]),
+                                ])
+                                ->defaultItems(1)
+                                ->minItems(1)
+                                ->addActionLabel('+ Add Service')
+                                ->addAction(
+                                    fn($action) => $action
+                                        ->before(function (Repeater $component, $action) {
+                                            $items = $component->getState();
+                                            foreach ($items as $item) {
+                                                if (empty($item['service_id']) || empty($item['quantity']) || (int) $item['quantity'] < 1) {
+                                                    Notification::make()
+                                                        ->title('Incomplete Service')
+                                                        ->body('Please select a service and enter sessions for all existing items before adding a new one.')
+                                                        ->warning()
+                                                        ->send();
+                                                    $action->halt();
+                                                    return;
+                                                }
+                                            }
+                                        })
+                                )
+                                ->reorderable(false)
+                                ->collapsible()
+                                ->deleteAction(
+                                    fn($action) => $action->hidden(
+                                        fn(Repeater $component): bool => count($component->getState()) <= 1
+                                    )
+                                )
+                                ->itemLabel(
+                                    fn(array $state): ?string =>
+                                    ($state['service_id'] ?? null)
+                                    ? Product::find($state['service_id'])?->name ?? 'Service'
+                                    : 'New Service'
+                                )
+                                ->live()
+                                ->afterStateUpdated(function (Get $get, Set $set) {
+                                    self::recalculatePackageTotals($set, $get);
+                                })
+                                ->columnSpanFull(),
                         ]),
 
                     // ─── Discount ───────────────────────────────────────────
@@ -158,8 +221,9 @@ class UserPackageForm
                                     ->default(PackageDiscountType::Flat->value)
                                     ->native(false)
                                     ->live()
-                                    ->afterStateUpdated(fn (Get $get, Set $set) =>
-                                        self::recalculate($set, $get('price_per_unit'), $get('quantity'), $get('discount_type'), $get('discount_value'))
+                                    ->afterStateUpdated(
+                                        fn(Get $get, Set $set) =>
+                                        self::recalculatePackageTotals($set, $get)
                                     ),
 
                                 TextInput::make('discount_value')
@@ -169,10 +233,11 @@ class UserPackageForm
                                     ->minValue(0)
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Get $get, Set $set) =>
-                                        self::recalculate($set, $get('price_per_unit'), $get('quantity'), $get('discount_type'), $get('discount_value'))
+                                    ->afterStateUpdated(
+                                        fn(Get $get, Set $set) =>
+                                        self::recalculatePackageTotals($set, $get)
                                     )
-                                    ->suffix(fn (Get $get) => ($get('discount_type') instanceof PackageDiscountType ? $get('discount_type')->value : $get('discount_type')) === 'percentage' ? '%' : '₹'),
+                                    ->suffix(fn(Get $get) => ($get('discount_type') instanceof PackageDiscountType ? $get('discount_type')->value : $get('discount_type')) === 'percentage' ? '%' : '₹'),
 
                                 TextInput::make('discount_amount')
                                     ->label('Discount Amount')
@@ -197,11 +262,27 @@ class UserPackageForm
             // ─── Summary sidebar ────────────────────────────────────────────
             Group::make()
                 ->schema([
-                    Section::make('Summary')
+                    Section::make('Package Summary')
                         ->icon('heroicon-o-calculator')
                         ->schema([
-                            TextInput::make('total_amount')
-                                ->label('Total (Before Discount)')
+                            Placeholder::make('services_count_display')
+                                ->label('Total Services')
+                                ->content(function (Get $get) {
+                                    $items = $get('items') ?? [];
+                                    $count = count(array_filter($items, fn($i) => !empty($i['service_id'])));
+                                    return new HtmlString('<span class="text-lg font-bold text-primary-600">' . $count . ' service(s)</span>');
+                                }),
+
+                            Placeholder::make('total_sessions_display')
+                                ->label('Total Sessions')
+                                ->content(function (Get $get) {
+                                    $items = $get('items') ?? [];
+                                    $total = collect($items)->sum(fn($i) => (int) ($i['quantity'] ?? 0));
+                                    return new HtmlString('<span class="text-lg font-bold text-info-600">' . $total . ' sessions</span>');
+                                }),
+
+                            TextInput::make('subtotal')
+                                ->label('Subtotal')
                                 ->prefix('₹')
                                 ->disabled()
                                 ->dehydrated()
@@ -220,54 +301,117 @@ class UserPackageForm
                                 ->inline(false),
                         ]),
 
-                    Section::make('Usage Status')
+                    Section::make('Usage Overview')
                         ->icon('heroicon-o-chart-bar')
-                        ->visible(fn ($record) => $record !== null)
+                        ->visible(fn($record) => $record !== null)
                         ->schema([
-                            TextInput::make('used_sessions')
-                                ->label('Sessions Used')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->numeric(),
+                            Placeholder::make('usage_stats')
+                                ->label('')
+                                ->content(function ($record) {
+                                    if (!$record) {
+                                        return 'No usage data yet.';
+                                    }
 
-                            TextInput::make('quantity')
-                                ->label('Total Sessions')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->numeric(),
+                                    $record->load('items.service');
+                                    $rows = $record->items->map(function ($item) {
+                                        $serviceName = $item->service?->name ?? ($item->service_snapshot['name'] ?? 'Unknown');
+                                        $remaining = $item->getRemainingSessions();
+                                        $color = $remaining > 0 ? 'text-success-600' : 'text-danger-600';
+                                        return "<div class='flex justify-between py-1 border-b border-gray-200 dark:border-gray-700'>
+                                            <span class='text-sm font-medium'>{$serviceName}</span>
+                                            <span class='text-sm'>
+                                                <span class='text-warning-600'>{$item->used_sessions}</span>
+                                                / {$item->quantity}
+                                                (<span class='{$color}'>{$remaining} left</span>)
+                                            </span>
+                                        </div>";
+                                    })->join('');
+
+                                    return new HtmlString("<div class='space-y-1'>{$rows}</div>");
+                                }),
                         ]),
                 ])
                 ->columnSpan(['lg' => 1]),
         ])
-        ->columns(3);
+            ->columns(3);
     }
 
     /**
-     * Re-calculate derived fields: total_amount, discount_amount, final_amount.
+     * Recalculate a single item's total (price × quantity).
      */
-    public static function recalculate(Set $set, $pricePerUnit, $quantity, $discountType, $discountValue): void
+    public static function recalculateItemTotal(Set $set, Get $get): void
     {
-        $price    = (float) ($pricePerUnit ?? 0);
-        $qty      = (int)   ($quantity     ?? 1);
-        $dValue   = (float) ($discountValue ?? 0);
-        $dType    = $discountType ?? 'flat';
+        $price = (float) ($get('price_per_unit') ?? 0);
+        $qty = (int) ($get('quantity') ?? 1);
+        $total = $price * $qty;
 
-        $totalBeforeDiscount = $price * $qty;
+        $set('total_amount', number_format($total, 2, '.', ''));
+    }
 
-        $discountAmount = 0;
-        $type = $dType instanceof PackageDiscountType ? $dType->value : $dType;
+    /**
+     * Called from INSIDE a repeater item field.
+     * Recalculates both the current item total AND the package-level totals.
+     * Uses relative paths: ../../ = all items, ../../../ = form root.
+     */
+    public static function recalculateAllFromItem(Set $set, Get $get): void
+    {
+        // 1. Recalculate current item total
+        $price = (float) ($get('price_per_unit') ?? 0);
+        $qty = (int) ($get('quantity') ?? 1);
+        $currentItemTotal = $price * $qty;
+        $set('total_amount', number_format($currentItemTotal, 2, '.', ''));
 
-        if ($type === 'percentage') {
-            $discountAmount = $totalBeforeDiscount * ($dValue / 100);
-        } else {
-            $discountAmount = $dValue;
-        }
-        $discountAmount = min($discountAmount, $totalBeforeDiscount);
+        // 2. Recalculate package subtotal from ALL items
+        //    ../../ navigates from field → item → repeater (array of all items)
+        $allItems = $get('../../') ?? [];
+        $subtotal = collect($allItems)->sum(function ($item) {
+            return (float) ($item['price_per_unit'] ?? 0) * (int) ($item['quantity'] ?? 1);
+        });
 
-        $finalAmount = max(0, $totalBeforeDiscount - $discountAmount);
+        // 3. Apply package-level discount
+        //    ../../../ navigates from field → item → repeater → form root
+        $discountType = $get('../../../discount_type') ?? 'flat';
+        $discountValue = (float) ($get('../../../discount_value') ?? 0);
 
-        $set('total_amount',    number_format($totalBeforeDiscount, 2, '.', ''));
-        $set('discount_amount', number_format($discountAmount,       2, '.', ''));
-        $set('final_amount',    number_format($finalAmount,          2, '.', ''));
+        $type = $discountType instanceof PackageDiscountType ? $discountType->value : $discountType;
+
+        $discountAmount = $type === 'percentage'
+            ? $subtotal * ($discountValue / 100)
+            : $discountValue;
+
+        $discountAmount = min($discountAmount, $subtotal);
+        $finalAmount = max(0, $subtotal - $discountAmount);
+
+        $set('../../../subtotal', number_format($subtotal, 2, '.', ''));
+        $set('../../../discount_amount', number_format($discountAmount, 2, '.', ''));
+        $set('../../../final_amount', number_format($finalAmount, 2, '.', ''));
+    }
+
+    /**
+     * Called from form-root-level fields (discount type/value, repeater add/remove).
+     * Recalculates package-level totals: subtotal, discount_amount, final_amount.
+     */
+    public static function recalculatePackageTotals(Set $set, Get $get): void
+    {
+        $items = $get('items') ?? [];
+        $subtotal = collect($items)->sum(function ($item) {
+            return (float) ($item['price_per_unit'] ?? 0) * (int) ($item['quantity'] ?? 1);
+        });
+
+        $discountType = $get('discount_type') ?? 'flat';
+        $discountValue = (float) ($get('discount_value') ?? 0);
+
+        $type = $discountType instanceof PackageDiscountType ? $discountType->value : $discountType;
+
+        $discountAmount = $type === 'percentage'
+            ? $subtotal * ($discountValue / 100)
+            : $discountValue;
+
+        $discountAmount = min($discountAmount, $subtotal);
+        $finalAmount = max(0, $subtotal - $discountAmount);
+
+        $set('subtotal', number_format($subtotal, 2, '.', ''));
+        $set('discount_amount', number_format($discountAmount, 2, '.', ''));
+        $set('final_amount', number_format($finalAmount, 2, '.', ''));
     }
 }

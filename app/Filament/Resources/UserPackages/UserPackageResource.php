@@ -7,18 +7,19 @@ use App\Filament\Resources\UserPackages\Pages\EditUserPackage;
 use App\Filament\Resources\UserPackages\Pages\ListUserPackages;
 use App\Filament\Resources\UserPackages\Pages\ViewUserPackage;
 use App\Filament\Resources\UserPackages\Pages\ManageInvoices;
+use App\Filament\Resources\UserPackages\Pages\ManageUsageLogs;
 use App\Filament\Resources\UserPackages\Schemas\UserPackageForm;
 use App\Filament\Resources\UserPackages\Schemas\UserPackageInfolist;
 use App\Filament\Resources\UserPackages\Tables\UserPackagesTable;
-// use App\Filament\Resources\UserPackages\RelationManagers\InvoiceRelationManager;
-use Filament\Pages\Enums\SubNavigationPosition;
 use App\Models\UserPackage;
-use BackedEnum;
-use UnitEnum;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use BackedEnum;
+use UnitEnum;
 
 
 class UserPackageResource extends Resource
@@ -46,9 +47,9 @@ class UserPackageResource extends Resource
         return auth()->user()->hasRole(['super_admin', 'clinic_manager', 'receptionist', 'doctor', 'therapist']);
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with(['items.service', 'user', 'clinic']);
 
         if (!auth()->user()->hasRole('super_admin')) {
             $query->where('clinic_id', auth()->user()->clinic_id);
@@ -72,6 +73,7 @@ class UserPackageResource extends Resource
         return $page->generateNavigationItems([
             ViewUserPackage::class,
             EditUserPackage::class,
+            ManageUsageLogs::class,
             ManageInvoices::class,
         ]);
     }
@@ -83,9 +85,7 @@ class UserPackageResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            // InvoiceRelationManager::class,
-        ];
+        return [];
     }
 
     public static function getPages(): array
@@ -95,6 +95,7 @@ class UserPackageResource extends Resource
             'create' => CreateUserPackage::route('/create'),
             'view' => ViewUserPackage::route('/{record}'),
             'edit' => EditUserPackage::route('/{record}/edit'),
+            'usage-logs' => ManageUsageLogs::route('/{record}/usage-logs'),
             'invoice' => ManageInvoices::route('/{record}/invoice'),
         ];
     }

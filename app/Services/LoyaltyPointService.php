@@ -51,18 +51,18 @@ class LoyaltyPointService
 
             // Create ledger entry
             $transaction = LoyaltyPointTransaction::create([
-                'user_id'            => $lockedClient->id,
+                'user_id' => $lockedClient->id,
                 'invoice_payment_id' => $payment->id,
-                'type'               => 'earn',
-                'points'             => $pointsEarned,
-                'balance_after'      => $newBalance,
-                'description'        => "Earned {$pointsEarned} points on payment #{$payment->transaction_id}",
-                'metadata'           => [
+                'type' => 'earn',
+                'points' => $pointsEarned,
+                'balance_after' => $newBalance,
+                'description' => "Earned {$pointsEarned} points on payment #{$payment->transaction_id}",
+                'metadata' => [
                     'payment_amount' => $payment->amount,
-                    'rate_percent'   => Setting::getLoyaltyRate(),
-                    'invoice_id'     => $payment->invoice_id,
+                    'rate_percent' => Setting::getLoyaltyRate(),
+                    'invoice_id' => $payment->invoice_id,
                 ],
-                'created_by'         => $payment->created_by,
+                'created_by' => $payment->created_by,
             ]);
 
             // Update user's cached balance
@@ -111,35 +111,35 @@ class LoyaltyPointService
 
             // Create the invoice payment record (1 point = ₹1)
             $payment = InvoicePayment::create([
-                'invoice_id'     => $invoiceId,
-                'payment_date'   => now()->toDateString(),
-                'amount'         => $pointsToRedeem, // 1 point = ₹1
+                'invoice_id' => $invoiceId,
+                'payment_date' => now()->toDateString(),
+                'amount' => $pointsToRedeem, // 1 point = ₹1
                 'payment_method' => 'loyalty_points',
                 'reference_number' => null,
-                'notes'          => "Redeemed {$pointsToRedeem} loyalty points",
-                'created_by'     => $createdBy,
+                'notes' => "Redeemed {$pointsToRedeem} loyalty points",
+                'created_by' => $createdBy,
             ]);
 
             // Create ledger entry (negative points for redemption)
             $transaction = LoyaltyPointTransaction::create([
-                'user_id'            => $lockedClient->id,
+                'user_id' => $lockedClient->id,
                 'invoice_payment_id' => $payment->id,
-                'type'               => 'redeem',
-                'points'             => -$pointsToRedeem,
-                'balance_after'      => $newBalance,
-                'description'        => "Redeemed {$pointsToRedeem} points for payment #{$payment->transaction_id}",
-                'metadata'           => [
-                    'invoice_id'      => $invoiceId,
+                'type' => 'redeem',
+                'points' => -$pointsToRedeem,
+                'balance_after' => $newBalance,
+                'description' => "Redeemed {$pointsToRedeem} points for payment #{$payment->transaction_id}",
+                'metadata' => [
+                    'invoice_id' => $invoiceId,
                     'amount_redeemed' => $pointsToRedeem,
                 ],
-                'created_by'         => $createdBy,
+                'created_by' => $createdBy,
             ]);
 
             // Update user's cached balance
             $lockedClient->update(['loyalty_points' => $newBalance]);
 
             return [
-                'payment'     => $payment,
+                'payment' => $payment,
                 'transaction' => $transaction,
             ];
         });
@@ -161,7 +161,9 @@ class LoyaltyPointService
         }
 
         // Find the original earn/redeem transaction for this payment
-        $originalTransaction = LoyaltyPointTransaction::where('invoice_payment_id', $payment->id)->first();
+        $originalTransaction = LoyaltyPointTransaction::where('invoice_payment_id', $payment->id)
+            ->whereIn('type', ['earn', 'redeem'])
+            ->first();
 
         if (!$originalTransaction) {
             return null;
@@ -176,17 +178,17 @@ class LoyaltyPointService
             $newBalance = $currentBalance + $reversePoints;
 
             $transaction = LoyaltyPointTransaction::create([
-                'user_id'            => $lockedClient->id,
+                'user_id' => $lockedClient->id,
                 'invoice_payment_id' => $payment->id,
-                'type'               => 'reverse',
-                'points'             => $reversePoints,
-                'balance_after'      => $newBalance,
-                'description'        => "Reversed {$originalTransaction->points} points from payment #{$payment->transaction_id}",
-                'metadata'           => [
+                'type' => 'reverse',
+                'points' => $reversePoints,
+                'balance_after' => $newBalance,
+                'description' => "Reversed {$originalTransaction->points} points from delete payment #{$payment->transaction_id}",
+                'metadata' => [
                     'original_transaction_id' => $originalTransaction->id,
-                    'original_type'           => $originalTransaction->type,
+                    'original_type' => $originalTransaction->type,
                 ],
-                'created_by'         => auth()->id(),
+                'created_by' => auth()->id(),
             ]);
 
             $lockedClient->update(['loyalty_points' => $newBalance]);

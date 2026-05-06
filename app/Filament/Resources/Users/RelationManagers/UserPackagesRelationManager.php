@@ -11,7 +11,6 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-// use Filament\Tables\Actions\CreateAction;
 use Filament\Actions\CreateAction;
 
 class UserPackagesRelationManager extends RelationManager
@@ -49,14 +48,21 @@ class UserPackagesRelationManager extends RelationManager
                         $data['clinic_id'] = $this->getOwnerRecord()->clinic_id;
                         $data['created_by'] = auth()->id();
 
-                        // Decode snapshot string to array if needed
-                        if (isset($data['service_snapshot']) && is_string($data['service_snapshot'])) {
-                            $data['service_snapshot'] = json_decode($data['service_snapshot'], true);
-                        }
-
                         return $data;
+                    })
+                    ->after(function ($record) {
+                        // Decode any JSON-encoded snapshots in items
+                        foreach ($record->items as $item) {
+                            if (is_string($item->service_snapshot)) {
+                                $item->update([
+                                    'service_snapshot' => json_decode($item->service_snapshot, true),
+                                ]);
+                            }
+                        }
+                        // Recalculate package totals from items
+                        $record->recalculateFromItems();
                     }),
             ])
-            ->modifyQueryUsing(fn (Builder $query) => $query->latest());
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('items.service')->latest());
     }
 }

@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\UserPackages\Schemas;
 
 use App\Enums\PackageDiscountType;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class UserPackageInfolist
 {
@@ -39,37 +41,6 @@ class UserPackageInfolist
                                     ->badge()
                                     ->color('info'),
 
-                                TextEntry::make('service.name')
-                                    ->label('Service')
-                                    ->icon('heroicon-o-sparkles')
-                                    ->badge()
-                                    ->color('primary'),
-                            ]),
-                        ]),
-
-                    Section::make('Session Usage')
-                        ->icon('heroicon-o-calendar-days')
-                        ->schema([
-                            Grid::make(4)->schema([
-                                TextEntry::make('quantity')
-                                    ->label('Total Sessions')
-                                    ->suffix(' sessions')
-                                    ->badge()
-                                    ->color('gray'),
-
-                                TextEntry::make('used_sessions')
-                                    ->label('Used Sessions')
-                                    ->suffix(' sessions')
-                                    ->badge()
-                                    ->color('warning'),
-
-                                TextEntry::make('remaining_sessions')
-                                    ->label('Remaining Sessions')
-                                    ->getStateUsing(fn ($record) => $record->getRemainingSessions())
-                                    ->suffix(' sessions')
-                                    ->badge()
-                                    ->color(fn ($record) => $record->getRemainingSessions() > 0 ? 'success' : 'danger'),
-
                                 TextEntry::make('expired_at')
                                     ->label('Expires On')
                                     ->date()
@@ -78,24 +49,108 @@ class UserPackageInfolist
                             ]),
                         ]),
 
-                    Section::make('Service Snapshot (at Purchase)')
+                    // ─── Package Services ─────────────────────────────────
+                    Section::make('Package Services')
+                        ->icon('heroicon-o-sparkles')
+                        ->schema([
+                            RepeatableEntry::make('items')
+                                ->label('')
+                                ->schema([
+                                    Grid::make(6)->schema([
+                                        TextEntry::make('service.name')
+                                            ->label('Service')
+                                            ->weight('bold')
+                                            ->icon('heroicon-o-sparkles'),
+
+                                        TextEntry::make('quantity')
+                                            ->label('Purchased')
+                                            ->suffix(' sessions')
+                                            ->badge()
+                                            ->color('gray'),
+
+                                        TextEntry::make('used_sessions')
+                                            ->label('Used')
+                                            ->suffix(' sessions')
+                                            ->badge()
+                                            ->color('warning'),
+
+                                        TextEntry::make('remaining')
+                                            ->label('Remaining')
+                                            ->getStateUsing(fn ($record) => $record->getRemainingSessions())
+                                            ->suffix(' sessions')
+                                            ->badge()
+                                            ->color(fn ($record) => $record->getRemainingSessions() > 0 ? 'success' : 'danger'),
+
+                                        TextEntry::make('price_per_unit')
+                                            ->label('Price / Session')
+                                            ->money('INR'),
+
+                                        TextEntry::make('total_amount')
+                                            ->label('Item Total')
+                                            ->money('INR')
+                                            ->weight('bold'),
+                                    ]),
+                                ]),
+                        ]),
+
+                    // ─── Session Usage Summary ────────────────────────────
+                    Section::make('Session Usage Summary')
+                        ->icon('heroicon-o-calendar-days')
+                        ->schema([
+                            Grid::make(4)->schema([
+                                TextEntry::make('total_services')
+                                    ->label('Total Services')
+                                    ->getStateUsing(fn ($record) => $record->items->count())
+                                    ->suffix(' services')
+                                    ->badge()
+                                    ->color('primary'),
+
+                                TextEntry::make('total_sessions')
+                                    ->label('Total Sessions')
+                                    ->getStateUsing(fn ($record) => $record->getTotalSessions())
+                                    ->suffix(' sessions')
+                                    ->badge()
+                                    ->color('gray'),
+
+                                TextEntry::make('used_sessions')
+                                    ->label('Used Sessions')
+                                    ->getStateUsing(fn ($record) => $record->getTotalUsedSessions())
+                                    ->suffix(' sessions')
+                                    ->badge()
+                                    ->color('warning'),
+
+                                TextEntry::make('remaining_sessions')
+                                    ->label('Remaining Sessions')
+                                    ->getStateUsing(fn ($record) => $record->getTotalRemainingSessions())
+                                    ->suffix(' sessions')
+                                    ->badge()
+                                    ->color(fn ($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger'),
+                            ]),
+                        ]),
+
+                    // ─── Service Snapshots ────────────────────────────────
+                    Section::make('Service Snapshots (at Purchase)')
                         ->icon('heroicon-o-camera')
                         ->collapsible()
                         ->collapsed()
                         ->schema([
-                            Grid::make(2)->schema([
-                                TextEntry::make('service_snapshot.name')
-                                    ->label('Service Name'),
-                                TextEntry::make('service_snapshot.sku')
-                                    ->label('SKU')
-                                    ->placeholder('N/A'),
-                                TextEntry::make('service_snapshot.sell_price')
-                                    ->label('Price at Purchase')
-                                    ->money('INR'),
-                                TextEntry::make('service_snapshot.captured_at')
-                                    ->label('Captured At')
-                                    ->dateTime(),
-                            ]),
+                            RepeatableEntry::make('items')
+                                ->label('')
+                                ->schema([
+                                    Grid::make(4)->schema([
+                                        TextEntry::make('service_snapshot.name')
+                                            ->label('Service Name'),
+                                        TextEntry::make('service_snapshot.sku')
+                                            ->label('SKU')
+                                            ->placeholder('N/A'),
+                                        TextEntry::make('service_snapshot.sell_price')
+                                            ->label('Price at Purchase')
+                                            ->money('INR'),
+                                        TextEntry::make('service_snapshot.captured_at')
+                                            ->label('Captured At')
+                                            ->dateTime(),
+                                    ]),
+                                ]),
                         ]),
 
                     Section::make('Notes')
@@ -115,12 +170,8 @@ class UserPackageInfolist
                     Section::make('Pricing')
                         ->icon('heroicon-o-currency-rupee')
                         ->schema([
-                            TextEntry::make('price_per_unit')
-                                ->label('Price / Session')
-                                ->money('INR'),
-
-                            TextEntry::make('total_amount')
-                                ->label('Total (Before Discount)')
+                            TextEntry::make('subtotal')
+                                ->label('Subtotal (All Services)')
                                 ->money('INR'),
 
                             TextEntry::make('discount_type')

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class UserPackage extends Model
@@ -22,26 +23,28 @@ class UserPackage extends Model
                 
                 // Update the invoice financials
                 $invoice->update([
-                    'subtotal' => $package->total_amount,
+                    'subtotal' => $package->subtotal,
                     'discount_total' => $package->discount_amount,
                     'taxable_value' => $package->final_amount,
                     'grand_total' => $package->final_amount,
                     'amount_due' => max(0, $package->final_amount - $invoice->amount_paid),
                 ]);
 
-                // Update the associated invoice item
-                $invoiceItem = $invoice->items()->first();
-                if ($invoiceItem) {
-                    $invoiceItem->update([
-                        'unit_price' => $package->total_amount,
-                        'discount_type' => $package->discount_type,
-                        'discount_value' => $package->discount_value,
-                        'valid_discount_amount' => $package->discount_amount,
-                        'line_total' => $package->final_amount,
+                // Sync invoice items with package items
+                $invoice->items()->delete();
+                foreach ($package->items as $item) {
+                    $invoice->items()->create([
+                        'product_id' => $item->service_id,
+                        'quantity' => $item->quantity,
+                        'unit_price' => $item->price_per_unit,
+                        'discount_type' => null,
+                        'discount_value' => 0,
+                        'valid_discount_amount' => 0,
+                        'line_total' => $item->total_amount,
                     ]);
                 }
                 
-                // Recalculate invoice status (e.g., if price drops to match amount paid, it becomes 'paid')
+                // Recalculate invoice status
                 $invoice->recalculatePaymentStatus();
             }
         });
@@ -51,13 +54,8 @@ class UserPackage extends Model
         'clinic_id',
         'package_name',
         'user_id',
-        'service_id',
-        'service_snapshot',
         'notes',
-        'quantity',
-        'used_sessions',
-        'price_per_unit',
-        'total_amount',
+        'subtotal',
         'discount_type',
         'discount_value',
         'discount_amount',
@@ -68,40 +66,87 @@ class UserPackage extends Model
     ];
 
     protected $casts = [
-        'service_snapshot'  => 'array',
-        'quantity'          => 'integer',
-        'used_sessions'     => 'integer',
-        'price_per_unit'    => 'decimal:2',
-        'total_amount'      => 'decimal:2',
-        'discount_value'    => 'decimal:2',
-        'discount_amount'   => 'decimal:2',
-        'final_amount'      => 'decimal:2',
-        'discount_type'     => PackageDiscountType::class,
-        'is_active'         => 'boolean',
-        'expired_at'        => 'date',
+        'subtotal'        => 'decimal:2',
+        'discount_value'  => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'final_amount'    => 'decimal:2',
+        'discount_type'   => PackageDiscountType::class,
+        'is_active'       => 'boolean',
+        'expired_at'      => 'date',
     ];
 
     // ----------- Computed Accessors -------------------------
 
     /**
-     * Remaining sessions that can still be consumed.
+     * Total sessions across all items.
      */
-    public function getRemainingSessions(): int
+    public function getTotalSessions(): int
     {
-        return max(0, $this->quantity - $this->used_sessions);
+        return $this->items->sum('quantity');
     }
 
     /**
-     * Derive whether the package is effectively exhausted or expired.
+     * Total used sessions across all items.
+     */
+    public function getTotalUsedSessions(): int
+    {
+        return $this->items->sum('used_sessions');
+    }
+
+    /**
+     * Total remaining sessions across all items.
+     */
+    public function getTotalRemainingSessions(): int
+    {
+        return max(0, $this->getTotalSessions() - $this->getTotalUsedSessions());
+    }
+
+    /**
+     * Whether all sessions across all items are exhausted.
      */
     public function isExhausted(): bool
     {
-        return $this->used_sessions >= $this->quantity;
+        return $this->items->every(fn ($item) => $item->isExhausted());
     }
 
     public function isExpired(): bool
     {
         return $this->expired_at && $this->expired_at->isPast();
+    }
+
+    /**
+     * Check if all services are exhausted and auto-deactivate.
+     */
+    public function checkAndUpdateStatus(): void
+    {
+        if ($this->isExhausted()) {
+            $this->update(['is_active' => false]);
+        }
+    }
+
+    /**
+     * Recalculate subtotal from items and apply discount.
+     */
+    public function recalculateFromItems(): void
+    {
+        $subtotal = $this->items()->sum('total_amount');
+        $discountType = $this->discount_type instanceof PackageDiscountType
+            ? $this->discount_type->value
+            : ($this->discount_type ?? 'flat');
+        $discountValue = (float) ($this->discount_value ?? 0);
+
+        $discountAmount = $discountType === 'percentage'
+            ? $subtotal * ($discountValue / 100)
+            : $discountValue;
+
+        $discountAmount = min($discountAmount, $subtotal);
+        $finalAmount = max(0, $subtotal - $discountAmount);
+
+        $this->update([
+            'subtotal'        => $subtotal,
+            'discount_amount' => $discountAmount,
+            'final_amount'    => $finalAmount,
+        ]);
     }
 
     // ----------- Scopes -------------------------
@@ -128,49 +173,26 @@ class UserPackage extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function service(): BelongsTo
-    {
-        return $this->belongsTo(Product::class, 'service_id');
-    }
-
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function usages(): HasMany
+    public function items(): HasMany
     {
-        return $this->hasMany(UserPackageUsage::class);
+        return $this->hasMany(UserPackageItem::class);
+    }
+
+    public function usages(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            UserPackageUsage::class,
+            UserPackageItem::class,
+        );
     }
 
     public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class, 'package_id');
-    }
-
-    // ----------- Business Logic -------------------------
-
-    /**
-     * Record a session consumption. Returns false if over-usage would occur.
-     */
-    public function consumeSessions(int $sessions = 1, array $extraData = []): bool
-    {
-        if ($this->used_sessions + $sessions > $this->quantity) {
-            return false;
-        }
-
-        $this->usages()->create(array_merge([
-            'sessions_used' => $sessions,
-            'recorded_by'   => auth()->id(),
-        ], $extraData));
-
-        $this->increment('used_sessions', $sessions);
-
-        // Auto-deactivate when fully consumed
-        if ($this->used_sessions >= $this->quantity) {
-            $this->update(['is_active' => false]);
-        }
-
-        return true;
     }
 }

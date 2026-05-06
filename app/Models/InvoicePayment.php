@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Services\LoyaltyPointService;
+use Illuminate\Support\Facades\Log;
+use App\Models\LoyaltyPointTransaction;
 
 class InvoicePayment extends Model
 {
@@ -46,7 +48,7 @@ class InvoicePayment extends Model
             if (empty($payment->transaction_id)) {
                 $date = now()->format('Ymd');
                 $latest = static::whereDate('created_at', now())->latest('id')->first();
-                
+
                 if ($latest && preg_match('/PAY-' . $date . '-(\d+)$/', $latest->transaction_id, $matches)) {
                     $number = intval($matches[1]) + 1;
                 } else {
@@ -64,7 +66,7 @@ class InvoicePayment extends Model
             try {
                 app(LoyaltyPointService::class)->earnPoints($payment);
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Loyalty earn failed: ' . $e->getMessage());
+                Log::error('Loyalty earn failed: ' . $e->getMessage());
             }
         });
 
@@ -72,14 +74,18 @@ class InvoicePayment extends Model
             $payment->invoice->recalculatePaymentStatus();
         });
 
-        static::deleted(function ($payment) {
+        static::deleting(function ($payment) {
             // Reverse any loyalty points earned/redeemed for this payment
+            // We do this in 'deleting' because the database will nullify the 
+            // invoice_payment_id in transactions upon deletion (nullOnDelete).
             try {
                 app(LoyaltyPointService::class)->reversePoints($payment);
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Loyalty reverse failed: ' . $e->getMessage());
+                Log::error('Loyalty reverse failed: ' . $e->getMessage());
             }
+        });
 
+        static::deleted(function ($payment) {
             $payment->invoice->recalculatePaymentStatus();
         });
     }

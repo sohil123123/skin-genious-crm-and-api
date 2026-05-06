@@ -37,13 +37,20 @@ class EditUserPackage extends EditRecord
             ->success();
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function afterSave(): void
     {
-        // Decode snapshot string to array if needed
-        if (isset($data['service_snapshot']) && is_string($data['service_snapshot'])) {
-            $data['service_snapshot'] = json_decode($data['service_snapshot'], true);
+        $record = $this->record;
+
+        // Decode any JSON-encoded snapshots in items
+        foreach ($record->items as $item) {
+            if (is_string($item->service_snapshot)) {
+                $item->update([
+                    'service_snapshot' => json_decode($item->service_snapshot, true),
+                ]);
+            }
         }
 
-        return $data;
+        // Recalculate package totals from items
+        $record->recalculateFromItems();
     }
 }
