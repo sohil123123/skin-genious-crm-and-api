@@ -98,30 +98,73 @@ class AssessmentInfolist
                     ->icon('heroicon-o-user')
                     ->schema(function ($record) {
                         $data = $record->diagnosis ?? [];
+                        $isIv = !in_array($record->assessment_type ?? 'normal', ['normal', 'instant-normal']);
+
+                        if ($isIv) {
+                            $buildIvSchema = function ($arrayData, $prefix = '', $depth = 0) use (&$buildIvSchema) {
+                                $schema = [];
+                                if (!is_array($arrayData)) return $schema;
+
+                                foreach ($arrayData as $key => $value) {
+                                    $name = $prefix . $key;
+                                    $label = ucfirst(str_replace('_', ' ', (string)$key));
+
+                                    if (is_array($value)) {
+                                        if (\Illuminate\Support\Arr::isAssoc($value) || empty($value)) {
+                                            $innerSchema = $buildIvSchema($value, $name . '_', $depth + 1);
+                                            
+                                            $schema[] = Section::make($label)
+                                                ->schema($innerSchema)
+                                                ->columns($depth === 0 ? 1 : 2)
+                                                ->columnSpanFull();
+                                        } else {
+                                            $schema[] = TextEntry::make($name)
+                                                ->label($label)
+                                                ->getStateUsing(fn() => json_encode($value))
+                                                ->columnSpanFull();
+                                        }
+                                    } else {
+                                        $schema[] = TextEntry::make($name)
+                                            ->label($label)
+                                            ->getStateUsing(fn() => is_bool($value) ? ($value ? 'Yes' : 'No') : ((string) $value ?: '-'));
+                                    }
+                                }
+                                return $schema;
+                            };
+
+                            $ivDiagRaw = is_string($record->diagnosis) ? json_decode($record->diagnosis, true) : ($record->diagnosis ?? []);
+                            $ivDiag = is_array($ivDiagRaw) ? $ivDiagRaw : [];
+
+                            return [
+                                \Filament\Schemas\Components\Grid::make(1)
+                                    ->schema($buildIvSchema($ivDiag, 'iv_diag_', 0))
+                            ];
+                        }
 
                         $diagnosisReport = $data['diagnosis_report'] ?? [];
                         $abnormalScores = $data['treatable_concerns_summary']['parameters_with_abnormal_scores'] ?? [];
 
                         $diagnosisSections = collect($diagnosisReport)->map(function ($item, $key) {
-                            return Section::make($item['parameter_name'] ?? ucfirst(str_replace('_', ' ', $key)))
+                            $safeKey = is_string($key) ? $key : 'item_' . $key;
+                            return Section::make($item['parameter_name'] ?? ucfirst(str_replace('_', ' ', $safeKey)))
                                 ->schema([
-                                    TextEntry::make('score')
+                                    TextEntry::make('score_' . $safeKey)
                                         ->label('Score / Label')
                                         ->getStateUsing(fn () => $item['score_or_label'] ?? '-'),
 
-                                    TextEntry::make('description')
+                                    TextEntry::make('description_' . $safeKey)
                                         ->label('Description')
                                         ->getStateUsing(fn () => $item['description'] ?? '-'),
 
-                                    TextEntry::make('possible_causes')
+                                    TextEntry::make('possible_causes_' . $safeKey)
                                         ->label('Possible Causes')
                                         ->getStateUsing(fn () => implode(', ', $item['possible_causes'] ?? [])),
 
-                                    TextEntry::make('score_explanation')
+                                    TextEntry::make('score_explanation_' . $safeKey)
                                         ->label('Score Explanation')
                                         ->getStateUsing(fn () => $item['score_explanation'] ?? '-'),
 
-                                    TextEntry::make('affected_area_image')
+                                    TextEntry::make('affected_area_image_' . $safeKey)
                                         ->label('Image Area ID')
                                         ->getStateUsing(fn () => $item['affected_area_image'] ?? '-'),
                                 ])
@@ -132,19 +175,16 @@ class AssessmentInfolist
 
                         $abnormalSection = Section::make('Treatable Concerns (Abnormal Scores)')
                             ->schema(
-                                collect($abnormalScores)->map(function ($item) {
+                                collect($abnormalScores)->map(function ($item, $key) {
+                                    $safeKey = is_string($key) ? $key : 'abnormal_' . $key;
                                     return Group::make([
-                                        TextEntry::make('parameter')
+                                        TextEntry::make('parameter_' . $safeKey)
                                             ->label('Parameter')
-                                            ->getStateUsing(fn () => $item['parameter']),
+                                            ->getStateUsing(fn () => $item['parameter'] ?? '-'),
 
-                                        TextEntry::make('current_score')
+                                        TextEntry::make('current_score_' . $safeKey)
                                             ->label('Current Score')
-                                            ->getStateUsing(fn () => $item['current_score']),
-
-                                        // TextEntry::make('target_score')
-                                        //     ->label('Target Score')
-                                        //     ->getStateUsing(fn () => $item['target_score']),
+                                            ->getStateUsing(fn () => $item['current_score'] ?? '-'),
                                     ])->columns(3);
                                 })->toArray()
                             )
@@ -416,32 +456,65 @@ class AssessmentInfolist
                 //     ->collapsible(),
 
                 // 📈 Parameters / Scores
-                Section::make('Parameters With Abnormal Scores')
+                Section::make(fn ($record) => !in_array($record?->assessment_type ?? 'normal', ['normal', 'instant-normal']) ? 'Dermatological AI Inputs' : 'Parameters With Abnormal Scores')
                     ->icon('heroicon-o-presentation-chart-line')
                     ->schema(function ($record) {
+                        $isIv = !in_array($record->assessment_type ?? 'normal', ['normal', 'instant-normal']);
+
+                        if ($isIv) {
+                            $ivDataRaw = is_string($record->parameters_with_abnormal_scores) ? json_decode($record->parameters_with_abnormal_scores, true) : ($record->parameters_with_abnormal_scores ?? []);
+                            $ivData = is_array($ivDataRaw) ? $ivDataRaw : [];
+                            
+                            $flattenData = function ($array, $prefix = '') use (&$flattenData) {
+                                $result = [];
+                                foreach ($array as $key => $value) {
+                                    $label = ucfirst(str_replace('_', ' ', (string)$key));
+                                    $newPrefix = $prefix ? $prefix . ' > ' . $label : $label;
+                                    
+                                    if (is_array($value)) {
+                                        if (empty($value)) {
+                                            $result[$newPrefix] = 'None';
+                                        } else {
+                                            $result = array_merge($result, $flattenData($value, $newPrefix));
+                                        }
+                                    } else {
+                                        $result[$newPrefix] = is_bool($value) ? ($value ? 'Yes' : 'No') : ((string) $value ?: '-');
+                                    }
+                                }
+                                return $result;
+                            };
+
+                            return [
+                                \Filament\Infolists\Components\KeyValueEntry::make('iv_dermatological_data')
+                                    ->label('')
+                                    ->getStateUsing(fn() => $flattenData($ivData))
+                                    ->keyLabel('Parameter')
+                                    ->valueLabel('Value')
+                                    ->columnSpanFull()
+                            ];
+                        }
 
                         // Decode JSON
-                        $data = $record->parameters_with_abnormal_scores ?? [];
+                        $data = is_string($record->parameters_with_abnormal_scores) ? json_decode($record->parameters_with_abnormal_scores, true) : ($record->parameters_with_abnormal_scores ?? []);
                         $abnormal = $data['parameters_with_abnormal_scores'] ?? [];
 
                         // Build UI
-                        return collect($abnormal)->map(function ($item) {
-
+                        return collect($abnormal)->map(function ($item, $key) {
+                            $safeKey = is_string($key) ? $key : 'abnormal_param_' . $key;
                             return Group::make([
-                                TextEntry::make('parameter')
+                                TextEntry::make('parameter_' . $safeKey)
                                     ->label('Parameter')
                                     ->getStateUsing(fn () => $item['parameter'] ?? '-'),
-                                    // ->columnSpanFull(),
 
-                                TextEntry::make('current_score')
+                                TextEntry::make('current_score_' . $safeKey)
                                     ->label('Current Score')
                                     ->getStateUsing(fn () => $item['current_score'] ?? '-'),
 
-                                TextEntry::make('target_score')
+                                TextEntry::make('target_score_' . $safeKey)
                                     ->label('Target Score')
                                     ->getStateUsing(fn () => $item['target_score'] ?? '-'),
 
-                                TextEntry::make('is_primary_concern')
+                                TextEntry::make('is_primary_concern_' . $safeKey)
                                     ->label('Primary?')
                                     ->getStateUsing(fn () => ($item['is_primary_concern'] ?? false) ? 'Yes' : 'No'),
                             ])
