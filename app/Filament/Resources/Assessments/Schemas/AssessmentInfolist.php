@@ -101,32 +101,71 @@ class AssessmentInfolist
                         $isIv = !in_array($record->assessment_type ?? 'normal', ['normal', 'instant-normal']);
 
                         if ($isIv) {
-                            $buildIvSchema = function ($arrayData, $prefix = '', $depth = 0) use (&$buildIvSchema) {
+                            $buildIvSchema = function ($arrayData, $prefix = '', $depth = 0, $isScoreSection = false) use (&$buildIvSchema) {
                                 $schema = [];
                                 if (!is_array($arrayData)) return $schema;
 
                                 foreach ($arrayData as $key => $value) {
                                     $name = $prefix . $key;
                                     $label = ucfirst(str_replace('_', ' ', (string)$key));
+                                    $keyLower = strtolower($key);
+                                    $isCurrentScoreContainer = str_contains($keyLower, 'score') || str_contains($keyLower, '0_100');
+                                    $currentlyInScores = $isScoreSection || $isCurrentScoreContainer;
 
                                     if (is_array($value)) {
                                         if (\Illuminate\Support\Arr::isAssoc($value) || empty($value)) {
-                                            $innerSchema = $buildIvSchema($value, $name . '_', $depth + 1);
+                                            $innerSchema = $buildIvSchema($value, $name . '_', $depth + 1, $currentlyInScores);
                                             
-                                            $schema[] = Section::make($label)
+                                            $section = \Filament\Schemas\Components\Section::make($label)
                                                 ->schema($innerSchema)
-                                                ->columns($depth === 0 ? 1 : 2)
-                                                ->columnSpanFull();
+                                                ->columns(3)
+                                                ->compact();
+
+                                            if ($isCurrentScoreContainer) {
+                                                $section->icon('heroicon-o-chart-bar')
+                                                    ->extraAttributes([
+                                                        'class' => 'bg-sky-50/50 dark:bg-sky-900/20 ring-1 ring-sky-500/30 rounded-xl'
+                                                    ]);
+                                                if (str_contains($keyLower, '0_100')) {
+                                                    $section->description('Score analysis and breakdown (0-100 scale)');
+                                                }
+                                            } else {
+                                                $section->extraAttributes([
+                                                    'class' => 'shadow-none ring-1 ring-gray-200 dark:ring-gray-800 bg-transparent'
+                                                ]);
+                                            }
+
+                                            $schema[] = $section->columnSpanFull();
                                         } else {
-                                            $schema[] = TextEntry::make($name)
+                                            $schema[] = \Filament\Infolists\Components\TextEntry::make($name)
                                                 ->label($label)
                                                 ->getStateUsing(fn() => json_encode($value))
                                                 ->columnSpanFull();
                                         }
                                     } else {
-                                        $schema[] = TextEntry::make($name)
-                                            ->label($label)
-                                            ->getStateUsing(fn() => is_bool($value) ? ($value ? 'Yes' : 'No') : ((string) $value ?: '-'));
+                                        if (($currentlyInScores || str_contains($keyLower, 'score')) && is_numeric($value)) {
+                                            $schema[] = \Filament\Infolists\Components\TextEntry::make($name)
+                                                ->label(strtoupper(str_replace('_', ' ', $key)))
+                                                ->html()
+                                                ->getStateUsing(function() use ($value) {
+                                                    $val = max(0, min(100, (float) $value));
+                                                    $colorHex = $val < 40 ? '#ef4444' : ($val < 70 ? '#f59e0b' : '#22c55e');
+                                                    return new \Illuminate\Support\HtmlString("
+                                                        <div class=\"flex flex-col gap-1 w-full max-w-[200px] mt-1\">
+                                                            <div class=\"flex items-center justify-between mb-1\">
+                                                                <span class=\"text-sm font-bold\" style=\"color: {$colorHex}\">" . round($val, 1) . " / 100</span>
+                                                            </div>
+                                                            <div class=\"w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700 overflow-hidden\">
+                                                                <div class=\"h-2 rounded-full\" style=\"width: {$val}%; background-color: {$colorHex}\"></div>
+                                                            </div>
+                                                        </div>
+                                                    ");
+                                                });
+                                        } else {
+                                            $schema[] = \Filament\Infolists\Components\TextEntry::make($name)
+                                                ->label($label)
+                                                ->getStateUsing(fn() => is_bool($value) ? ($value ? 'Yes' : 'No') : ((string) $value ?: '-'));
+                                        }
                                     }
                                 }
                                 return $schema;
@@ -135,9 +174,46 @@ class AssessmentInfolist
                             $ivDiagRaw = is_string($record->diagnosis) ? json_decode($record->diagnosis, true) : ($record->diagnosis ?? []);
                             $ivDiag = is_array($ivDiagRaw) ? $ivDiagRaw : [];
 
+                            $tabs = [];
+                            $generalSchema = [];
+                            
+                            foreach ($ivDiag as $topKey => $topValue) {
+                                $topLabel = ucfirst(str_replace('_', ' ', (string)$topKey));
+                                $topKeyLower = strtolower($topKey);
+                                $isCurrentScoreContainer = str_contains($topKeyLower, 'score') || str_contains($topKeyLower, '0_100');
+                                
+                                if (is_array($topValue)) {
+                                    $tabSchema = $buildIvSchema($topValue, 'iv_diag_' . $topKey . '_', 1, $isCurrentScoreContainer);
+                                    
+                                    $tab = \Filament\Schemas\Components\Tabs\Tab::make($topLabel)
+                                        ->schema([
+                                            \Filament\Schemas\Components\Grid::make(3)->schema($tabSchema)
+                                        ]);
+                                        
+                                    if ($isCurrentScoreContainer) {
+                                        $tab->icon('heroicon-o-chart-bar');
+                                    }
+                                    $tabs[] = $tab;
+                                } else {
+                                    $generalSchema[] = \Filament\Infolists\Components\TextEntry::make('iv_diag_' . $topKey)
+                                        ->label($topLabel)
+                                        ->getStateUsing(fn() => is_bool($topValue) ? ($topValue ? 'Yes' : 'No') : ((string) $topValue ?: '-'));
+                                }
+                            }
+                            
+                            if (!empty($generalSchema)) {
+                                array_unshift($tabs, \Filament\Schemas\Components\Tabs\Tab::make('General')
+                                    ->schema([
+                                        \Filament\Schemas\Components\Grid::make(3)->schema($generalSchema)
+                                    ])
+                                );
+                            }
+
                             return [
-                                \Filament\Schemas\Components\Grid::make(1)
-                                    ->schema($buildIvSchema($ivDiag, 'iv_diag_', 0))
+                                \Filament\Schemas\Components\Tabs::make('IV Diagnosis Tabs')
+                                    ->tabs($tabs)
+                                    ->columnSpanFull()
+                                    ->contained(false)
                             ];
                         }
 
