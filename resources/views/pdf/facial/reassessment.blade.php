@@ -371,6 +371,9 @@
 @php
     // Image order mapping
     $imageOrder = config('project.assessment_image_order');
+    if (isset($assessment->clinic) && $assessment->clinic->face_scan_machine === '5_light_modes') {
+        $imageOrder = config('project.assessment_image_order_5');
+    }
 
     // Create image maps
     $assessmentImageMap = [];

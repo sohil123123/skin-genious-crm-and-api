@@ -33,6 +33,7 @@ class ClinicInfolist
                         //     ->disk('public')
                         //     ->circular()
                         //     ->placeholder('No logo uploaded'),
+                        TextEntry::make('face_scan_machine')->label('Face Scan Machine')->placeholder('Not specified'),
                         IconEntry::make('is_active')->label('Active')->boolean(),
                         TextEntry::make('start_time')->time('h:i A')->placeholder('N/A'),
                         TextEntry::make('end_time')->time('h:i A')->placeholder('N/A'),

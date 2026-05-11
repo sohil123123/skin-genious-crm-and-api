@@ -45,6 +45,9 @@ class UserController extends BaseApiController
         if (!$result)
             return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
 
+        // Include the face_scan_machine from the associated clinic
+        $result->face_scan_machine = $result->clinic?->face_scan_machine;
+
         return $this->success($this->crud_name.' get successfully', $result);
     }
 

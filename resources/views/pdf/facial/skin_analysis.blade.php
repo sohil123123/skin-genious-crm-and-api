@@ -228,6 +228,9 @@
         use Illuminate\Support\Str;
 
         $imageOrder = config('project.assessment_image_order');
+        if (isset($data->clinic) && $data->clinic->face_scan_machine === '5_light_modes') {
+            $imageOrder = config('project.assessment_image_order_5');
+        }
 
         $sortedImages = [];
         if ($data->images && count($data->images)) {

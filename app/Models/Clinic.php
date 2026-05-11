@@ -41,6 +41,7 @@ class Clinic extends Model
         'end_time',
         'number_of_beds',
         'is_active',
+        'face_scan_machine',
     ];
 
     /**

@@ -20,6 +20,7 @@ return [
                             IFNULL(CONCAT(UCASE(LEFT(last_name, 1)), LCASE(SUBSTRING(last_name, 2))), '')
                         )
                     )",
+    'assessment_image_order_5' => ['red', 'subsurface_polarized', 'surface_polarized', 'white', 'woods_uv'],
     'assessment_image_order' => ['white', 'positive', 'negative', 'blue', 'uv', 'woods'],
     'mpdf_config' => [
         'margin_left' => 15,

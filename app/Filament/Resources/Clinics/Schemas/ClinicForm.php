@@ -47,6 +47,12 @@ class ClinicForm
                                 //     // )
                                 Grid::make(1)->schema([
                                     TextInput::make('name')->required()->maxLength(255)->placeholder('Enter clinic name'),
+                                    Select::make('face_scan_machine')
+                                        ->options([
+                                            '6_light_modes' => 'Bitmoji Face Scan Machine (6 light modes)',
+                                            '5_light_modes' => 'New Machine (5 light modes)',
+                                        ])
+                                        ->placeholder('Select face scan machine used in this clinic'),
                                     // Select::make('manager_id')
                                     //     ->relationship('managers', 'first_name')
                                     //     ->searchable()
