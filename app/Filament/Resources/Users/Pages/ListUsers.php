@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 
 // use App\Filament\Resources\Users\Widgets\UserStats;
 use Filament\Schemas\Components\Tabs\Tab;
+use App\Models\Role;
 
 use Filament\Pages\Concerns\ExposesTableToWidgets;
 
@@ -31,38 +32,45 @@ class ListUsers extends ListRecords
 
     public function getTabs(): array
     {
-        return [
-            'all' => Tab::make('All')
-                ->icon('heroicon-o-users')
-                ->badge(UserResource::getEloquentQuery()->count())
-                ->badgeColor('gray'),
+        $roles = Role::all();
+        $tabs = [];
 
-            'client' => Tab::make('Clients')
-                ->icon('heroicon-o-user')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'client')))
-                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'client'))->count())
-                ->badgeColor('gray'),
+        $tabs['all'] = Tab::make('All')
+            ->icon('heroicon-o-users')
+            ->badge(UserResource::getEloquentQuery()->count())
+            ->badgeColor('gray');
 
-            'therapist' => Tab::make('Therapists')
-                ->icon('heroicon-o-hand-raised') // alt: heroicon-o-heart
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'therapist')))
-                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'therapist'))->count())
-                ->badgeColor('success'),
+        foreach ($roles as $role) {
+            $name = $role->name;
+            $label = str($name)->headline()->plural();
 
-            'clinic_manager' => Tab::make('Clinic Managers')
-                ->icon('heroicon-o-building-office')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager')))
-                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))->count())
-                ->badgeColor('info'),
+            $icon = match ($name) {
+                'client' => 'heroicon-o-user',
+                'therapist' => 'heroicon-o-hand-raised',
+                'clinic_manager' => 'heroicon-o-building-office',
+                'super_admin' => 'heroicon-o-shield-check',
+                'clinic_head' => 'heroicon-o-user-circle',
+                default => 'heroicon-o-user',
+            };
 
-            'super_admin' => Tab::make('Super Admins')
-                ->icon('heroicon-o-shield-check')
-                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'super_admin')))
-                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->count())
-                ->badgeColor('danger'),
+            $color = match ($name) {
+                'client' => 'gray',
+                'therapist' => 'success',
+                'clinic_manager' => 'info',
+                'super_admin' => 'danger',
+                'clinic_head' => 'warning',
+                default => 'primary',
+            };
 
+            $tabs[$name] = Tab::make($label)
+                ->icon($icon)
+                ->visible(fn () => $name === config('project.roles.super_admin') || check_role(config('project.roles.super_admin')))
+                ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', $name)))
+                ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', $name))->count())
+                ->badgeColor($color);
+        }
 
-        ];
+        return $tabs;
     }
 
     public function getDefaultActiveTab(): string | int | null

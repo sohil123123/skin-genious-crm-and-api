@@ -50,4 +50,12 @@ return [
         ],
     ],
     'mpdf_font_dir' => '/assets/fonts/Montserrat',
+
+    'roles' => [
+        'super_admin' => 'super_admin',
+        'therapist' => 'therapist',
+        'clinic_manager' => 'clinic_manager',
+        'client' => 'client',
+        'clinic_head' => 'clinic_head',
+    ]
 ];

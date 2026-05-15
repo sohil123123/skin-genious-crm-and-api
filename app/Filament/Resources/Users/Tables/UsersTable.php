@@ -158,6 +158,11 @@ class UsersTable
             ->filters([
                 TrashedFilter::make(),
 
+                SelectFilter::make('clinic')
+                    ->relationship('clinic', 'name')
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('gender')
                     ->options([
                         'male' => 'Male',
@@ -179,7 +184,7 @@ class UsersTable
                 //     ->preload()
                 //     ->searchable(),
             ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(3)
+            ->filtersFormColumns(2)
             // ->filtersFormSchema(fn (array $filters): array => [
             //     Section::make('Visibility')
             //         ->description('These filters affect the visibility of the records in the table.')

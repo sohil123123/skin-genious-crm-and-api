@@ -18,7 +18,7 @@ if (!function_exists('has_clinic_related_role')) {
         else
             $selectedRoleName = null;
 
-        return in_array($selectedRoleName, ['clinic_manager', 'client', 'therapist']);
+        return !in_array($selectedRoleName, [config('project.roles.super_admin')]);
 
     }
 }

@@ -226,7 +226,7 @@ class UserForm
                                         ->afterStateUpdated(function ($set, ?int $state) {
                                             if ($state) {
                                                 $selectedRole = Role::find($state);
-                                                if ($selectedRole?->name === 'super_admin') {
+                                                if ($selectedRole?->name === config('project.roles.super_admin')) {
                                                     $set('clinic_id', null);
                                                 } else {
                                                     $set('clinic_id', auth()->user()->clinic_id);
