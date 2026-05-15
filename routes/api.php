@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TreatmentSessionController;
 use App\Http\Controllers\Api\LoyaltyController;
+use App\Http\Controllers\Api\VisionQuantifierController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -75,6 +76,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
             Route::post('/request-otp', [LoyaltyController::class, 'requestOtp']);
             Route::post('/verify-otp', [LoyaltyController::class, 'verifyOtp']);
         });
+
+        // INFO: Vision Quantifier Route
+        Route::post('/vision/quantify', [VisionQuantifierController::class, 'quantify']);
 
     });
 
