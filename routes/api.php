@@ -28,7 +28,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
 
-        Route::get('device/connect', [AutoCaptureController::class, 'capturePhotos']);
+        Route::get('device/connect/{clinic_id}', [AutoCaptureController::class, 'capturePhotos']);
 
         Route::get('/logout', [AuthController::class, 'logout']);
 

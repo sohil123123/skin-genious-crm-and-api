@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Support\Facades\Http;
 
+use App\Models\Clinic;
+
 class AutoCaptureController extends BaseApiController
 {
     // private $DEVICE = "192.168.31.177:5555";
@@ -52,7 +54,7 @@ class AutoCaptureController extends BaseApiController
     //     return response()->json($data);
     // }
 
-    public function capturePhotos(Request $request)
+    public function capturePhotos(Request $request, $clinic_id)
     {
         // // $url = "http://127.0.0.1:5005/run-local";
         // $url = "https://aiaesthetics-agent.cbphysiotherapy.in/run-local";
@@ -65,11 +67,10 @@ class AutoCaptureController extends BaseApiController
 
         // return $response->json();
 
-        $user = $request->user();
-        $clinic = $user->clinic;
+        $clinic = Clinic::findOrFail($clinic_id);
 
         if (!$clinic) {
-            return $this->error('error.', ['User is not associated with a clinic.'], HTTP_NOT_FOUND);
+            return $this->error('error.', ['Clinic not found.'], HTTP_NOT_FOUND);
         }
 
         if (!$clinic->cloudflare_tunnel_url) {
