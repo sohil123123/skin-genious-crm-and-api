@@ -65,17 +65,32 @@ class AutoCaptureController extends BaseApiController
 
         // return $response->json();
 
-        // Cloudflare Tunnel URL
-        $endpoint = "https://amdermatology-agent.drshehlaendocrinologist.com/auto-capture-process";
+        $user = $request->user();
+        $clinic = $user->clinic;
+
+        if (!$clinic) {
+            return $this->error('error.', ['User is not associated with a clinic.'], HTTP_NOT_FOUND);
+        }
+
+        if (!$clinic->cloudflare_tunnel_url) {
+            return $this->error('error.', ['Cloudflare Tunnel URL is not configured for this clinic.'], HTTP_NOT_FOUND);
+        }
+
+        // Cloudflare Tunnel URL from clinic
+        $endpoint = rtrim($clinic->cloudflare_tunnel_url, '/') . "/auto-capture-process";
+        $deviceIp = $clinic->device_ip;
+        $apiKey = $clinic->agent_api_key ?? '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE';
+
         try {
-            // Send POST request to Python/ADB server
-            // $response = Http::withoutVerifying()->post($endpoint);
+            // Send request to Python/ADB server with dynamic device IP
             $response = Http::withHeaders([
-                'X-API-KEY' => '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE',
+                'X-API-KEY' => $apiKey,
             ])
             ->timeout(120)
             ->withoutVerifying()
-            ->get($endpoint);
+            ->get($endpoint, [
+                'device_ip' => $deviceIp
+            ]);
 
             if ($response->failed()) {
                 return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);

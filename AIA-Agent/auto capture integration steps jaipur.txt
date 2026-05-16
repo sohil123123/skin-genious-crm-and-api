@@ -1,0 +1,242 @@
+-------------------Steps:------------------------
+
+1) Install python (with needed packages)
+    - pip3 install flask
+
+2) Install cloudflared
+    - brew install cloudflared (macOS)
+
+3) Make a cloudflared tunnel
+
+    1) cloudflared tunnel login
+        - It will open a browser → choose your domain (example: cbphysio.in)
+
+    2) cloudflared tunnel create jaipur-aesthetics-agent
+        - Created tunnel jaipur-aesthetics-agent with id 328c4646-0a04-44cd-a915-6a6c1452c865
+
+    3) cloudflared tunnel route dns jaipur-aesthetics-agent jaipur-agent.drshehlaendocrinologist.com
+        - Output:
+            2026-05-16T08:39:34Z INF Added CNAME jaipur-agent.drshehlaendocrinologist.com which will route to this tunnel tunnelID=328c4646-0a04-44cd-a915-6a6c1452c865
+
+    4) Create Tunnel Config File => C:\cloudflared\config.yml (nano ~/.cloudflared/config.yml)
+        - past code here
+
+        tunnel: jaipur-aesthetics-agent
+        credentials-file: /Users/aiaesthetics/.cloudflared/328c4646-0a04-44cd-a915-6a6c1452c865.json
+
+        ingress:
+        - hostname: jaipur-agent.drshehlaendocrinologist.com
+            service: http://127.0.0.1:5000
+
+        - service: http_status:404
+
+4) Run python script
+    - python3 auto_capture_agent.py
+
+5) Run cloudflared tunnel
+    - cloudflared tunnel run jaipur-aesthetics-agent
+
+
+
+
+=-------------------------------------- python file (autu_capture_agent.py) autoload (macOS) ------------------------------------
+
+1) brew --prefix
+
+2) ls /opt/homebrew/bin/python3
+
+3) echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zprofile
+
+4) source ~/.zprofile
+
+5) which python3
+    - Output
+    /opt/homebrew/bin/python3
+
+6) pip3 install flask requests pillow adb-shell --break-system-packages
+
+7) Make dir and permission
+
+    sudo mkdir -p /usr/local/aia
+    sudo cp /Users/aiaesthetics/python_script/auto_capture_agent_jaipur.py /usr/local/aia/
+    sudo chown root:wheel /usr/local/aia/auto_capture_agent_jaipur.py
+    sudo chmod 755 /usr/local/aia/auto_capture_agent_jaipur.py
+    sudo touch /usr/local/aia/auto_capture_agent_jaipur.log
+    sudo chmod 666 /usr/local/aia/*.log
+
+
+8) nano ~/Library/LaunchDaemons/com.aia.agent.plist (if not create file or save then run this command)
+    - command :
+        1. sudo nano ~/python_script/com.aia.agent.plist
+        2. sudo cp /Users/aiaesthetics/python_script/com.aia.agent.plist /Library/LaunchDaemons
+
+    past this code (com.aia.agent.plist)
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.aia.agent</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/opt/homebrew/bin/python3</string>
+            <string>/usr/local/aia/auto_capture_agent_jaipur.py</string>
+        </array>
+
+        <key>EnvironmentVariables</key>
+        <dict>
+            <key>PATH</key>
+            <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        </dict>
+
+        <key>WorkingDirectory</key>
+        <string>/usr/local/aia</string>
+
+        <key>RunAtLoad</key>
+        <true/>
+
+        <key>KeepAlive</key>
+        <true/>
+
+        <key>StandardOutPath</key>
+        <string>/usr/local/aia/auto_capture_agent_jaipur.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/usr/local/aia/auto_capture_agent_jaipur.error.log</string>
+    </dict>
+    </plist>
+
+
+8) start service
+    - sudo launchctl bootout system/com.aia.agent
+    - sudo launchctl bootstrap system /Library/LaunchDaemons/com.aia.agent.plist
+
+9) reload service
+    - sudo launchctl unload /Library/LaunchDaemons/com.aia.agent.plist
+    - sudo launchctl load /Library/LaunchDaemons/com.aia.agent.plist
+
+
+-------------------------------------------- cloudflare autoload (macOS)---------------------------------
+1) sudo cloudflared service install
+
+2) Modify com.cloudflare.cloudflared.plist
+    - sudo nano /Library/LaunchDaemons/com.cloudflare.cloudflared.plist
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.cloudflare.cloudflared</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/opt/homebrew/bin/cloudflared</string>
+            <string>--config</string>
+            <string>/Users/aiaesthetics/.cloudflared/config.yml</string>
+            <string>tunnel</string>
+            <string>run</string>
+        </array>
+
+        <key>RunAtLoad</key>
+        <true/>
+
+        <key>KeepAlive</key>
+        <true/>
+
+        <key>StandardOutPath</key>
+        <string>/Library/Logs/com.cloudflare.cloudflared.out.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/Library/Logs/com.cloudflare.cloudflared.err.log</string>
+    </dict>
+    </plist>
+
+3) start service
+    - sudo launchctl bootout system/com.cloudflare.cloudflared
+    - sudo launchctl enable system/com.cloudflare.cloudflared
+    - sudo launchctl bootstrap system /Library/LaunchDaemons/com.cloudflare.cloudflared.plist
+
+
+
+-------------------------------------------- python file (autu_capture_agent.py) autoload (window) -------------------------------
+1) make start_agent.bat file
+    (start_agent.bat)
+    past below code
+
+    @echo off
+    timeout /t 5 >nul
+    cd /d E:\www\skin-genious-crm-and-api\AIA-Agent
+    "C:\laragon\bin\python\python-3.13\pythonw.exe" agent.py
+
+
+2) move this file to (startup) dir (win + r) (shell:startup)
+
+
+
+------------------------------------------ cloudflare tunnel autoload (window) --------------------------------
+1) sc create Cloudflared binPath= "\"C:\cloudflared\cloudflared.exe\" --config \"C:/Users/shing/.cloudflared/config.yml\" tunnel run \"ai-aesthetics-agent\"" start= auto
+
+2) sc start Cloudflared
+
+3) sc query Cloudflared
+
+
+
+
+----------------------------------------- Other Info ------------------------------------
+
+------ remove Cloudflared service -------------
+wmic service where name="Cloudflared" call stopservice
+wmic service where name="Cloudflared" call delete
+
+
+----- Needed Command ---------------------
+--- For python autoload-------
+
+STOP the agent service (turn it OFF temporarily)
+    sudo launchctl bootout system/com.aia.agent
+
+DISABLE the agent (prevent autostart at reboot)
+    sudo launchctl disable system/com.aia.agent
+
+ENABLE the agent again (allow autostart)
+    sudo launchctl enable system/com.aia.agent
+
+START the agent manually
+    sudo launchctl bootstrap system /Library/LaunchDaemons/com.aia.agent.plist
+
+RESTART the agent
+    sudo launchctl bootout system/com.aia.agent
+    sudo launchctl bootstrap system /Library/LaunchDaemons/com.aia.agent.plist
+
+--- For cloudflared service --------------------------------
+
+DISABLE the agent
+    sudo launchctl disable system/com.cloudflare.cloudflared
+
+STOP the agent service
+    sudo launchctl bootout system/com.cloudflare.cloudflared
+
+ENABLE the agent again
+    sudo launchctl enable system/com.cloudflare.cloudflared
+    sudo launchctl bootstrap system /Library/LaunchDaemons/com.cloudflare.cloudflared.plist
+
+------RESTART the Cloudflared service----
+sudo launchctl bootout system/com.cloudflare.cloudflared
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.cloudflare.cloudflared.plist
+
+
+
+
+----------------somu macOS leptop tunnel name------------
+->  cloudflared tunnel run aia-tunnel
+
+
+

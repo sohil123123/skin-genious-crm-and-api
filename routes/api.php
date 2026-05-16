@@ -25,10 +25,11 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login']);
 
-    Route::get('device/connect', [AutoCaptureController::class, 'capturePhotos']);
-
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
+
+        Route::get('device/connect', [AutoCaptureController::class, 'capturePhotos']);
+
         Route::get('/logout', [AuthController::class, 'logout']);
 
         // INFO: User CRUD Route

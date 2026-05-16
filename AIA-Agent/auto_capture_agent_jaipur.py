@@ -31,7 +31,7 @@ import pathlib
 API_KEY = "2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE"
 HOST = "0.0.0.0"
 PORT = 5000
-LOG_FILE = "auto_capture_agent.log"
+LOG_FILE = "auto_capture_agent_jaipur.log"
 
 # ---------------------------------------------------------
 # LOGGING SETUP
@@ -109,7 +109,7 @@ class CaptureError(Exception):
         super().__init__(message)
 
 
-DEVICE = "192.168.29.208:5555"
+DEVICE = "192.168.1.10:5555"
 PACKAGE = "com.silverllt.skincenter.rkss.a5.production"
 CAMERA_ACTIVITY = "com.silverllt.skincenter.rkss.a5.production/com.silverllt.skincenter.ui.CameraActivity"
 
@@ -133,12 +133,12 @@ def run(cmd):
         raise CaptureError("ADB_COMMAND_FAILED", f"ADB failed: {cmd}", str(e))
 
 
-def adb(cmd):
-    return run(f"adb -s {DEVICE} {cmd}")
+def adb(cmd, device_ip):
+    return run(f"adb -s {device_ip} {cmd}")
 
 
-def connect_device():
-    out = run(f"adb connect {DEVICE}")
+def connect_device(device_ip):
+    out = run(f"adb connect {device_ip}")
     if "connected" not in out.lower():
         raise CaptureError(
             "DEVICE_CONNECTION_FAILED",
@@ -148,29 +148,29 @@ def connect_device():
     time.sleep(1)
 
 
-def open_camera():
-    adb(f"shell am start -n {CAMERA_ACTIVITY}")
+def open_camera(device_ip):
+    adb(f"shell am start -n {CAMERA_ACTIVITY}", device_ip)
     time.sleep(2)
 
 
-def open_camera_by_tap():
-    adb(f"shell input tap {PROFILE_CAMERA_X} {PROFILE_CAMERA_Y}")
+def open_camera_by_tap(device_ip):
+    adb(f"shell input tap {PROFILE_CAMERA_X} {PROFILE_CAMERA_Y}", device_ip)
     time.sleep(3)
 
 
-def trigger_ai_capture():
-    adb(f"shell input tap {AI_TAP_X} {AI_TAP_Y}")
+def trigger_ai_capture(device_ip):
+    adb(f"shell input tap {AI_TAP_X} {AI_TAP_Y}", device_ip)
     time.sleep(CAPTURE_WAIT_SECONDS)
 
 
-def enter_existing_profile():
+def enter_existing_profile(device_ip):
     # Tap the existing profile row on Member Center screen
-    adb(f"shell input tap {PROFILE_TAP_X} {PROFILE_TAP_Y}")
+    adb(f"shell input tap {PROFILE_TAP_X} {PROFILE_TAP_Y}", device_ip)
     time.sleep(3)
 
 
-def get_latest_task_folder():
-    result = adb(f"shell ls -t {REMOTE_ROOT}")
+def get_latest_task_folder(device_ip):
+    result = adb(f"shell ls -t {REMOTE_ROOT}", device_ip)
     folders = [x.strip() for x in result.splitlines() if x.strip().isdigit()]
 
     if not folders:
@@ -179,18 +179,17 @@ def get_latest_task_folder():
     return folders[0]
 
 
-def pull_images(task_id):
+def pull_images(task_id, device_ip):
     today = datetime.date.today().isoformat()
     local_dir = LOCAL_ROOT / today / task_id
     local_dir.mkdir(parents=True, exist_ok=True)
 
     mapping = {
-        "12.jpg": "white.jpg",
-        "22.jpg": "positive.jpg",
-        "32.jpg": "negative.jpg",
-        "42.jpg": "uv.jpg",
-        "52.jpg": "woods.jpg",
-        "red.jpg": "blue.jpg"
+        "12.jpg": "surface_polarized.jpg",
+        "22.jpg": "subsurface_polarized.jpg",
+        "32.jpg": "white.jpg",
+        "42.jpg": "woods_uv.jpg",
+        "52.jpg": "red.jpg"
     }
 
     for orig, new in mapping.items():
@@ -199,7 +198,7 @@ def pull_images(task_id):
         pulled = False
         for attempt in range(10):
             try:
-                adb(f"pull {remote_path} '{local_dir}'")
+                adb(f"pull {remote_path} '{local_dir}'", device_ip)
                 pulled = True
                 break
             except CaptureError:
@@ -219,15 +218,15 @@ def pull_images(task_id):
     return local_dir
 
 
-def auto_capture_main():
+def auto_capture_main(device_ip):
     try:
-        connect_device()
-        enter_existing_profile()
-        open_camera_by_tap()
-        trigger_ai_capture()
+        connect_device(device_ip)
+        enter_existing_profile(device_ip)
+        open_camera_by_tap(device_ip)
+        trigger_ai_capture(device_ip)
 
-        task_id = get_latest_task_folder()
-        return str(pull_images(task_id))
+        task_id = get_latest_task_folder(device_ip)
+        return str(pull_images(task_id, device_ip))
 
     except CaptureError as err:
         return {"error": True, **err.__dict__}
@@ -259,14 +258,14 @@ def health():
     return jsonify({"status": "ok", "user_home": str(USER_HOME)})
 
 
-def run_auto_capture():
-    logger.info("Running auto_capture")
+def run_auto_capture(device_ip):
+    logger.info(f"Running auto_capture for device: {device_ip}")
 
     stdout_buffer = StringIO()
     stderr_buffer = StringIO()
 
     with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-        result = auto_capture_main()
+        result = auto_capture_main(device_ip)
 
     if isinstance(result, dict) and result.get("error"):
         return False, result, None
@@ -276,18 +275,15 @@ def run_auto_capture():
     # Cross-platform folder open
     open_folder_cross_platform(folder_path)
 
-    # # Try to open folder for the logged-in user
-    # try:
-    #     subprocess.Popen(["open", folder_path])
-    # except Exception as e:
-    #     logger.error(f"Failed to open folder: {e}")
-
     return True, stdout_buffer.getvalue(), folder_path
 
 
 @app.route("/auto-capture-process", methods=["GET", "POST"])
 def auto_capture_process():
-    ok, out, folder = run_auto_capture()
+    # Get device_ip from request, fallback to global DEVICE
+    device_ip = request.args.get('device_ip') or request.form.get('device_ip') or DEVICE
+
+    ok, out, folder = run_auto_capture(device_ip)
     if ok:
         return jsonify({"status": "success", "folder": folder, "output": out})
     return jsonify({"status": "error", **out}), 500

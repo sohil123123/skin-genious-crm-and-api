@@ -42,6 +42,9 @@ class Clinic extends Model
         'number_of_beds',
         'is_active',
         'face_scan_machine',
+        'cloudflare_tunnel_url',
+        'device_ip',
+        'agent_api_key',
     ];
 
     /**

@@ -130,6 +130,26 @@ class ClinicForm
                             ])
                             // ->collapsed()
                             ->collapsible(),
+
+                        Section::make('Auto Capture Integration')
+                            ->icon('heroicon-o-cpu-chip')
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    TextInput::make('cloudflare_tunnel_url')
+                                        ->label('Cloudflare Tunnel URL')
+                                        ->url()
+                                        ->placeholder('https://your-tunnel.com'),
+                                    TextInput::make('device_ip')
+                                        ->label('Device IP / ADB Address')
+                                        ->placeholder('192.168.1.10:5555'),
+                                    TextInput::make('agent_api_key')
+                                        ->label('Agent API Key')
+                                        ->password()
+                                        ->revealable()
+                                        ->placeholder('Enter API key'),
+                                ])
+                            ])
+                            ->collapsible(),
                     ])
                     ->columnSpan(['lg' => fn (?Clinic $record) => $record === null ? 3 : 2]),
 
