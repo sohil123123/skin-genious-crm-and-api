@@ -79,7 +79,7 @@ class AppointmentsCalendar extends FullCalendarWidget
                     ->color('info')
                     ->button()
                     ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record->client, $record);
+                        $assessmentUrl = new_assessment($record->client, 'assessment', $record);
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
