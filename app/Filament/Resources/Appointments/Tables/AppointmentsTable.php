@@ -448,6 +448,17 @@ class AppointmentsTable
                 fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->recordActions([
+                Action::make('new_iv_assessment')
+                    ->label('Create IV Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessmentUrl = new_assessment($record->client, 'iv', $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
                 Action::make('new_assessment')
                     ->label('Create Assessment')
                     ->visible(fn ($record) => can_create_assessment($record))
@@ -455,7 +466,7 @@ class AppointmentsTable
                     ->color('info')
                     ->button()
                     ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record->client, $record);
+                        $assessmentUrl = new_assessment($record->client, 'assessment', $record);
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
