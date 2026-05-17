@@ -74,7 +74,7 @@ class AssessmentController extends BaseApiController
         if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plan']['treatments'])){
             foreach ($request->treatment_plans['treatment_plan']['treatments'] as $key => $treatment) {
                 if($assessment->selected_plan_type == 'single' && $key > 0) continue;
-                $assessment->treatmentSessions()->updateOrCreate(
+                $treatmentSession = $assessment->treatmentSessions()->updateOrCreate(
                     ['assessment_id' => $assessment->id, 'session_number' => $treatment['session_number']],
                     [
                     'user_id' => $assessment->user_id,
@@ -88,6 +88,26 @@ class AssessmentController extends BaseApiController
                     'daily_home_care_routine' => $treatment['daily_home_care_routine'] ?? [],
                     'audio_text' => $treatment['script'] ?? null,
                 ]);
+
+                // Create appointment for the first session
+                if ($key == 0) {
+                    \App\Models\Appointment::updateOrCreate(
+                        [
+                            'assessment_id' => $assessment->id,
+                            'treatment_session_id' => $treatmentSession->id,
+                        ],
+                        [
+                            'type' => 'treatment',
+                            'clinic_id' => $assessment->clinic_id,
+                            'user_id' => $assessment->user_id,
+                            'therapist_id' => $assessment->created_by,
+                            'status' => 'confirmed',
+                            'start_datetime' => now(),
+                            'end_datetime' => now()->addMinutes(isset($treatment['treatment_time']) ? (int) filter_var($treatment['treatment_time'], FILTER_SANITIZE_NUMBER_INT) : null),
+                            'duration_minutes' => isset($treatment['treatment_time']) ? (int) filter_var($treatment['treatment_time'], FILTER_SANITIZE_NUMBER_INT) : null,
+                        ]
+                    );
+                }
             }
         }
 

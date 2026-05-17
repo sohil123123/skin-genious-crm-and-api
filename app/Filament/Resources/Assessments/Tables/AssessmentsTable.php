@@ -313,7 +313,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Wellness Analysis Report')
-                        ->visible(fn ($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis['iv_scoring_output'])
+                        ->visible(fn ($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis && $record->diagnosis['iv_scoring_output'])
                         ->action(function (Assessment $record) {
                             $labels = [
                                 'FENS' => 'Fluid & Electrolyte Need',
