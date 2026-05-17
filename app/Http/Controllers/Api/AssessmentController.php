@@ -73,7 +73,7 @@ class AssessmentController extends BaseApiController
         // Create treatment planes record
         if($request->has('treatment_plans') && !empty($request->treatment_plans['treatment_plan']['treatments'])){
             foreach ($request->treatment_plans['treatment_plan']['treatments'] as $key => $treatment) {
-                if($assessment->selected_plan_type == 'single' && $key > 0) continue;
+                if($assessment->selected_plan_type == 'single' || $assessment->selected_plan_type == 'express' && $key > 0) continue;
                 $treatmentSession = $assessment->treatmentSessions()->updateOrCreate(
                     ['assessment_id' => $assessment->id, 'session_number' => $treatment['session_number']],
                     [
