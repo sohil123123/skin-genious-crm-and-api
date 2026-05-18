@@ -62,6 +62,20 @@ class AssessmentController extends BaseApiController
 
         $assessment->update($update_input);
 
+        // Update therapist_id for the associated appointments if therapist_id is provided in the request
+        if ($request->has('therapist_id')) {
+            $treatmentSessions = $assessment->treatmentSessions['treatments'][0];
+            if($treatmentSessions){
+                \App\Models\Appointment::where('assessment_id', $assessment->id)
+                    ->where('treatment_session_id', $treatmentSessions['id'])
+                    ->where('type', 'treatment')
+                    ->get()
+                    ->each(function ($appointment) use ($request) {
+                        $appointment->update(['therapist_id' => $request->input('therapist_id')]);
+                    });
+            }
+        }
+
         // Save Treatment Plans json file
         if ($request->filled('treatment_plans')) {
             $fileName = 'treatment_plans_#' . $assessment->id . '.json';
@@ -100,7 +114,7 @@ class AssessmentController extends BaseApiController
                             'type' => 'treatment',
                             'clinic_id' => $assessment->clinic_id,
                             'user_id' => $assessment->user_id,
-                            'therapist_id' => $assessment->created_by,
+                            'therapist_id' => $request->input('therapist_id') ?? $assessment->created_by,
                             'status' => 'confirmed',
                             'start_datetime' => now(),
                             'end_datetime' => now()->addMinutes(isset($treatment['treatment_time']) ? (int) filter_var($treatment['treatment_time'], FILTER_SANITIZE_NUMBER_INT) : null),

@@ -55,6 +55,7 @@ class AssessmentRequest extends FormRequest
             'nurse_run_sheet' => 'nullable',
             'status' => 'nullable|in:in_progress,pending,completed,incomplete,cancelled,overdue',
             'therapist_notes' => 'nullable|string',
+            'therapist_id' => 'nullable|exists:users,id',
             // 'images' => 'required|array|min:1',
             // 'images.*' => 'required|image|mimes:jpeg,png,gif,webp|max:2048', // Each image: max 2MB
         ];

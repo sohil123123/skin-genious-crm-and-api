@@ -59,7 +59,7 @@ if (!function_exists('get_treatment_session_duration')) {
 if (!function_exists('can_create_assessment')) {
     function can_create_assessment($appointment)
     {
-        $start = Carbon::parse($appointment->start_datetime)->subMinutes(2);
+        $start = Carbon::parse($appointment->start_datetime)->subMinutes(15);
         $end   = $appointment->end_datetime;
 
         return $appointment->type->value === 'consult'
@@ -94,7 +94,7 @@ if (!function_exists('new_assessment')) {
 if (!function_exists('can_start_session')) {
     function can_start_session($appointment)
     {
-        $start = Carbon::parse($appointment->start_datetime)->subMinutes(2);
+        $start = Carbon::parse($appointment->start_datetime)->subMinutes(15);
         $end   = $appointment->end_datetime;
 
         return in_array($appointment->status->value, ['confirmed'])
