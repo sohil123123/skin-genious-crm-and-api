@@ -29,6 +29,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
 
         Route::get('device/connect/{clinic_id}', [AutoCaptureController::class, 'capturePhotos']);
+        Route::get('device/pull-last-images/{clinic_id}', [AutoCaptureController::class, 'pullLastImages']);
 
         Route::get('/logout', [AuthController::class, 'logout']);
 

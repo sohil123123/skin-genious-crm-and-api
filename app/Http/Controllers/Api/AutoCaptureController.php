@@ -108,4 +108,51 @@ class AutoCaptureController extends BaseApiController
             return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
         }
     }
+
+    /**
+     * Pull the last saved images from the Bitmojis machine
+     * without triggering a new capture session.
+     */
+    public function pullLastImages(Request $request, $clinic_id)
+    {
+        $clinic = Clinic::findOrFail($clinic_id);
+
+        if (!$clinic) {
+            return $this->error('error.', ['Clinic not found.'], HTTP_NOT_FOUND);
+        }
+
+        if (!$clinic->cloudflare_tunnel_url) {
+            return $this->error('error.', ['Cloudflare Tunnel URL is not configured for this clinic.'], HTTP_NOT_FOUND);
+        }
+
+        // Cloudflare Tunnel URL from clinic — hits the new /pull-last-images Flask route
+        $endpoint = rtrim($clinic->cloudflare_tunnel_url, '/') . "/pull-last-images";
+        $deviceIp = $clinic->device_ip;
+        $apiKey = $clinic->agent_api_key ?? '2Yx6pqydyFpmf8K1RU4N1oOgYyAhdCJE';
+
+        try {
+            $response = Http::withHeaders([
+                'X-API-KEY' => $apiKey,
+            ])
+            ->timeout(120)
+            ->withoutVerifying()
+            ->get($endpoint, [
+                'device_ip' => $deviceIp
+            ]);
+
+            if ($response->failed()) {
+                return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
+            }
+
+            $data = $response->json();
+
+            if ($data["status"] !== "success") {
+                return $this->error('error.', [$data["message"] ?? 'Unknown error from device agent'], HTTP_NOT_FOUND);
+            }
+
+            return $this->success('Last images pulled successfully!', $data);
+        } catch (\Exception $e) {
+            return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
+        }
+    }
 }

@@ -16,12 +16,10 @@ import os
 import time
 import platform
 import subprocess
-import traceback
 from io import StringIO
 from contextlib import redirect_stdout, redirect_stderr
 import subprocess as sp
 import datetime
-import pathlib
 import pathlib
 
 # ---------------------------------------------------------
@@ -235,6 +233,52 @@ def auto_capture_main(device_ip):
         return {"error": True, "error_code": "UNKNOWN", "message": str(e)}
 
 
+def pull_last_images_only(device_ip):
+    """
+    Pull the last saved images from the Bitmojis machine
+    WITHOUT triggering a new capture session.
+    Connects to the device, finds the latest task folder,
+    and pulls those images to the local directory.
+    If images already exist locally (from a prior capture), skip re-pulling.
+    """
+    try:
+        connect_device(device_ip)
+
+        task_id = get_latest_task_folder(device_ip)
+        logger.info(f"Found latest task folder: {task_id}")
+
+        # Check if images already exist locally
+        today = datetime.date.today().isoformat()
+        local_dir = LOCAL_ROOT / today / task_id
+
+        expected_files = [
+            "surface_polarized.jpg",
+            "subsurface_polarized.jpg",
+            "white.jpg",
+            "woods_uv.jpg",
+            "red.jpg"
+        ]
+
+        all_exist = local_dir.exists() and all(
+            (local_dir / f).exists() for f in expected_files
+        )
+
+        if all_exist:
+            folder_path = str(local_dir)
+            logger.info(f"Images already exist locally at: {folder_path}")
+        else:
+            folder_path = str(pull_images(task_id, device_ip))
+            logger.info(f"Images pulled to: {folder_path}")
+
+        return {"error": False, "task_id": task_id, "folder": folder_path}
+
+    except CaptureError as err:
+        return {"error": True, "code": err.code, "message": err.message, "details": err.details}
+
+    except Exception as e:
+        return {"error": True, "code": "UNKNOWN", "message": str(e)}
+
+
 # ---------------------------------------------------------
 # FLASK SERVER
 # ---------------------------------------------------------
@@ -287,6 +331,31 @@ def auto_capture_process():
     if ok:
         return jsonify({"status": "success", "folder": folder, "output": out})
     return jsonify({"status": "error", **out}), 500
+
+
+@app.route("/pull-last-images", methods=["GET", "POST"])
+def pull_last_images_route():
+    """
+    Pull the last saved images from the Bitmojis machine
+    without triggering a new capture.
+    """
+    device_ip = request.args.get('device_ip') or request.form.get('device_ip') or DEVICE
+
+    logger.info(f"Pull last images requested for device: {device_ip}")
+
+    result = pull_last_images_only(device_ip)
+
+    if result.get("error"):
+        return jsonify({"status": "error", **result}), 500
+
+    # Open the folder on the local machine
+    open_folder_cross_platform(result["folder"])
+
+    return jsonify({
+        "status": "success",
+        "task_id": result["task_id"],
+        "folder": result["folder"]
+    })
 
 
 if __name__ == "__main__":
