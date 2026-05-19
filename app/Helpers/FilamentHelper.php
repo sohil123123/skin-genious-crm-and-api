@@ -91,6 +91,27 @@ if (!function_exists('new_assessment')) {
     }
 }
 
+if (!function_exists('edit_assessment')) {
+    function edit_assessment($assessment, $appointment = [])
+    {
+        // Generate short-lived Sanctum token (e.g., expires in 1 hour)
+        $auth_user = auth()->user();
+        $token = $auth_user->createToken(
+            'assessment-token-' . Str::random(10),
+            ['assessment'], // Abilities/scopes
+            // now()->addHour() // Expiration
+        )->plainTextToken;
+
+        // Redirect to Assessment App with token and patient ID
+        if($appointment)
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&appointment_id=' . $appointment->id. '&assessment_id=' . $assessment->id .'&type=edit';
+        else
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&assessment_id=' . $assessment->id .'&type=edit';
+
+        return $assessmentUrl;
+    }
+}
+
 if (!function_exists('can_start_session')) {
     function can_start_session($appointment)
     {

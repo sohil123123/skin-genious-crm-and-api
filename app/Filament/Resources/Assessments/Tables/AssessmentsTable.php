@@ -185,6 +185,17 @@ class AssessmentsTable
             )
             ->recordActions([
                 // ViewAction::make(),
+                 Action::make('edit_assessment')
+                    ->icon('heroicon-o-pencil')
+                    ->iconButton()
+                    ->color('primary')
+                    ->tooltip('Edit Assessment')
+                    ->action(function ($record) {
+                        $assessmentUrl = edit_assessment($record,  $record);
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+
                 Action::make('treatment_sessions')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->iconButton()
