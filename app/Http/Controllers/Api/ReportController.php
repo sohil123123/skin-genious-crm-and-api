@@ -296,4 +296,33 @@ class ReportController extends BaseApiController
             'Content-Disposition' => 'inline; filename="iv-progress-reassessment-report.pdf"',
         ]);
     }
+
+
+    // ─────────────────────────────────────────────
+    //  9. Download Daily Homecare Routine
+    // ─────────────────────────────────────────────
+    public function downloadHomeCareRoutine($assessment_id, $session_id)
+    {
+        $record = Assessment::find($assessment_id);
+
+        $data['patient'] = $record->user->toArray();
+        $data['patient']['name'] = $record->user->name;
+        $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+        $data['report_date'] = $record->created_at;
+        $data['session'] = $record->treatmentSessions['treatments']
+            ->firstWhere('id', $session_id);
+
+        $html = view('pdf.facial.daily_homecare_routine', $data)->render();
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('daily_homecare_routine.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="daily_homecare_routine.pdf"',
+        ]);
+    }
 }

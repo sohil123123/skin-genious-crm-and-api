@@ -246,7 +246,19 @@ class TreatmentSessionsRelationManager extends RelationManager
                     })
                     ->searchable()->sortable(),
                 TextColumn::make('session_number')->badge()->color('info')->searchable()->sortable(),
-                TextColumn::make('title')->searchable()->sortable(),
+                TextColumn::make('title')
+                    ->limit(50)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+
+                        if (mb_strlen($state) <= 50) {
+                            return null;
+                        }
+
+                        return $state;
+                    })
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('week')
                     ->label('Week')
                     ->suffix(fn ($state) => $state ? ' week' : null)
@@ -262,6 +274,52 @@ class TreatmentSessionsRelationManager extends RelationManager
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('download_homecare')
+                    ->label('Download Routine')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->visible(function ($record) {
+                        $routine = $record->daily_home_care_routine;
+                        return !empty($routine) && (!empty($routine['morning']) || !empty($routine['evening']));
+                    })
+                    ->action(function ($record) {
+                        $assessment = $record->assessment;
+                        if (!$assessment) {
+                            return;
+                        }
+                        $patient = $assessment->user;
+                        $data = [];
+                        $data['patient'] = $patient ? $patient->toArray() : [];
+                        if ($patient) {
+                            $data['patient']['name'] = $patient->name;
+                            $data['patient']['age'] = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
+                        } else {
+                            $data['patient']['name'] = 'N/A';
+                            $data['patient']['age'] = 'N/A';
+                        }
+                        $data['report_date'] = $assessment->created_at;
+                        $data['session'] = [
+                            'session_number' => $record->session_number,
+                            'week' => $record->week,
+                            'title' => $record->title,
+                            'daily_home_care_routine' => $record->daily_home_care_routine ?? [],
+                        ];
+
+                        $html = view('pdf.facial.daily_homecare_routine', $data)->render();
+                        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                        $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                        $mpdf->SetDisplayMode('fullpage');
+                        $mpdf->shrink_tables_to_fit = 1;
+                        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                        $mpdf->WriteHTML($html);
+
+                        $patientName = $patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient';
+                        $filename = $patientName . '_daily_homecare_routine_session_' . $record->session_number . '.pdf';
+
+                        return response()->streamDownload(function () use ($mpdf) {
+                            echo $mpdf->Output('', 'S');
+                        }, $filename);
+                    }),
             ])
             ->emptyStateDescription('Once you create your first plan, it will appear here.');
     }

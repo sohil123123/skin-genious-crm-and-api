@@ -69,6 +69,8 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Download Report
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
+        Route::get('download-homecare-routine/{assessment_id}/{session_id}', [ReportController::class, 'downloadHomeCareRoutine'])->name('download-homecare-routine');
+
         Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
         // INFO: Loyalty Points Routes
@@ -86,10 +88,6 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
     // Route::apiResource('appointments', 'AppointmentController');
-
-    Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
-
-    Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
 });
 
