@@ -148,6 +148,25 @@ if (!function_exists('start_session')) {
     }
 }
 
+if (!function_exists('clinic_head_complete_session')) {
+    function clinic_head_complete_session($session)
+    {
+        $auth_user = auth()->user();
+        $token = $auth_user->createToken(
+            'assessment-token-' . Str::random(10),
+            ['assessment']
+        )->plainTextToken;
+
+        $userId = $session->assessment->user_id;
+        $assessmentId = $session->assessment->id;
+        $sessionId = $session->id;
+        
+        $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $userId . '&assessment_id=' . $assessmentId . '&session_id=' . $sessionId . '&type=clinic-head-complete';
+        
+        return $assessmentUrl;
+    }
+}
+
 if (!function_exists('time_options')) {
     function time_options($start = 7, $end = 23)
     {

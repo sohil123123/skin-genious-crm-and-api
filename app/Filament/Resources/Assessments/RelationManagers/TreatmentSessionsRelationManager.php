@@ -320,6 +320,15 @@ class TreatmentSessionsRelationManager extends RelationManager
                             echo $mpdf->Output('', 'S');
                         }, $filename);
                     }),
+                Action::make('complete_session_actions')
+                    ->label('Post-Session Actions')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->assessment !== null)
+                    ->url(function ($record) {
+                        return clinic_head_complete_session($record);
+                    })
+                    ->openUrlInNewTab(),
             ])
             ->emptyStateDescription('Once you create your first plan, it will appear here.');
     }
