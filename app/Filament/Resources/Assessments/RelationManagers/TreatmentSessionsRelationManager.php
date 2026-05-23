@@ -324,7 +324,7 @@ class TreatmentSessionsRelationManager extends RelationManager
                     ->label('Post-Session Actions')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('success')
-                    ->visible(fn ($record) => $record->assessment !== null)
+                    ->visible(fn ($record) => $record->assessment !== null && $record->status === 'completed')
                     ->url(function ($record) {
                         return clinic_head_complete_session($record);
                     })
