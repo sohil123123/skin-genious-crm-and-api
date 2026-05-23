@@ -245,7 +245,7 @@ class TreatmentSessionsRelationManager extends RelationManager
                         default => 'gray',
                     })
                     ->searchable()->sortable(),
-                TextColumn::make('session_number')->badge()->color('info')->searchable()->sortable(),
+                // TextColumn::make('session_number')->badge()->color('info')->searchable()->sortable(),
                 TextColumn::make('title')
                     ->limit(50)
                     ->tooltip(function (TextColumn $column): ?string {
@@ -270,7 +270,16 @@ class TreatmentSessionsRelationManager extends RelationManager
                     ->placeholder('—')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucwords(str_replace('_', ' ', $state)))
+                    ->color(fn ($state) => match ($state) {
+                        'completed' => 'success',
+                        'in_progress' => 'warning',
+                        default => 'gray',
+                    }),
+                // TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
             ])
             ->recordActions([
                 ViewAction::make(),

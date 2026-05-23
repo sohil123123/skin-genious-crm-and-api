@@ -7,10 +7,11 @@ use Filament\Widgets\TableWidget;
 use App\Models\TreatmentSession;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
+use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class LatestCompletedSessions extends TableWidget
 {
-    // Removing HasWidgetShield so it's visible right away without running shield permission command
+    use HasWidgetShield;
 
     protected int | string | array $columnSpan = 'full';
 
