@@ -16,14 +16,14 @@ class LatestCompletedSessions extends TableWidget
 
     protected static ?int $sort = 3;
 
-    protected static ?string $heading = 'Latest Completed Sessions';
+    protected static ?string $heading = 'Latest Sessions';
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
                 TreatmentSession::query()
-                    ->where('status', 'completed')
+                    ->whereIn('status', ['completed', 'in_progress'])
                     ->whereNotNull('assessment_id')
                     ->latest('updated_at')
             )
@@ -35,7 +35,15 @@ class LatestCompletedSessions extends TableWidget
                     ->formatStateUsing(fn ($record) => trim(($record->user?->first_name ?? '') . ' ' . ($record->user?->last_name ?? ''))),
                 TextColumn::make('title')
                     ->label('Session Title')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= $column->getCharacterLimit()) {
+                            return null;
+                        }
+                        return $state;
+                    }),
                 TextColumn::make('plan_type')
                     ->label('Plan Type')
                     ->badge()
@@ -46,6 +54,15 @@ class LatestCompletedSessions extends TableWidget
                     }),
                 TextColumn::make('session_number')
                     ->label('Session #'),
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucwords(str_replace('_', ' ', $state)))
+                    ->color(fn ($state) => match ($state) {
+                        'completed' => 'success',
+                        'in_progress' => 'warning',
+                        default => 'gray',
+                    }),
                 TextColumn::make('updated_at')
                     ->label('Completed At')
                     ->dateTime('d M Y, h:i A')
@@ -56,6 +73,7 @@ class LatestCompletedSessions extends TableWidget
                     ->label('Post-Session Actions')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('success')
+                    ->visible(fn ($record) => $record->status === 'completed')
                     ->url(function ($record) {
                         return clinic_head_complete_session($record);
                     })
