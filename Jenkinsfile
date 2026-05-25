@@ -1,71 +1,76 @@
 pipeline {
     agent any
-    tools {nodejs "node24.9.0"}
+    tools { nodejs "node24.9.0" }
+    
     stages {
-        stage("build"){
-           steps {
+        stage('Build') {
+            steps {
                 sh 'composer --version'
                 sh 'php --version'
                 sh 'node -v'
                 sh 'npm -v'
-                sh 'npm ci'  // Changed: Use ci for CI; installs from package-lock.json
-                sh 'composer install -n'  // Now runs after manifest exists
-                sh 'npm run build'  // Builds Vite assets (manifest.json)
+                
+                sh 'npm ci'
+                sh 'composer install -n --optimize-autoloader --no-dev'
+                sh 'npm run build'
             }
         }
-        stage("Populate .env file") {
+        
+        stage('Populate .env') {
             steps {
-                withCredentials([file(credentialsId: 'production_crm_env', variable: 'mySecretEnvFile')]){
-                    sh 'cp -rf $mySecretEnvFile $WORKSPACE/.env'
+                withCredentials([file(credentialsId: 'production_crm_env', variable: 'mySecretEnvFile')]) {
+                    sh 'cp -f $mySecretEnvFile .env'
                 }
-                // sh 'php artisan test'
             }
         }
-        // stage("test perform")
-        // {
-        //     steps{
-        //         sh './vendor/bin/pest'
-        //     }
-        // }
-        stage("Verify SSH connection to server") {
+        
+        stage('Verify SSH Connection') {
             steps {
                 sshagent(credentials: ['jenkins']) {
-                    sh '''
-                        ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 whoami
-                    '''
+                    sh 'ssh -o StrictHostKeyChecking=no root@187.127.173.33 "whoami && echo SSH Connection Successful"'
                 }
             }
         }
-
     }
+    
     post {
-        success{
-            withCredentials([sshUserPrivateKey(credentialsId: "jenkins", keyFileVariable: 'keyfile')]) {
-              sh  'rsync -vrzhe "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519" . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in'
-            }
-
+        success {
             sshagent(credentials: ['jenkins']) {
                 sh '''
-                    ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 << EOF
-                    whoami
-                    cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
-                    php --version
-                    chown www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage -R
-                    chown www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/bootstrap -R
-                    chmod -R 0777 /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage
-                    php artisan migrate --force --no-interaction
-                    php artisan shield:generate --panel=admin --all --no-interaction
-                    php artisan config:cache
-                    php artisan storage:link
-                <<EOF '''
+                    # Deploy using rsync
+                    rsync -vrz --delete --exclude='.git' --exclude='storage/framework/cache' \
+                        -e "ssh -o StrictHostKeyChecking=no" \
+                        . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
+                    
+                    # Run commands on server
+                    ssh -o StrictHostKeyChecking=no root@187.127.173.33 << 'EOF'
+                        cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
+                    
+                        echo "Running post-deploy tasks..."
+                        php artisan config:clear
+                        php artisan cache:clear
+                        php artisan view:clear
+                        php artisan route:clear
+                        
+                        php artisan migrate --force --no-interaction
+                        php artisan shield:generate --panel=admin --all --no-interaction || true
+                        
+                        php artisan storage:link
+                        php artisan config:cache
+                        php artisan route:cache
+                        php artisan view:cache
+                        
+                        chown -R www-data:www-data storage bootstrap/cache
+                        chmod -R 775 storage bootstrap/cache
+                        
+                        echo "Deployment completed successfully!"
+                    EOF
+                '''
             }
         }
+        
         always {
-            cleanWs(cleanWhenNotBuilt: false,
-                deleteDirs: true,
-                disableDeferredWipeout: true,
-                notFailBuild: true,
-                patterns: [[pattern: '.gitignore', type: 'INCLUDE']])
+            cleanWs()
         }
     }
 }
