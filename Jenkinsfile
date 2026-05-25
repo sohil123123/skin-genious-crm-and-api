@@ -6,41 +6,65 @@ pipeline {
     }
 
     environment {
-        SERVER_IP = "127.0.0.1"
+        SERVER_IP   = "127.0.0.1"
         PROJECT_PATH = "/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in"
-        SSH_KEY = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
+        SSH_KEY     = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
     }
 
     stages {
 
-        stage("Build") {
+        stage('Build Application') {
             steps {
-                sh 'composer --version'
-                sh 'php --version'
-                sh 'node -v'
-                sh 'npm -v'
 
-                sh 'npm ci'
-                sh 'composer install --no-interaction --prefer-dist --optimize-autoloader'
-                sh 'npm run build'
+                sh '''
+                    composer --version
+                    php --version
+                    node -v
+                    npm -v
+                '''
+
+                sh '''
+                    npm ci
+                '''
+
+                sh '''
+                    composer install \
+                    --no-interaction \
+                    --prefer-dist \
+                    --optimize-autoloader
+                '''
+
+                sh '''
+                    npm run build
+                '''
             }
         }
 
-        stage("Populate .env file") {
+        stage('Populate .env File') {
             steps {
-                withCredentials([file(credentialsId: 'production_crm_env', variable: 'mySecretEnvFile')]) {
+
+                withCredentials([
+                    file(
+                        credentialsId: 'production_crm_env',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+
                     sh '''
-                        cp -rf $mySecretEnvFile $WORKSPACE/.env
+                        cp -f $ENV_FILE .env
                     '''
                 }
             }
         }
 
-        stage("Verify SSH connection to server") {
+        stage('Verify SSH Connection') {
             steps {
+
                 sshagent(credentials: ['jenkins']) {
+
                     sh '''
-                        ssh -i $SSH_KEY \
+                        ssh \
+                        -i $SSH_KEY \
                         -o StrictHostKeyChecking=no \
                         root@$SERVER_IP "
                             whoami
@@ -50,16 +74,17 @@ pipeline {
             }
         }
 
-        stage("Deploy Files") {
+        stage('Deploy Project Files') {
             steps {
+
                 sshagent(credentials: ['jenkins']) {
+
                     sh '''
-                        rsync -avzr \
-                        --delete \
+                        rsync -avzr --delete \
                         --exclude=".git" \
                         --exclude="node_modules" \
-                        --exclude="storage/logs/*" \
                         --exclude=".env" \
+                        --exclude="storage/logs/*" \
                         -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
                         ./ root@$SERVER_IP:$PROJECT_PATH
                     '''
@@ -67,44 +92,64 @@ pipeline {
             }
         }
 
-        stage("Run Deployment Commands") {
+        stage('Run Server Commands') {
             steps {
+
                 sshagent(credentials: ['jenkins']) {
+
                     sh '''
-                        ssh -i $SSH_KEY \
-                        -o StrictHostKeyChecking=no \
-                        root@$SERVER_IP << 'EOF'
+ssh -i $SSH_KEY \
+-o StrictHostKeyChecking=no \
+root@$SERVER_IP << EOF
 
-                        set -e
+set -e
 
-                        cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
+cd $PROJECT_PATH
 
-                        php --version
+echo "Current User:"
+whoami
 
-                        composer install --no-interaction --prefer-dist --optimize-autoloader
+echo "PHP Version:"
+php --version
 
-                        php artisan migrate --force --no-interaction
+echo "Installing Composer Dependencies..."
+composer install \
+--no-interaction \
+--prefer-dist \
+--optimize-autoloader
 
-                        php artisan shield:generate --panel=admin --all --no-interaction || true
+echo "Running Migrations..."
+php artisan migrate --force --no-interaction
 
-                        php artisan config:clear
-                        php artisan cache:clear
-                        php artisan route:clear
-                        php artisan view:clear
+echo "Generating Shield Permissions..."
+php artisan shield:generate --panel=admin --all --no-interaction || true
 
-                        php artisan config:cache
-                        php artisan route:cache
-                        php artisan view:cache
+echo "Clearing Cache..."
+php artisan optimize:clear
 
-                        php artisan storage:link || true
+echo "Caching Config..."
+php artisan config:cache
 
-                        chown -R www-data:www-data storage
-                        chown -R www-data:www-data bootstrap/cache
+echo "Caching Routes..."
+php artisan route:cache || true
 
-                        chmod -R 775 storage
-                        chmod -R 775 bootstrap/cache
+echo "Caching Views..."
+php artisan view:cache
 
-                        EOF
+echo "Creating Storage Link..."
+php artisan storage:link || true
+
+echo "Setting Permissions..."
+
+chown -R www-data:www-data storage
+chown -R www-data:www-data bootstrap/cache
+
+chmod -R 775 storage
+chmod -R 775 bootstrap/cache
+
+echo "Deployment Finished Successfully"
+
+EOF
                     '''
                 }
             }
@@ -114,20 +159,26 @@ pipeline {
     post {
 
         success {
-            echo 'Deployment completed successfully!'
+            echo '✅ Deployment completed successfully!'
         }
 
         failure {
-            echo 'Deployment failed!'
+            echo '❌ Deployment failed!'
         }
 
         always {
+
             cleanWs(
                 cleanWhenNotBuilt: false,
                 deleteDirs: true,
                 disableDeferredWipeout: true,
                 notFailBuild: true,
-                patterns: [[pattern: '.gitignore', type: 'INCLUDE']]
+                patterns: [
+                    [
+                        pattern: '.gitignore',
+                        type: 'INCLUDE'
+                    ]
+                ]
             )
         }
     }
