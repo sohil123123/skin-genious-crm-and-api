@@ -8,7 +8,7 @@ pipeline {
     environment {
         SERVER_IP = "127.0.0.1"
         PROJECT_PATH = "/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in"
-        SSH_KEY = "/var/lib/jenkins/.ssh/id_ed25519"
+        SSH_KEY = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
     }
 
     stages {
