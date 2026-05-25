@@ -140,11 +140,10 @@ php artisan storage:link || true
 
 echo "Setting Permissions..."
 
-chown -R www-data:www-data storage
-chown -R www-data:www-data bootstrap/cache
+chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage -R
+chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/bootstrap -R
 
-chmod -R 775 storage
-chmod -R 775 bootstrap/cache
+chmod -R 0777 /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage
 
 echo "Deployment Finished Successfully"
 
