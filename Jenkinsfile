@@ -31,7 +31,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['jenkins']) {
                     sh '''
-                        ssh -i ~/.ssh/id_ed25519_deploy -o StrictHostKeyChecking=no root@187.127.173.33 whoami
+                        ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 whoami
                     '''
                 }
             }
@@ -41,12 +41,12 @@ pipeline {
     post {
         success{
             withCredentials([sshUserPrivateKey(credentialsId: "jenkins", keyFileVariable: 'keyfile')]) {
-              sh  'rsync -vrzhe "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519_deploy" . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in'
+              sh  'rsync -vrzhe "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519" . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in'
             }
 
             sshagent(credentials: ['jenkins']) {
                 sh '''
-                    ssh -i ~/.ssh/id_ed25519_deploy -o StrictHostKeyChecking=no root@187.127.173.33 << EOF
+                    ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 << EOF
                     whoami
                     cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
                     php --version
