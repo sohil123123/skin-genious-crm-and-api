@@ -5,6 +5,11 @@ pipeline {
     stages {
         stage('Build') {
             steps {
+                sh 'composer --version'
+                sh 'php --version'
+                sh 'node -v'
+                sh 'npm -v'
+                
                 sh 'npm ci'
                 sh 'composer install -n --optimize-autoloader --no-dev'
                 sh 'npm run build'
@@ -18,24 +23,30 @@ pipeline {
                 }
             }
         }
+        
+        stage('Verify SSH Connection') {
+            steps {
+                sshagent(credentials: ['jenkins']) {
+                    sh 'ssh -o StrictHostKeyChecking=no root@187.127.173.33 "whoami && echo SSH Connection Successful"'
+                }
+            }
+        }
     }
     
     post {
         success {
             sshagent(credentials: ['jenkins']) {
                 sh '''
-                    echo "=== Starting Deployment ==="
-                    
-                    # Deploy files using rsync to localhost
-                    rsync -vrz --delete --exclude='.git' --exclude='storage/framework/' \
+                    # Deploy using rsync
+                    rsync -vrz --delete --exclude='.git' --exclude='storage/framework/cache' \
                         -e "ssh -o StrictHostKeyChecking=no" \
-                        . root@localhost:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
+                        . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
                     
-                    # Run post-deployment commands
-                    ssh -o StrictHostKeyChecking=no root@localhost << 'EOF'
+                    # Run commands on server
+                    ssh -o StrictHostKeyChecking=no root@187.127.173.33 << 'EOF'
                         cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
-                        
-                        echo "Running Laravel commands..."
+                    
+                        echo "Running post-deploy tasks..."
                         php artisan config:clear
                         php artisan cache:clear
                         php artisan view:clear
@@ -52,7 +63,7 @@ pipeline {
                         chown -R www-data:www-data storage bootstrap/cache
                         chmod -R 775 storage bootstrap/cache
                         
-                        echo "✅ Deployment Completed Successfully!"
+                        echo "Deployment completed successfully!"
                     EOF
                 '''
             }
