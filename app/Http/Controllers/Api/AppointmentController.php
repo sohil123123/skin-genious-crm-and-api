@@ -250,20 +250,7 @@ class AppointmentController extends BaseApiController
 
             $appointment->enableLogging();
 
-            if ($request_status === 'completed') {
-                $clinicManagers = User::role('clinic_manager')
-                    ->where('clinic_id', $appointment->clinic_id)
-                    ->get();
-                
-                if ($clinicManagers->isNotEmpty()) {
-                    $clientName = $appointment->user ? $appointment->user->name : 'Unknown Client';
-                    Notification::make()
-                        ->title('Treatment Completed')
-                        ->body("Treatment session for {$clientName} has been completed. Please perform the post-assessment and generate the home care routine.")
-                        ->success()
-                        ->sendToDatabase($clinicManagers);
-                }
-            }
+
 
             return $this->success('Appointment status updated successfully', [
                 'appointment' => new AppointmentResource($appointment->fresh()),
@@ -274,20 +261,7 @@ class AppointmentController extends BaseApiController
         // Normal update → normal auto logging
         $appointment->update($update_input);
 
-        if ($request_status === 'completed') {
-            $clinicManagers = User::role('clinic_manager')
-                ->where('clinic_id', $appointment->clinic_id)
-                ->get();
-            
-            if ($clinicManagers->isNotEmpty()) {
-                $clientName = $appointment->user ? $appointment->user->name : 'Unknown Client';
-                Notification::make()
-                    ->title('Treatment Completed')
-                    ->body("Treatment session for {$clientName} has been completed. Please perform the post-assessment and generate the home care routine.")
-                    ->success()
-                    ->sendToDatabase($clinicManagers);
-            }
-        }
+
 
         return $this->success(
             'Appointment status updated successfully',
