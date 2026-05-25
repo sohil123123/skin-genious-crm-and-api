@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    tools {nodejs "node22_12"}
+    tools {nodejs "node24.9.0"}
     stages {
         stage("build"){
            steps {
@@ -15,7 +15,7 @@ pipeline {
         }
         stage("Populate .env file") {
             steps {
-                withCredentials([file(credentialsId: 'envSkinGeniousCRMApiBackend', variable: 'mySecretEnvFile')]){
+                withCredentials([file(credentialsId: 'production_crm_env', variable: 'mySecretEnvFile')]){
                     sh 'cp -rf $mySecretEnvFile $WORKSPACE/.env'
                 }
                 // sh 'php artisan test'
@@ -31,7 +31,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['jenkins']) {
                     sh '''
-                        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@147.93.31.88 whoami
+                        ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 whoami
                     '''
                 }
             }
@@ -41,18 +41,18 @@ pipeline {
     post {
         success{
             withCredentials([sshUserPrivateKey(credentialsId: "jenkins", keyFileVariable: 'keyfile')]) {
-              sh  'rsync -vrzhe "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" . root@147.93.31.88:/home/cbphysiotherapy-skingeniouscrm/htdocs/skingeniouscrm.cbphysiotherapy.in'
+              sh  'rsync -vrzhe "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519" . root@187.127.173.33:/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in'
             }
 
             sshagent(credentials: ['jenkins']) {
                 sh '''
-                    ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@147.93.31.88 << EOF
+                    ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@187.127.173.33 << EOF
                     whoami
-                    cd /home/cbphysiotherapy-skingeniouscrm/htdocs/skingeniouscrm.cbphysiotherapy.in
+                    cd /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in
                     php --version
-                    chown www-data:www-data /home/cbphysiotherapy-skingeniouscrm/htdocs/skingeniouscrm.cbphysiotherapy.in/storage -R
-                    chown www-data:www-data /home/cbphysiotherapy-skingeniouscrm/htdocs/skingeniouscrm.cbphysiotherapy.in/bootstrap -R
-                    chmod -R 0777 /home/cbphysiotherapy-skingeniouscrm/htdocs/skingeniouscrm.cbphysiotherapy.in/storage
+                    chown www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage -R
+                    chown www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/bootstrap -R
+                    chmod -R 0777 /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage
                     php artisan migrate --force --no-interaction
                     php artisan shield:generate --panel=admin --all --no-interaction
                     php artisan config:cache
