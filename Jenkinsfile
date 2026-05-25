@@ -83,7 +83,6 @@ pipeline {
                         rsync -avzr --delete \
                         --exclude=".git" \
                         --exclude="node_modules" \
-                        --exclude=".env" \
                         --exclude="storage/logs/*" \
                         -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
                         ./ root@$SERVER_IP:$PROJECT_PATH
