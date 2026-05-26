@@ -268,7 +268,7 @@ class AdminPanelProvider extends PanelProvider
                                 stopBtn.addEventListener('mouseenter', () => { stopBtn.style.backgroundColor = '#dc2626'; });
                                 stopBtn.addEventListener('mouseleave', () => { stopBtn.style.backgroundColor = '#ef4444'; });
 
-                                setTimeout(() => {
+                                let initEcho = () => {
                                     if (window.Echo) {
                                         window.Echo.private('App.Models.User.{$userId}')
                                             .notification((notification) => {
@@ -285,8 +285,11 @@ class AdminPanelProvider extends PanelProvider
                                                     stopBtn.style.display = 'none';
                                                 });
                                             });
+                                    } else {
+                                        setTimeout(initEcho, 200);
                                     }
-                                }, 1000);
+                                };
+                                initEcho();
                             });
                         </script>
                     HTML;
