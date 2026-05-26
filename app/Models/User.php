@@ -194,7 +194,7 @@ class User extends Authenticatable
     /**
      * Get remaining days for a leave type in the current year.
      */
-    public function remainingLeaveDays(string $leaveType, int $year = null): int
+    public function remainingLeaveDays(string $leaveType, ?int $year = null): int
     {
         $year = $year ?? date('Y');
         $entitlement = $this->leaveEntitlements()
