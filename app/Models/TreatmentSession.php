@@ -57,6 +57,6 @@ class TreatmentSession extends Model
 
     public function ivSession()
     {
-        return $this->hasOne(IVSession::class);
+        return $this->hasOne(IvSession::class);
     }
 }
