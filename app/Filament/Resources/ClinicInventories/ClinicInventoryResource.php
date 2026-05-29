@@ -29,10 +29,10 @@ class ClinicInventoryResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
-    }
+    // public static function canAccess(): bool
+    // {
+    //     return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
+    // }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {

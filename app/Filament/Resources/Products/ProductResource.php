@@ -23,10 +23,10 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole('super_admin');
-    }
+    // public static function canAccess(): bool
+    // {
+    //     return auth()->user()->hasRole('super_admin');
+    // }
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
 
