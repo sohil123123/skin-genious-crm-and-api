@@ -11,6 +11,8 @@ use App\Http\Requests\AppointmentUpdateRequest;
 use Spatie\Activitylog\Models\Activity;
 
 use App\Http\Resources\AppointmentResource;
+use Filament\Notifications\Notification;
+use App\Models\User;
 
 use App\Services\Availability\AvailabilityService;
 use App\Services\Availability\UnavailableSlotService;
@@ -248,6 +250,8 @@ class AppointmentController extends BaseApiController
 
             $appointment->enableLogging();
 
+
+
             return $this->success('Appointment status updated successfully', [
                 'appointment' => new AppointmentResource($appointment->fresh()),
                 'warning' => $warning,
@@ -256,6 +260,8 @@ class AppointmentController extends BaseApiController
 
         // Normal update → normal auto logging
         $appointment->update($update_input);
+
+
 
         return $this->success(
             'Appointment status updated successfully',

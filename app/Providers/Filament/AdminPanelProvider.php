@@ -194,6 +194,7 @@ class AdminPanelProvider extends PanelProvider
                     // ])
             ])
             ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 function (): string {
@@ -239,6 +240,64 @@ class AdminPanelProvider extends PanelProvider
                         </style>
                     HTML;
                 }
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                function (): string {
+                    $userId = Auth::id();
+                    if (!$userId) return '';
+
+                    return <<<HTML
+                        <script>
+                            document.addEventListener('DOMContentLoaded', () => {
+                                const stopBtn = document.createElement('button');
+                                stopBtn.innerHTML = '🛑 Stop Sound';
+                                stopBtn.style.cssText = 'display:none; position:fixed; bottom:30px; right:30px; z-index:99999; padding:12px 24px; background-color:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s;';
+                                document.body.appendChild(stopBtn);
+
+                                let currentAudio = null;
+
+                                stopBtn.addEventListener('click', () => {
+                                    if (currentAudio) {
+                                        currentAudio.pause();
+                                        currentAudio.currentTime = 0;
+                                    }
+                                    stopBtn.style.display = 'none';
+                                });
+
+                                stopBtn.addEventListener('mouseenter', () => { stopBtn.style.backgroundColor = '#dc2626'; });
+                                stopBtn.addEventListener('mouseleave', () => { stopBtn.style.backgroundColor = '#ef4444'; });
+
+                                let initEcho = () => {
+                                    if (window.Echo) {
+                                        window.Echo.private('App.Models.User.{$userId}')
+                                            .notification((notification) => {
+                                                if (currentAudio) {
+                                                    currentAudio.pause();
+                                                    currentAudio.currentTime = 0;
+                                                }
+                                                currentAudio = new Audio('/audio/old_telephone.mp3');
+                                                currentAudio.play().then(() => {
+                                                    stopBtn.style.display = 'block';
+                                                }).catch(e => console.error("Error playing sound:", e));
+
+                                                currentAudio.addEventListener('ended', () => {
+                                                    stopBtn.style.display = 'none';
+                                                });
+                                            });
+                                    } else {
+                                        setTimeout(initEcho, 200);
+                                    }
+                                };
+                                initEcho();
+                            });
+                        </script>
+                    HTML;
+                }
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => \Illuminate\Support\Facades\Blade::render("@vite('resources/js/app.js')")
             )
             ->navigationGroups([
                 // NavigationGroup::make()

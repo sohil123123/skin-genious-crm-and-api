@@ -314,7 +314,7 @@ class AssessmentsTable
                         )
                         ->action(function ($record) {
                             $name = $record->user->name. '_treatment_plan.json';
-                            $filePath = "treatment-plans/{$name}";
+                            $filePath = "treatment-plans/treatment_plans_#{$record->id}.json";
                             return response()->download(Storage::disk('files')->path($filePath), $name);
                         }),
 

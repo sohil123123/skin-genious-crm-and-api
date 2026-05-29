@@ -23,6 +23,6 @@ class IvSessionSnapshot extends Model
 
     public function ivSession()
     {
-        return $this->belongsTo(IVSession::class);
+        return $this->belongsTo(IvSession::class);
     }
 }

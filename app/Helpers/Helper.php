@@ -78,7 +78,7 @@ if (!function_exists('getAssessments')) {
         $query = addWhere($query, $request);
 
         if($request->has('is_dropdown') && $request->is_dropdown)
-            $query = $query->select(DB::raw('id AS label, id AS value'));
+            $query = $query->select(DB::raw("CONCAT('Assessment #', id) AS label, id AS value"));
 
         if($request->has('take') && $request->take)
             $query = $query->take($request->take);
