@@ -42,10 +42,10 @@ class UserPackageResource extends Resource
 
     // protected static string|UnitEnum|null $navigationGroup = 'Clients';
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole(['super_admin', 'clinic_manager', 'receptionist', 'doctor', 'therapist']);
-    }
+    // public static function canAccess(): bool
+    // {
+    //     return auth()->user()->hasRole(['super_admin', 'clinic_manager', 'receptionist', 'doctor', 'therapist']);
+    // }
 
     public static function getEloquentQuery(): Builder
     {

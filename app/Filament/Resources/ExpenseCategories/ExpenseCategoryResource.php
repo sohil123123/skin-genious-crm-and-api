@@ -25,10 +25,10 @@ class ExpenseCategoryResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
-    }
+    // public static function canAccess(): bool
+    // {
+    //     return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
+    // }
 
     public static function getEloquentQuery(): Builder
     {
