@@ -254,9 +254,9 @@ class UserPackagesTable
                                 'product_id' => $item->service_id,
                                 'quantity' => $item->quantity,
                                 'unit_price' => $item->price_per_unit,
-                                'discount_type' => null,
-                                'discount_value' => 0,
-                                'valid_discount_amount' => 0,
+                                'discount_type' => $record->discount_type->value ?? 'flat',
+                                'discount_value' => $record->discount_value ?? 0,
+                                'valid_discount_amount' => $record->discount_amount ?? 0,
                                 'line_total' => $item->total_amount,
                             ]);
                         }
@@ -328,7 +328,7 @@ class UserPackagesTable
                                 //     ->searchable()
                                 //     ->nullable()
                                 //     ->placeholder('None'),
-            
+
                                 Textarea::make('notes')
                                     ->label('Notes')
                                     ->nullable()

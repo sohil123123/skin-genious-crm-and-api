@@ -76,6 +76,7 @@ class UserPackageItem extends Model
         }
 
         $this->usages()->create(array_merge([
+            'user_package_id' => $this->user_package_id,
             'sessions_used' => $sessions,
             'recorded_by'   => auth()->id(),
         ], $extraData));
