@@ -11,6 +11,7 @@ class UserPackageUsage extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_package_id',
         'user_package_item_id',
         'sessions_used',
         'notes',
