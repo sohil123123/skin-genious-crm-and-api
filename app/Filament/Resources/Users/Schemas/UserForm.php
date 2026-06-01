@@ -218,7 +218,13 @@ class UserForm
                                 Grid::make(2)->schema([
                                     Select::make('role_id')
                                         ->label('Role')
-                                        ->options(Role::pluck('name', 'id'))
+                                        ->options(function () {
+                                            $query = Role::query();
+                                            if (!auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin'))) {
+                                                $query->whereIn('name', ['client', 'therapist']);
+                                            }
+                                            return $query->pluck('name', 'id');
+                                        })
                                         ->preload()
                                         ->searchable()
                                         ->required()
@@ -249,8 +255,9 @@ class UserForm
                                         ->default(fn () => auth()->user()->clinic_id)
                                         ->native(false)
                                         ->reactive()
-                                        ->visible(fn ($get) => has_clinic_related_role($get('role_id')))
-                                        ->required(fn ($get) => has_clinic_related_role($get('role_id')))
+                                        ->visible(fn ($get) => auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) && has_clinic_related_role($get('role_id')))
+                                        ->required(fn ($get) => auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) && has_clinic_related_role($get('role_id')))
+                                        ->dehydrated(true)
                                         ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
                                             $livewire->validateOnly('clinic_id');
                                         })

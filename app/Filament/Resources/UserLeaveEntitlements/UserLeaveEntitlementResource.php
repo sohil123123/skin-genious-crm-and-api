@@ -54,4 +54,12 @@ class UserLeaveEntitlementResource extends Resource
             'edit' => EditUserLeaveEntitlement::route('/{record}/edit'),
         ];
     }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(!auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')), function ($query) {
+                $query->whereHas('user', fn ($q) => $q->where('clinic_id', auth()->user()->clinic_id));
+            });
+    }
 }

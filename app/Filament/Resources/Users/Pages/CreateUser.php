@@ -21,6 +21,15 @@ class CreateUser extends CreateRecord
 
     protected static string $resource = UserResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if (!auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin'))) {
+            $data['clinic_id'] = auth()->user()->clinic_id;
+        }
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
         $user = $this->record;

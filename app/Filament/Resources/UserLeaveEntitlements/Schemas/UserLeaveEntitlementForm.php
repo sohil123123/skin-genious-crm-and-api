@@ -26,7 +26,14 @@ class UserLeaveEntitlementForm
                                 Grid::make(2)->schema([
                                     Select::make('user_id')
                                         ->label('Therapist')
-                                        ->relationship('therapist', 'first_name')
+                                        ->relationship(
+                                            name: 'therapist', 
+                                            titleAttribute: 'first_name',
+                                            modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => 
+                                                auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) 
+                                                    ? $query 
+                                                    : $query->where('clinic_id', auth()->user()->clinic_id)
+                                        )
                                         ->placeholder('Select Therapist')
                                         ->required(),
 
