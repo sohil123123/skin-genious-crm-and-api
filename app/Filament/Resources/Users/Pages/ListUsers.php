@@ -64,7 +64,7 @@ class ListUsers extends ListRecords
 
             $tabs[$name] = Tab::make($label)
                 ->icon($icon)
-                ->visible(fn () => $name === config('project.roles.super_admin') || check_role(config('project.roles.super_admin')))
+                ->visible(fn () => $name !== config('project.roles.super_admin', 'super_admin') || auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')))
                 ->query(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', $name)))
                 ->badge(UserResource::getEloquentQuery()->whereHas('roles', fn ($q) => $q->where('name', $name))->count())
                 ->badgeColor($color);

@@ -397,16 +397,18 @@ class UsersTable
                     RestoreBulkAction::make(),
                 ]),
             ])
-            ->groups([
-                Group::make('clinic_id')
-                    ->label('Clinic Name')
-                    ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
+            ->groups(array_filter([
+                auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) ? 
+                    Group::make('clinic_id')
+                        ->label('Clinic Name')
+                        ->collapsible()
+                        ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
+                        ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned') 
+                    : null,
                 // Group::make('roles.name')->label('Role Name')->collapsible(),
                 Group::make('gender')->label('Gender')->collapsible(),
                 Group::make('created_at')->date(),
-            ])
+            ]))
             // ->groupingSettingsInDropdownOnDesktop()
             ->emptyStateDescription('Once you create your first user, it will appear here.');
             // ->contentGrid([
