@@ -65,21 +65,21 @@ class InvoiceInfolist
                     ->schema([
                         RepeatableEntry::make('items')
                             ->schema([
-                                Grid::make(6)->schema([
+                                Grid::make(5)->schema([
                                     TextEntry::make('product.name')->label('Product'),
                                     TextEntry::make('quantity')->label('Qty'),
                                     TextEntry::make('unit_price')->label('Price')->money('INR'),
-                                    TextEntry::make('discount_value')
-                                        ->label('Discount')
-                                        ->formatStateUsing(function ($record) {
-                                            $actualDiscount = $record->valid_discount_amount ?? $record->discount_amount ?? 0;
-                                            if ($record->discount_type === 'percentage') {
-                                                return ($record->discount_value ?? 0) . '% (₹' . number_format($actualDiscount, 2) . ')';
-                                            }
-                                            return '₹' . number_format($actualDiscount, 2);
-                                        })
-                                        ->badge()
-                                        ->color('info'),
+                                    // TextEntry::make('discount_value')
+                                    //     ->label('Discount')
+                                    //     ->formatStateUsing(function ($record) {
+                                    //         $actualDiscount = $record->valid_discount_amount ?? 0;
+                                    //         if ($record->discount_type === 'percentage') {
+                                    //             return ($record->discount_value ?? 0) . '% (₹' . number_format($actualDiscount, 2) . ')';
+                                    //         }
+                                    //         return '₹' . number_format($actualDiscount, 2);
+                                    //     })
+                                    //     ->badge()
+                                    //     ->color('info'),
                                     TextEntry::make('gst_amount')
                                         ->label('GST')
                                         ->formatStateUsing(fn ($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
@@ -98,7 +98,26 @@ class InvoiceInfolist
                                 TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
                                 TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
                                 TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
-                                TextEntry::make('discount_total')->money('INR')->label('Discount')->color('success')->inlineLabel(),
+                                TextEntry::make('discount_total')
+                                        ->label('Discount')
+                                        ->inlineLabel()
+                                        ->formatStateUsing(function ($record) {
+                                            $actualDiscount = $record->discount_total ?? 0;
+
+                                            if ($record->package_id && $record->package) {
+                                                $type = $record->package->discount_type instanceof \App\Enums\PackageDiscountType
+                                                    ? $record->package->discount_type->value
+                                                    : $record->package->discount_type;
+
+                                                if ($type === 'percentage') {
+                                                    $percent = $record->package->discount_value ?? 0;
+                                                    return $percent . '% (₹' . number_format($actualDiscount, 2) . ')';
+                                                }
+                                            }
+
+                                            return '₹' . number_format($actualDiscount, 2);
+                                        })
+                                        ->color('success'),
                                 TextEntry::make('grand_total')
                                     ->money('INR')
                                     ->label('Grand Total')
