@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use App\Models\Invoice;
+use App\Models\InvoicePayment;
+use App\Observers\InvoiceObserver;
+use App\Observers\InvoicePaymentObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Product::observe(\App\Observers\ProductObserver::class);
         \App\Models\Purchase::observe(\App\Observers\PurchaseObserver::class);
         \App\Models\Expense::observe(\App\Observers\ExpenseObserver::class);
+        Invoice::observe(InvoiceObserver::class);
+        InvoicePayment::observe(InvoicePaymentObserver::class);
         // \App\Models\StockTransaction::observe(\App\Observers\StockTransactionObserver::class);
 
         Relation::morphMap([

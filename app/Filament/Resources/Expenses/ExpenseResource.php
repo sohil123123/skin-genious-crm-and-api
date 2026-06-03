@@ -25,18 +25,6 @@ class ExpenseResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    // public static function canAccess(): bool
-    // {
-    //     return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
-    // }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->with(['category', 'clinic', 'creator', 'approver'])
-            ->forCurrentClinic();
-    }
-
     public static function form(Schema $schema): Schema
     {
         return ExpenseForm::configure($schema);
@@ -57,5 +45,14 @@ class ExpenseResource extends Resource
         return [
             'index' => ListExpenses::route('/'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['category', 'clinic', 'creator', 'approver'])
+            ->when(!check_role(config('project.roles.super_admin')), function ($query) {
+                $query->forCurrentClinic();
+            });
     }
 }
