@@ -21,11 +21,11 @@ class IvSessionBag extends Model
 
     public function ivSession()
     {
-        return $this->belongsTo(IVSession::class);
+        return $this->belongsTo(IvSession::class);
     }
 
     public function ingredients()
     {
-        return $this->hasMany(IVSessionIngredient::class, 'iv_session_bag_id');
+        return $this->hasMany(IvSessionIngredient::class, 'iv_session_bag_id');
     }
 }
