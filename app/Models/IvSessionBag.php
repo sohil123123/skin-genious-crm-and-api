@@ -26,6 +26,6 @@ class IvSessionBag extends Model
 
     public function ingredients()
     {
-        return $this->hasMany(IVSessionIngredient::class, 'iv_session_bag_id');
+        return $this->hasMany(IvSessionIngredient::class, 'iv_session_bag_id');
     }
 }

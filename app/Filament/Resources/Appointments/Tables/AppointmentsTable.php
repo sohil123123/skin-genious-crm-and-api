@@ -56,7 +56,7 @@ class AppointmentsTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
-                    ->visible(fn () => check_role('super_admin'))
+                    ->visible(fn () => check_role(config('project.roles.super_admin')))
                     ->icon('heroicon-o-building-office')
                     // ->color('gray')
                     ->color(fn ($record) => $record->status?->getColor() ?? 'gray')

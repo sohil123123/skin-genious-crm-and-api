@@ -40,17 +40,17 @@ class IvSession extends Model
 
     public function snapshots()
     {
-        return $this->hasMany(IVSessionSnapshot::class);
+        return $this->hasMany(IvSessionSnapshot::class);
     }
 
     public function bags()
     {
-        return $this->hasMany(IVSessionBag::class);
+        return $this->hasMany(IvSessionBag::class);
     }
 
     public function ingredients()
     {
-        return $this->hasMany(IVSessionIngredient::class);
+        return $this->hasMany(IvSessionIngredient::class);
     }
 
 }
