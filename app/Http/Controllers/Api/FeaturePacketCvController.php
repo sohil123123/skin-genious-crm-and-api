@@ -71,7 +71,7 @@ class FeaturePacketCvController extends Controller
                 $absWoodsUvPath = storage_path('app/public/' . $uvPath);
             }
 
-            $pythonPath = env('PYTHON_PATH', 'C:\\laragon\\bin\\python\\python-3.13\\python.exe');
+            $pythonPath = config('project.python_path');
             $scriptPath = base_path('AIA-Agent/feature_packet_cv.py');
 
             $command = [

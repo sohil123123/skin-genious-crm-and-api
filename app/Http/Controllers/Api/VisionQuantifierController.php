@@ -59,7 +59,7 @@ class VisionQuantifierController extends Controller
             $absWhitePath = storage_path('app/public/' . $whitePath);
             $absBluePath = $bluePath ? storage_path('app/public/' . $bluePath) : null;
 
-            $pythonPath = env('PYTHON_PATH', 'C:\\laragon\\bin\\python\\python-3.13\\python.exe');
+            $pythonPath = config('project.python_path');
             $scriptPath = base_path('AIA-Agent/iv_vision_quantifier.py');
 
             $command = [
