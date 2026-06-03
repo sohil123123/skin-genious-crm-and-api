@@ -76,4 +76,12 @@ class InvoiceResource extends Resource
     {
         return InvoiceInfolist::configure($schema);
     }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(!check_role(config('project.roles.super_admin')), function ($query) {
+                $query->where('clinic_id', auth()->user()->clinic_id);
+            });
+    }
 }
