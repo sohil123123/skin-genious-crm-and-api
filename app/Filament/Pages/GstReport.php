@@ -202,6 +202,7 @@ class GstReport extends Page implements HasTable, HasForms
 
                 return $query;
             })
+            ->defaultSort('invoice_date', 'desc')
             ->columns([
                 TextColumn::make('client.first_name')
                     ->label('Customer Name')
@@ -238,6 +239,10 @@ class GstReport extends Page implements HasTable, HasForms
 
                 TextColumn::make('invoice_number')
                     ->label('Invoice Number')
+                    ->url(fn (Invoice $record): string => route('filament.admin.resources.invoices.edit', ['record' => $record]))
+                    ->openUrlInNewTab()
+                    ->color('primary')
+                    ->weight('bold')
                     ->searchable()
                     ->sortable(),
 
