@@ -19,6 +19,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "mpdf/mpdf": "^8.2",
+        "opcodesio/log-viewer": "*",
         "orangehill/iseed": "^3.1",
         "pxlrbt/filament-activity-log": "^2.0",
         "resma/filament-awin-theme": "^1.1",

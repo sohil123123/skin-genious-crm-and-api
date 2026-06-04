@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TreatmentSessionController;
 use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\VisionQuantifierController;
+use App\Http\Controllers\Api\FeaturePacketCvController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
 
 // Route::get('/user', function (Request $request) {
@@ -88,6 +89,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Vision Quantifier Route
         Route::post('/vision/quantify', [VisionQuantifierController::class, 'quantify']);
+
+        // INFO: Feature Packet CV Route
+        Route::post('/feature-packet-cv/quantify', [FeaturePacketCvController::class, 'quantify']);
 
     });
 

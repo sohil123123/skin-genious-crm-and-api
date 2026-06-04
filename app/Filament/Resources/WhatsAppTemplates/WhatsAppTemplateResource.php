@@ -17,6 +17,8 @@ class WhatsAppTemplateResource extends Resource
 
     protected static string | \UnitEnum | null $navigationGroup = 'Others';
 
+    protected static ?string $navigationLabel = 'WhatsApp Templates';
+
     protected static ?int $navigationSort = 42;
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema

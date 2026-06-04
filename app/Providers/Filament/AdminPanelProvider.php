@@ -308,6 +308,13 @@ class AdminPanelProvider extends PanelProvider
                 // NavigationGroup::make()
                 //     ->label('Therapist Management'),
                 //     // ->icon('heroicon-o-hand-raised'),
+            ])
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('Logs')
+                    ->url(fn (): string => route('log-viewer.index'))
+                    ->icon('heroicon-o-document-text')
+                    ->group('Others')
+                    ->visible(fn (): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }
 
