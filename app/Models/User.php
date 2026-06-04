@@ -29,7 +29,7 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = ['clinic_id', 'first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'loyalty_points', 'has_diabetes', 'has_high_bp', 'has_cholesterol', 'has_asthma',
+    protected $fillable = ['clinic_id', 'first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'state', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'loyalty_points', 'has_diabetes', 'has_high_bp', 'has_cholesterol', 'has_asthma',
         'has_heart_disease', 'has_anaemia', 'has_pcos', 'has_thyroid',
         'other_diseases', 'current_medications', 'allergies', 'skin_type', 'facials_history', 'skin_quality', 'goal_less_tired', 'goal_less_angry', 'goal_less_sad', 'goal_less_saggy',
         'goal_youthful', 'goal_attractive', 'goal_soft_features', 'goal_slim_face',

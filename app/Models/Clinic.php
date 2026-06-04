@@ -28,6 +28,7 @@ class Clinic extends Model
         'address_line2',
         'pincode',
         'city',
+        'state',
         'gst_number',
         'first_sale_share',
         'sale_share',

@@ -9,6 +9,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\Hidden;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
@@ -23,6 +24,7 @@ use Filament\Support\Icons\Heroicon;
 
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Clinic;
 
 use Closure;
 
@@ -57,16 +59,7 @@ class UserForm
             Grid::make(2)->schema([
                 TextInput::make('city')->placeholder('City'),
                 TextInput::make('pincode')->placeholder('Pincode'),
-                // TextInput::make('referral_code')
-                //     ->default(fn (string $context) => $context === 'create'
-                //         ? 'REF' . random_int(100000, 999999)
-                //         : context()->record?->referral_code
-                //     )
-                //     ->disabled() // user cannot change
-                //     ->dehydrated() // still save value
-                //     ->required(fn (string $context) => $context === 'create') // required only on create
-                //     ->maxLength(32)
-                //     ->unique(User::class, 'referral_code', ignoreRecord: true),
+                Hidden::make('state'),
             ]),
             Grid::make(2)->schema([
                 TextInput::make('address_line_1')->placeholder('Address Line 1'),
@@ -235,7 +228,14 @@ class UserForm
                                                 if ($selectedRole?->name === config('project.roles.super_admin')) {
                                                     $set('clinic_id', null);
                                                 } else {
-                                                    $set('clinic_id', auth()->user()->clinic_id);
+                                                    $clinicId = auth()->user()->clinic_id;
+                                                    $set('clinic_id', $clinicId);
+                                                    if ($clinicId) {
+                                                        $clinic = Clinic::find($clinicId);
+                                                        if ($clinic && $clinic->state) {
+                                                            $set('state', $clinic->state);
+                                                        }
+                                                    }
                                                 }
                                             } else {
                                                 $set('clinic_id', null);
@@ -260,6 +260,12 @@ class UserForm
                                         ->dehydrated(true)
                                         ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
                                             $livewire->validateOnly('clinic_id');
+                                            if ($state) {
+                                                $clinic = \App\Models\Clinic::find($state);
+                                                if ($clinic && $clinic->state) {
+                                                    $set('state', $clinic->state);
+                                                }
+                                            }
                                         })
                                         ->rules([
                                             fn ($get, ?User $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
