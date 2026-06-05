@@ -102,7 +102,13 @@ class FeaturePacketCvController extends Controller
             $process->run();
 
             if (!$process->isSuccessful()) {
-                throw new ProcessFailedException($process);
+                // throw new ProcessFailedException($process);
+                return response()->json([
+                    'success' => false,
+                    'exit_code' => $process->getExitCode(),
+                    'output' => $process->getOutput(),
+                    'error_output' => $process->getErrorOutput(),
+                ]);
             }
 
             $output = $process->getOutput();
