@@ -161,11 +161,28 @@ def bin_of(value, spec):
 # ----------------------------------------------------------------------------
 # IMAGE / ROI UTILITIES
 # ----------------------------------------------------------------------------
+def get_cascade_path(filename):
+    if hasattr(cv2, "data"):
+        return os.path.join(cv2.data.haarcascades, filename)
+    
+    # Fallback path if cv2.data is missing (e.g., some headless or older builds)
+    base_dir = os.path.dirname(cv2.__file__)
+    fallback_path = os.path.join(base_dir, "data", filename)
+    if os.path.exists(fallback_path):
+        return fallback_path
+        
+    # Another common location for system-installed OpenCV (e.g. Ubuntu)
+    system_path = os.path.join("/usr/share/opencv4/haarcascades", filename)
+    if os.path.exists(system_path):
+        return system_path
+        
+    return fallback_path
+
 def detect_face_box(white_bgr):
     """Detect a face box on the white image; reuse the box on all modes
     (assumes the device captures registered/aligned frames)."""
     gray = cv2.cvtColor(white_bgr, cv2.COLOR_BGR2GRAY)
-    cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+    cascade_path = get_cascade_path("haarcascade_frontalface_default.xml")
     cascade = cv2.CascadeClassifier(cascade_path)
     faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
     if len(faces) > 0:
@@ -536,7 +553,8 @@ def measure(images, rois, log):
         out["_peri_vasc"] = round005(vasc)
         out["_peri_side"] = "left" if under_l > under_r + 0.07 else ("right" if under_r > under_l + 0.07 else "symmetric")
         # eyes_closed via eye cascade
-        eye_cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, "haarcascade_eye.xml"))
+        eye_cascade_path = get_cascade_path("haarcascade_eye.xml")
+        eye_cascade = cv2.CascadeClassifier(eye_cascade_path)
         eyes = eye_cascade.detectMultiScale(gW, 1.1, 6)
         out["_eyes_closed"] = bool(len(eyes) == 0)
     except Exception:
