@@ -60,6 +60,11 @@ class InvoicesTable
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
+                TextColumn::make('state_code')
+                    ->label('State')
+                    ->badge()
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('invoice_type')
                     ->label('Type')
                     ->badge()
@@ -186,6 +191,12 @@ class InvoicesTable
                                         //     ])
                                         //     ->placeholder('All Payment Modes'),
 
+                                        Select::make('state_code')
+                                            ->label('State Code')
+                                            ->options(config('project.indian_states', []))
+                                            ->searchable()
+                                            ->placeholder('All States'),
+
                                     ]),
                             ])
                             ->columns(1)
@@ -196,7 +207,8 @@ class InvoicesTable
                             ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
                             ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
                             ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
-                            ->when($data['invoice_type'] ?? null, fn ($q, $type) => $q->where('invoice_type', $type));
+                            ->when($data['invoice_type'] ?? null, fn ($q, $type) => $q->where('invoice_type', $type))
+                            ->when($data['state_code'] ?? null, fn ($q, $state) => $q->where('state_code', $state));
                             // ->when($data['payment_mode'] ?? null, fn ($q, $mode) => $q->where('payment_mode', $mode));
                     })
                     ->indicateUsing(function (array $data): array {
@@ -222,6 +234,10 @@ class InvoicesTable
 
                         if ($data['invoice_type'] ?? null) {
                             $indicators[] = Indicator::make('Type: ' . ucfirst($data['invoice_type']))->removeField('invoice_type');
+                        }
+
+                        if ($data['state_code'] ?? null) {
+                            $indicators[] = Indicator::make('State: ' . $data['state_code'])->removeField('state_code');
                         }
 
                         // if ($data['payment_mode'] ?? null) {
