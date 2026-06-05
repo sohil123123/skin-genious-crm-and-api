@@ -51,6 +51,8 @@ return [
     ],
     'mpdf_font_dir' => '/assets/fonts/Montserrat',
 
+    'python_path' => env('PYTHON_PATH', 'C:\\laragon\\bin\\python\\python-3.13\\python.exe'),
+
     'roles' => [
         'super_admin' => 'super_admin',
         'therapist' => 'therapist',

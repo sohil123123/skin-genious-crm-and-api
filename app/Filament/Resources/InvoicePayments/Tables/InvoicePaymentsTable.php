@@ -45,8 +45,16 @@ class InvoicePaymentsTable
                     ->sortable()
                     ->url(fn ($record) => "/admin/invoices/{$record->invoice_id}/edit"),
 
+                TextColumn::make('invoice.clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->visible(fn () => check_role(config('project.roles.super_admin')))
+                    ->sortable()
+                    ->searchable(),
+
                 TextColumn::make('invoice.client.first_name')
-                    ->label('Patient')
+                    ->label('Client')
                     ->formatStateUsing(fn ($record) => $record->invoice->client?->name ?? 'N/A')
                     ->searchable(['first_name', 'last_name']),
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LoyaltyOtp;
 use App\Models\Setting;
 use App\Models\User;
+use App\Jobs\SendWhatsAppMessageJob;
 use Illuminate\Support\Facades\Log;
 
 class LoyaltyOtpService
@@ -30,9 +31,43 @@ class LoyaltyOtpService
             'expires_at' => now()->addMinutes($expiryMinutes),
         ]);
 
-        // TODO: Integrate with your SMS provider here
-        // For now, log the OTP for development
-        Log::info("Loyalty OTP for client #{$client->id} ({$client->mobile}): {$otp}");
+        // // Dispatch the WhatsApp job
+        // // Example component structure for OTP template:
+        // // [
+        // //     [
+        // //         'type' => 'body',
+        // //         'parameters' => [
+        // //             ['type' => 'text', 'text' => $otp],
+        // //         ],
+        // //     ],
+        // //     [
+        // //         'type' => 'button',
+        // //         'sub_type' => 'url',
+        // //         'index' => '0',
+        // //         'parameters' => [
+        // //             ['type' => 'text', 'text' => $otp],
+        // //         ],
+        // //     ]
+        // // ]
+        // $components = [
+        //     [
+        //         'type' => 'body',
+        //         'parameters' => [
+        //             ['type' => 'text', 'text' => $otp],
+        //         ],
+        //     ]
+        // ];
+
+        // // Ensure you have configured a template named 'loyalty_otp_verification' in Meta
+        // SendWhatsAppMessageJob::dispatch(
+        //     $client->mobile ?? $client->phone,
+        //     'loyalty_otp_verification',
+        //     $components,
+        //     'en_US',
+        //     $client->id
+        // );
+
+        Log::info("Loyalty OTP generated for client #{$client->id} ({$client->mobile}): {$otp}");
 
         return $loyaltyOtp;
     }

@@ -28,23 +28,6 @@ class PurchaseResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
-    }
-
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if (!auth()->user()->hasRole('super_admin')) {
-            $query->where('clinic_id', auth()->user()->clinic_id);
-        }
-
-        return $query;
-    }
-
-
     public static function form(Schema $schema): Schema
     {
         return PurchaseForm::configure($schema);
@@ -69,5 +52,13 @@ class PurchaseResource extends Resource
             'create' => CreatePurchase::route('/create'),
             'edit' => EditPurchase::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(!check_role(config('project.roles.super_admin')), function ($query) {
+                $query->where('clinic_id', auth()->user()->clinic_id);
+            });
     }
 }

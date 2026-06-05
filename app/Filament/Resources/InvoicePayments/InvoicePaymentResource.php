@@ -33,17 +33,6 @@ class InvoicePaymentResource extends Resource
         return InvoicePaymentsTable::configure($table);
     }
 
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-        if (!auth()->user()->hasRole('super_admin')) {
-            $query->whereHas('invoice', function ($q) {
-                $q->where('clinic_id', auth()->user()->clinic_id);
-            });
-        }
-        return $query;
-    }
-
     public static function getPages(): array
     {
         return [
@@ -51,5 +40,15 @@ class InvoicePaymentResource extends Resource
             'create' => CreateInvoicePayment::route('/create'),
             'edit' => EditInvoicePayment::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(!check_role(config('project.roles.super_admin')), function ($query) {
+                $query->whereHas('invoice', function ($q) {
+                    $q->where('clinic_id', auth()->user()->clinic_id);
+                });
+            });
     }
 }

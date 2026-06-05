@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use App\Models\Invoice;
+use App\Models\InvoicePayment;
+use App\Observers\InvoiceObserver;
+use App\Observers\InvoicePaymentObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Product::observe(\App\Observers\ProductObserver::class);
         \App\Models\Purchase::observe(\App\Observers\PurchaseObserver::class);
         \App\Models\Expense::observe(\App\Observers\ExpenseObserver::class);
+        Invoice::observe(InvoiceObserver::class);
+        InvoicePayment::observe(InvoicePaymentObserver::class);
         // \App\Models\StockTransaction::observe(\App\Observers\StockTransactionObserver::class);
 
         Relation::morphMap([
@@ -33,5 +39,25 @@ class AppServiceProvider extends ServiceProvider
         \Livewire\Livewire::component('app.filament.report-widgets.product-sales-chart', \App\Filament\ReportWidgets\ProductSalesChart::class);
         \Livewire\Livewire::component('app.filament.report-widgets.product-purchase-distribution-chart', \App\Filament\ReportWidgets\ProductPurchaseDistributionChart::class);
         \Livewire\Livewire::component('app.filament.report-widgets.product-sales-distribution-chart', \App\Filament\ReportWidgets\ProductSalesDistributionChart::class);
+
+        \Illuminate\Support\Facades\Gate::define('viewLogViewer', function ($user) {
+            return $user->hasRole('super_admin');
+        });
+
+        \Illuminate\Support\Facades\Gate::define('deleteLogFile', function ($user) {
+            return $user->hasRole('super_admin');
+        });
+
+        \Illuminate\Support\Facades\Gate::define('deleteLogFolder', function ($user) {
+            return $user->hasRole('super_admin');
+        });
+
+        \Illuminate\Support\Facades\Gate::define('downloadLogFile', function ($user) {
+            return $user->hasRole('super_admin');
+        });
+
+        \Illuminate\Support\Facades\Gate::define('downloadLogFolder', function ($user) {
+            return $user->hasRole('super_admin');
+        });
     }
 }

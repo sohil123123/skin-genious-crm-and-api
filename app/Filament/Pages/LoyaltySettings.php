@@ -90,6 +90,38 @@ class LoyaltySettings extends Page
                 ->icon($this->getGroupIcon($groupName))
                 ->description("Manage \"{$groupLabel}\" settings ({$settings->count()} items)")
                 ->collapsible()
+                ->headerActions([
+                    \Filament\Actions\Action::make("add_setting_{$groupName}")
+                        ->label('Add Setting')
+                        ->icon('heroicon-o-plus')
+                        ->form([
+                            TextInput::make('key')
+                                ->label('Key')
+                                ->placeholder('e.g. new_setting_key')
+                                ->required(),
+                            TextInput::make('value')
+                                ->label('Value')
+                                ->required(),
+                            TextInput::make('description')
+                                ->label('Description')
+                                ->placeholder('Short description...'),
+                        ])
+                        ->action(function (array $data) use ($groupName) {
+                            Setting::updateOrCreate(
+                                ['key' => $data['key']],
+                                [
+                                    'value'       => $data['value'],
+                                    'group'       => $groupName,
+                                    'description' => $data['description'] ?? null,
+                                ]
+                            );
+                            \Filament\Notifications\Notification::make()
+                                ->title('Setting Added to ' . ucwords(str_replace(['_', '-'], ' ', $groupName)))
+                                ->success()
+                                ->send();
+                            $this->redirect(static::getUrl());
+                        })
+                ])
                 ->schema([
                     Grid::make(3)->schema($fields),
                 ]);
@@ -187,11 +219,16 @@ class LoyaltySettings extends Page
                     $newSettings = $data['new_settings'] ?? [];
                     foreach ($newSettings as $setting) {
                         if (!empty($setting['key'])) {
+                            $group = $setting['group'] ?? 'general';
+                            if ($group === '__new__') {
+                                $group = !empty($setting['new_group_name']) ? strtolower(str_replace(' ', '_', $setting['new_group_name'])) : 'general';
+                            }
+
                             Setting::updateOrCreate(
                                 ['key' => $setting['key']],
                                 [
                                     'value'       => $setting['value'] ?? '',
-                                    'group'       => $setting['group'] ?? 'general',
+                                    'group'       => $group,
                                     'description' => $setting['description'] ?? null,
                                 ]
                             );

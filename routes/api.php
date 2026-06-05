@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TreatmentSessionController;
 use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\VisionQuantifierController;
+use App\Http\Controllers\Api\FeaturePacketCvController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -24,6 +26,10 @@ use App\Http\Controllers\Api\VisionQuantifierController;
 Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login']);
+
+    // WhatsApp Webhooks
+    Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
+    Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
 
     // Protected API routes with sanctum middleware
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -45,7 +51,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::apiResource('assessments', 'AssessmentController');
 
         // INFO: Treatment Plan CRUD Route
-        Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
+        // Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
 
         // INFO: Appointment CRUD Route
         // Availability engine
@@ -83,6 +89,9 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         // INFO: Vision Quantifier Route
         Route::post('/vision/quantify', [VisionQuantifierController::class, 'quantify']);
+
+        // INFO: Feature Packet CV Route
+        Route::post('/feature-packet-cv/quantify', [FeaturePacketCvController::class, 'quantify']);
 
     });
 

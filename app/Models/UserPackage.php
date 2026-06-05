@@ -32,14 +32,18 @@ class UserPackage extends Model
 
                 // Sync invoice items with package items
                 $invoice->items()->delete();
+                $discountType = $package->discount_type instanceof PackageDiscountType
+                    ? $package->discount_type->value
+                    : ($package->discount_type ?? 'flat');
+
                 foreach ($package->items as $item) {
                     $invoice->items()->create([
                         'product_id' => $item->service_id,
                         'quantity' => $item->quantity,
                         'unit_price' => $item->price_per_unit,
-                        'discount_type' => null,
-                        'discount_value' => 0,
-                        'valid_discount_amount' => 0,
+                        'discount_type' => $discountType,
+                        'discount_value' => $package->discount_value ?? 0,
+                        'valid_discount_amount' => $package->discount_amount ?? 0,
                         'line_total' => $item->total_amount,
                     ]);
                 }

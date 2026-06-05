@@ -32,31 +32,39 @@ class InvoiceForm
                             // Grid::make(4)->schema([
                                 Select::make('clinic_id')
                                     ->relationship('clinic', 'name')
-                                    ->required()
+                                    ->required(fn () => check_role(config('project.roles.super_admin')))
+                                    ->visible(fn () => check_role(config('project.roles.super_admin')))
                                     ->live()
+                                    ->afterStateUpdated(function (Set $set) {
+                                        $set('user_id', null);
+                                        $set('patient_phone', null);
+                                        $set('patient_email', null);
+                                        
+                                        // Reset line items
+                                        $set('items', [
+                                            [
+                                                'product_id' => null,
+                                                'quantity' => 1,
+                                                'unit_price' => null,
+                                                'discount_type' => 'flat',
+                                                'discount_value' => 0,
+                                                'gst_percentage' => 18,
+                                                'gst_amount' => 0,
+                                                'line_total' => 0,
+                                            ]
+                                        ]);
+                                        
+                                        // Reset grand totals
+                                        $set('subtotal', 0);
+                                        $set('taxable_value', 0);
+                                        $set('gst_total', 0);
+                                        $set('discount_total', 0);
+                                        $set('grand_total', 0);
+                                    })
                                     ->columnSpan(1),
-                                TextInput::make('invoice_number')
-                                    ->label('Invoice #')
-                                    ->placeholder('Auto-generated')
-                                    ->disabled()
-                                    ->dehydrated(false)
-                                    ->visible(fn ($record) => $record !== null)
-                                    ->columnSpan(1),
-                                Select::make('package_id')
-                                    ->relationship('package', 'package_name')
-                                    ->label('Linked Package')
-                                    ->disabled()
-                                    ->visible(fn ($record) => $record && $record->package_id)
-                                    ->columnSpan(1),
-                                DatePicker::make('invoice_date')
-                                    ->default(now())
-                                    ->required()
-                                    ->columnSpan(1),
-                                TextInput::make('source_note')
-                                    ->placeholder('e.g. RWA Saket camp')
-                                    ->columnSpan(1),
-                            // ]),
-                            // Grid::make(4)->schema([
+                                Hidden::make('clinic_id')
+                                    ->default(fn () => auth()->user()->clinic_id)
+                                    ->visible(fn () => !check_role(config('project.roles.super_admin'))),
                                 Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (callable $get) {
@@ -81,6 +89,28 @@ class InvoiceForm
                                         }
                                     })
                                     ->columnSpan(1),
+                                TextInput::make('invoice_number')
+                                    ->label('Invoice #')
+                                    ->placeholder('Auto-generated')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->visible(fn ($record) => $record !== null)
+                                    ->columnSpan(1),
+                                Select::make('package_id')
+                                    ->relationship('package', 'package_name')
+                                    ->label('Linked Package')
+                                    ->disabled()
+                                    ->visible(fn ($record) => $record && $record->package_id)
+                                    ->columnSpan(1),
+                                DatePicker::make('invoice_date')
+                                    ->default(now())
+                                    ->required()
+                                    ->columnSpan(1),
+                                TextInput::make('source_note')
+                                    ->placeholder('e.g. RWA Saket camp')
+                                    ->columnSpan(1),
+                            // ]),
+                            // Grid::make(4)->schema([
                                 TextInput::make('patient_phone')
                                     ->label('Phone')
                                     ->disabled()
@@ -128,10 +158,10 @@ class InvoiceForm
                                 ->schema([
                                     Select::make('product_id')
                                         ->label('Product')
-                                        ->placeholder(fn (Get $get) => empty($get('../../clinic_id')) ? 'Select Clinic first' : 'Select Product')
-                                        ->disabled(fn (Get $get) => empty($get('../../clinic_id')))
+                                        ->placeholder(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id) ? 'Select Clinic first' : 'Select Product')
+                                        ->disabled(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id))
                                         ->options(function (Get $get) {
-                                            $clinicId = $get('../../clinic_id');
+                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
 
                                             if (!$clinicId) {
                                                 return [];
@@ -153,7 +183,7 @@ class InvoiceForm
                                             if (empty($value)) return false;
                                             $product = Product::find($value);
                                             if ($product && $product->type !== 'service') {
-                                                $clinicId = $get('../../clinic_id');
+                                                $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
                                                 if (!$clinicId) return true;
 
                                                 $inventory = ClinicInventory::where('clinic_id', $clinicId)
@@ -195,8 +225,50 @@ class InvoiceForm
                                         ->default(1)
                                         ->live()
                                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                            $productId = $get('product_id');
+                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+
+                                            if ($productId && $clinicId) {
+                                                $product = Product::find($productId);
+                                                if ($product && $product->type !== 'service') {
+                                                    $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                        ->where('product_id', $productId)
+                                                        ->first();
+                                                    $stock = $inventory?->stock_quantity ?? 0;
+                                                    
+                                                    if ((int)$state > $stock) {
+                                                        $state = $stock;
+                                                        $set('quantity', $stock);
+                                                        
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title('Quantity Adjusted')
+                                                            ->body("Only {$stock} items available in stock.")
+                                                            ->warning()
+                                                            ->send();
+                                                    }
+                                                }
+                                            }
+
                                             self::updateLineTotal($get, $set);
                                             self::updateGrandTotal($get, $set);
+                                        })
+                                        ->maxValue(function (Get $get) {
+                                            $productId = $get('product_id');
+                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+
+                                            if (!$productId || !$clinicId) {
+                                                return null;
+                                            }
+
+                                            $product = Product::find($productId);
+                                            if ($product && $product->type !== 'service') {
+                                                $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                    ->where('product_id', $productId)
+                                                    ->first();
+                                                return $inventory?->stock_quantity ?? 0;
+                                            }
+
+                                            return null;
                                         })
                                         ->required(),
 

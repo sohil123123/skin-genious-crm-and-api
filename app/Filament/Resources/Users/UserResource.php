@@ -108,9 +108,8 @@ class UserResource extends Resource
                 SoftDeletingScope::class,
             ]);
 
-        $user = auth()->user();
-        if ($user && $user->clinic_id) {
-            $query->where('clinic_id', $user->clinic_id);
+        if (!check_role(config('project.roles.super_admin'))) {
+            $query->where('clinic_id', auth()->user()->clinic_id);
         }
 
         return $query;
@@ -123,9 +122,8 @@ class UserResource extends Resource
                 SoftDeletingScope::class,
             ]);
 
-        $user = auth()->user();
-        if ($user && $user->clinic_id) {
-            $query->where('clinic_id', $user->clinic_id);
+        if (!check_role(config('project.roles.super_admin'))) {
+            $query->where('clinic_id', auth()->user()->clinic_id);
         }
 
         return $query;

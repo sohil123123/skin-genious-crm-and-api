@@ -26,6 +26,6 @@ class IvSessionIngredient extends Model
 
     public function bag()
     {
-        return $this->belongsTo(IVSessionBag::class, 'iv_session_bag_id');
+        return $this->belongsTo(IvSessionBag::class, 'iv_session_bag_id');
     }
 }

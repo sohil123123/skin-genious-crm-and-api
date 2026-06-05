@@ -94,17 +94,20 @@ class AutoCaptureController extends BaseApiController
             ]);
 
             if ($response->failed()) {
+                \Log::error('error . '.$response->body());
                 return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
             }
 
             $data = $response->json();
 
             if ($data["status"] !== "success") {
-                return $this->error('error.', [$data["output"]], HTTP_NOT_FOUND);
+                \Log::error('error . '.$data["output"]);
+                return $this->error('error.', [ $data["output"]], HTTP_NOT_FOUND);
             }
 
             return $this->success('Capture successfully triggered!', $data);
         } catch (\Exception $e) {
+            \Log::error('catch error . '.$e->getMessage());
             return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
         }
     }

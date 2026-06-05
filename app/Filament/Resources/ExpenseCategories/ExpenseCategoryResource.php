@@ -25,18 +25,6 @@ class ExpenseCategoryResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()->hasRole(['super_admin', 'clinic_manager']);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->withSum('expenses', 'amount')
-            ->withCount('expenses');
-    }
-
     public static function form(Schema $schema): Schema
     {
         return ExpenseCategoryForm::configure($schema);
@@ -52,5 +40,12 @@ class ExpenseCategoryResource extends Resource
         return [
             'index' => ListExpenseCategories::route('/'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withSum('expenses', 'amount')
+            ->withCount('expenses');
     }
 }
