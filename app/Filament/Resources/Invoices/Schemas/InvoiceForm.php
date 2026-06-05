@@ -160,14 +160,21 @@ class InvoiceForm
                                         ->label('Product')
                                         ->placeholder(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id) ? 'Select Clinic first' : 'Select Product')
                                         ->disabled(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id))
-                                        ->options(function (Get $get) {
+                                        ->options(function (Get $get, ?\Illuminate\Database\Eloquent\Model $record) {
                                             $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
 
                                             if (!$clinicId) {
                                                 return [];
                                             }
 
-                                            return Product::active()->get()->mapWithKeys(function ($product) use ($clinicId) {
+                                            $query = Product::active();
+
+                                            $isPackageInvoice = $get('../../package_id') || ($record && $record->invoice_type === 'package');
+                                            if ($isPackageInvoice) {
+                                                $query->where('type', 'service');
+                                            }
+
+                                            return $query->get()->mapWithKeys(function ($product) use ($clinicId) {
                                                 $stockLabel = '';
                                                 if ($product->type !== 'service') {
                                                     $inventory = ClinicInventory::where('clinic_id', $clinicId)

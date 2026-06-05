@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Invoice;
 use App\Models\Appointment;
 use App\Models\UserPackageItem;
+use App\Models\Product;
 use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
 use App\Filament\Resources\Users\RelationManagers\UserPackagesRelationManager;
 use Filament\Actions\Action;
@@ -232,6 +233,30 @@ class UserPackagesTable
                     ->action(function ($record) {
                         $record->load('items');
 
+                        $totalGst = 0;
+                        $invoiceItemsData = [];
+
+                        foreach ($record->items as $item) {
+                            $product = Product::find($item->service_id);
+                            $gstPercentage = $product ? ($product->gst ?? 18) : 18;
+
+                            $lineTotal = $item->total_amount;
+                            $gstAmount = $lineTotal * ($gstPercentage / 100);
+                            $totalGst += $gstAmount;
+
+                            $invoiceItemsData[] = [
+                                'product_id' => $item->service_id,
+                                'quantity' => $item->quantity,
+                                'unit_price' => $item->price_per_unit,
+                                'discount_type' => $record->discount_type->value ?? 'flat',
+                                'discount_value' => $record->discount_value ?? 0,
+                                'valid_discount_amount' => $record->discount_amount ?? 0,
+                                'gst_percentage' => $gstPercentage,
+                                'gst_amount' => $gstAmount,
+                                'line_total' => $lineTotal,
+                            ];
+                        }
+
                         $invoice = Invoice::create([
                             'clinic_id' => $record->clinic_id,
                             'user_id' => $record->user_id,
@@ -241,7 +266,8 @@ class UserPackagesTable
                             'source_note' => "Package: {$record->package_name}",
                             'subtotal' => $record->subtotal,
                             'discount_total' => $record->discount_amount,
-                            'taxable_value' => $record->final_amount,
+                            'taxable_value' => $record->final_amount - $totalGst,
+                            'gst_total' => $totalGst,
                             'grand_total' => $record->final_amount,
                             'amount_due' => $record->final_amount,
                             'status' => 'unpaid',
@@ -249,16 +275,8 @@ class UserPackagesTable
                         ]);
 
                         // Create an invoice item for each package service
-                        foreach ($record->items as $item) {
-                            $invoice->items()->create([
-                                'product_id' => $item->service_id,
-                                'quantity' => $item->quantity,
-                                'unit_price' => $item->price_per_unit,
-                                'discount_type' => $record->discount_type->value ?? 'flat',
-                                'discount_value' => $record->discount_value ?? 0,
-                                'valid_discount_amount' => $record->discount_amount ?? 0,
-                                'line_total' => $item->total_amount,
-                            ]);
+                        foreach ($invoiceItemsData as $data) {
+                            $invoice->items()->create($data);
                         }
 
                         Notification::make()

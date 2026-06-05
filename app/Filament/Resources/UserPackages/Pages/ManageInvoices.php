@@ -168,6 +168,30 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                     $package = $this->record;
                     $package->load('items');
 
+                    $totalGst = 0;
+                    $invoiceItemsData = [];
+                    
+                    foreach ($package->items as $item) {
+                        $product = \App\Models\Product::find($item->service_id);
+                        $gstPercentage = $product ? ($product->gst ?? 18) : 18;
+                        
+                        $lineTotal = $item->total_amount;
+                        $gstAmount = $lineTotal * ($gstPercentage / 100);
+                        $totalGst += $gstAmount;
+
+                        $invoiceItemsData[] = [
+                            'product_id' => $item->service_id,
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->price_per_unit,
+                            'discount_type' => null,
+                            'discount_value' => 0,
+                            'valid_discount_amount' => 0,
+                            'gst_percentage' => $gstPercentage,
+                            'gst_amount' => $gstAmount,
+                            'line_total' => $lineTotal,
+                        ];
+                    }
+
                     $invoice = Invoice::create([
                         'clinic_id' => $package->clinic_id,
                         'user_id' => $package->user_id,
@@ -177,7 +201,8 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                         'source_note' => "Package: {$package->package_name}",
                         'subtotal' => $package->subtotal,
                         'discount_total' => $package->discount_amount,
-                        'taxable_value' => $package->final_amount,
+                        'taxable_value' => $package->final_amount - $totalGst,
+                        'gst_total' => $totalGst,
                         'grand_total' => $package->final_amount,
                         'amount_due' => $package->final_amount,
                         'status' => 'unpaid',
@@ -185,16 +210,8 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                     ]);
 
                     // Create an invoice item for each package service
-                    foreach ($package->items as $item) {
-                        $invoice->items()->create([
-                            'product_id' => $item->service_id,
-                            'quantity' => $item->quantity,
-                            'unit_price' => $item->price_per_unit,
-                            'discount_type' => null,
-                            'discount_value' => 0,
-                            'valid_discount_amount' => 0,
-                            'line_total' => $item->total_amount,
-                        ]);
+                    foreach ($invoiceItemsData as $data) {
+                        $invoice->items()->create($data);
                     }
 
                     Notification::make()

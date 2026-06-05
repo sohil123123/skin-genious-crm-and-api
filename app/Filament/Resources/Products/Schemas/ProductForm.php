@@ -50,7 +50,6 @@ class ProductForm
                                     TextInput::make('sell_price')
                                         ->numeric()
                                         ->prefix('₹')
-                                        ->required()
                                         ->placeholder('0.00')
                                         ->visible(fn ($get) => in_array($get('type'), ['product', 'service']))
                                         ->required(fn ($get) => in_array($get('type'), ['product', 'service'])),
@@ -63,7 +62,8 @@ class ProductForm
                                         ->label('GST (%)')
                                         ->numeric()
                                         ->suffix('%')
-                                        ->default(0)
+                                        ->default(18)
+                                        ->required()
                                         ->placeholder('0'),
                                     Select::make('unit')
                                         ->options([
