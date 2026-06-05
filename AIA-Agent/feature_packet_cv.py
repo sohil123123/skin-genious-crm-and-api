@@ -42,6 +42,7 @@ import sys
 import json
 import math
 import argparse
+import urllib.request
 import cv2
 import numpy as np
 
@@ -163,20 +164,41 @@ def bin_of(value, spec):
 # ----------------------------------------------------------------------------
 def get_cascade_path(filename):
     if hasattr(cv2, "data"):
-        return os.path.join(cv2.data.haarcascades, filename)
+        p = os.path.join(cv2.data.haarcascades, filename)
+        if os.path.exists(p):
+            return p
     
-    # Fallback path if cv2.data is missing (e.g., some headless or older builds)
+    # Check common fallback paths
     base_dir = os.path.dirname(cv2.__file__)
-    fallback_path = os.path.join(base_dir, "data", filename)
-    if os.path.exists(fallback_path):
-        return fallback_path
+    possible_paths = [
+        os.path.join(base_dir, "data", filename),
+        os.path.join("/usr/share/opencv4/haarcascades", filename),
+        os.path.join("/usr/share/opencv/haarcascades", filename),
+        os.path.join("/usr/local/share/opencv4/haarcascades", filename),
+        os.path.join("/usr/local/share/opencv/haarcascades", filename),
+    ]
+    if hasattr(sys, "prefix"):
+        possible_paths.extend([
+            os.path.join(sys.prefix, "share", "opencv4", "haarcascades", filename),
+            os.path.join(sys.prefix, "share", "opencv", "haarcascades", filename)
+        ])
         
-    # Another common location for system-installed OpenCV (e.g. Ubuntu)
-    system_path = os.path.join("/usr/share/opencv4/haarcascades", filename)
-    if os.path.exists(system_path):
-        return system_path
-        
-    return fallback_path
+    for p in possible_paths:
+        if os.path.exists(p):
+            return p
+            
+    # If not found anywhere, download it to the script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    local_path = os.path.join(script_dir, filename)
+    if not os.path.exists(local_path):
+        url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/" + filename
+        print(f"Downloading {filename} to {local_path}...", file=sys.stderr)
+        try:
+            urllib.request.urlretrieve(url, local_path)
+        except Exception as e:
+            print(f"Failed to download {filename}: {e}", file=sys.stderr)
+            
+    return local_path
 
 def detect_face_box(white_bgr):
     """Detect a face box on the white image; reuse the box on all modes
