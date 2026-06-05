@@ -43,6 +43,7 @@ import json
 import math
 import argparse
 import urllib.request
+import tempfile
 import cv2
 import numpy as np
 
@@ -187,9 +188,9 @@ def get_cascade_path(filename):
         if os.path.exists(p):
             return p
             
-    # If not found anywhere, download it to the script's directory
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    local_path = os.path.join(script_dir, filename)
+    # If not found anywhere, download it to the system temporary directory
+    # since we might not have write permissions to the script's directory.
+    local_path = os.path.join(tempfile.gettempdir(), filename)
     if not os.path.exists(local_path):
         url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/" + filename
         print(f"Downloading {filename} to {local_path}...", file=sys.stderr)
