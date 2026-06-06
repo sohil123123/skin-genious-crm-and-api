@@ -52,7 +52,7 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
             ->orderBy('invoice_number', 'asc')
             ->get();
 
-        return $invoices->map(function ($invoice) use ($companyState) {
+        return $invoices->flatMap(function ($invoice) use ($companyState) {
             $clientName = $invoice->client
                 ? trim($invoice->client->first_name . ' ' . ($invoice->client->last_name ?? ''))
                 : 'N/A';
@@ -63,26 +63,72 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
             // Determine GST type: same state = SGST+CGST, different state = IGST
             $isSameState = empty($clientState) || strtoupper($clinicState) === strtoupper($clientState);
 
-            $gstTotal = (float) $invoice->gst_total;
-            $sgst = $isSameState ? round($gstTotal / 2, 2) : 0;
-            $cgst = $isSameState ? round($gstTotal / 2, 2) : 0;
-            $igst = $isSameState ? 0 : round($gstTotal, 2);
+            $groups = $invoice->items->groupBy(function ($item) {
+                return $item->hsn_sac_code;
+            });
 
-            // Determine predominant GST rate from invoice items
-            $gstRate = $this->getGstRate($invoice);
+            $rows = [];
+            $isFirstRow = true;
 
-            return [
-                'customer_name' => $clientName,
-                'state' => $clientState ?: $clinicState,
-                'invoice_number' => $invoice->invoice_number,
-                'invoice_date' => Carbon::parse($invoice->invoice_date)->format('d-m-Y'),
-                'taxable_amount' => round((float) $invoice->taxable_value, 2),
-                'sgst' => $sgst,
-                'cgst' => $cgst,
-                'igst' => $igst,
-                'gst_rate' => $gstRate,
-                'invoice_total' => round((float) $invoice->grand_total, 2),
-            ];
+            foreach ($groups as $hsnCode => $items) {
+                // Get the most common GST percentage among items in this group
+                $rates = $items->groupBy('gst_percentage');
+                $predominantRate = $rates->sortByDesc(function ($gItems) {
+                    return $gItems->sum('line_total');
+                })->keys()->first();
+                $gstRateStr = rtrim(rtrim(number_format((float) $predominantRate, 2), '0'), '.') . '%';
+
+                $numberOfItems = $items->sum('quantity');
+                $taxableAmount = (float) $items->sum('taxable_value');
+                $gstAmount = (float) $items->sum('gst_amount');
+                $rowTotal = (float) $items->sum('line_total');
+
+                $sgst = $isSameState ? round($gstAmount / 2, 2) : 0;
+                $cgst = $isSameState ? round($gstAmount / 2, 2) : 0;
+                $igst = $isSameState ? 0 : round($gstAmount, 2);
+
+                $rows[] = [
+                    'customer_name' => $isFirstRow ? $clientName : '',
+                    'state' => $isFirstRow ? ($clientState ?: $clinicState) : '',
+                    'invoice_number' => $isFirstRow ? $invoice->invoice_number : '',
+                    'invoice_date' => $isFirstRow ? Carbon::parse($invoice->invoice_date)->format('d-m-Y') : '',
+                    'hsn_code' => $hsnCode,
+                    'number_of_items' => $numberOfItems,
+                    'taxable_amount' => round($taxableAmount, 2),
+                    'sgst' => $sgst,
+                    'cgst' => $cgst,
+                    'igst' => $igst,
+                    'gst_rate' => $gstRateStr,
+                    'invoice_total' => round($rowTotal, 2),
+                ];
+
+                $isFirstRow = false;
+            }
+
+            // Fallback if no items found
+            if ($groups->isEmpty()) {
+                $gstTotal = (float) $invoice->gst_total;
+                $sgst = $isSameState ? round($gstTotal / 2, 2) : 0;
+                $cgst = $isSameState ? round($gstTotal / 2, 2) : 0;
+                $igst = $isSameState ? 0 : round($gstTotal, 2);
+
+                $rows[] = [
+                    'customer_name' => $clientName,
+                    'state' => $clientState ?: $clinicState,
+                    'invoice_number' => $invoice->invoice_number,
+                    'invoice_date' => Carbon::parse($invoice->invoice_date)->format('d-m-Y'),
+                    'hsn_code' => '',
+                    'number_of_items' => 0,
+                    'taxable_amount' => round((float) $invoice->taxable_value, 2),
+                    'sgst' => $sgst,
+                    'cgst' => $cgst,
+                    'igst' => $igst,
+                    'gst_rate' => '0%',
+                    'invoice_total' => round((float) $invoice->grand_total, 2),
+                ];
+            }
+
+            return $rows;
         });
     }
 
@@ -111,6 +157,8 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
             'State',
             'Invoice Number',
             'Invoice Date',
+            'HSN CODE',
+            'Number of ITEMS',
             'Taxable Amount',
             'SGST Tax',
             'CGST Tax',
@@ -158,9 +206,9 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
                 // Set auto-filter on header row
                 $sheet->setAutoFilter("A1:{$highestColumn}1");
 
-                // Apply currency number format to amount columns (E, F, G, H, J)
+                // Apply currency number format to amount columns (G, H, I, J, L)
                 $currencyFormat = '#,##0.00';
-                $amountColumns = ['E', 'F', 'G', 'H', 'J'];
+                $amountColumns = ['G', 'H', 'I', 'J', 'L'];
                 foreach ($amountColumns as $col) {
                     $sheet->getStyle("{$col}2:{$col}{$highestRow}")
                         ->getNumberFormat()
@@ -182,11 +230,11 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
                 $dataStartRow = 2;
 
                 $sheet->setCellValue("A{$totalsRow}", 'TOTAL');
-                $sheet->setCellValue("E{$totalsRow}", "=SUM(E{$dataStartRow}:E{$highestRow})");
-                $sheet->setCellValue("F{$totalsRow}", "=SUM(F{$dataStartRow}:F{$highestRow})");
                 $sheet->setCellValue("G{$totalsRow}", "=SUM(G{$dataStartRow}:G{$highestRow})");
                 $sheet->setCellValue("H{$totalsRow}", "=SUM(H{$dataStartRow}:H{$highestRow})");
+                $sheet->setCellValue("I{$totalsRow}", "=SUM(I{$dataStartRow}:I{$highestRow})");
                 $sheet->setCellValue("J{$totalsRow}", "=SUM(J{$dataStartRow}:J{$highestRow})");
+                $sheet->setCellValue("L{$totalsRow}", "=SUM(L{$dataStartRow}:L{$highestRow})");
 
                 // Style totals row
                 $sheet->getStyle("A{$totalsRow}:{$highestColumn}{$totalsRow}")->applyFromArray([
@@ -224,8 +272,8 @@ class GstReportExport implements FromCollection, WithHeadings, WithStyles, WithT
                 // Set minimum column widths
                 $minWidths = [
                     'A' => 22, 'B' => 8, 'C' => 18, 'D' => 14,
-                    'E' => 16, 'F' => 14, 'G' => 14, 'H' => 14,
-                    'I' => 10, 'J' => 16,
+                    'E' => 12, 'F' => 15, 'G' => 16, 'H' => 14,
+                    'I' => 14, 'J' => 14, 'K' => 10, 'L' => 16,
                 ];
                 foreach ($minWidths as $col => $width) {
                     $currentWidth = $sheet->getColumnDimension($col)->getWidth();

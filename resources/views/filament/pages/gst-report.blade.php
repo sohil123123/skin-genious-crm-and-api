@@ -122,18 +122,6 @@
         </div>
     </div>
 
-    {{-- Export Button --}}
-    <div class="flex justify-end mt-4" style="margin-top: 1rem; display: flex; justify-content: flex-end;">
-        <x-filament::button
-            wire:click="exportExcel"
-            icon="heroicon-m-arrow-down-tray"
-            color="success"
-            size="lg"
-        >
-            Export Excel (.xlsx)
-        </x-filament::button>
-    </div>
-
     {{-- Data Table --}}
     <div style="margin-top: 1rem;">
         {{ $this->table }}

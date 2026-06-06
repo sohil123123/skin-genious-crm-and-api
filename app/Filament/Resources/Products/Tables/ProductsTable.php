@@ -38,6 +38,11 @@ class ProductsTable
                         'service' => 'success',
                         'iv_product' => 'warning',
                     }),
+                TextColumn::make('hsn_sac_code')
+                    ->label('HSN/SAC Code')
+                    ->badge()
+                    ->color('gray')
+                    ->sortable(),
                 TextColumn::make('sell_price')
                     ->money('INR')
                     ->sortable(),

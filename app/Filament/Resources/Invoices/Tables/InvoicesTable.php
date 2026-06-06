@@ -49,6 +49,7 @@ class InvoicesTable
         return $table
             ->deferLoading()
             // ->recordUrl(null)
+            ->defaultSort('invoice_date', 'desc')
             ->recordClasses(fn ($record) => match ($record->status) {
                 'paid' => '!bg-green-50 dark:!bg-green-900/20',
                 default => '',
@@ -60,11 +61,11 @@ class InvoicesTable
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
-                TextColumn::make('state_code')
-                    ->label('State')
-                    ->badge()
-                    ->searchable()
-                    ->sortable(),
+                // TextColumn::make('state_code')
+                //     ->label('State')
+                //     ->badge()
+                //     ->searchable()
+                //     ->sortable(),
                 TextColumn::make('invoice_type')
                     ->label('Type')
                     ->badge()

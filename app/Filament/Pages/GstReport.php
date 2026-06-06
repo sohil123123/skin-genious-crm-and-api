@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Invoice;
 use App\Exports\GstReportExport;
+use App\Exports\HsnGstSummaryExport;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Filament\Actions\Action;
 
 class GstReport extends Page implements HasTable, HasForms
 {
@@ -178,6 +180,28 @@ class GstReport extends Page implements HasTable, HasForms
             ]);
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('export_excel')
+                ->label('Export Excel (.xlsx)')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action('exportExcel'),
+
+            Action::make('export_hsn_gst')
+                ->label('HSN/GST Summary')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('success')
+                ->action(function () {
+                    return Excel::download(
+                        new HsnGstSummaryExport($this->startDate, $this->endDate),
+                        "HSN_GST_Summary_{$this->startDate}_to_{$this->endDate}.xlsx"
+                    );
+                }),
+        ];
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -204,8 +228,18 @@ class GstReport extends Page implements HasTable, HasForms
             })
             ->defaultSort('invoice_date', 'desc')
             ->columns([
+
+                TextColumn::make('clinic.name')
+                    ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(fn () => check_role(config('project.roles.super_admin'))),
+
                 TextColumn::make('client.first_name')
-                    ->label('Customer Name')
+                    ->label('Client')
+                    ->badge()
+                    ->icon('heroicon-o-user')
                     ->state(function (Invoice $record): string {
                         if (!$record->client) return 'N/A';
                         return trim($record->client->first_name . ' ' . ($record->client->last_name ?? ''));
@@ -216,26 +250,16 @@ class GstReport extends Page implements HasTable, HasForms
                               ->orWhere('last_name', 'like', "%{$search}%");
                         });
                     })
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query->join('users', 'invoices.user_id', '=', 'users.id')
-                            ->orderBy('users.first_name', $direction)
-                            ->select('invoices.*');
-                    }),
+                    ->searchable(['first_name', 'last_name', 'mobile']),
 
-                TextColumn::make('clinic.name')
-                    ->label('Clinic')
-                    ->searchable()
-                    ->sortable()
-                    ->visible(fn () => check_role(config('project.roles.super_admin'))),
-
-                TextColumn::make('client.state')
-                    ->label('State')
-                    ->state(function (Invoice $record): string {
-                        $clinicState = $record->clinic->state ?? config('project.company_state_code');
-                        return $record->client->state ?? $clinicState;
-                    })
-                    ->badge()
-                    ->color('gray'),
+                // TextColumn::make('client.state')
+                //     ->label('State')
+                //     ->state(function (Invoice $record): string {
+                //         $clinicState = $record->clinic->state ?? config('project.company_state_code');
+                //         return $record->client->state ?? $clinicState;
+                //     })
+                //     ->badge()
+                //     ->color('gray'),
 
                 TextColumn::make('invoice_number')
                     ->label('Invoice Number')
