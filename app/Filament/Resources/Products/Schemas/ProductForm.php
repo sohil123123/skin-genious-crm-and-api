@@ -38,9 +38,14 @@ class ProductForm
                                         ])
                                         ->required()
                                         ->reactive()
+                                        ->afterStateUpdated(function ($state, callable $set) {
+                                            if ($state) {
+                                                $set('hsn_sac_code', config("project.hsn_sac_codes.{$state}"));
+                                            }
+                                        })
                                         ->placeholder('Select type'),
                                 ]),
-                                Grid::make(3)->schema([
+                                Grid::make(4)->schema([
                                     TextInput::make('barcode')
                                         ->label('Barcode (UPC/EAN)')
                                         ->maxLength(255)
@@ -53,11 +58,11 @@ class ProductForm
                                         ->placeholder('0.00')
                                         ->visible(fn ($get) => in_array($get('type'), ['product', 'service']))
                                         ->required(fn ($get) => in_array($get('type'), ['product', 'service'])),
-                                    // TextInput::make('purchase_price')
-                                    //     ->numeric()
-                                    //     ->prefix('₹')
-                                    //     ->visible(fn ($get) => in_array($get('type'), ['product', 'iv_product']))
-                                    //     ->placeholder('0.00'),
+                                    TextInput::make('hsn_sac_code')
+                                        ->label('HSN/SAC Code')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->placeholder('Enter HSN/SAC Code'),
                                     TextInput::make('gst')
                                         ->label('GST (%)')
                                         ->numeric()

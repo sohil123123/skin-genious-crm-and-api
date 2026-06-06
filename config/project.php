@@ -63,6 +63,12 @@ return [
 
     'company_state_code' => env('COMPANY_STATE_CODE', 'MH'),
 
+    'hsn_sac_codes' => [
+        'product' => env('DEFAULT_HSN_PRODUCT', '999729'),
+        'service' => env('DEFAULT_HSN_SERVICE', '330499'),
+        'iv_product' => env('DEFAULT_HSN_IV_PRODUCT', '330499'),
+    ],
+
     'indian_states' => [
         // 'AN' => 'Andaman & Nicobar',
         // 'AP' => 'Andhra Pradesh',
