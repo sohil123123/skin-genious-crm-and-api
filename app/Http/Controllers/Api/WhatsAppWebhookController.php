@@ -15,7 +15,7 @@ class WhatsAppWebhookController extends Controller
      */
     public function verify(Request $request)
     {
-        \Log::info("verify:" . $request->all());
+        \Log::info("verify:" . json_encode($request->all()));
         $mode = $request->query('hub_mode');
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
@@ -35,7 +35,7 @@ class WhatsAppWebhookController extends Controller
     public function handle(Request $request)
     {
         $payload = $request->all();
-        \Log::info("handle:" . $payload);
+        \Log::info("handle:" . json_encode($payload));
 
         // Log the payload for debugging if needed
         // Log::debug('WhatsApp Webhook payload:', $payload);
