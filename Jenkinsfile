@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         SERVER_IP   = "127.0.0.1"
-        PROJECT_PATH = "/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in"
+        PROJECT_PATH = "/home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in"
         SSH_KEY     = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
     }
 
@@ -45,7 +45,7 @@ pipeline {
 
                 withCredentials([
                     file(
-                        credentialsId: 'production_crm_env',
+                        credentialsId: 'staging_crm_env',
                         variable: 'ENV_FILE'
                     )
                 ]) {
@@ -140,10 +140,10 @@ php artisan storage:link || true
 
 echo "Setting Permissions..."
 
-chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage -R
-chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/bootstrap -R
+chown -R www-data:www-data /home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in/storage -R
+chown -R www-data:www-data /home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in/bootstrap -R
 
-chmod -R 0777 /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage
+chmod -R 0777 /home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in/storage
 
 echo "Deployment Finished Successfully"
 
