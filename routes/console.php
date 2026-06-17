@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('leaves:generate-new-year')->yearlyOn(1, 1, '00:00'); // January 1st, midnight
 Schedule::command('treatment-plans:cleanup')->daily();
+Schedule::command('backup:clean')->dailyAt('01:30');
+Schedule::command('backup:run')->dailyAt('02:00');

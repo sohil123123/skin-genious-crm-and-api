@@ -26,6 +26,7 @@
         "resma/filament-awin-theme": "^1.1",
         "saade/filament-fullcalendar": "4.0.0-beta2",
         "spatie/laravel-activitylog": "^4.10",
+        "spatie/laravel-backup": "^10.3",
         "spatie/laravel-medialibrary": "^11.17",
         "spatie/laravel-permission": "^6.21"
     },
