@@ -80,10 +80,10 @@ pipeline {
                 sshagent(credentials: ['jenkins']) {
 
                     sh '''
-                        rsync -avzr --delete \
+                        rsync -avzr \
                         --exclude=".git" \
                         --exclude="node_modules" \
-                        --exclude="storage/framework/cache" \
+                        --exclude="storage" \
                         -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
                         ./ root@$SERVER_IP:$PROJECT_PATH
                     '''
