@@ -15,11 +15,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\LoyaltyPointTransaction;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
+
 // use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 // use App\Observers\UserObserver;
 
 // #[ObservedBy([UserObserver::class])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, SoftDeletes, HasApiTokens;
@@ -205,5 +208,10 @@ class User extends Authenticatable
         if (!$entitlement) return 0;
 
         return $entitlement->remaining;
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_active;
     }
 }
