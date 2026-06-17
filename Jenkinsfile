@@ -17,22 +17,13 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                sh '''
-                    composer --version
-                    php --version
-                    node -v
-                    npm -v
-                '''
-
                 sh 'npm ci'
-
                 sh '''
                     composer install \
                     --no-interaction \
                     --prefer-dist \
                     --optimize-autoloader --no-dev
                 '''
-
                 sh 'npm run build'
             }
         }
@@ -73,25 +64,28 @@ cd ${PROJECT_PATH}
 
 echo "Current User: $(whoami)"
 
-# Ensure required directories exist
-mkdir -p storage/framework/{cache,data,sessions,views,temp} bootstrap/cache
-mkdir -p public/storage
+# Create required directories
+mkdir -p storage/framework/{cache,data,sessions,views,temp} bootstrap/cache public/storage
 
-# Fix ownership (CloudPanel user)
+# Fix ownership
 chown -R ${WEB_USER}:${WEB_GROUP} .
 
-# Set correct permissions
+# Set permissions
 find . -type d -exec chmod 775 {} +
 find . -type f -exec chmod 664 {} +
 chmod -R 775 storage bootstrap/cache
 
+# === IMPORTANT: Fix tempnam() error ===
+mkdir -p storage/framework/temp
+chown -R ${WEB_USER}:${WEB_GROUP} storage/framework/temp
+chmod -R 775 storage/framework/temp
+
+echo "Setting custom temp directory..."
+echo "export TMPDIR=${PROJECT_PATH}/storage/framework/temp" >> /home/${WEB_USER}/.bashrc || true
+
 echo "PHP Version: $(php --version)"
 
 composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
-php artisan migrate --force --no-interaction || true
-
-php artisan shield:generate --panel=admin --all --no-interaction || true
 
 php artisan optimize:clear
 
@@ -100,6 +94,9 @@ php artisan route:cache || true
 php artisan view:cache || true
 
 php artisan storage:link --force || true
+
+# CloudPanel recommended permissions
+clpctl system:permissions:reset --path=${PROJECT_PATH} || true
 
 echo "✅ Deployment Finished Successfully"
 
@@ -111,14 +108,8 @@ EOF
     }
 
     post {
-        success {
-            echo '✅ Deployment completed successfully!'
-        }
-        failure {
-            echo '❌ Deployment failed!'
-        }
-        always {
-            cleanWs()
-        }
+        success { echo '✅ Deployment completed successfully!' }
+        failure { echo '❌ Deployment failed!' }
+        always  { cleanWs() }
     }
 }
