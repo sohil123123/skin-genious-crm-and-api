@@ -74,6 +74,15 @@ class UsersTable
                     ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
                     ->formatStateUsing(fn ($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
+                TextColumn::make('state')
+                    ->label('State')
+                    ->state(fn (User $record) => $record->state ?? $record->clinic?->state)
+                    ->formatStateUsing(fn ($state) => config('project.indian_states.' . $state, $state))
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('-'),
                 TextColumn::make('mobile')->searchable(),
                 TextColumn::make('gender')
                     ->label('Gender')

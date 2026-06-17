@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+use App\Models\Product;
+
 class UserPackage extends Model
 {
     use HasFactory;
@@ -20,15 +22,6 @@ class UserPackage extends Model
             // Check if the package has an invoice
             if ($package->invoice) {
                 $invoice = $package->invoice;
-                
-                // Update the invoice financials
-                $invoice->update([
-                    'subtotal' => $package->subtotal,
-                    'discount_total' => $package->discount_amount,
-                    'taxable_value' => $package->final_amount,
-                    'grand_total' => $package->final_amount,
-                    'amount_due' => max(0, $package->final_amount - $invoice->amount_paid),
-                ]);
 
                 // Sync invoice items with package items
                 $invoice->items()->delete();
@@ -36,18 +29,44 @@ class UserPackage extends Model
                     ? $package->discount_type->value
                     : ($package->discount_type ?? 'flat');
 
+                $totalGst = 0;
+                $invoiceItemsData = [];
+
                 foreach ($package->items as $item) {
-                    $invoice->items()->create([
+                    $product = Product::find($item->service_id);
+                    $gstPercentage = $product ? ($product->gst ?? 18) : 18;
+
+                    $lineTotal = $item->total_amount;
+                    $gstAmount = $lineTotal * ($gstPercentage / 100);
+                    $totalGst += $gstAmount;
+
+                    $invoiceItemsData[] = [
                         'product_id' => $item->service_id,
                         'quantity' => $item->quantity,
                         'unit_price' => $item->price_per_unit,
                         'discount_type' => $discountType,
                         'discount_value' => $package->discount_value ?? 0,
                         'valid_discount_amount' => $package->discount_amount ?? 0,
-                        'line_total' => $item->total_amount,
-                    ]);
+                        'gst_percentage' => $gstPercentage,
+                        'gst_amount' => $gstAmount,
+                        'line_total' => $lineTotal,
+                    ];
                 }
-                
+
+                foreach ($invoiceItemsData as $data) {
+                    $invoice->items()->create($data);
+                }
+
+                // Update the invoice financials
+                $invoice->update([
+                    'subtotal' => $package->subtotal,
+                    'discount_total' => $package->discount_amount,
+                    'taxable_value' => max(0, $package->final_amount - $totalGst),
+                    'gst_total' => $totalGst,
+                    'grand_total' => $package->final_amount,
+                    'amount_due' => max(0, $package->final_amount - $invoice->amount_paid),
+                ]);
+
                 // Recalculate invoice status
                 $invoice->recalculatePaymentStatus();
             }

@@ -47,6 +47,8 @@ class ClinicForm
                                 //     // )
                                 Grid::make(1)->schema([
                                     TextInput::make('name')->required()->maxLength(255)->placeholder('Enter clinic name'),
+                                ]),
+                                Grid::make(3)->schema([
                                     Select::make('face_scan_machine')
                                         ->options([
                                             '6_light_modes' => 'Bitmoji Face Scan Machine (6 light modes)',
@@ -58,8 +60,8 @@ class ClinicForm
                                     //     ->searchable()
                                     //     ->preload()
                                     //     ->placeholder('Select clinic manager'),
-                                ]),
-                                Grid::make(2)->schema([
+                                // ]),
+                                // Grid::make(2)->schema([
                                     TimePicker::make('start_time')
                                         ->prefixIcon(Heroicon::Clock)
                                         ->prefixIconColor('success')
@@ -95,9 +97,14 @@ class ClinicForm
                                     TextInput::make('address_line1')->required()->maxLength(255)->placeholder('Enter first line of address'),
                                     TextInput::make('address_line2')->maxLength(255)->placeholder('Enter second line of address (optional)'),
                                 ]),
-                                Grid::make(3)->schema([
+                                Grid::make(4)->schema([
                                     TextInput::make('pincode')->required()->maxLength(10)->placeholder('Enter pincode'),
                                     TextInput::make('city')->required()->maxLength(100)->placeholder('Enter city'),
+                                    Select::make('state')
+                                        ->options(config('project.indian_states'))
+                                        ->required()
+                                        ->placeholder('Select state')
+                                        ->searchable(),
                                     TextInput::make('google_map_link')->required()->url()->placeholder('Enter Google Maps embed link'),
                                 ]),
                             ])

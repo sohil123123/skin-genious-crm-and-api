@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Services\InvoiceNumberService;
+
 class Invoice extends Model
 {
     protected $fillable = [
@@ -69,22 +71,14 @@ class Invoice extends Model
     {
         static::creating(function ($invoice) {
             if (empty($invoice->invoice_number)) {
-                $date = now()->format('Ymd');
-                $latest = static::whereDate('created_at', now())->latest('id')->first();
-                
-                if ($latest && preg_match('/INV-' . $date . '-(\d+)$/', $latest->invoice_number, $matches)) {
-                    $number = intval($matches[1]) + 1;
-                } else {
-                    $number = 1;
-                }
-
-                $invoice->invoice_number = 'INV-' . $date . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+                $service = new InvoiceNumberService();
+                $service->generate($invoice);
             }
         });
 
         static::saving(function ($invoice) {
             $invoice->amount_due = max(0, $invoice->grand_total - ($invoice->amount_paid ?? 0));
-            
+
             // Auto update status if not being set manually to something specific like 'cancelled' or 'draft'
             if (!in_array($invoice->status, ['cancelled', 'draft'])) {
                 if ($invoice->amount_paid <= 0) {
