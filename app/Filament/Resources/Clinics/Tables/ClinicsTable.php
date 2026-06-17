@@ -95,6 +95,13 @@ class ClinicsTable
                 //     ),
                 TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable()->placeholder('Not Assigned'),
                 TextColumn::make('name')->weight(FontWeight::Bold)->wrap()->searchable()->sortable(),
+                TextColumn::make('state')
+                    ->label('State')
+                    ->formatStateUsing(fn ($state) => config('project.indian_states.' . $state, $state))
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('gray'),
                 BadgeColumn::make('therapists_count')
                     ->label('Therapists')
                     ->counts('therapists')

@@ -13,6 +13,7 @@ class Product extends Model
     protected $fillable = [
         'name',
         'type', // product, service, iv_product
+        'hsn_sac_code',
         'sku',
         'barcode',
         'sell_price',
@@ -63,5 +64,14 @@ class Product extends Model
     public function packageItems(): HasMany
     {
         return $this->hasMany(UserPackageItem::class, 'service_id');
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($product) {
+            if (empty($product->hsn_sac_code)) {
+                $product->hsn_sac_code = $product->type === 'service' ? '999729' : '330499';
+            }
+        });
     }
 }

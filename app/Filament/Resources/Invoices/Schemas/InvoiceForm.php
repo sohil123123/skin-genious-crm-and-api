@@ -39,7 +39,7 @@ class InvoiceForm
                                         $set('user_id', null);
                                         $set('patient_phone', null);
                                         $set('patient_email', null);
-                                        
+
                                         // Reset line items
                                         $set('items', [
                                             [
@@ -53,7 +53,7 @@ class InvoiceForm
                                                 'line_total' => 0,
                                             ]
                                         ]);
-                                        
+
                                         // Reset grand totals
                                         $set('subtotal', 0);
                                         $set('taxable_value', 0);
@@ -148,6 +148,7 @@ class InvoiceForm
                                 ->relationship()
                                 ->table([
                                     TableColumn::make('Product')->width(200),
+                                    TableColumn::make('HSN/SAC')->width(100),
                                     TableColumn::make('Quantity')->width(80),
                                     TableColumn::make('Unit Price')->width(80),
                                     TableColumn::make('Discount')->width(150),
@@ -160,14 +161,21 @@ class InvoiceForm
                                         ->label('Product')
                                         ->placeholder(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id) ? 'Select Clinic first' : 'Select Product')
                                         ->disabled(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id))
-                                        ->options(function (Get $get) {
+                                        ->options(function (Get $get, ?\Illuminate\Database\Eloquent\Model $record) {
                                             $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
 
                                             if (!$clinicId) {
                                                 return [];
                                             }
 
-                                            return Product::active()->get()->mapWithKeys(function ($product) use ($clinicId) {
+                                            $query = Product::active();
+
+                                            $isPackageInvoice = $get('../../package_id') || ($record && $record->invoice_type === 'package');
+                                            if ($isPackageInvoice) {
+                                                $query->where('type', 'service');
+                                            }
+
+                                            return $query->get()->mapWithKeys(function ($product) use ($clinicId) {
                                                 $stockLabel = '';
                                                 if ($product->type !== 'service') {
                                                     $inventory = ClinicInventory::where('clinic_id', $clinicId)
@@ -204,13 +212,16 @@ class InvoiceForm
                                                 $set('gst_amount', 0);
                                                 $set('discount_value', 0);
                                                 $set('valid_discount_amount', 0);
+                                                $set('taxable_value', 0);
                                                 $set('line_total', 0);
+                                                $set('hsn_sac_code', null);
                                                 $set('quantity', 1); // Reset quantity to default
                                             } else {
                                                 $product = Product::find($state);
                                                 if ($product) {
                                                     $set('unit_price', $product->sell_price);
                                                     $set('gst_percentage', $product->gst ?? 18);
+                                                    $set('hsn_sac_code', $product->hsn_sac_code);
                                                 }
                                             }
                                             self::updateLineTotal($get, $set);
@@ -218,6 +229,11 @@ class InvoiceForm
                                         })
                                         ->distinct()
                                         ->searchable(),
+
+                                    TextInput::make('hsn_sac_code')
+                                        ->label('HSN/SAC')
+                                        ->dehydrated()
+                                        ->required(),
 
                                     TextInput::make('quantity')
                                         ->label('Quantity')
@@ -235,11 +251,11 @@ class InvoiceForm
                                                         ->where('product_id', $productId)
                                                         ->first();
                                                     $stock = $inventory?->stock_quantity ?? 0;
-                                                    
+
                                                     if ((int)$state > $stock) {
                                                         $state = $stock;
                                                         $set('quantity', $stock);
-                                                        
+
                                                         \Filament\Notifications\Notification::make()
                                                             ->title('Quantity Adjusted')
                                                             ->body("Only {$stock} items available in stock.")
@@ -304,6 +320,7 @@ class InvoiceForm
                                                         }),
                                                 ]),
                                             Hidden::make('valid_discount_amount')->default(0)->dehydrated(),
+                                            Hidden::make('taxable_value')->default(0)->dehydrated(),
                                         ]),
 
                                     TextInput::make('gst_percentage')
@@ -357,6 +374,14 @@ class InvoiceForm
                                         ->dehydrated()
                                         ->numeric(),
 
+                                    TextInput::make('discount_total')
+                                        ->label('Discount')
+                                        ->prefix('₹')
+                                        ->inlineLabel()
+                                        ->disabled()
+                                        ->dehydrated()
+                                        ->numeric(),
+
                                     TextInput::make('taxable_value')
                                         ->label('Taxable Value')
                                         ->prefix('₹')
@@ -367,14 +392,6 @@ class InvoiceForm
 
                                     TextInput::make('gst_total')
                                         ->label('GST')
-                                        ->prefix('₹')
-                                        ->inlineLabel()
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->numeric(),
-
-                                    TextInput::make('discount_total')
-                                        ->label('Discount')
                                         ->prefix('₹')
                                         ->inlineLabel()
                                         ->disabled()
@@ -402,30 +419,17 @@ class InvoiceForm
     {
         $price = (float) $get('unit_price') ?: 0;
         $qty = (int) $get('quantity') ?: 1;
-        $discountType = $get('discount_type');
+        $discountType = $get('discount_type') ?? 'flat';
         $discountValue = (float) $get('discount_value') ?: 0;
         $gstPercent = (float) $get('gst_percentage') ?: 0;
 
-        // Total inclusive of tax before discount
-        $totalIncludingTaxBeforeDiscount = $price * $qty;
+        $service = new \App\Services\InvoiceCalculationService();
+        $metrics = $service->calculateLineItem($qty, $price, $discountType, $discountValue, $gstPercent);
 
-        $discountAmount = 0;
-        if ($discountType === 'percentage') {
-            $discountAmount = $totalIncludingTaxBeforeDiscount * ($discountValue / 100);
-        } else {
-            $discountAmount = $discountValue;
-        }
-
-        $finalLineTotal = max(0, $totalIncludingTaxBeforeDiscount - $discountAmount);
-
-        // Custom GST calculation: GST = Total * (Percent / 100)
-        // Base = Total - GST
-        $gstAmount = $finalLineTotal * ($gstPercent / 100);
-        $taxableValue = $finalLineTotal - $gstAmount;
-
-        $set('gst_amount', number_format($gstAmount, 2, '.', ''));
-        $set('valid_discount_amount', number_format($discountAmount, 2, '.', ''));
-        $set('line_total', number_format($finalLineTotal, 2, '.', ''));
+        $set('gst_amount', number_format($metrics['gst_amount'], 2, '.', ''));
+        $set('valid_discount_amount', number_format($metrics['discount_amount'], 2, '.', ''));
+        $set('taxable_value', number_format($metrics['taxable_value'], 2, '.', ''));
+        $set('line_total', number_format($metrics['line_total'], 2, '.', ''));
     }
 
     public static function updateGrandTotal(Get $get, Set $set): void
@@ -442,6 +446,8 @@ class InvoiceForm
         $gstTotal = 0;
         $grandTotal = 0;
 
+        $service = new \App\Services\InvoiceCalculationService();
+
         foreach ($items as $item) {
             if (empty($item['unit_price']) && !empty($item['product_id'])) {
                 $product = Product::find($item['product_id']);
@@ -454,30 +460,16 @@ class InvoiceForm
             $price = (float) ($item['unit_price'] ?? 0);
             $qty = (int) ($item['quantity'] ?? 1);
             $gstP = (float) ($item['gst_percentage'] ?? 0);
-
-            $lineInclusiveBeforeDiscount = $price * $qty;
-
             $disc = (float) ($item['discount_value'] ?? 0);
             $dType = $item['discount_type'] ?? 'flat';
 
-            $dAmount = 0;
-            if ($dType === 'percentage') {
-                $dAmount = $lineInclusiveBeforeDiscount * ($disc / 100);
-            } else {
-                $dAmount = $disc;
-            }
+            $metrics = $service->calculateLineItem($qty, $price, $dType, $disc, $gstP);
 
-            $lineInclusiveFinal = max(0, $lineInclusiveBeforeDiscount - $dAmount);
-
-            // Custom GST calculation matching row logic
-            $itemGstAmount = $lineInclusiveFinal * ($gstP / 100);
-            $itemTaxableValue = $lineInclusiveFinal - $itemGstAmount;
-
-            $subtotalInclusive += $lineInclusiveFinal; // Now subtracting discount from subtotal as well
-            $discountTotal += $dAmount;
-            $taxableValueTotal += $itemTaxableValue;
-            $gstTotal += $itemGstAmount;
-            $grandTotal += $lineInclusiveFinal;
+            $subtotalInclusive += $metrics['gross_amount'];
+            $discountTotal += $metrics['discount_amount'];
+            $taxableValueTotal += $metrics['taxable_value'];
+            $gstTotal += $metrics['gst_amount'];
+            $grandTotal += $metrics['line_total'];
         }
 
         $subtotalPath = $get('items') ? 'subtotal' : '../../subtotal';

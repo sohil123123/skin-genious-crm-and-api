@@ -26,6 +26,7 @@ use Filament\Tables\Table;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Contracts\Support\Htmlable;
 
 // use App\Filament\Resources\Users\Widgets\UserStats;
 use App\Filament\Widgets\UserStats;
@@ -46,7 +47,7 @@ class UserResource extends Resource
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
-    protected static ?string $navigationBadgeTooltip = 'The number of clients created this month';
+    protected static Htmlable|string|null $navigationBadgeTooltip = 'The number of clients created this month';
 
     protected static ?string $modelLabel = 'Clients And Staffs';
 

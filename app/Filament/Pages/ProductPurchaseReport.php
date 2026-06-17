@@ -17,12 +17,14 @@ use App\Filament\ReportWidgets\ProductPurchaseDistributionChart;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Grid;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use App\Filament\Traits\HasReportDateFilters;
 
 class ProductPurchaseReport extends Page implements HasTable, HasForms
 {
     use HasPageShield;
     use InteractsWithTable;
     use InteractsWithForms;
+    use HasReportDateFilters;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-shopping-bag';
 
@@ -32,74 +34,30 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
 
     protected static ?int $navigationSort = 2;
 
-    public ?string $startDate = null;
-    public ?string $endDate = null;
-    public ?int $clinicId = null;
-
     public function mount(): void
     {
-        $this->startDate = now()->startOfMonth()->toDateString();
-        $this->endDate = now()->endOfMonth()->toDateString();
-        $this->form->fill([
-            'startDate' => $this->startDate,
-            'endDate' => $this->endDate,
-            'clinicId' => null,
-        ]);
+        $this->initReportFilters();
+        $this->form->fill($this->getReportFiltersFormData());
     }
 
     public function form(Schema $form): Schema
     {
         return $form
-            ->schema([
-                Grid::make(4)
-                    ->schema([
-                        DatePicker::make('startDate')
-                            ->label('Start Date')
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state) {
-                                $this->startDate = $state;
-                                $this->dispatch(
-                                    'updateReportDates',
-                                    startDate: $this->startDate,
-                                    endDate: $this->endDate ?? now()->endOfMonth()->toDateString(),
-                                    clinicId: $this->clinicId
-                                );
-                            }),
-                        DatePicker::make('endDate')
-                            ->label('End Date')
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state) {
-                                $this->endDate = $state;
-                                $this->dispatch(
-                                    'updateReportDates',
-                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(),
-                                    endDate: $this->endDate,
-                                    clinicId: $this->clinicId
-                                );
-                            }),
-                        \Filament\Forms\Components\Select::make('clinicId')
-                            ->label('Clinic')
-                            ->options(\App\Models\Clinic::active()->pluck('name', 'id'))
-                            ->placeholder('All Clinics')
-                            ->searchable()
-                            ->reactive()
-                            ->visible(fn() => auth()->user()->hasRole('super_admin'))
-                            ->afterStateUpdated(function ($state) {
-                                $this->clinicId = $state;
-                                $this->dispatch(
-                                    'updateReportDates',
-                                    startDate: $this->startDate ?? now()->startOfMonth()->toDateString(),
-                                    endDate: $this->endDate ?? now()->endOfMonth()->toDateString(),
-                                    clinicId: $this->clinicId
-                                );
-                            }),
-                    ]),
-            ]);
+            ->schema($this->getReportFilterSchema());
     }
 
-    protected function getFooterWidgets(): array
+    public function onReportFilterUpdated(): void
+    {
+        $this->dispatch(
+            'updateReportDates',
+            startDate: $this->startDate ?? now()->startOfMonth()->toDateString(),
+            endDate: $this->endDate ?? now()->endOfMonth()->toDateString(),
+            clinicId: $this->clinicId
+        );
+        $this->resetTable();
+    }
+
+    public function getMiddleWidgets(): array
     {
         return [
             ProductPurchaseChart::class,
@@ -107,9 +65,30 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
         ];
     }
 
-    public function getFooterWidgetsColumns(): int|array
+    public function getMiddleWidgetsColumns(): int|array
     {
         return 2;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('export_excel')
+                ->label('Export Excel (.xlsx)')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action('exportExcel'),
+        ];
+    }
+
+    public function exportExcel()
+    {
+        $filename = 'product-purchase-report-' . \Illuminate\Support\Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . \Illuminate\Support\Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
+        
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\ProductPurchaseReportExport($this->startDate, $this->endDate, $this->clinicId),
+            $filename
+        );
     }
 
     public function table(Table $table): Table
@@ -129,7 +108,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                                 }
                                 if ($this->clinicId) {
                                     $q->where('clinic_id', $this->clinicId);
-                                } elseif (!auth()->user()->hasRole('super_admin')) {
+                                } elseif (!check_role('super_admin')) {
                                     $q->where('clinic_id', auth()->user()->clinic_id);
                                 }
                             });
@@ -146,7 +125,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                                 }
                                 if ($this->clinicId) {
                                     $q->where('clinic_id', $this->clinicId);
-                                } elseif (!auth()->user()->hasRole('super_admin')) {
+                                } elseif (!check_role('super_admin')) {
                                     $q->where('clinic_id', auth()->user()->clinic_id);
                                 }
                             });
@@ -156,11 +135,12 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                         'clinicInventories as current_stock' => function (Builder $query) {
                             if ($this->clinicId) {
                                 $query->where('clinic_id', $this->clinicId);
-                            } elseif (!auth()->user()->hasRole('super_admin')) {
+                            } elseif (!check_role('super_admin')) {
                                 $query->where('clinic_id', auth()->user()->clinic_id);
                             }
                         }
-                    ], 'stock_quantity');
+                    ], 'stock_quantity')
+                    ->having('total_purchased_qty', '>', 0);
             })
             ->columns([
                 TextColumn::make('name')
@@ -185,6 +165,6 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
                     ->color('info')
                     ->default(0),
             ])
-            ->defaultSort('name');
+            ->defaultSort('total_purchased_qty', 'desc');
     }
 }
