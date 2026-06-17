@@ -30,7 +30,7 @@ pipeline {
                     composer install \
                     --no-interaction \
                     --prefer-dist \
-                    --optimize-autoloader
+                    --optimize-autoloader --no-dev
                 '''
 
                 sh 'npm run build'
@@ -52,8 +52,8 @@ pipeline {
                         rsync -avzr --delete \
                         --exclude=".git" \
                         --exclude="node_modules" \
-                        --exclude="storage/framework/cache" \
-                        --exclude="storage/framework/temp" \
+                        --exclude="storage/framework/*" \
+                        --exclude="bootstrap/cache/*" \
                         -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
                         ./ root@$SERVER_IP:$PROJECT_PATH
                     '''
@@ -73,13 +73,16 @@ cd ${PROJECT_PATH}
 
 echo "Current User: $(whoami)"
 
-# Fix ownership using CloudPanel recommended way
+# Ensure required directories exist
+mkdir -p storage/framework/{cache,data,sessions,views,temp} bootstrap/cache
+mkdir -p public/storage
+
+# Fix ownership (CloudPanel user)
 chown -R ${WEB_USER}:${WEB_GROUP} .
 
-# Better permission handling
+# Set correct permissions
 find . -type d -exec chmod 775 {} +
 find . -type f -exec chmod 664 {} +
-
 chmod -R 775 storage bootstrap/cache
 
 echo "PHP Version: $(php --version)"
