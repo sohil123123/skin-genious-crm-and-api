@@ -9,7 +9,7 @@ pipeline {
         SERVER_IP     = "127.0.0.1"
         PROJECT_PATH  = "/home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in"
         SSH_KEY       = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
-        WEB_USER      = "clp"          // ← Important for CloudPanel
+        WEB_USER      = "clp"
         WEB_GROUP     = "clp"
     }
 
@@ -65,7 +65,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['jenkins']) {
                     sh '''
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no root@$SERVER_IP << 'EOF'
+ssh -i $SSH_KEY -o StrictHostKeyChecking=no root@$SERVER_IP << \'EOF\'
 
 set -e
 
@@ -73,18 +73,18 @@ cd ${PROJECT_PATH}
 
 echo "Current User: $(whoami)"
 
-# Fix ownership - MOST IMPORTANT
+# Fix ownership using CloudPanel recommended way
 chown -R ${WEB_USER}:${WEB_GROUP} .
-chown -R ${WEB_USER}:${WEB_GROUP} storage bootstrap/cache
 
-# Proper permissions
-find . -type d -exec chmod 775 {} \;
-find . -type f -exec chmod 664 {} \;
+# Better permission handling
+find . -type d -exec chmod 775 {} +
+find . -type f -exec chmod 664 {} +
+
 chmod -R 775 storage bootstrap/cache
 
 echo "PHP Version: $(php --version)"
 
-composer install --no-interaction --prefer-dist --optimize-autoloader
+composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
 php artisan migrate --force --no-interaction || true
 
