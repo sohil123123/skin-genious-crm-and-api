@@ -6,45 +6,84 @@ pipeline {
     }
 
     environment {
-        SERVER_IP     = "127.0.0.1"
-        PROJECT_PATH  = "/home/ai-aesthetics-staging-crm/htdocs/staging-crm.ai-aesthetics.in"
-        SSH_KEY       = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
-        WEB_USER      = "clp"
-        WEB_GROUP     = "clp"
+        SERVER_IP   = "127.0.0.1"
+        PROJECT_PATH = "/home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in"
+        SSH_KEY     = "/var/lib/jenkins/.ssh/id_ed25519_deploy"
     }
 
     stages {
 
         stage('Build Application') {
             steps {
-                sh 'npm ci'
+
+                sh '''
+                    composer --version
+                    php --version
+                    node -v
+                    npm -v
+                '''
+
+                sh '''
+                    npm ci
+                '''
+
                 sh '''
                     composer install \
                     --no-interaction \
                     --prefer-dist \
-                    --optimize-autoloader --no-dev
+                    --optimize-autoloader
                 '''
-                sh 'npm run build'
+
+                sh '''
+                    npm run build
+                '''
             }
         }
 
         stage('Populate .env File') {
             steps {
-                withCredentials([file(credentialsId: 'staging_crm_env', variable: 'ENV_FILE')]) {
-                    sh 'cp -f $ENV_FILE .env'
+
+                withCredentials([
+                    file(
+                        credentialsId: 'production_crm_env',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+
+                    sh '''
+                        cp -f $ENV_FILE .env
+                    '''
+                }
+            }
+        }
+
+        stage('Verify SSH Connection') {
+            steps {
+
+                sshagent(credentials: ['jenkins']) {
+
+                    sh '''
+                        ssh \
+                        -i $SSH_KEY \
+                        -o StrictHostKeyChecking=no \
+                        root@$SERVER_IP "
+                            whoami
+                        "
+                    '''
                 }
             }
         }
 
         stage('Deploy Project Files') {
             steps {
+
                 sshagent(credentials: ['jenkins']) {
+
                     sh '''
                         rsync -avzr --delete \
                         --exclude=".git" \
                         --exclude="node_modules" \
-                        --exclude="storage/framework/*" \
-                        --exclude="bootstrap/cache/*" \
+                        --exclude="storage/framework/cache" \
                         -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
                         ./ root@$SERVER_IP:$PROJECT_PATH
                     '''
@@ -54,51 +93,59 @@ pipeline {
 
         stage('Run Server Commands') {
             steps {
+
                 sshagent(credentials: ['jenkins']) {
+
                     sh '''
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no root@$SERVER_IP << \'EOF\'
+ssh -i $SSH_KEY \
+-o StrictHostKeyChecking=no \
+root@$SERVER_IP << EOF
 
 set -e
 
-cd ${PROJECT_PATH}
+cd $PROJECT_PATH
 
-echo "Current User: $(whoami)"
+echo "Current User:"
+whoami
 
-# Create required directories
-mkdir -p storage/framework/{cache,data,sessions,views,temp} bootstrap/cache public/storage
+echo "PHP Version:"
+php --version
 
-# Fix ownership
-chown -R ${WEB_USER}:${WEB_GROUP} .
+echo "Installing Composer Dependencies..."
+composer install \
+--no-interaction \
+--prefer-dist \
+--optimize-autoloader
 
-# Set permissions
-find . -type d -exec chmod 775 {} +
-find . -type f -exec chmod 664 {} +
-chmod -R 775 storage bootstrap/cache
+echo "Running Migrations..."
+php artisan migrate --force --no-interaction
 
-# === IMPORTANT: Fix tempnam() error ===
-mkdir -p storage/framework/temp
-chown -R ${WEB_USER}:${WEB_GROUP} storage/framework/temp
-chmod -R 775 storage/framework/temp
+echo "Generating Shield Permissions..."
+php artisan shield:generate --panel=admin --all --no-interaction || true
 
-echo "Setting custom temp directory..."
-echo "export TMPDIR=${PROJECT_PATH}/storage/framework/temp" >> /home/${WEB_USER}/.bashrc || true
-
-echo "PHP Version: $(php --version)"
-
-composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
+echo "Clearing Cache..."
 php artisan optimize:clear
 
+echo "Caching Config..."
 php artisan config:cache
+
+echo "Caching Routes..."
 php artisan route:cache || true
-php artisan view:cache || true
 
-php artisan storage:link --force || true
+echo "Caching Views..."
+php artisan view:cache
 
-# CloudPanel recommended permissions
-clpctl system:permissions:reset --path=${PROJECT_PATH} || true
+echo "Creating Storage Link..."
+php artisan storage:link || true
 
-echo "✅ Deployment Finished Successfully"
+echo "Setting Permissions..."
+
+chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage -R
+chown -R www-data:www-data /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/bootstrap -R
+
+chmod -R 0777 /home/ai-aesthetics-crm/htdocs/crm.ai-aesthetics.in/storage
+
+echo "Deployment Finished Successfully"
 
 EOF
                     '''
@@ -108,8 +155,29 @@ EOF
     }
 
     post {
-        success { echo '✅ Deployment completed successfully!' }
-        failure { echo '❌ Deployment failed!' }
-        always  { cleanWs() }
+
+        success {
+            echo '✅ Deployment completed successfully!'
+        }
+
+        failure {
+            echo '❌ Deployment failed!'
+        }
+
+        always {
+
+            cleanWs(
+                cleanWhenNotBuilt: false,
+                deleteDirs: true,
+                disableDeferredWipeout: true,
+                notFailBuild: true,
+                patterns: [
+                    [
+                        pattern: '.gitignore',
+                        type: 'INCLUDE'
+                    ]
+                ]
+            )
+        }
     }
 }
