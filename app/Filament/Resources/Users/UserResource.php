@@ -47,7 +47,8 @@ class UserResource extends Resource
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
-    protected static Htmlable|string|null $navigationBadgeTooltip = 'The number of clients created this month';
+    // protected static Htmlable|string|null $navigationBadgeTooltip = 'The number of clients created this month';
+    protected static ?string $navigationBadgeTooltip = 'The number of clients created this month';
 
     protected static ?string $modelLabel = 'Clients And Staffs';
 
