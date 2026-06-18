@@ -13,7 +13,7 @@ class CreateAvailabilityExceptionEntry extends Page
 
     public function mount()
     {
-        if (check_role('super_admin') || check_role('clinic_manager')) {
+        if (check_role('super_admin') || check_role(['clinic_manager', 'clinic_head'])) {
            return redirect()->to(
                 CreateAvailabilityExceptionWizard::getUrl()
             );

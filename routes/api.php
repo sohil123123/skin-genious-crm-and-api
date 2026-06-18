@@ -149,7 +149,7 @@ Route::get('/vue-sso', function (Request $request) {
     $url = $frontend . '/authenticate?token=' . $token . '&type=appointment';
 
     // 🔁 Role-based redirect
-    if(in_array($request->role, ['clinic_manager', 'therapist']))
+    if(in_array($request->role, ['clinic_manager', 'therapist', 'clinic_head']))
         $url .= '&clinic_id=' . $user->clinic_id;
 
     if ($request->role === 'therapist')

@@ -46,7 +46,7 @@ class TreatmentSessionController extends Controller
         if ($request->status === 'completed') {
             $clinicId = $treatmentSession->user->clinic_id ?? ($treatmentSession->assessment->clinic_id ?? null);
 
-            $managersQuery = User::role('clinic_manager');
+            $managersQuery = User::role(['clinic_manager', 'clinic_head']);
             if ($clinicId) {
                 $managersQuery->where('clinic_id', $clinicId);
             }
