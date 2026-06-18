@@ -104,9 +104,9 @@ if (!function_exists('edit_assessment')) {
 
         // Redirect to Assessment App with token and patient ID
         if($appointment)
-            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&appointment_id=' . $appointment->id. '&assessment_id=' . $assessment->id .'&type=edit';
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&appointment_id=' . $appointment->id. '&assessment_id=' . $assessment->id .'&type=edit&assessment_type='.$assessment->assessment_type;
         else
-            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&assessment_id=' . $assessment->id .'&type=edit';
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $assessment->user_id . '&assessment_id=' . $assessment->id .'&type=edit&assessment_type='.$assessment->assessment_type;
 
         return $assessmentUrl;
     }
@@ -160,9 +160,9 @@ if (!function_exists('clinic_head_complete_session')) {
         $userId = $session->assessment->user_id;
         $assessmentId = $session->assessment->id;
         $sessionId = $session->id;
-        
+
         $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $userId . '&assessment_id=' . $assessmentId . '&session_id=' . $sessionId . '&type=clinic-head-complete';
-        
+
         return $assessmentUrl;
     }
 }
