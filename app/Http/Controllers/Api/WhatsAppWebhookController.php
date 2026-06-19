@@ -15,7 +15,11 @@ class WhatsAppWebhookController extends Controller
      */
     public function verify(Request $request)
     {
-        Log::debug('WhatsApp Webhook verify:', $request->all());
+        // Log::debug('WhatsApp Webhook verify:', $request->all());
+        Log::info(
+            'WHATSAPP VERIFY: ' .
+            json_encode($request->all(), JSON_PRETTY_PRINT)
+        );
 
         $mode = $request->query('hub_mode');
         $token = $request->query('hub_verify_token');
@@ -38,7 +42,12 @@ class WhatsAppWebhookController extends Controller
         $payload = $request->all();
 
         // Log the payload for debugging if needed
-        Log::debug('WhatsApp Webhook payload:', $payload);
+        // Log::debug('WhatsApp Webhook payload:', $payload);
+        Log::info(
+            'WHATSAPP RAW: ' .
+            json_encode($payload, JSON_PRETTY_PRINT)
+        );
+
 
         if (isset($payload['object']) && $payload['object'] === 'whatsapp_business_account') {
             foreach ($payload['entry'] as $entry) {
