@@ -34,7 +34,7 @@ class AppointmentUpdateRequest extends FormRequest
         $appointment = $this->route('appointment');
 
         return [
-            'type'                => ['nullable', 'in:consult,treatment,express'],
+            'type'                => ['nullable', 'in:consult,treatment,express,other'],
             'clinic_id'           => ['nullable', 'integer', 'exists:clinics,id'],
             'therapist_id' => [
                 'nullable',

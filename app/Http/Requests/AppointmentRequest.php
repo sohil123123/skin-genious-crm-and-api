@@ -34,7 +34,7 @@ class AppointmentRequest extends FormRequest
         $user = auth()->user();
 
         return [
-            'type' => ['required', 'in:treatment,consult,express'],
+            'type' => ['required', 'in:treatment,consult,express,other'],
 
             'clinic_id' => [
                 // required only for admin roles
@@ -73,8 +73,8 @@ class AppointmentRequest extends FormRequest
                 }
             ],
 
-            'assessment_id' => ['required_unless:type,consult', 'nullable', 'exists:assessments,id'],
-            'treatment_session_id' => ['required_unless:type,consult', 'nullable', 'exists:treatment_sessions,id'],
+            'assessment_id' => ['required_unless:type,consult,express,other', 'nullable', 'exists:assessments,id'],
+            'treatment_session_id' => ['required_unless:type,consult,express,other', 'nullable', 'exists:treatment_sessions,id'],
 
             // 'appointment_datetime' => [
             //     'required',
