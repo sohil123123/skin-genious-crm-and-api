@@ -48,7 +48,11 @@ class AppointmentsTable
         return $table
             ->deferLoading()
             ->recordUrl(null)
-            ->defaultSort('start_datetime', 'asc')
+            ->defaultSort(function (Builder $query): Builder {
+                return $query
+                    ->orderByRaw("CASE WHEN status = 'confirmed' THEN 0 ELSE 1 END")
+                    ->orderBy('start_datetime', 'desc');
+            })
             ->columns([
                 TextColumn::make('type')
                     ->badge()
@@ -158,6 +162,7 @@ class AppointmentsTable
                                                 'consult' => 'Consultation',
                                                 'treatment' => 'Treatment',
                                                 'express' => 'Express',
+                                                'other' => 'Other',
                                             ])
                                             ->placeholder('All Types'),
 

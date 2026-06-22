@@ -85,7 +85,7 @@ class AvailabilityExceptionResource extends Resource
 
         if ($user->hasRole('therapist')) {
             $query->where('exceptionable_id', $user->id); // Only their own
-        } elseif ($user->hasRole('clinic_manager')) {
+        } elseif ($user->hasRole(['clinic_manager', 'clinic_head'])) {
             $query->where('clinic_id', $user->clinic_id); // Assuming User has 'clinic_id' field for their clinic
         }
         // Superadmin sees all

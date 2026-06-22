@@ -12,7 +12,8 @@ class AppointmentSlotService
 {
     public static function getDuration($type, $treatmentSessionId = null)
     {
-        if ($type === 'consult') {
+        $typeStr = $type instanceof \BackedEnum ? $type->value : $type;
+        if ($typeStr === 'consult' || $typeStr === 'other') {
             return 30;
         }
 

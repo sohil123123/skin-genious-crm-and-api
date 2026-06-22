@@ -12,6 +12,7 @@ enum AppointmentType: string implements HasColor, HasIcon, HasLabel
     case Consult = 'consult';
     case Treatment = 'treatment';
     case Express = 'express';
+    case Other = 'other';
 
     public function getLabel(): string
     {
@@ -19,6 +20,7 @@ enum AppointmentType: string implements HasColor, HasIcon, HasLabel
             self::Consult => 'Consult',
             self::Treatment => 'Treatment',
             self::Express => 'Express',
+            self::Other => 'Other',
         };
     }
 
@@ -28,6 +30,7 @@ enum AppointmentType: string implements HasColor, HasIcon, HasLabel
             self::Consult => 'info',
             self::Treatment => 'success',
             self::Express => 'warning',
+            self::Other => 'gray',
         };
     }
 
@@ -37,6 +40,7 @@ enum AppointmentType: string implements HasColor, HasIcon, HasLabel
             self::Consult => 'heroicon-o-chat-bubble-left-right',
             self::Treatment => 'heroicon-o-clipboard-document-check',
             self::Express => 'heroicon-o-clock',
+            self::Other => 'heroicon-o-question-mark-circle',
         };
     }
 }

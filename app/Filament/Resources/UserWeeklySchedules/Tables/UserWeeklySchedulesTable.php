@@ -45,7 +45,7 @@ class UserWeeklySchedulesTable
     public static function configure(Table $table): Table
     {
         $filters = [];
-        if (check_role('super_admin') || check_role('clinic_manager')) {
+        if (check_role('super_admin') || check_role(['clinic_manager', 'clinic_head'])) {
             $filters[] = Filter::make('advanced')
                 // ->visible(fn () => check_role('super_admin'))
                 ->label('Advanced Filters')
@@ -154,7 +154,7 @@ class UserWeeklySchedulesTable
                 TextColumn::make('therapist.name')
                     ->label('Therapist')
                     ->searchable(['first_name', 'last_name'])
-                    ->visible(fn () => check_role('super_admin') || check_role('clinic_manager'))
+                    ->visible(fn () => check_role('super_admin') || check_role(['clinic_manager', 'clinic_head']))
                     ->badge()
                     ->icon('heroicon-o-user')
                     ->color('info'),
@@ -226,7 +226,7 @@ class UserWeeklySchedulesTable
             // $table->groups($groups);
             $table->defaultGroup('user_id');
         }
-        else if (check_role('clinic_manager')) {
+        else if (check_role(['clinic_manager', 'clinic_head'])) {
             $table->groups([
                 Group::make('user_id')
                     ->label('Therapist')

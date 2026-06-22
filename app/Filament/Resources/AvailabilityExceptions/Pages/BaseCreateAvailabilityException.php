@@ -46,7 +46,7 @@ abstract class BaseCreateAvailabilityException extends CreateRecord
     {
         $data['status'] = 'pending';
 
-        if(check_role('therapist') || check_role('clinic_manager')){
+        if(check_role('therapist') || check_role(['clinic_manager', 'clinic_head'])){
             $data['clinic_id'] = auth()->user()->clinic_id;
         }
 
@@ -55,7 +55,7 @@ abstract class BaseCreateAvailabilityException extends CreateRecord
             $data['exceptionable_id'] = auth()->id();
         }
 
-        if(check_role('clinic_manager') && $data['exceptionable_type'] === Clinic::class){
+        if(check_role(['clinic_manager', 'clinic_head']) && $data['exceptionable_type'] === Clinic::class){
             $data['exceptionable_id'] = auth()->user()->clinic_id;
         }
 

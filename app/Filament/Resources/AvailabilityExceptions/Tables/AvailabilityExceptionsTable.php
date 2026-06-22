@@ -52,7 +52,7 @@ class AvailabilityExceptionsTable
                 TextColumn::make('exceptionable_type')
                     ->label('Type')
                     ->badge()
-                    ->visible(fn () => check_role('super_admin') || check_role('clinic_manager'))
+                    ->visible(fn () => check_role('super_admin') || check_role(['clinic_manager', 'clinic_head']))
                     ->getStateUsing(function ($record) {
                         // Therapist (User)
                         if ($record->exceptionable instanceof User)
@@ -81,7 +81,7 @@ class AvailabilityExceptionsTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin') || check_role('clinic_manager'))
+                    ->visible(fn () => auth()->user()->hasRole('super_admin') || check_role(['clinic_manager', 'clinic_head']))
                     ->icon('heroicon-o-building-office')
                     // ->color('gray')
                     ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
@@ -101,7 +101,7 @@ class AvailabilityExceptionsTable
 
                 TextColumn::make('exceptionable')
                     ->label('Therapist')
-                    ->visible(fn () => check_role('super_admin') || check_role('clinic_manager'))
+                    ->visible(fn () => check_role('super_admin') || check_role(['clinic_manager', 'clinic_head']))
                     ->badge()
                     ->color(fn ($record) => $record->type?->getColor() ?? 'gray')
                     // ->color(function ($record) {
@@ -418,7 +418,7 @@ class AvailabilityExceptionsTable
                     ->requiresConfirmation()
                     ->modalHeading('Approve record')
                     ->modalSubheading('Are you sure you want to approve this item?')
-                    ->visible(fn ($record) => ($record->exceptionable instanceof User) && ($record->status->value === 'pending') && (check_role('clinic_manager') || check_role('super_admin')))
+                    ->visible(fn ($record) => ($record->exceptionable instanceof User) && ($record->status->value === 'pending') && (check_role(['clinic_manager', 'clinic_head']) || check_role('super_admin')))
                     ->action(function ($record) {
                         $record->update(['status' => 'approved', 'approved_by' => auth()->id(), 'approved_at' => Carbon::now()]);
                         Notification::make()
@@ -435,7 +435,7 @@ class AvailabilityExceptionsTable
                     ->requiresConfirmation()
                     ->modalHeading('Reject record')
                     ->modalSubheading('Please confirm rejection. This action can be recorded.')
-                    ->visible(fn ($record) => ($record->exceptionable instanceof User) && ($record->status->value === 'pending') && (check_role('clinic_manager') || check_role('super_admin')))
+                    ->visible(fn ($record) => ($record->exceptionable instanceof User) && ($record->status->value === 'pending') && (check_role(['clinic_manager', 'clinic_head']) || check_role('super_admin')))
                     ->action(function ($record) {
                         $record->update(['status' => 'rejected']);
                         Notification::make()

@@ -258,6 +258,7 @@ class AssessmentsTable
 
                             $data['assessmentImages'] = $assessmentImages;
                             $data['postAssessmentImages'] = $postAssessmentImages;
+                            $data['assessment'] = $record;
 
                             $html = view('pdf.facial.reassessment', $data)->render();
                             $mpdf = new Mpdf(config('project.mpdf_config'));

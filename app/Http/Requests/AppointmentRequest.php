@@ -32,9 +32,9 @@ class AppointmentRequest extends FormRequest
     public function rules()
     {
         $user = auth()->user();
-        
+
         return [
-            'type' => ['required', 'in:treatment,consult,express'],
+            'type' => ['required', 'in:treatment,consult,express,other'],
 
             'clinic_id' => [
                 // required only for admin roles
@@ -73,8 +73,8 @@ class AppointmentRequest extends FormRequest
                 }
             ],
 
-            'assessment_id' => ['required_unless:type,consult', 'nullable', 'exists:assessments,id'],
-            'treatment_session_id' => ['required_unless:type,consult', 'nullable', 'exists:treatment_sessions,id'],
+            'assessment_id' => ['required_unless:type,consult,express,other', 'nullable', 'exists:assessments,id'],
+            'treatment_session_id' => ['required_unless:type,consult,express,other', 'nullable', 'exists:treatment_sessions,id'],
 
             // 'appointment_datetime' => [
             //     'required',
@@ -131,7 +131,7 @@ class AppointmentRequest extends FormRequest
 
             'start_datetime'         => ['required', 'date_format:Y-m-d H:i', 'after_or_equal:now'],
             'end_datetime'         => ['required', 'date_format:Y-m-d H:i', 'after_or_equal:start_datetime'],
-            
+
             'status' => ['required', 'in:pending,confirmed'],
 
             'notes' => 'nullable|string',
@@ -143,8 +143,8 @@ class AppointmentRequest extends FormRequest
     {
         $user = auth()->user();
 
-        // Auto fill clinic_id for therapist/clinic manager
-        if ($user->hasRole(['therapist', 'clinic_manager'])) {
+        // Auto fill clinic_id for therapist/clinic manager/clinic head
+        if ($user->hasRole(['therapist', 'clinic_manager', 'clinic_head'])) {
             $this->merge([
                 'clinic_id' => $user->clinic_id,
             ]);
