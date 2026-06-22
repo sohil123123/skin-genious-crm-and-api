@@ -51,4 +51,20 @@ class UserController extends BaseApiController
         return $this->success($this->crud_name.' get successfully', $result);
     }
 
+    public function update(string $id){
+        $this->request->validate([
+            'gender' => 'required',
+        ]);
+        $data = $this->request->all();
+        $result = $this->model->find($id);
+
+        if (!$result)
+            return $this->error('Not Found Error.', [], config('constants.HTTP_NOT_FOUND'));
+
+        $result->fill($data);
+        $result->save();
+
+        return $this->success($this->crud_name.' updated successfully', $result);
+    }
+
 }
