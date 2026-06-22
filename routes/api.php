@@ -40,7 +40,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::get('/logout', [AuthController::class, 'logout']);
 
         // INFO: User CRUD Route
-        Route::apiResource('users', 'UserController')->only(['index', 'show']);
+        Route::apiResource('users', 'UserController')->only(['index', 'show', 'update']);
 
         // INFO: Assessment CRUD Route
         Route::get('/assessments/get-in-progress-assessment/{user_id}', [AssessmentController::class, 'getInProgressAssessment']);
