@@ -18,18 +18,22 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
 {
     protected ?string $startDate;
     protected ?string $endDate;
+    protected ?string $productType;
 
-    public function __construct(?string $startDate, ?string $endDate)
+    public function __construct(?string $startDate, ?string $endDate, ?string $productType = null)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->productType = $productType;
     }
 
     public function collection(): Collection
     {
         $products = Product::query()
+            ->when($this->productType, fn(Builder $q) => $q->where('type', $this->productType))
             ->withSum(['invoiceItems' => function (Builder $query) {
                 $query->whereHas('invoice', function (Builder $q) {
+                    $q->where('status', '!=', 'cancelled');
                     if ($this->startDate) {
                         $q->whereDate('invoice_date', '>=', $this->startDate);
                     }
@@ -40,6 +44,7 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
             }], 'quantity')
             ->withSum(['invoiceItems' => function (Builder $query) {
                 $query->whereHas('invoice', function (Builder $q) {
+                    $q->where('status', '!=', 'cancelled');
                     if ($this->startDate) {
                         $q->whereDate('invoice_date', '>=', $this->startDate);
                     }
