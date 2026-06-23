@@ -36,7 +36,8 @@ class FixPackageInvoices extends Command
         DB::beginTransaction();
 
         try {
-            $invoices = Invoice::where('invoice_type', 'package')->with('items.product', 'package.items')->get();
+            $invoices = Invoice::where('invoice_type', 'package')->with('items.product', 'package.items')->whereNotIn('id', [59])->get();
+            // $invoices = Invoice::where('invoice_type', 'package')->with('items.product', 'package.items')->where('id', 60)->get();
             $count = 0;
 
             $calculationService = new InvoiceCalculationService();
@@ -78,8 +79,8 @@ class FixPackageInvoices extends Command
                         $itemDiscountValue = (float) ($item->discount_value ?? 0);
                     }
 
-                    $gstPercentage = $item->gst_percentage ?? ($item->product ? ($item->product->gst ?? 18) : 18);
-                    
+                    $gstPercentage = $item->gst_percentage > 0 ? $item->gst_percentage : ($item->product ? ($item->product->gst ?? 18) : 18);
+
                     // Fallback to product HSN if empty
                     $hsnSacCode = $item->hsn_sac_code;
                     if (empty($hsnSacCode) && $item->product) {
