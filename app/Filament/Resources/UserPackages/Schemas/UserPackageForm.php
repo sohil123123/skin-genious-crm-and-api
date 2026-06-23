@@ -218,7 +218,7 @@ class UserPackageForm
                                 Select::make('discount_type')
                                     ->label('Discount Type')
                                     ->options(PackageDiscountType::class)
-                                    ->default(PackageDiscountType::Flat->value)
+                                    ->default(PackageDiscountType::Percentage->value)
                                     ->native(false)
                                     ->live()
                                     ->afterStateUpdated(

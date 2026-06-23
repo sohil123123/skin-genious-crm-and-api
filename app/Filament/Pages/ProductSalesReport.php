@@ -26,11 +26,13 @@ class ProductSalesReport extends Page implements HasTable, HasForms
     use InteractsWithForms;
     use HasReportDateFilters;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-presentation-chart-line';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-presentation-chart-line';
 
     protected string $view = 'filament.pages.product-sales-report';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Reports';
+    protected static ?string $title = 'Sales Reports';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
     protected static ?int $navigationSort = 2;
 
@@ -60,7 +62,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
         ];
     }
 
-    public function getMiddleWidgetsColumns(): int | array
+    public function getMiddleWidgetsColumns(): int|array
     {
         return 2;
     }
@@ -79,7 +81,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
     public function exportExcel()
     {
         $filename = 'product-sales-report-' . \Illuminate\Support\Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . \Illuminate\Support\Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
-        
+
         return \Maatwebsite\Excel\Facades\Excel::download(
             new \App\Exports\ProductSalesReportExport($this->startDate, $this->endDate),
             $filename
@@ -91,26 +93,30 @@ class ProductSalesReport extends Page implements HasTable, HasForms
         return $table
             ->query(function () {
                 return Product::query()
-                    ->withSum(['invoiceItems' => function (Builder $query) {
-                        $query->whereHas('invoice', function (Builder $q) {
-                            if ($this->startDate) {
-                                $q->whereDate('invoice_date', '>=', $this->startDate);
-                            }
-                            if ($this->endDate) {
-                                $q->whereDate('invoice_date', '<=', $this->endDate);
-                            }
-                        });
-                    }], 'quantity')
-                    ->withSum(['invoiceItems' => function (Builder $query) {
-                        $query->whereHas('invoice', function (Builder $q) {
-                            if ($this->startDate) {
-                                $q->whereDate('invoice_date', '>=', $this->startDate);
-                            }
-                            if ($this->endDate) {
-                                $q->whereDate('invoice_date', '<=', $this->endDate);
-                            }
-                        });
-                    }], 'line_total')
+                    ->withSum([
+                        'invoiceItems' => function (Builder $query) {
+                            $query->whereHas('invoice', function (Builder $q) {
+                                if ($this->startDate) {
+                                    $q->whereDate('invoice_date', '>=', $this->startDate);
+                                }
+                                if ($this->endDate) {
+                                    $q->whereDate('invoice_date', '<=', $this->endDate);
+                                }
+                            });
+                        }
+                    ], 'quantity')
+                    ->withSum([
+                        'invoiceItems' => function (Builder $query) {
+                            $query->whereHas('invoice', function (Builder $q) {
+                                if ($this->startDate) {
+                                    $q->whereDate('invoice_date', '>=', $this->startDate);
+                                }
+                                if ($this->endDate) {
+                                    $q->whereDate('invoice_date', '<=', $this->endDate);
+                                }
+                            });
+                        }
+                    ], 'line_total')
                     ->having('invoice_items_sum_quantity', '>', 0);
             })
             ->columns([
