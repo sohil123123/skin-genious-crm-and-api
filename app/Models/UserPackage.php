@@ -3,14 +3,15 @@
 namespace App\Models;
 
 use App\Enums\PackageDiscountType;
+use App\Models\Invoice;
+use App\Models\Product;
+use App\Services\InvoiceCalculationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
-use App\Models\Product;
 
 class UserPackage extends Model
 {
@@ -21,56 +22,122 @@ class UserPackage extends Model
         static::updated(function ($package) {
             // Check if the package has an invoice
             if ($package->invoice) {
-                $invoice = $package->invoice;
-
-                // Sync invoice items with package items
-                $invoice->items()->delete();
-                $discountType = $package->discount_type instanceof PackageDiscountType
-                    ? $package->discount_type->value
-                    : ($package->discount_type ?? 'flat');
-
-                $totalGst = 0;
-                $invoiceItemsData = [];
-
-                foreach ($package->items as $item) {
-                    $product = Product::find($item->service_id);
-                    $gstPercentage = $product ? ($product->gst ?? 18) : 18;
-
-                    $lineTotal = $item->total_amount;
-                    $gstAmount = $lineTotal * ($gstPercentage / 100);
-                    $totalGst += $gstAmount;
-
-                    $invoiceItemsData[] = [
-                        'product_id' => $item->service_id,
-                        'quantity' => $item->quantity,
-                        'unit_price' => $item->price_per_unit,
-                        'discount_type' => $discountType,
-                        'discount_value' => $package->discount_value ?? 0,
-                        'valid_discount_amount' => $package->discount_amount ?? 0,
-                        'gst_percentage' => $gstPercentage,
-                        'gst_amount' => $gstAmount,
-                        'line_total' => $lineTotal,
-                    ];
-                }
-
-                foreach ($invoiceItemsData as $data) {
-                    $invoice->items()->create($data);
-                }
-
-                // Update the invoice financials
-                $invoice->update([
-                    'subtotal' => $package->subtotal,
-                    'discount_total' => $package->discount_amount,
-                    'taxable_value' => max(0, $package->final_amount - $totalGst),
-                    'gst_total' => $totalGst,
-                    'grand_total' => $package->final_amount,
-                    'amount_due' => max(0, $package->final_amount - $invoice->amount_paid),
-                ]);
-
-                // Recalculate invoice status
-                $invoice->recalculatePaymentStatus();
+                $package->syncInvoiceItems();
             }
         });
+    }
+
+    /**
+     * Create an invoice for this package if it doesn't exist.
+     */
+    public function createInvoice(): Invoice
+    {
+        if ($this->invoice) {
+            return $this->invoice;
+        }
+
+        $invoice = Invoice::create([
+            'clinic_id' => $this->clinic_id,
+            'user_id' => $this->user_id,
+            'package_id' => $this->id,
+            'invoice_type' => 'package',
+            'invoice_date' => now(),
+            'source_note' => "Package: {$this->package_name}",
+            'subtotal' => $this->subtotal,
+            'discount_total' => $this->discount_amount,
+            'taxable_value' => 0, // Will be updated by syncInvoiceItems
+            'gst_total' => 0, // Will be updated by syncInvoiceItems
+            'grand_total' => $this->final_amount, // Will be updated by syncInvoiceItems
+            'amount_due' => $this->final_amount, // Will be updated by syncInvoiceItems
+            'status' => 'unpaid',
+            'created_by' => auth()->id(),
+        ]);
+
+        $this->load('invoice');
+        $this->syncInvoiceItems();
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Sync invoice items and update invoice financials.
+     */
+    public function syncInvoiceItems(): void
+    {
+        if (!$this->invoice) {
+            return;
+        }
+
+        $invoice = $this->invoice;
+        $invoice->items()->delete();
+
+        $discountType = $this->discount_type instanceof PackageDiscountType
+            ? $this->discount_type->value
+            : ($this->discount_type ?? 'flat');
+
+        $subtotalTotal = 0;
+        $discountTotal = 0;
+        $taxableValueTotal = 0;
+        $gstTotal = 0;
+        $grandTotal = 0;
+
+        $calculationService = new InvoiceCalculationService();
+
+        foreach ($this->items as $item) {
+            $product = Product::find($item->service_id);
+            $gstPercentage = $product ? ($product->gst ?? 18) : 18;
+            $hsnSacCode = $product ? $product->hsn_sac_code : null;
+            $hsnSacCode = $hsnSacCode ?: ($product && $product->type === 'service' ? '999729' : '330499');
+
+            if ($discountType === 'percentage') {
+                $itemDiscountType = 'percentage';
+                $itemDiscountValue = (float) ($this->discount_value ?? 0);
+            } else {
+                $itemDiscountType = 'flat';
+                $itemDiscountValue = $this->subtotal > 0
+                    ? round(($item->total_amount / $this->subtotal) * ($this->discount_value ?? 0), 2)
+                    : 0.0;
+            }
+
+            $metrics = $calculationService->calculateLineItem(
+                $item->quantity,
+                $item->price_per_unit,
+                $itemDiscountType,
+                $itemDiscountValue,
+                $gstPercentage
+            );
+
+            $invoice->items()->create([
+                'product_id' => $item->service_id,
+                'hsn_sac_code' => $hsnSacCode,
+                'quantity' => $item->quantity,
+                'unit_price' => $item->price_per_unit,
+                'discount_type' => $itemDiscountType,
+                'discount_value' => $itemDiscountValue,
+                'valid_discount_amount' => $metrics['discount_amount'],
+                'taxable_value' => $metrics['taxable_value'],
+                'gst_percentage' => $gstPercentage,
+                'gst_amount' => $metrics['gst_amount'],
+                'line_total' => $metrics['line_total'],
+            ]);
+
+            $subtotalTotal += $metrics['gross_amount'];
+            $discountTotal += $metrics['discount_amount'];
+            $taxableValueTotal += $metrics['taxable_value'];
+            $gstTotal += $metrics['gst_amount'];
+            $grandTotal += $metrics['line_total'];
+        }
+
+        $invoice->update([
+            'subtotal' => $subtotalTotal,
+            'discount_total' => $discountTotal,
+            'taxable_value' => $taxableValueTotal,
+            'gst_total' => $gstTotal,
+            'grand_total' => $grandTotal,
+            'amount_due' => max(0, $grandTotal - ($invoice->amount_paid ?? 0)),
+        ]);
+
+        $invoice->recalculatePaymentStatus();
     }
 
     protected $fillable = [
@@ -89,13 +156,13 @@ class UserPackage extends Model
     ];
 
     protected $casts = [
-        'subtotal'        => 'decimal:2',
-        'discount_value'  => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
-        'final_amount'    => 'decimal:2',
-        'discount_type'   => PackageDiscountType::class,
-        'is_active'       => 'boolean',
-        'expired_at'      => 'date',
+        'final_amount' => 'decimal:2',
+        'discount_type' => PackageDiscountType::class,
+        'is_active' => 'boolean',
+        'expired_at' => 'date',
     ];
 
     // ----------- Computed Accessors -------------------------
@@ -129,7 +196,7 @@ class UserPackage extends Model
      */
     public function isExhausted(): bool
     {
-        return $this->items->every(fn ($item) => $item->isExhausted());
+        return $this->items->every(fn($item) => $item->isExhausted());
     }
 
     public function isExpired(): bool
@@ -166,9 +233,9 @@ class UserPackage extends Model
         $finalAmount = max(0, $subtotal - $discountAmount);
 
         $this->update([
-            'subtotal'        => $subtotal,
+            'subtotal' => $subtotal,
             'discount_amount' => $discountAmount,
-            'final_amount'    => $finalAmount,
+            'final_amount' => $finalAmount,
         ]);
     }
 

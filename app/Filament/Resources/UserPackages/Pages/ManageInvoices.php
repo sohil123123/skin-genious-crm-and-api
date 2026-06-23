@@ -43,7 +43,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
     }
@@ -74,7 +74,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                         TextEntry::make('clinic.name')->weight(FontWeight::Bold)->label('Clinic'),
                         TextEntry::make('status')
                             ->badge()
-                            ->color(fn (string $state): string => match ($state) {
+                            ->color(fn(string $state): string => match ($state) {
                                 'paid' => 'success',
                                 'draft' => 'gray',
                                 'pending' => 'warning',
@@ -121,7 +121,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                         ->color('info'),
                                     TextEntry::make('gst_amount')
                                         ->label('GST')
-                                        ->formatStateUsing(fn ($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
+                                        ->formatStateUsing(fn($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
                                         ->badge()
                                         ->color('info'),
                                     TextEntry::make('line_total')->label('Total')->money('INR')->weight(FontWeight::Bold),
@@ -130,25 +130,25 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                     ])
                     ->collapsible(),
 
-                    Grid::make(12)->schema([
-                        Group::make()->columnSpan(8),
-                        Section::make()
-                            ->schema([
-                                TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
-                                TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
-                                TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
-                                TextEntry::make('discount_total')->money('INR')->label('Discount')->color('success')->inlineLabel(),
-                                TextEntry::make('grand_total')
-                                    ->money('INR')
-                                    ->label('Grand Total')
-                                    ->weight(FontWeight::Bold)
-                                    ->size(TextSize::Large)
-                                    ->color('primary')
-                                    ->inlineLabel(),
+                Grid::make(12)->schema([
+                    Group::make()->columnSpan(8),
+                    Section::make()
+                        ->schema([
+                            TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
+                            TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
+                            TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
+                            TextEntry::make('discount_total')->money('INR')->label('Discount')->color('success')->inlineLabel(),
+                            TextEntry::make('grand_total')
+                                ->money('INR')
+                                ->label('Grand Total')
+                                ->weight(FontWeight::Bold)
+                                ->size(TextSize::Large)
+                                ->color('primary')
+                                ->inlineLabel(),
 
-                            ])
-                            ->columnSpan(4),
-                    ]),
+                        ])
+                        ->columnSpan(4),
+                ]),
             ]);
     }
 
@@ -163,56 +163,9 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
             Action::make('generate_invoice')
                 ->label('Generate Invoice')
                 ->icon('heroicon-o-plus')
-                ->hidden(fn () => $this->record->invoice !== null)
+                ->hidden(fn() => $this->record->invoice !== null)
                 ->action(function () {
-                    $package = $this->record;
-                    $package->load('items');
-
-                    $totalGst = 0;
-                    $invoiceItemsData = [];
-                    
-                    foreach ($package->items as $item) {
-                        $product = \App\Models\Product::find($item->service_id);
-                        $gstPercentage = $product ? ($product->gst ?? 18) : 18;
-                        
-                        $lineTotal = $item->total_amount;
-                        $gstAmount = $lineTotal * ($gstPercentage / 100);
-                        $totalGst += $gstAmount;
-
-                        $invoiceItemsData[] = [
-                            'product_id' => $item->service_id,
-                            'quantity' => $item->quantity,
-                            'unit_price' => $item->price_per_unit,
-                            'discount_type' => null,
-                            'discount_value' => 0,
-                            'valid_discount_amount' => 0,
-                            'gst_percentage' => $gstPercentage,
-                            'gst_amount' => $gstAmount,
-                            'line_total' => $lineTotal,
-                        ];
-                    }
-
-                    $invoice = Invoice::create([
-                        'clinic_id' => $package->clinic_id,
-                        'user_id' => $package->user_id,
-                        'package_id' => $package->id,
-                        'invoice_type' => 'package',
-                        'invoice_date' => now(),
-                        'source_note' => "Package: {$package->package_name}",
-                        'subtotal' => $package->subtotal,
-                        'discount_total' => $package->discount_amount,
-                        'taxable_value' => $package->final_amount - $totalGst,
-                        'gst_total' => $totalGst,
-                        'grand_total' => $package->final_amount,
-                        'amount_due' => $package->final_amount,
-                        'status' => 'unpaid',
-                        'created_by' => auth()->id(),
-                    ]);
-
-                    // Create an invoice item for each package service
-                    foreach ($invoiceItemsData as $data) {
-                        $invoice->items()->create($data);
-                    }
+                    $this->record->createInvoice();
 
                     Notification::make()
                         ->title('Invoice Created Successfully')
@@ -225,7 +178,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                 ->label('Make Payment')
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
-                ->hidden(fn () => !$this->record->invoice || in_array($this->record->invoice->status, ['paid', 'cancelled']))
+                ->hidden(fn() => !$this->record->invoice || in_array($this->record->invoice->status, ['paid', 'cancelled']))
                 ->modalHeading('Create Invoice Payment')
                 ->modalWidth('5xl')
                 ->form(function () {
@@ -280,7 +233,7 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                                             TextInput::make('reference_number')
                                                 ->label('Ref / TXN ID')
                                                 ->placeholder('Optional')
-                                                ->hidden(fn (Get $get) => $get('payment_method') === 'cash')
+                                                ->hidden(fn(Get $get) => $get('payment_method') === 'cash')
                                                 ->prefixIcon('heroicon-o-hashtag'),
                                         ])
                                         ->columns(3)
@@ -354,19 +307,20 @@ class ManageInvoices extends Page implements HasForms, HasInfolists
                 ->label('PDF')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('primary')
-                ->hidden(fn () => !$this->record->invoice)
+                ->hidden(fn() => !$this->record->invoice)
                 ->action(function () {
                     $pdfService = app(\App\Services\InvoicePdfService::class);
                     return $pdfService->download($this->record->invoice);
                 }),
-                // Using pdf service download
+            // Using pdf service download
         ];
     }
 
     public static function canAccess(array $parameters = []): bool
     {
         $record = $parameters['record'] ?? null;
-        if (!$record) return false;
+        if (!$record)
+            return false;
         return $record->user->hasRole('client');
     }
 }
