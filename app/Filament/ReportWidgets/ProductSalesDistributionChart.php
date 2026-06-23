@@ -40,13 +40,15 @@ class ProductSalesDistributionChart extends ChartWidget
 
     public ?string $startDate = null;
     public ?string $endDate = null;
+    public ?string $productType = null;
 
     protected $listeners = ['updateReportDates' => 'updateDates'];
 
-    public function updateDates(string $startDate, string $endDate): void
+    public function updateDates(string $startDate, string $endDate, ?string $productType = null): void
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->productType = $productType;
         $this->updateChartData();
     }
 
@@ -55,13 +57,19 @@ class ProductSalesDistributionChart extends ChartWidget
         $startDate = $this->startDate ? Carbon::parse($this->startDate) : now()->startOfMonth();
         $endDate = $this->endDate ? Carbon::parse($this->endDate) : now()->endOfMonth();
 
-        $data = InvoiceItem::query()
+        $query = InvoiceItem::query()
             ->select('products.name', DB::raw('SUM(invoice_items.line_total) as total_revenue'))
             ->join('products', 'invoice_items.product_id', '=', 'products.id')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->where('invoices.status', '!=', 'cancelled')
             ->whereDate('invoices.invoice_date', '>=', $startDate)
-            ->whereDate('invoices.invoice_date', '<=', $endDate)
-            ->groupBy('products.name')
+            ->whereDate('invoices.invoice_date', '<=', $endDate);
+
+        if ($this->productType) {
+            $query->where('products.type', $this->productType);
+        }
+
+        $data = $query->groupBy('products.name')
             ->orderByDesc('total_revenue')
             ->limit(10)
             ->get();

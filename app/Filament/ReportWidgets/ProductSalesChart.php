@@ -3,6 +3,7 @@
 namespace App\Filament\ReportWidgets;
 
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Carbon\CarbonPeriod;
@@ -42,13 +43,15 @@ class ProductSalesChart extends ChartWidget
 
     public ?string $startDate = null;
     public ?string $endDate = null;
+    public ?string $productType = null;
 
     protected $listeners = ['updateReportDates' => 'updateDates'];
 
-    public function updateDates(string $startDate, string $endDate): void
+    public function updateDates(string $startDate, string $endDate, ?string $productType = null): void
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+        $this->productType = $productType;
         $this->updateChartData();
     }
 
@@ -58,20 +61,25 @@ class ProductSalesChart extends ChartWidget
         $endDate = $this->endDate ? Carbon::parse($this->endDate) : now()->endOfMonth();
 
         // Use raw DB query for aggregation to avoid external dependency issues
-        // Assuming MySQL/MariaDB for DATE() function. 
-        // If SQLite, this might need adjustment to strftime('%Y-%m-%d', invoice_date)
-        
         $dateFormat = match (DB::getDriverName()) {
-            'sqlite' => "strftime('%Y-%m-%d', invoice_date)",
-            'pgsql' => "to_char(invoice_date, 'YYYY-MM-DD')",
-            default => "DATE(invoice_date)", // MySQL, MariaDB, SQL Server
+            'sqlite' => "strftime('%Y-%m-%d', invoices.invoice_date)",
+            'pgsql' => "to_char(invoices.invoice_date, 'YYYY-MM-DD')",
+            default => "DATE(invoices.invoice_date)", // MySQL, MariaDB, SQL Server
         };
 
-        $data = Invoice::query()
-            ->selectRaw("$dateFormat as date, SUM(grand_total) as aggregate")
-            ->whereDate('invoice_date', '>=', $startDate)
-            ->whereDate('invoice_date', '<=', $endDate)
-            ->groupBy('date')
+        $query = InvoiceItem::query()
+            ->selectRaw("$dateFormat as date, SUM(invoice_items.line_total) as aggregate")
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->join('products', 'invoice_items.product_id', '=', 'products.id')
+            ->where('invoices.status', '!=', 'cancelled')
+            ->whereDate('invoices.invoice_date', '>=', $startDate)
+            ->whereDate('invoices.invoice_date', '<=', $endDate);
+
+        if ($this->productType) {
+            $query->where('products.type', $this->productType);
+        }
+
+        $data = $query->groupBy('date')
             ->orderBy('date')
             ->get();
 
