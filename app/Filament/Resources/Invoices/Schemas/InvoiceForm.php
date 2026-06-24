@@ -149,14 +149,14 @@ class InvoiceForm
                                     ->disabled(fn(Get $get, ?\Illuminate\Database\Eloquent\Model $record) => (bool) ($get('package_id') || $get('../../package_id') || ($record && ($record->invoice_type === 'package' || $record->package_id))))
                                     ->dehydrated()
                                     ->table([
-                                        TableColumn::make('Product')->width(200),
-                                        TableColumn::make('HSN/SAC')->width(100),
-                                        TableColumn::make('Quantity')->width(80),
+                                        TableColumn::make('Product')->width(250),
+                                        TableColumn::make('HSN/SAC')->width(10),
+                                        TableColumn::make('Quantity')->width(10),
                                         TableColumn::make('Unit Price')->width(80),
                                         TableColumn::make('Discount')->width(150),
                                         TableColumn::make('GST %')->width(80),
-                                        TableColumn::make('GST Amt')->width(80),
-                                        TableColumn::make('Total')->width(80),
+                                        TableColumn::make('GST Amt')->width(100),
+                                        TableColumn::make('Total')->width(100),
                                     ])
                                     ->schema([
                                         Select::make('product_id')
@@ -170,7 +170,7 @@ class InvoiceForm
                                                     return [];
                                                 }
 
-                                                $query = Product::active();
+                                                $query = Product::active()->orderBy('name', 'asc');
 
                                                 $isPackageInvoice = $get('../../package_id') || ($record && $record->invoice_type === 'package');
                                                 if ($isPackageInvoice) {
@@ -179,16 +179,35 @@ class InvoiceForm
 
                                                 return $query->get()->mapWithKeys(function ($product) use ($clinicId) {
                                                     $stockLabel = '';
+                                                    $stockColor = 'color: #16a34a;'; // green-600
                                                     if ($product->type !== 'service') {
                                                         $inventory = ClinicInventory::where('clinic_id', $clinicId)
                                                             ->where('product_id', $product->id)
                                                             ->first();
                                                         $stock = $inventory?->stock_quantity ?? 0;
-                                                        $stockLabel = $stock <= 0 ? ' (Out of Stock)' : " ({$stock} available)";
+                                                        if ($stock <= 0) {
+                                                            $stockLabel = ' (Out of Stock)';
+                                                            $stockColor = 'color: #dc2626; font-weight: 600;'; // red-600
+                                                        } else {
+                                                            $stockLabel = " ({$stock} available)";
+                                                        }
                                                     }
-                                                    return [$product->id => $product->name . $stockLabel];
+
+                                                    $icon = '';
+                                                    if ($product->type === 'service') {
+                                                        $icon = @file_get_contents(public_path('images/service.svg')) ?: '';
+                                                    } elseif ($product->type === 'iv_product') {
+                                                        $icon = @file_get_contents(public_path('images/iv_product.svg')) ?: '';
+                                                    } else {
+                                                        $icon = @file_get_contents(public_path('images/product.svg')) ?: '';
+                                                    }
+
+                                                    $html = '<div style="display: flex; align-items: center; gap: 8px;">' . $icon . '<span style="font-weight: 500; color: inherit;">' . e($product->name) . '</span>' . ($stockLabel ? ' <span style="font-size: 0.75rem; ' . $stockColor . '">' . e($stockLabel) . '</span>' : '') . '</div>';
+
+                                                    return [$product->id => $html];
                                                 });
                                             })
+                                            ->allowHtml()
                                             ->disableOptionWhen(function ($value, $state, Get $get) {
                                                 if (empty($value))
                                                     return false;
