@@ -68,7 +68,7 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
         return $products->map(function ($product) {
             return [
                 'name' => $product->name,
-                'quantity_sold' => $product->invoice_items_sum_quantity ?? 0,
+                'quantity_sold' => $product->type === 'product' ? ($product->invoice_items_sum_quantity ?? 0) : 0,
                 'total_revenue' => $product->invoice_items_sum_line_total ?? 0,
             ];
         });
