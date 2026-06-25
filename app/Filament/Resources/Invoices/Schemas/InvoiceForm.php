@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Invoices\Schemas;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\ClinicInventory;
-use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Schemas\Components\Group;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -23,17 +23,17 @@ class InvoiceForm
 {
     public static function configure(Schema $schema): Schema
     {
-         return $schema
+        return $schema
             ->components([
                 Group::make()
                     ->schema([
                         Section::make('Invoice Details')
-                        ->schema([
-                            // Grid::make(4)->schema([
+                            ->schema([
+                                // Grid::make(4)->schema([
                                 Select::make('clinic_id')
                                     ->relationship('clinic', 'name')
-                                    ->required(fn () => check_role(config('project.roles.super_admin')))
-                                    ->visible(fn () => check_role(config('project.roles.super_admin')))
+                                    ->required(fn() => check_role(config('project.roles.super_admin')))
+                                    ->visible(fn() => check_role(config('project.roles.super_admin')))
                                     ->live()
                                     ->afterStateUpdated(function (Set $set) {
                                         $set('user_id', null);
@@ -46,7 +46,7 @@ class InvoiceForm
                                                 'product_id' => null,
                                                 'quantity' => 1,
                                                 'unit_price' => null,
-                                                'discount_type' => 'flat',
+                                                'discount_type' => 'percentage',
                                                 'discount_value' => 0,
                                                 'gst_percentage' => 18,
                                                 'gst_amount' => 0,
@@ -63,8 +63,8 @@ class InvoiceForm
                                     })
                                     ->columnSpan(1),
                                 Hidden::make('clinic_id')
-                                    ->default(fn () => auth()->user()->clinic_id)
-                                    ->visible(fn () => !check_role(config('project.roles.super_admin'))),
+                                    ->default(fn() => auth()->user()->clinic_id)
+                                    ->visible(fn() => !check_role(config('project.roles.super_admin'))),
                                 Select::make('user_id')
                                     ->label('Client')
                                     ->options(function (callable $get) {
@@ -72,7 +72,7 @@ class InvoiceForm
                                         if (!$clinicId)
                                             $clinicId = auth()->user()->clinic_id;
 
-                                        return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                        return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn($u) => [$u->id => $u->name]);
                                     })
                                     ->searchable()
                                     ->native(false)
@@ -94,23 +94,23 @@ class InvoiceForm
                                     ->placeholder('Auto-generated')
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->visible(fn ($record) => $record !== null)
+                                    ->visible(fn($record) => $record !== null)
                                     ->columnSpan(1),
                                 Select::make('package_id')
                                     ->relationship('package', 'package_name')
                                     ->label('Linked Package')
                                     ->disabled()
-                                    ->visible(fn ($record) => $record && $record->package_id)
+                                    ->visible(fn($record) => $record && $record->package_id)
                                     ->columnSpan(1),
-                                DatePicker::make('invoice_date')
+                                DateTimePicker::make('invoice_date')
                                     ->default(now())
                                     ->required()
                                     ->columnSpan(1),
                                 TextInput::make('source_note')
                                     ->placeholder('e.g. RWA Saket camp')
                                     ->columnSpan(1),
-                            // ]),
-                            // Grid::make(4)->schema([
+                                // ]),
+                                // Grid::make(4)->schema([
                                 TextInput::make('patient_phone')
                                     ->label('Phone')
                                     ->disabled()
@@ -135,231 +135,262 @@ class InvoiceForm
                                 //     ->required()
                                 //     ->default('paid')
                                 //     ->columnSpan(1),
-                            // ]),
-                        ])
-                        ->columns(4),
+                                // ]),
+                            ])
+                            ->columns(4),
 
-                    Section::make('Line Items')
-                        ->headerActions([
-                            // Actions specific to the section if needed
-                        ])
-                        ->schema([
-                            Repeater::make('items')
-                                ->relationship()
-                                ->table([
-                                    TableColumn::make('Product')->width(200),
-                                    TableColumn::make('HSN/SAC')->width(100),
-                                    TableColumn::make('Quantity')->width(80),
-                                    TableColumn::make('Unit Price')->width(80),
-                                    TableColumn::make('Discount')->width(150),
-                                    TableColumn::make('GST %')->width(80),
-                                    TableColumn::make('GST Amt')->width(80),
-                                    TableColumn::make('Total')->width(80),
-                                ])
-                                ->schema([
-                                    Select::make('product_id')
-                                        ->label('Product')
-                                        ->placeholder(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id) ? 'Select Clinic first' : 'Select Product')
-                                        ->disabled(fn (Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id))
-                                        ->options(function (Get $get, ?\Illuminate\Database\Eloquent\Model $record) {
-                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
-
-                                            if (!$clinicId) {
-                                                return [];
-                                            }
-
-                                            $query = Product::active();
-
-                                            $isPackageInvoice = $get('../../package_id') || ($record && $record->invoice_type === 'package');
-                                            if ($isPackageInvoice) {
-                                                $query->where('type', 'service');
-                                            }
-
-                                            return $query->get()->mapWithKeys(function ($product) use ($clinicId) {
-                                                $stockLabel = '';
-                                                if ($product->type !== 'service') {
-                                                    $inventory = ClinicInventory::where('clinic_id', $clinicId)
-                                                        ->where('product_id', $product->id)
-                                                        ->first();
-                                                    $stock = $inventory?->stock_quantity ?? 0;
-                                                    $stockLabel = $stock <= 0 ? ' (Out of Stock)' : " ({$stock} available)";
-                                                }
-                                                return [$product->id => $product->name . $stockLabel];
-                                            });
-                                        })
-                                        ->disableOptionWhen(function ($value, $state, Get $get) {
-                                            if (empty($value)) return false;
-                                            $product = Product::find($value);
-                                            if ($product && $product->type !== 'service') {
+                        Section::make('Line Items')
+                            ->headerActions([
+                                // Actions specific to the section if needed
+                            ])
+                            ->schema([
+                                Repeater::make('items')
+                                    ->relationship()
+                                    ->disabled(fn(Get $get, ?\Illuminate\Database\Eloquent\Model $record) => (bool) ($get('package_id') || $get('../../package_id') || ($record && ($record->invoice_type === 'package' || $record->package_id))))
+                                    ->dehydrated()
+                                    ->table([
+                                        TableColumn::make('Product')->width(250),
+                                        TableColumn::make('HSN/SAC')->width(10),
+                                        TableColumn::make('Quantity')->width(10),
+                                        TableColumn::make('Unit Price')->width(80),
+                                        TableColumn::make('Discount')->width(150),
+                                        TableColumn::make('GST %')->width(80),
+                                        TableColumn::make('GST Amt')->width(100),
+                                        TableColumn::make('Total')->width(100),
+                                    ])
+                                    ->schema([
+                                        Select::make('product_id')
+                                            ->label('Product')
+                                            ->placeholder(fn(Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id) ? 'Select Clinic first' : 'Select Product')
+                                            ->disabled(fn(Get $get) => empty($get('../../clinic_id') ?: auth()->user()->clinic_id))
+                                            ->options(function (Get $get, ?\Illuminate\Database\Eloquent\Model $record) {
                                                 $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
-                                                if (!$clinicId) return true;
 
-                                                $inventory = ClinicInventory::where('clinic_id', $clinicId)
-                                                    ->where('product_id', $value)
-                                                    ->first();
-                                                if (!$inventory || $inventory->stock_quantity <= 0) return true;
-                                            }
-                                            $selectedProductIds = collect($get('../../items'))->pluck('product_id')->filter()->unique();
-                                            return $selectedProductIds->contains($value) && $value != $state;
-                                        })
-                                        ->required()
-                                        ->reactive()
-                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                            if (!$state) {
-                                                // Product cleared - reset all fields
-                                                $set('unit_price', 0);
-                                                $set('gst_percentage', 0);
-                                                $set('gst_amount', 0);
-                                                $set('discount_value', 0);
-                                                $set('valid_discount_amount', 0);
-                                                $set('taxable_value', 0);
-                                                $set('line_total', 0);
-                                                $set('hsn_sac_code', null);
-                                                $set('quantity', 1); // Reset quantity to default
-                                            } else {
-                                                $product = Product::find($state);
-                                                if ($product) {
-                                                    $set('unit_price', $product->sell_price);
-                                                    $set('gst_percentage', $product->gst ?? 18);
-                                                    $set('hsn_sac_code', $product->hsn_sac_code);
+                                                if (!$clinicId) {
+                                                    return [];
                                                 }
-                                            }
-                                            self::updateLineTotal($get, $set);
-                                            self::updateGrandTotal($get, $set);
-                                        })
-                                        ->distinct()
-                                        ->searchable(),
 
-                                    TextInput::make('hsn_sac_code')
-                                        ->label('HSN/SAC')
-                                        ->dehydrated()
-                                        ->required(),
+                                                $query = Product::active()->orderBy('name', 'asc');
 
-                                    TextInput::make('quantity')
-                                        ->label('Quantity')
-                                        ->numeric()
-                                        ->default(1)
-                                        ->live()
-                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                            $productId = $get('product_id');
-                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+                                                $isPackageInvoice = $get('../../package_id') || ($record && $record->invoice_type === 'package');
+                                                if ($isPackageInvoice) {
+                                                    $query->where('type', 'service');
+                                                }
 
-                                            if ($productId && $clinicId) {
+                                                return $query->get()->mapWithKeys(function ($product) use ($clinicId) {
+                                                    $stockLabel = '';
+                                                    $stockColor = 'color: #16a34a;'; // green-600
+                                                    if ($product->type !== 'service') {
+                                                        $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                            ->where('product_id', $product->id)
+                                                            ->first();
+                                                        $stock = $inventory?->stock_quantity ?? 0;
+                                                        if ($stock <= 0) {
+                                                            $stockLabel = ' (Out of Stock)';
+                                                            $stockColor = 'color: #dc2626; font-weight: 600;'; // red-600
+                                                        } else {
+                                                            $stockLabel = " ({$stock} available)";
+                                                        }
+                                                    }
+
+                                                    $icon = '';
+                                                    if ($product->type === 'service') {
+                                                        $icon = @file_get_contents(public_path('images/service.svg')) ?: '';
+                                                    } elseif ($product->type === 'iv_product') {
+                                                        $icon = @file_get_contents(public_path('images/iv_product.svg')) ?: '';
+                                                    } else {
+                                                        $icon = @file_get_contents(public_path('images/product.svg')) ?: '';
+                                                    }
+
+                                                    $html = '<div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px;">' .
+                                                        '<div style="display: flex; align-items: center; gap: 8px; min-width: 0;">' .
+                                                        $icon .
+                                                        '<span style="font-weight: 500; color: inherit; white-space: normal;">' . e($product->name) . '</span>' .
+                                                        '</div>' .
+                                                        ($stockLabel ? '<span style="font-size: 0.75rem; ' . $stockColor . ' white-space: nowrap; flex-shrink: 0;">' . e($stockLabel) . '</span>' : '') .
+                                                        '</div>';
+
+                                                    return [$product->id => $html];
+                                                });
+                                            })
+                                            ->allowHtml()
+                                            ->disableOptionWhen(function ($value, $state, Get $get) {
+                                                if (empty($value))
+                                                    return false;
+                                                $product = Product::find($value);
+                                                if ($product && $product->type !== 'service') {
+                                                    $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+                                                    if (!$clinicId)
+                                                        return true;
+
+                                                    $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                        ->where('product_id', $value)
+                                                        ->first();
+                                                    if (!$inventory || $inventory->stock_quantity <= 0)
+                                                        return true;
+                                                }
+                                                $selectedProductIds = collect($get('../../items'))->pluck('product_id')->filter()->unique();
+                                                return $selectedProductIds->contains($value) && $value != $state;
+                                            })
+                                            ->required()
+                                            ->reactive()
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                if (!$state) {
+                                                    // Product cleared - reset all fields
+                                                    $set('unit_price', 0);
+                                                    $set('gst_percentage', 0);
+                                                    $set('gst_amount', 0);
+                                                    $set('discount_value', 0);
+                                                    $set('valid_discount_amount', 0);
+                                                    $set('taxable_value', 0);
+                                                    $set('line_total', 0);
+                                                    $set('hsn_sac_code', null);
+                                                    $set('quantity', 1); // Reset quantity to default
+                                                } else {
+                                                    $product = Product::find($state);
+                                                    if ($product) {
+                                                        $set('unit_price', $product->sell_price);
+                                                        $set('gst_percentage', $product->gst ?? 18);
+                                                        $set('hsn_sac_code', $product->hsn_sac_code);
+                                                    }
+                                                }
+                                                self::updateLineTotal($get, $set);
+                                                self::updateGrandTotal($get, $set);
+                                            })
+                                            ->distinct()
+                                            ->searchable(),
+
+                                        TextInput::make('hsn_sac_code')
+                                            ->label('HSN/SAC')
+                                            ->dehydrated()
+                                            ->disabled()
+                                            ->required(),
+
+                                        TextInput::make('quantity')
+                                            ->label('Quantity')
+                                            ->numeric()
+                                            ->default(1)
+                                            ->live()
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                $productId = $get('product_id');
+                                                $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+
+                                                if ($productId && $clinicId) {
+                                                    $product = Product::find($productId);
+                                                    if ($product && $product->type !== 'service') {
+                                                        $inventory = ClinicInventory::where('clinic_id', $clinicId)
+                                                            ->where('product_id', $productId)
+                                                            ->first();
+                                                        $stock = $inventory?->stock_quantity ?? 0;
+
+                                                        if ((int) $state > $stock) {
+                                                            $state = $stock;
+                                                            $set('quantity', $stock);
+
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->title('Quantity Adjusted')
+                                                                ->body("Only {$stock} items available in stock.")
+                                                                ->warning()
+                                                                ->send();
+                                                        }
+                                                    }
+                                                }
+
+                                                self::updateLineTotal($get, $set);
+                                                self::updateGrandTotal($get, $set);
+                                            })
+                                            ->maxValue(function (Get $get) {
+                                                $productId = $get('product_id');
+                                                $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
+
+                                                if (!$productId || !$clinicId) {
+                                                    return null;
+                                                }
+
                                                 $product = Product::find($productId);
                                                 if ($product && $product->type !== 'service') {
                                                     $inventory = ClinicInventory::where('clinic_id', $clinicId)
                                                         ->where('product_id', $productId)
                                                         ->first();
-                                                    $stock = $inventory?->stock_quantity ?? 0;
-
-                                                    if ((int)$state > $stock) {
-                                                        $state = $stock;
-                                                        $set('quantity', $stock);
-
-                                                        \Filament\Notifications\Notification::make()
-                                                            ->title('Quantity Adjusted')
-                                                            ->body("Only {$stock} items available in stock.")
-                                                            ->warning()
-                                                            ->send();
-                                                    }
+                                                    return $inventory?->stock_quantity ?? 0;
                                                 }
-                                            }
 
-                                            self::updateLineTotal($get, $set);
-                                            self::updateGrandTotal($get, $set);
-                                        })
-                                        ->maxValue(function (Get $get) {
-                                            $productId = $get('product_id');
-                                            $clinicId = $get('../../clinic_id') ?: auth()->user()->clinic_id;
-
-                                            if (!$productId || !$clinicId) {
                                                 return null;
-                                            }
+                                            })
+                                            ->required(),
 
-                                            $product = Product::find($productId);
-                                            if ($product && $product->type !== 'service') {
-                                                $inventory = ClinicInventory::where('clinic_id', $clinicId)
-                                                    ->where('product_id', $productId)
-                                                    ->first();
-                                                return $inventory?->stock_quantity ?? 0;
-                                            }
+                                        TextInput::make('unit_price')
+                                            ->disabled()
+                                            ->prefix('₹')
+                                            ->dehydrated()
+                                            ->numeric()
+                                            ->required(),
 
-                                            return null;
-                                        })
-                                        ->required(),
+                                        Group::make()
+                                            ->schema([
+                                                Grid::make(2)
+                                                    ->schema([
+                                                        Select::make('discount_type')
+                                                            ->label('Type')
+                                                            ->options(['flat' => 'Flat', 'percentage' => '%'])
+                                                            ->default('percentage')
+                                                            ->live()
+                                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                                self::updateLineTotal($get, $set);
+                                                                self::updateGrandTotal($get, $set);
+                                                            }),
+                                                        TextInput::make('discount_value')
+                                                            ->label('Value')
+                                                            ->numeric()
+                                                            ->default(0)
+                                                            ->required()
+                                                            ->live()
+                                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                                self::updateLineTotal($get, $set);
+                                                                self::updateGrandTotal($get, $set);
+                                                            }),
+                                                    ]),
+                                                Hidden::make('valid_discount_amount')->default(0)->dehydrated(),
+                                                Hidden::make('taxable_value')->default(0)->dehydrated(),
+                                            ]),
 
-                                    TextInput::make('unit_price')
-                                        ->disabled()
-                                        ->prefix('₹')
-                                        ->dehydrated()
-                                        ->numeric()
-                                        ->required(),
+                                        TextInput::make('gst_percentage')
+                                            ->label('GST')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->default(18) // Default GST if not set
+                                            ->numeric(),
 
-                                    Group::make()
-                                        ->schema([
-                                            Grid::make(2)
-                                                ->schema([
-                                                    Select::make('discount_type')
-                                                        ->label('Type')
-                                                        ->options(['flat' => 'Flat', 'percentage' => '%'])
-                                                        ->default('flat')
-                                                        ->live()
-                                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                            self::updateLineTotal($get, $set);
-                                                            self::updateGrandTotal($get, $set);
-                                                        }),
-                                                    TextInput::make('discount_value')
-                                                        ->label('Value')
-                                                        ->numeric()
-                                                        ->default(0)
-                                                        ->required()
-                                                        ->live()
-                                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                                            self::updateLineTotal($get, $set);
-                                                            self::updateGrandTotal($get, $set);
-                                                        }),
-                                                ]),
-                                            Hidden::make('valid_discount_amount')->default(0)->dehydrated(),
-                                            Hidden::make('taxable_value')->default(0)->dehydrated(),
-                                        ]),
+                                        TextInput::make('gst_amount')
+                                            ->label('GST Amt')
+                                            ->prefix('₹')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->default(0)
+                                            ->numeric(),
 
-                                    TextInput::make('gst_percentage')
-                                        ->label('GST')
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->default(18) // Default GST if not set
-                                        ->numeric(),
-
-                                    TextInput::make('gst_amount')
-                                        ->label('GST Amt')
-                                        ->prefix('₹')
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->default(0)
-                                        ->numeric(),
-
-                                    TextInput::make('line_total')
-                                        ->label('Amount')
-                                        ->prefix('₹')
-                                        ->disabled()
-                                        ->dehydrated()
-                                        ->default(0)
-                                        ->numeric(),
-                                ])
-                                // FIXED: Added afterStateUpdated to Repeater for add/delete/reorder triggers
-                                // This ensures grand total updates on row removal (fresh $get('items') available here)
-                                ->afterStateUpdated(function (Set $set, Get $get) {
-                                    self::updateGrandTotal($get, $set);
-                                })
-                                ->live()
-                                ->defaultItems(1)
-                                ->minItems(1)
-                                ->addActionLabel('Add Product')
-                                ->maxItems(fn (Get $get) => collect($get('items'))->contains(fn ($item) => empty($item['product_id'])) ? count($get('items')) : 100)
-                                // Hide delete button if only one item remains
-                                ->deleteAction(fn ($action) => $action->hidden(fn (Get $get) => count($get('items')) <= 1))
-                                ->hiddenLabel(),
-                        ]),
+                                        TextInput::make('line_total')
+                                            ->label('Amount')
+                                            ->prefix('₹')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->default(0)
+                                            ->numeric(),
+                                    ])
+                                    // FIXED: Added afterStateUpdated to Repeater for add/delete/reorder triggers
+                                    // This ensures grand total updates on row removal (fresh $get('items') available here)
+                                    ->afterStateUpdated(function (Set $set, Get $get) {
+                                        self::updateGrandTotal($get, $set);
+                                    })
+                                    ->live()
+                                    ->defaultItems(1)
+                                    ->minItems(1)
+                                    ->addActionLabel('Add Product')
+                                    ->maxItems(fn(Get $get) => collect($get('items'))->contains(fn($item) => empty($item['product_id'])) ? count($get('items')) : 100)
+                                    // Hide delete button if only one item remains
+                                    ->deleteAction(fn($action) => $action->hidden(fn(Get $get) => count($get('items')) <= 1))
+                                    ->hiddenLabel(),
+                            ]),
 
                         Grid::make(12)->schema([
                             Group::make()->columnSpan(8),
@@ -461,7 +492,7 @@ class InvoiceForm
             $qty = (int) ($item['quantity'] ?? 1);
             $gstP = (float) ($item['gst_percentage'] ?? 0);
             $disc = (float) ($item['discount_value'] ?? 0);
-            $dType = $item['discount_type'] ?? 'flat';
+            $dType = $item['discount_type'] ?? 'percentage';
 
             $metrics = $service->calculateLineItem($qty, $price, $dType, $disc, $gstP);
 

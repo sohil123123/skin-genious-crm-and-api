@@ -18,6 +18,7 @@ trait HasReportDateFilters
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?int $clinicId = null;
+    public ?string $productType = null;
 
     protected function initReportFilters(): void
     {
@@ -39,7 +40,13 @@ trait HasReportDateFilters
             'startDate' => $this->startDate,
             'endDate' => $this->endDate,
             'clinicId' => $this->clinicId,
+            'productType' => $this->productType,
         ];
+    }
+
+    protected function showProductTypeFilter(): bool
+    {
+        return false;
     }
 
     protected function getReportFilterSchema(): array
@@ -50,6 +57,10 @@ trait HasReportDateFilters
                     Select::make('reportType')
                         ->label('Report Type')
                         ->options([
+                            // 'today' => 'Today',
+                            // 'this_week' => 'This Week',
+                            // 'this_month' => 'This Month',
+                            // 'this_year' => 'This Year',
                             'monthly' => 'Monthly',
                             'quarterly' => 'Quarterly',
                             'financial_year' => 'Financial Year',
@@ -67,7 +78,7 @@ trait HasReportDateFilters
                     Select::make('selectedMonth')
                         ->label('Month')
                         ->options($this->getMonthOptions())
-                        ->visible(fn ($get) => $get('reportType') === 'monthly')
+                        ->visible(fn($get) => $get('reportType') === 'monthly')
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->selectedMonth = $state;
@@ -78,7 +89,7 @@ trait HasReportDateFilters
                     Select::make('selectedYear')
                         ->label('Year')
                         ->options($this->getYearOptions())
-                        ->visible(fn ($get) => in_array($get('reportType'), ['monthly', 'quarterly']))
+                        ->visible(fn($get) => in_array($get('reportType'), ['monthly', 'quarterly']))
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->selectedYear = $state;
@@ -95,7 +106,7 @@ trait HasReportDateFilters
                             'Q3' => 'Q3 (Oct-Dec)',
                             'Q4' => 'Q4 (Jan-Mar)',
                         ])
-                        ->visible(fn ($get) => $get('reportType') === 'quarterly')
+                        ->visible(fn($get) => $get('reportType') === 'quarterly')
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->selectedQuarter = $state;
@@ -107,7 +118,7 @@ trait HasReportDateFilters
                     Select::make('selectedFy')
                         ->label('Financial Year')
                         ->options($this->getFyOptions())
-                        ->visible(fn ($get) => $get('reportType') === 'financial_year')
+                        ->visible(fn($get) => $get('reportType') === 'financial_year')
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->selectedFy = $state;
@@ -118,7 +129,7 @@ trait HasReportDateFilters
                     // Custom date range filters
                     DatePicker::make('startDate')
                         ->label('From Date')
-                        ->visible(fn ($get) => $get('reportType') === 'custom')
+                        ->visible(fn($get) => $get('reportType') === 'custom')
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->startDate = $state;
@@ -127,7 +138,7 @@ trait HasReportDateFilters
 
                     DatePicker::make('endDate')
                         ->label('To Date')
-                        ->visible(fn ($get) => $get('reportType') === 'custom')
+                        ->visible(fn($get) => $get('reportType') === 'custom')
                         ->reactive()
                         ->afterStateUpdated(function ($state) {
                             $this->endDate = $state;
@@ -141,15 +152,31 @@ trait HasReportDateFilters
                         ->placeholder('All Clinics')
                         ->searchable()
                         ->reactive()
-                        ->visible(fn () => auth()->user()->hasRole('super_admin'))
+                        ->visible(fn() => auth()->user()->hasRole('super_admin'))
                         ->afterStateUpdated(function ($state) {
                             $this->clinicId = $state ? (int) $state : null;
+                            $this->triggerReportFilterUpdate();
+                        }),
+
+                    // Product Type filter
+                    Select::make('productType')
+                        ->label('Product Type')
+                        ->options([
+                            'product' => 'Product',
+                            'service' => 'Service',
+                            // 'iv_product' => 'IV Product',
+                        ])
+                        ->placeholder('All Types')
+                        ->reactive()
+                        ->visible(fn() => $this->showProductTypeFilter())
+                        ->afterStateUpdated(function ($state) {
+                            $this->productType = $state ?: null;
                             $this->triggerReportFilterUpdate();
                         }),
                 ]),
         ];
     }
-    
+
     protected function triggerReportFilterUpdate(): void
     {
         if (method_exists($this, 'onReportFilterUpdated')) {
@@ -162,8 +189,28 @@ trait HasReportDateFilters
     protected function calculateDateRange(): void
     {
         switch ($this->reportType) {
+            // case 'today':
+            //     $this->startDate = now()->toDateString();
+            //     $this->endDate = now()->toDateString();
+            //     break;
+
+            // case 'this_week':
+            //     $this->startDate = now()->startOfWeek(Carbon::MONDAY)->toDateString();
+            //     $this->endDate = now()->endOfWeek(Carbon::SUNDAY)->toDateString();
+            //     break;
+
+            // case 'this_month':
+            //     $this->startDate = now()->startOfMonth()->toDateString();
+            //     $this->endDate = now()->endOfMonth()->toDateString();
+            //     break;
+
+            // case 'this_year':
+            //     $this->startDate = now()->startOfYear()->toDateString();
+            //     $this->endDate = now()->endOfYear()->toDateString();
+            //     break;
+
             case 'monthly':
-                $date = Carbon::createFromDate((int)$this->selectedYear, (int)$this->selectedMonth, 1);
+                $date = Carbon::createFromDate((int) $this->selectedYear, (int) $this->selectedMonth, 1);
                 $this->startDate = $date->startOfMonth()->toDateString();
                 $this->endDate = $date->endOfMonth()->toDateString();
                 break;
@@ -216,9 +263,12 @@ trait HasReportDateFilters
     protected function getCurrentQuarter(): string
     {
         $month = (int) now()->format('m');
-        if ($month >= 4 && $month <= 6) return 'Q1';
-        if ($month >= 7 && $month <= 9) return 'Q2';
-        if ($month >= 10 && $month <= 12) return 'Q3';
+        if ($month >= 4 && $month <= 6)
+            return 'Q1';
+        if ($month >= 7 && $month <= 9)
+            return 'Q2';
+        if ($month >= 10 && $month <= 12)
+            return 'Q3';
         return 'Q4';
     }
 
@@ -226,15 +276,16 @@ trait HasReportDateFilters
     {
         $year = (int) now()->format('Y');
         $month = (int) now()->format('m');
-        if ($month < 4) $year--;
-        return $year . '-' . substr((string)($year + 1), 2);
+        if ($month < 4)
+            $year--;
+        return $year . '-' . substr((string) ($year + 1), 2);
     }
 
     protected function getMonthOptions(): array
     {
         $months = [];
         for ($i = 1; $i <= 12; $i++) {
-            $months[str_pad((string)$i, 2, '0', STR_PAD_LEFT)] = Carbon::create(null, $i, 1)->format('F');
+            $months[str_pad((string) $i, 2, '0', STR_PAD_LEFT)] = Carbon::create(null, $i, 1)->format('F');
         }
         return $months;
     }
@@ -253,11 +304,12 @@ trait HasReportDateFilters
     {
         $currentYear = (int) now()->format('Y');
         $month = (int) now()->format('m');
-        if ($month < 4) $currentYear--;
+        if ($month < 4)
+            $currentYear--;
 
         $options = [];
         for ($i = $currentYear - 3; $i <= $currentYear + 1; $i++) {
-            $key = $i . '-' . substr((string)($i + 1), 2);
+            $key = $i . '-' . substr((string) ($i + 1), 2);
             $options[$key] = "FY {$key}";
         }
         return $options;

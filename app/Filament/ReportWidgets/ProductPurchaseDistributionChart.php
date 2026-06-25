@@ -64,8 +64,8 @@ class ProductPurchaseDistributionChart extends ChartWidget
             ->whereIn('products.type', ['product', 'iv_product'])
             ->whereDate('purchases.purchase_date', '>=', $startDate)
             ->whereDate('purchases.purchase_date', '<=', $endDate)
-            ->when($this->clinicId, fn ($q) => $q->where('purchases.clinic_id', $this->clinicId))
-            ->when(!$this->clinicId && !auth()->user()->hasRole('super_admin'), fn ($q) => $q->where('purchases.clinic_id', auth()->user()->clinic_id))
+            ->when($this->clinicId, fn($q) => $q->where('purchases.clinic_id', $this->clinicId))
+            ->when(!$this->clinicId && !auth()->user()->hasRole('super_admin'), fn($q) => $q->where('purchases.clinic_id', auth()->user()->clinic_id))
             ->groupBy('products.name', 'products.type')
             ->orderByDesc('total_quantity')
             ->limit(10)
@@ -77,13 +77,21 @@ class ProductPurchaseDistributionChart extends ChartWidget
                     'label' => 'Quantity',
                     'data' => $data->pluck('total_quantity')->toArray(),
                     'backgroundColor' => [
-                        '#86efac', '#93c5fd', '#fca5a5', '#fcd34d', '#a5b4fc',
-                        '#d8b4fe', '#f9a8d4', '#5eead4', '#fdba74', '#cbd5e1'
+                        '#86efac',
+                        '#93c5fd',
+                        '#fca5a5',
+                        '#fcd34d',
+                        '#a5b4fc',
+                        '#d8b4fe',
+                        '#f9a8d4',
+                        '#5eead4',
+                        '#fdba74',
+                        '#cbd5e1'
                     ],
                     'borderWidth' => 0,
                 ],
             ],
-            'labels' => $data->map(fn($item) => "{$item->name} (" . str_replace('_', ' ', $item->type) . ")")->toArray(),
+            'labels' => $data->map(fn($item) => "{$item->name}")->toArray(),
         ];
     }
 
