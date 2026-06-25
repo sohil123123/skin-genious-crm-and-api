@@ -44,6 +44,7 @@ class AssessmentRequest extends FormRequest
             'iv_inputs' => 'nullable|array',
             'assessment_type' => 'nullable|string|in:iv,instant-normal,normal,instant-iv',
             'feature_packet' => 'nullable|array',
+            'post_feature_packet' => 'nullable|array',
             'diagnosis' => 'nullable|array',
             'post_diagnosis' => 'nullable|array',
             'parameters_with_abnormal_scores' => 'nullable|array',
