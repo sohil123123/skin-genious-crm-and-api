@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use App\Filament\ReportWidgets\ProductSalesChart;
 use App\Filament\ReportWidgets\ProductSalesDistributionChart;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\Action as HeaderAction;
@@ -201,9 +202,9 @@ class ProductSalesReport extends Page implements HasTable, HasForms
                     // ->numeric()
                     ->sortable()
                     // ->default(0)
-                    ->getStateUsing(fn($record) => $record->invoice_items_sum_quantity > 0 ? $record->invoice_items_sum_quantity : null)
+                    ->getStateUsing(fn($record) => ($record->type === 'product' && $record->invoice_items_sum_quantity > 0) ? $record->invoice_items_sum_quantity : null)
                     ->placeholder('')
-                    ->summarize(Sum::make()->label('Total Quantity')),
+                    ->summarize(Sum::make()->label('Total Quantity')->query(fn (QueryBuilder $query) => $query->where('products.type', 'product'))),
                 TextColumn::make('invoice_items_sum_line_total')
                     ->label('Total Revenue')
                     ->money('INR')
