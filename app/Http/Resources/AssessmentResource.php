@@ -39,6 +39,7 @@ class AssessmentResource extends BaseResource
             'iv_inputs' => $this->iv_inputs,
             'assessment_type' => $this->assessment_type,
             'feature_packet' => $this->feature_packet,
+            'post_feature_packet' => $this->post_feature_packet,
             'diagnosis' => $this->diagnosis,
             'post_diagnosis' => $this->post_diagnosis,
             'parameters_with_abnormal_scores' => $this->parameters_with_abnormal_scores,
