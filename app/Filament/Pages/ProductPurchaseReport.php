@@ -84,7 +84,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
     public function exportExcel()
     {
         $filename = 'product-purchase-report-' . \Illuminate\Support\Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . \Illuminate\Support\Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
-        
+
         return \Maatwebsite\Excel\Facades\Excel::download(
             new \App\Exports\ProductPurchaseReportExport($this->startDate, $this->endDate, $this->clinicId),
             $filename
@@ -145,7 +145,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
             ->columns([
                 TextColumn::make('name')
                     ->label('Product Name')
-                    ->state(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
+                    // ->state(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('total_purchased_qty')

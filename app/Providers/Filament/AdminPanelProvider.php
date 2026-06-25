@@ -85,7 +85,7 @@ class AdminPanelProvider extends PanelProvider
                 'profile' => MenuItem::make()
                     ->label('My Profile')
                     ->icon('heroicon-o-user-circle')
-                    ->url(fn (): string => route('filament.admin.pages.profile')),
+                    ->url(fn(): string => route('filament.admin.pages.profile')),
             ])
             ->colors([
                 'dark-danger' => [
@@ -102,8 +102,8 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
-                // Dashboard::class,
-                // Profile::class
+                    // Dashboard::class,
+                    // Profile::class
                 ActivityLog::class
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
@@ -153,8 +153,8 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationIcon('heroicon-o-shield-check')  // Custom icon
                     ->navigationSort(2)  // Position in nav
                     ->navigationGroup('Security'),  // Group under a label
-                    // ->showGlobalSearch(false)  // Disable search
-                    // ->showInTenancy(false),  // Hide in multi-tenant setups
+                // ->showGlobalSearch(false)  // Disable search
+                // ->showInTenancy(false),  // Hide in multi-tenant setups
 
                 // FilamentAwinTheme::make()->primaryColor(Color::Emerald),
                 FilamentNordThemePlugin::make(),
@@ -162,36 +162,36 @@ class AdminPanelProvider extends PanelProvider
                 FilamentFullCalendarPlugin::make()
                     // ->selectable()  // Optional: Allow selecting dates for new events
                     ->editable()    // Optional: Allow dragging/resizing events
-                    // ->timezone('UTC')  // Optional: Set your app's timezone
-                    // ->config([
-                    //     'initialDate' => now()->format('Y-m-d'),  // Always start on today
-                    //     'initialView' => 'timeGridDay',  // Defaults to today's view
-                    //     'firstDay' => 1,  // Optional: Start week on Monday
-                    //     'headerToolbar' => [
-                    //         'left' => 'prev,next',
-                    //         'center' => 'title',
-                    //         'right' => 'today,dayGridWeek,timeGridDay',
-                    //     ],
-                    //     'slotMinTime' => '08:00:00',  // Appointments from 8 AM
-                    //     'slotMaxTime' => '20:00:00',  // To 8 PM
-                    //     'slotDuration' => '00:15:00',  // 30-min slots
-                    //     'businessHours' => [
-                    //         [
-                    //             'daysOfWeek' => [1, 2, 3, 4, 5],  // Mon-Fri only (1=Mon, 7=Sun)
-                    //             'startTime' => '08:00',
-                    //             'endTime' => '12:00',  // Morning shift
-                    //         ],
-                    //         [
-                    //             'daysOfWeek' => [1, 2, 3, 4, 5],
-                    //             'startTime' => '13:00',  // After lunch
-                    //             'endTime' => '18:00',    // End at 6 PM
-                    //         ],
-                    //     ],
-                    //     'dayHeaderClassNames' => ['fc-business-hours'],
-                    //     // 'dayHeaderClassNames' => function ($info) {
-                    //     //     return $info.date.getDay() === 0 || $info.date.getDay() === 6 ? ['fc-non-business'] : [];
-                    //     // },
-                    // ])
+                // ->timezone('UTC')  // Optional: Set your app's timezone
+                // ->config([
+                //     'initialDate' => now()->format('Y-m-d'),  // Always start on today
+                //     'initialView' => 'timeGridDay',  // Defaults to today's view
+                //     'firstDay' => 1,  // Optional: Start week on Monday
+                //     'headerToolbar' => [
+                //         'left' => 'prev,next',
+                //         'center' => 'title',
+                //         'right' => 'today,dayGridWeek,timeGridDay',
+                //     ],
+                //     'slotMinTime' => '08:00:00',  // Appointments from 8 AM
+                //     'slotMaxTime' => '20:00:00',  // To 8 PM
+                //     'slotDuration' => '00:15:00',  // 30-min slots
+                //     'businessHours' => [
+                //         [
+                //             'daysOfWeek' => [1, 2, 3, 4, 5],  // Mon-Fri only (1=Mon, 7=Sun)
+                //             'startTime' => '08:00',
+                //             'endTime' => '12:00',  // Morning shift
+                //         ],
+                //         [
+                //             'daysOfWeek' => [1, 2, 3, 4, 5],
+                //             'startTime' => '13:00',  // After lunch
+                //             'endTime' => '18:00',    // End at 6 PM
+                //         ],
+                //     ],
+                //     'dayHeaderClassNames' => ['fc-business-hours'],
+                //     // 'dayHeaderClassNames' => function ($info) {
+                //     //     return $info.date.getDay() === 0 || $info.date.getDay() === 6 ? ['fc-non-business'] : [];
+                //     // },
+                // ])
             ])
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
@@ -200,7 +200,8 @@ class AdminPanelProvider extends PanelProvider
                 function (): string {
                     $user = Auth::user();
 
-                    if (! $user) return '';
+                    if (!$user)
+                        return '';
 
                     // Adjust this according to how you store roles
                     $role = $user->roles()->pluck('name')->first();
@@ -245,7 +246,8 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 function (): string {
                     $userId = Auth::id();
-                    if (!$userId) return '';
+                    if (!$userId)
+                        return '';
 
                     return <<<HTML
                         <script>
@@ -297,7 +299,23 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => \Illuminate\Support\Facades\Blade::render("@vite('resources/js/app.js')")
+                fn(): string => \Illuminate\Support\Facades\Blade::render(<<<'HTML'
+                    @vite('resources/js/app.js')
+                    <style>
+                        /* .invoice-status-paid {
+                            background-color: #f0fdf4 !important;
+                        } */
+                        .invoice-status-partial, .invoice-status-unpaid {
+                            background-color: #fef2f2 !important;
+                        }
+                        /* .dark .invoice-status-paid {
+                            background-color: rgba(6, 78, 59, 0.2) !important;
+                        } */
+                        .dark .invoice-status-partial, .dark .invoice-status-unpaid {
+                            background-color: rgba(127, 29, 29, 0.2) !important;
+                        }
+                    </style>
+                HTML)
             )
             ->navigationGroups([
                 // NavigationGroup::make()
@@ -311,10 +329,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationItems([
                 \Filament\Navigation\NavigationItem::make('Logs')
-                    ->url(fn (): string => route('log-viewer.index'))
+                    ->url(fn(): string => route('log-viewer.index'))
                     ->icon('heroicon-o-document-text')
                     ->group('Others')
-                    ->visible(fn (): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
+                    ->visible(fn(): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }
 

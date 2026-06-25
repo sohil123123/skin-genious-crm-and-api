@@ -38,8 +38,8 @@ class ManageInvoicePayments extends ManageRelatedRecords
         return $table
             ->headerActions([
                 InvoicePaymentForm::getMakePaymentAction('create')
-                    ->label('New invoice payment')
-                    ->hidden(fn () => in_array($this->getOwnerRecord()->status, ['paid', 'cancelled'])),
+                    ->label('Make Invoice Payment')
+                    ->hidden(fn() => in_array($this->getOwnerRecord()->status, ['paid', 'cancelled'])),
             ]);
     }
 }

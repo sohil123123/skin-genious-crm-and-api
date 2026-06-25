@@ -4,8 +4,8 @@
             display: grid;
             gap: 1rem;
             grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
-            margin-bottom: 1.5rem;
         }
+
         .gst-stat-card {
             background-color: #ffffff;
             border: 1px solid #e5e7eb;
@@ -14,6 +14,7 @@
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             text-align: center;
         }
+
         .gst-stat-title {
             font-size: 0.75rem;
             font-weight: 500;
@@ -21,6 +22,7 @@
             text-transform: uppercase;
             letter-spacing: 0.025em;
         }
+
         .gst-stat-value {
             margin-top: 0.25rem;
             font-size: 1.125rem;
@@ -32,23 +34,46 @@
             background-color: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.1);
         }
+
         .dark .gst-stat-title {
             color: #9ca3af;
         }
+
         .dark .gst-stat-value {
             color: #ffffff;
         }
-        .stat-emerald { color: #059669; }
-        .dark .stat-emerald { color: #34d399; }
 
-        .stat-orange { color: #ea580c; }
-        .dark .stat-orange { color: #fb923c; }
+        .stat-emerald {
+            color: #059669;
+        }
 
-        .stat-blue { color: #2563eb; }
-        .dark .stat-blue { color: #60a5fa; }
+        .dark .stat-emerald {
+            color: #34d399;
+        }
 
-        .stat-indigo { color: #4f46e5; }
-        .dark .stat-indigo { color: #818cf8; }
+        .stat-orange {
+            color: #ea580c;
+        }
+
+        .dark .stat-orange {
+            color: #fb923c;
+        }
+
+        .stat-blue {
+            color: #2563eb;
+        }
+
+        .dark .stat-blue {
+            color: #60a5fa;
+        }
+
+        .stat-indigo {
+            color: #4f46e5;
+        }
+
+        .dark .stat-indigo {
+            color: #818cf8;
+        }
     </style>
 
     {{-- Filter Section --}}
@@ -123,7 +148,5 @@
     </div>
 
     {{-- Data Table --}}
-    <div style="margin-top: 1rem;">
-        {{ $this->table }}
-    </div>
+    {{ $this->table }}
 </x-filament-panels::page>

@@ -18,10 +18,13 @@ use App\Filament\ReportWidgets\ProductSalesDistributionChart;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action as TableAction;
+use Filament\Actions\Action as HeaderAction;
 use App\Models\InvoiceItem;
 use Filament\Schemas\Components\Grid;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use App\Filament\Traits\HasReportDateFilters;
+use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProductSalesReport extends Page implements HasTable, HasForms
 {
@@ -84,7 +87,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\Action::make('export_excel')
+            HeaderAction::make('export_excel')
                 ->label('Export Excel (.xlsx)')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
@@ -94,12 +97,54 @@ class ProductSalesReport extends Page implements HasTable, HasForms
 
     public function exportExcel()
     {
-        $filename = 'product-sales-report-' . \Illuminate\Support\Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . \Illuminate\Support\Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
+        $filename = 'product-sales-report-' . Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
 
-        return \Maatwebsite\Excel\Facades\Excel::download(
+        return Excel::download(
             new \App\Exports\ProductSalesReportExport($this->startDate, $this->endDate, $this->productType),
             $filename
         );
+    }
+
+    public function getSummaryData(): array
+    {
+        $baseQuery = function () {
+            return InvoiceItem::query()
+                ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+                ->where('invoices.status', '!=', 'cancelled')
+                ->where(function (Builder $query) {
+                    if ($this->clinicId) {
+                        $query->where('invoices.clinic_id', $this->clinicId);
+                    } elseif (!check_role('super_admin')) {
+                        $query->where('invoices.clinic_id', auth()->user()->clinic_id);
+                    }
+                });
+        };
+
+        $today = $baseQuery()
+            ->whereDate('invoices.invoice_date', now()->toDateString())
+            ->sum('invoice_items.line_total');
+
+        $thisWeek = $baseQuery()
+            ->whereDate('invoices.invoice_date', '>=', now()->startOfWeek(Carbon::MONDAY)->toDateString())
+            ->whereDate('invoices.invoice_date', '<=', now()->endOfWeek(Carbon::SUNDAY)->toDateString())
+            ->sum('invoice_items.line_total');
+
+        $thisMonth = $baseQuery()
+            ->whereDate('invoices.invoice_date', '>=', now()->startOfMonth()->toDateString())
+            ->whereDate('invoices.invoice_date', '<=', now()->endOfMonth()->toDateString())
+            ->sum('invoice_items.line_total');
+
+        $thisYear = $baseQuery()
+            ->whereDate('invoices.invoice_date', '>=', now()->startOfYear()->toDateString())
+            ->whereDate('invoices.invoice_date', '<=', now()->endOfYear()->toDateString())
+            ->sum('invoice_items.line_total');
+
+        return [
+            'today' => $today,
+            'this_week' => $thisWeek,
+            'this_month' => $thisMonth,
+            'this_year' => $thisYear,
+        ];
     }
 
     public function table(Table $table): Table
@@ -134,7 +179,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
                             });
                         }
                     ], 'line_total')
-                    ->having('invoice_items_sum_quantity', '>', 0);
+                    ->having('invoice_items_sum_line_total', '>', 0);
             })
             ->columns([
                 TextColumn::make('name')
@@ -153,9 +198,11 @@ class ProductSalesReport extends Page implements HasTable, HasForms
                 TextColumn::make('invoice_items_sum_quantity')
                     ->label('Quantity Sold')
                     ->badge()
-                    ->numeric()
+                    // ->numeric()
                     ->sortable()
-                    ->default(0)
+                    // ->default(0)
+                    ->getStateUsing(fn($record) => $record->invoice_items_sum_quantity > 0 ? $record->invoice_items_sum_quantity : null)
+                    ->placeholder('')
                     ->summarize(Sum::make()->label('Total Quantity')),
                 TextColumn::make('invoice_items_sum_line_total')
                     ->label('Total Revenue')

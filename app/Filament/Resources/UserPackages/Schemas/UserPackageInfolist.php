@@ -45,7 +45,7 @@ class UserPackageInfolist
                                     ->label('Expires On')
                                     ->date()
                                     ->placeholder('No expiry')
-                                    ->color(fn ($record) => $record->expired_at && $record->expired_at->isPast() ? 'danger' : 'success'),
+                                    ->color(fn($record) => $record->expired_at && $record->expired_at->isPast() ? 'danger' : 'success'),
                             ]),
                         ]),
 
@@ -59,27 +59,27 @@ class UserPackageInfolist
                                     Grid::make(6)->schema([
                                         TextEntry::make('service.name')
                                             ->label('Service')
-                                            ->weight('bold')
-                                            ->icon('heroicon-o-sparkles'),
+                                            ->weight('bold'),
+                                        // ->icon('heroicon-o-sparkles'),
 
                                         TextEntry::make('quantity')
-                                            ->label('Purchased')
-                                            ->suffix(' sessions')
+                                            ->label('Sessions')
+                                            // ->suffix(' sessions')
                                             ->badge()
                                             ->color('gray'),
 
                                         TextEntry::make('used_sessions')
-                                            ->label('Used')
-                                            ->suffix(' sessions')
+                                            ->label('Used Sessions')
+                                            // ->suffix(' sessions')
                                             ->badge()
                                             ->color('warning'),
 
                                         TextEntry::make('remaining')
-                                            ->label('Remaining')
-                                            ->getStateUsing(fn ($record) => $record->getRemainingSessions())
-                                            ->suffix(' sessions')
+                                            ->label('Remaining Sessions')
+                                            ->getStateUsing(fn($record) => $record->getRemainingSessions())
+                                            // ->suffix(' sessions')
                                             ->badge()
-                                            ->color(fn ($record) => $record->getRemainingSessions() > 0 ? 'success' : 'danger'),
+                                            ->color(fn($record) => $record->getRemainingSessions() > 0 ? 'success' : 'danger'),
 
                                         TextEntry::make('price_per_unit')
                                             ->label('Price / Session')
@@ -100,31 +100,31 @@ class UserPackageInfolist
                             Grid::make(4)->schema([
                                 TextEntry::make('total_services')
                                     ->label('Total Services')
-                                    ->getStateUsing(fn ($record) => $record->items->count())
-                                    ->suffix(' services')
+                                    ->getStateUsing(fn($record) => $record->items->count())
+                                    // ->suffix(' services')
                                     ->badge()
                                     ->color('primary'),
 
                                 TextEntry::make('total_sessions')
                                     ->label('Total Sessions')
-                                    ->getStateUsing(fn ($record) => $record->getTotalSessions())
-                                    ->suffix(' sessions')
+                                    ->getStateUsing(fn($record) => $record->getTotalSessions())
+                                    // ->suffix(' sessions')
                                     ->badge()
                                     ->color('gray'),
 
                                 TextEntry::make('used_sessions')
                                     ->label('Used Sessions')
-                                    ->getStateUsing(fn ($record) => $record->getTotalUsedSessions())
-                                    ->suffix(' sessions')
+                                    ->getStateUsing(fn($record) => $record->getTotalUsedSessions())
+                                    // ->suffix(' sessions')
                                     ->badge()
                                     ->color('warning'),
 
                                 TextEntry::make('remaining_sessions')
                                     ->label('Remaining Sessions')
-                                    ->getStateUsing(fn ($record) => $record->getTotalRemainingSessions())
-                                    ->suffix(' sessions')
+                                    ->getStateUsing(fn($record) => $record->getTotalRemainingSessions())
+                                    // ->suffix(' sessions')
                                     ->badge()
-                                    ->color(fn ($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger'),
+                                    ->color(fn($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger'),
                             ]),
                         ]),
 
@@ -173,19 +173,21 @@ class UserPackageInfolist
                             TextEntry::make('subtotal')
                                 ->label('Subtotal (All Services)')
                                 ->money('INR'),
-
-                            TextEntry::make('discount_type')
-                                ->label('Discount Type')
-                                ->badge()
-                                ->formatStateUsing(fn ($state) => $state instanceof PackageDiscountType ? $state->getLabel() : $state),
-
-                            TextEntry::make('discount_value')
-                                ->label('Discount Value')
-                                ->formatStateUsing(fn ($record) =>
-                                    $record->discount_type === PackageDiscountType::Percentage
-                                        ? $record->discount_value . '%'
+                            Grid::make(2)->schema([
+                                TextEntry::make('discount_value')
+                                    ->label('Discount Value')
+                                    ->formatStateUsing(
+                                        fn($record) =>
+                                        $record->discount_type === PackageDiscountType::Percentage
+                                        ? $record->discount_value
                                         : '₹' . number_format($record->discount_value, 2)
-                                ),
+                                    ),
+
+                                TextEntry::make('discount_type')
+                                    ->label('Discount Type')
+                                    ->badge()
+                                    ->formatStateUsing(fn($state) => $state instanceof PackageDiscountType ? $state->getLabel() : $state),
+                            ]),
 
                             TextEntry::make('discount_amount')
                                 ->label('Discount Amount')
@@ -219,6 +221,6 @@ class UserPackageInfolist
                 ])
                 ->columnSpan(['lg' => 1]),
         ])
-        ->columns(3);
+            ->columns(3);
     }
 }

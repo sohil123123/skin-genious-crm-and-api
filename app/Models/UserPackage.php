@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PackageDiscountType;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Models\Product;
 use App\Services\InvoiceCalculationService;
 use Illuminate\Database\Eloquent\Model;
@@ -20,20 +21,26 @@ class UserPackage extends Model
     protected static function booted()
     {
         static::updated(function ($package) {
-            // Check if the package has an invoice
-            if ($package->invoice) {
-                $package->syncInvoiceItems();
+            // Check if the package has exactly 1 full invoice matching the package amount
+            if ($package->invoices()->count() === 1) {
+                $invoice = $package->invoice;
+                if ($invoice && abs((float) $invoice->grand_total - (float) $package->final_amount) < 0.01) {
+                    $package->syncInvoiceItemsForInvoice($invoice, $package->final_amount);
+                }
             }
         });
     }
 
     /**
-     * Create an invoice for this package if it doesn't exist.
+     * Create an invoice for this package.
      */
-    public function createInvoice(): Invoice
+    public function createInvoice(?float $invoiceAmount = null): Invoice
     {
-        if ($this->invoice) {
-            return $this->invoice;
+        $invoicedTotal = (float) $this->invoices()->sum('grand_total');
+        $remainingAmount = max(0, (float) $this->final_amount - $invoicedTotal);
+
+        if ($invoiceAmount === null || $invoiceAmount > $remainingAmount) {
+            $invoiceAmount = $remainingAmount;
         }
 
         $invoice = Invoice::create([
@@ -42,19 +49,18 @@ class UserPackage extends Model
             'package_id' => $this->id,
             'invoice_type' => 'package',
             'invoice_date' => now(),
-            'source_note' => "Package: {$this->package_name}",
-            'subtotal' => $this->subtotal,
-            'discount_total' => $this->discount_amount,
-            'taxable_value' => 0, // Will be updated by syncInvoiceItems
-            'gst_total' => 0, // Will be updated by syncInvoiceItems
-            'grand_total' => $this->final_amount, // Will be updated by syncInvoiceItems
-            'amount_due' => $this->final_amount, // Will be updated by syncInvoiceItems
+            'source_note' => "Package: {$this->package_name}" . ($invoicedTotal > 0 ? " (Installment)" : ""),
+            'subtotal' => 0,
+            'discount_total' => 0,
+            'taxable_value' => 0,
+            'gst_total' => 0,
+            'grand_total' => $invoiceAmount,
+            'amount_due' => $invoiceAmount,
             'status' => 'unpaid',
             'created_by' => auth()->id(),
         ]);
 
-        $this->load('invoice');
-        $this->syncInvoiceItems();
+        $this->syncInvoiceItemsForInvoice($invoice, $invoiceAmount);
 
         return $invoice->fresh();
     }
@@ -68,7 +74,14 @@ class UserPackage extends Model
             return;
         }
 
-        $invoice = $this->invoice;
+        $this->syncInvoiceItemsForInvoice($this->invoice, (float) $this->invoice->grand_total);
+    }
+
+    /**
+     * Sync invoice items and update invoice financials for a specific invoice amount.
+     */
+    public function syncInvoiceItemsForInvoice(Invoice $invoice, float $invoiceAmount): void
+    {
         $invoice->items()->delete();
 
         $discountType = $this->discount_type instanceof PackageDiscountType
@@ -82,8 +95,13 @@ class UserPackage extends Model
         $grandTotal = 0;
 
         $calculationService = new InvoiceCalculationService();
+        $ratio = $this->final_amount > 0 ? ($invoiceAmount / $this->final_amount) : 0;
+
+        $itemsCount = $this->items->count();
+        $processedCount = 0;
 
         foreach ($this->items as $item) {
+            $processedCount++;
             $product = Product::find($item->service_id);
             $gstPercentage = $product ? ($product->gst ?? 18) : 18;
             $hsnSacCode = $product ? $product->hsn_sac_code : null;
@@ -99,7 +117,7 @@ class UserPackage extends Model
                     : 0.0;
             }
 
-            $metrics = $calculationService->calculateLineItem(
+            $origMetrics = $calculationService->calculateLineItem(
                 $item->quantity,
                 $item->price_per_unit,
                 $itemDiscountType,
@@ -107,25 +125,36 @@ class UserPackage extends Model
                 $gstPercentage
             );
 
+            $targetLineTotal = round($origMetrics['line_total'] * $ratio, 2);
+
+            // Last item rounding adjustment to match requested invoice amount exactly
+            if ($processedCount === $itemsCount) {
+                $targetLineTotal = round($invoiceAmount - $grandTotal, 2);
+            }
+
+            $lineTotal = $targetLineTotal;
+            $taxableValue = round(($lineTotal * 100) / (100 + $gstPercentage), 2);
+            $gstAmount = round($lineTotal - $taxableValue, 2);
+
             $invoice->items()->create([
                 'product_id' => $item->service_id,
                 'hsn_sac_code' => $hsnSacCode,
-                'quantity' => $item->quantity,
+                'quantity' => 0,
                 'unit_price' => $item->price_per_unit,
-                'discount_type' => $itemDiscountType,
-                'discount_value' => $itemDiscountValue,
-                'valid_discount_amount' => $metrics['discount_amount'],
-                'taxable_value' => $metrics['taxable_value'],
+                'discount_type' => null,
+                'discount_value' => 0,
+                'valid_discount_amount' => 0,
+                'taxable_value' => $taxableValue,
                 'gst_percentage' => $gstPercentage,
-                'gst_amount' => $metrics['gst_amount'],
-                'line_total' => $metrics['line_total'],
+                'gst_amount' => $gstAmount,
+                'line_total' => $lineTotal,
             ]);
 
-            $subtotalTotal += $metrics['gross_amount'];
-            $discountTotal += $metrics['discount_amount'];
-            $taxableValueTotal += $metrics['taxable_value'];
-            $gstTotal += $metrics['gst_amount'];
-            $grandTotal += $metrics['line_total'];
+            $subtotalTotal += $lineTotal;
+            $discountTotal += 0;
+            $taxableValueTotal += $taxableValue;
+            $gstTotal += $gstAmount;
+            $grandTotal += $lineTotal;
         }
 
         $invoice->update([
@@ -133,8 +162,8 @@ class UserPackage extends Model
             'discount_total' => $discountTotal,
             'taxable_value' => $taxableValueTotal,
             'gst_total' => $gstTotal,
-            'grand_total' => $grandTotal,
-            'amount_due' => max(0, $grandTotal - ($invoice->amount_paid ?? 0)),
+            'grand_total' => $invoiceAmount,
+            'amount_due' => max(0, $invoiceAmount - ($invoice->amount_paid ?? 0)),
         ]);
 
         $invoice->recalculatePaymentStatus();
@@ -281,8 +310,60 @@ class UserPackage extends Model
         );
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'package_id');
+    }
+
     public function invoice(): HasOne
     {
-        return $this->hasOne(Invoice::class, 'package_id');
+        return $this->hasOne(Invoice::class, 'package_id')->latestOfMany();
+    }
+
+    /**
+     * Get the total amount paid so far for this package.
+     */
+    public function getPaidAmount(): float
+    {
+        return (float) $this->invoices()->sum('amount_paid');
+    }
+
+    /**
+     * Get the outstanding balance of this package.
+     */
+    public function getOutstandingAmount(): float
+    {
+        return max(0.0, (float) $this->final_amount - $this->getPaidAmount());
+    }
+
+    /**
+     * Record a package payment, auto-generating a fully paid invoice.
+     */
+    public function recordPayment(float $amount, array $paymentData): Invoice
+    {
+        $outstanding = $this->getOutstandingAmount();
+
+        if (round($amount, 2) > round($outstanding, 2)) {
+            throw new \InvalidArgumentException("Payment amount (₹" . number_format($amount, 2) . ") cannot exceed package outstanding balance (₹" . number_format($outstanding, 2) . ").");
+        }
+
+        // 1. Create a partial/installment invoice for this payment amount
+        $invoice = $this->createInvoice($amount);
+
+        // 2. Create the invoice payment record
+        InvoicePayment::create([
+            'invoice_id' => $invoice->id,
+            'payment_date' => $paymentData['payment_date'] ?? now(),
+            'amount' => $amount,
+            'payment_method' => $paymentData['payment_method'] ?? 'cash',
+            'reference_number' => $paymentData['reference_number'] ?? null,
+            'notes' => $paymentData['notes'] ?? null,
+            'created_by' => auth()->id(),
+        ]);
+
+        // 3. Recalculate status of the invoice to make it fully paid
+        $invoice->recalculatePaymentStatus();
+
+        return $invoice;
     }
 }
