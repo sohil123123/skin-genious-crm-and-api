@@ -7,9 +7,8 @@ use Illuminate\Http\Request;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
-
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Log;
 use App\Models\Clinic;
 
 class AutoCaptureController extends BaseApiController
@@ -87,27 +86,27 @@ class AutoCaptureController extends BaseApiController
             $response = Http::withHeaders([
                 'X-API-KEY' => $apiKey,
             ])
-            ->timeout(120)
-            ->withoutVerifying()
-            ->get($endpoint, [
-                'device_ip' => $deviceIp
-            ]);
+                ->timeout(120)
+                ->withoutVerifying()
+                ->get($endpoint, [
+                    'device_ip' => $deviceIp
+                ]);
 
             if ($response->failed()) {
-                \Log::error('error . '.$response->body());
+                Log::error('error . ' . $response->body());
                 return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
             }
 
             $data = $response->json();
 
             if ($data["status"] !== "success") {
-                \Log::error('error . '.$data["output"]);
-                return $this->error('error.', [ $data["output"]], HTTP_NOT_FOUND);
+                Log::error('error . ' . $data["output"]);
+                return $this->error('error.', [$data["output"]], HTTP_NOT_FOUND);
             }
 
             return $this->success('Capture successfully triggered!', $data);
         } catch (\Exception $e) {
-            \Log::error('catch error . '.$e->getMessage());
+            Log::error('catch error . ' . $e->getMessage());
             return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
         }
     }
@@ -137,24 +136,27 @@ class AutoCaptureController extends BaseApiController
             $response = Http::withHeaders([
                 'X-API-KEY' => $apiKey,
             ])
-            ->timeout(120)
-            ->withoutVerifying()
-            ->get($endpoint, [
-                'device_ip' => $deviceIp
-            ]);
+                ->timeout(120)
+                ->withoutVerifying()
+                ->get($endpoint, [
+                    'device_ip' => $deviceIp
+                ]);
 
             if ($response->failed()) {
+                Log::error('pullLastImages failed: ' . $response->body());
                 return $this->error('error.', [$response->body()], HTTP_NOT_FOUND);
             }
 
             $data = $response->json();
 
             if ($data["status"] !== "success") {
+                Log::error('pullLastImages failed: ' . ($data["message"] ?? 'Unknown error from device agent'));
                 return $this->error('error.', [$data["message"] ?? 'Unknown error from device agent'], HTTP_NOT_FOUND);
             }
 
             return $this->success('Last images pulled successfully!', $data);
         } catch (\Exception $e) {
+            Log::error('pullLastImages catch error: ' . $e->getMessage());
             return $this->error('error.', ['Could not contact device server: ' . $e->getMessage()], HTTP_NOT_FOUND);
         }
     }
