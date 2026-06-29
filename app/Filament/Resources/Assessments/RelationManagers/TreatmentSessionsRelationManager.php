@@ -208,6 +208,31 @@ class TreatmentSessionsRelationManager extends RelationManager
                                             ->placeholder('No treatment steps listed.')
                                             ->columnSpanFull(),
                                     ]),
+
+                                // 📸 Post-Treatment Reassessment
+                                Tab::make('Post-Treatment Reassessment')
+                                    ->icon('heroicon-o-camera')
+                                    ->schema([
+                                        RepeatableEntry::make('post_diagnosis.reassessment')
+                                            ->label('')
+                                            ->columnSpanFull()
+                                            ->columns(4)
+                                            ->schema([
+                                                TextEntry::make('parameter_name')->label('Parameter')->weight('bold'),
+                                                TextEntry::make('before_treatment_score_or_label')->label('Before'),
+                                                TextEntry::make('post_treatment_score_or_label')->label('After'),
+                                                TextEntry::make('result')
+                                                    ->label('Result')
+                                                    ->badge()
+                                                    ->color(fn ($state) => match (strtolower($state ?? '')) {
+                                                        'improved' => 'success',
+                                                        'stable' => 'warning',
+                                                        'declined' => 'danger',
+                                                        default => 'gray',
+                                                    }),
+                                            ])
+                                            ->placeholder('No reassessment data available yet for this session.')
+                                    ]),
                             ]),
                         ];
                     }),
@@ -324,6 +349,62 @@ class TreatmentSessionsRelationManager extends RelationManager
 
                         $patientName = $patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient';
                         $filename = $patientName . '_daily_homecare_routine_session_' . $record->session_number . '.pdf';
+
+                        return response()->streamDownload(function () use ($mpdf) {
+                            echo $mpdf->Output('', 'S');
+                        }, $filename);
+                    }),
+                Action::make('download_reassessment')
+                    ->label('Download Reassessment')
+                    ->icon('heroicon-o-document-chart-bar')
+                    ->color('success')
+                    ->visible(fn ($record) => !empty($record->post_diagnosis))
+                    ->action(function ($record) {
+                        $assessment = $record->assessment;
+                        if (!$assessment) {
+                            return;
+                        }
+                        
+                        $patient = $assessment->user;
+                        $data = [];
+                        $data['patient'] = $patient ? $patient->toArray() : [];
+                        if ($patient) {
+                            $data['patient']['name'] = $patient->name;
+                            $data['patient']['age'] = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
+                        } else {
+                            $data['patient']['name'] = 'N/A';
+                            $data['patient']['age'] = 'N/A';
+                        }
+                        
+                        $data['assessment'] = $assessment;
+                        $data['report_date'] = $record->updated_at;
+                        $data['reassessment'] = $record->post_diagnosis['reassessment'] ?? [];
+                        $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
+                        
+                        $postAssessmentImages = $record->post_images;
+
+                        if ($record->session_number == 1) {
+                            $assessmentImages = $assessment->images;
+                        } else {
+                            $prevSession = \App\Models\TreatmentSession::where('assessment_id', $assessment->id)
+                                ->where('session_number', $record->session_number - 1)
+                                ->first();
+                            $assessmentImages = $prevSession ? $prevSession->post_images : $assessment->images;
+                        }
+
+                        $data['assessmentImages'] = $assessmentImages;
+                        $data['postAssessmentImages'] = $postAssessmentImages;
+
+                        $html = view('pdf.facial.reassessment', $data)->render();
+                        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                        $mpdf->AddFontDirectory(__DIR__ . '/../../../Http/Controllers/Api/' . config('project.mpdf_font_dir'));
+                        $mpdf->SetDisplayMode('fullpage');
+                        $mpdf->shrink_tables_to_fit = 1;
+                        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                        $mpdf->WriteHTML($html);
+
+                        $patientName = $patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient';
+                        $filename = $patientName . '_facial_reassessment_session_' . $record->session_number . '.pdf';
 
                         return response()->streamDownload(function () use ($mpdf) {
                             echo $mpdf->Output('', 'S');

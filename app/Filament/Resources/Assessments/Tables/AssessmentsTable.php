@@ -319,6 +319,46 @@ class AssessmentsTable
                             return response()->download(Storage::disk('files')->path($filePath), $name);
                         }),
 
+                    Action::make('client_journey_pdf')
+                        ->label('Client Journey PDF')
+                        ->icon('heroicon-o-document-chart-bar')
+                        ->color('success')
+                        ->visible(fn ($record) => 
+                            in_array($record->assessment_type, ['normal', 'instant-normal']) &&
+                            \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                                ->where('status', 'completed')
+                                ->whereNotNull('post_diagnosis')
+                                ->exists()
+                        )
+                        ->action(function (Assessment $record) {
+                            $data['patient'] = $record->user->toArray();
+                            $data['patient']['name'] = $record->user->name;
+                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
+                            $data['report_date'] = now();
+                            $data['assessment'] = $record;
+
+                            // Fetch all completed treatment sessions with post_diagnosis
+                            $sessions = \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                                ->where('status', 'completed')
+                                ->whereNotNull('post_diagnosis')
+                                ->orderBy('session_number', 'asc')
+                                ->get();
+
+                            $data['sessions'] = $sessions;
+
+                            $html = view('pdf.facial.client_journey', $data)->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory( __DIR__ . '/../../../Http/Controllers/Api/' . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, $record->user->name. '_client_journey.pdf');
+                        }),
+
                     // --- IV Reports (IV Type) ---
                     Action::make('iv_wellness_analysis_pdf')
                         ->label('IV Wellness Analysis Report')

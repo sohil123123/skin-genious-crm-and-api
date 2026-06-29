@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class TreatmentSession extends Model
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class TreatmentSession extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'assessment_id',
@@ -24,6 +28,8 @@ class TreatmentSession extends Model
         'audio_text',
         'status',
         'iv_prep_data',
+        'post_feature_packet',
+        'post_diagnosis',
     ];
 
     protected $casts = [
@@ -34,7 +40,27 @@ class TreatmentSession extends Model
         'iv_prep_data' => 'array',
         'week' => 'integer',
         'session_number' => 'integer',
+        'post_feature_packet' => 'array',
+        'post_diagnosis' => 'array',
     ];
+
+    protected $appends = ['post_images'];
+
+    public function getPostImagesAttribute()
+    {
+        $media = $this->getMedia('post_treatment_images');
+        if ($media->isEmpty()) {
+            $media = $this->getMedia('user_post_assessment_images');
+        }
+        return $media->map(function (Media $media) {
+            return [
+                'id' => $media->id,
+                'url' => $media->getUrl(),
+                'name' => $media->name,
+                'custom_properties' => $media->custom_properties
+            ];
+        });
+    }
 
     // ---------------------- Relationship ----------------------
 

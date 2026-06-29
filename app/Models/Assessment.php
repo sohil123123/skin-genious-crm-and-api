@@ -83,7 +83,10 @@ class Assessment extends Model implements HasMedia
                     "steps" => $s->steps ?? [],
                     "daily_home_care_routine" => $s->daily_home_care_routine ?? [],
                     "iv_prep_data" => $s->iv_prep_data ?? [],
-                    "script" => $s->audio_text ?? ''
+                    "script" => $s->audio_text ?? '',
+                    "post_images" => $s->post_images ?? [],
+                    "post_feature_packet" => $s->post_feature_packet ?? null,
+                    "post_diagnosis" => $s->post_diagnosis ?? null,
                 ];
             })
         ];
