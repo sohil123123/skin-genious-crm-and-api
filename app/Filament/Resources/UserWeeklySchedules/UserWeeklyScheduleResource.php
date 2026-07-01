@@ -24,7 +24,7 @@ class UserWeeklyScheduleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
+    protected static string|UnitEnum|null $navigationGroup = 'User Scheduling & Holidays';
 
     protected static ?string $navigationLabel = 'Weekly Schedule';
 
@@ -36,7 +36,7 @@ class UserWeeklyScheduleResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Weekly Schedule';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 15;
 
     public static function form(Schema $schema): Schema
     {

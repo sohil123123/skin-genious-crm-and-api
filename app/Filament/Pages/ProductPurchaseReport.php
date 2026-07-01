@@ -32,7 +32,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 17;
 
     public function mount(): void
     {
@@ -84,7 +84,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
     public function exportExcel()
     {
         $filename = 'product-purchase-report-' . \Illuminate\Support\Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . \Illuminate\Support\Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
-        
+
         return \Maatwebsite\Excel\Facades\Excel::download(
             new \App\Exports\ProductPurchaseReportExport($this->startDate, $this->endDate, $this->clinicId),
             $filename

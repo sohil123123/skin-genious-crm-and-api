@@ -35,9 +35,9 @@ class GstReport extends Page implements HasTable, HasForms
 
     protected string $view = 'filament.pages.gst-report';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 19;
 
     protected static ?string $navigationLabel = 'GST Reports';
 
@@ -108,27 +108,28 @@ class GstReport extends Page implements HasTable, HasForms
                     ->icon('heroicon-o-building-office')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn () => check_role(config('project.roles.super_admin'))),
+                    ->visible(fn() => check_role(config('project.roles.super_admin'))),
 
                 TextColumn::make('client.first_name')
                     ->label('Client')
                     ->badge()
                     ->icon('heroicon-o-user')
                     ->state(function (Invoice $record): string {
-                        if (!$record->client) return 'N/A';
+                        if (!$record->client)
+                            return 'N/A';
                         return trim($record->client->first_name . ' ' . ($record->client->last_name ?? ''));
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('client', function ($q) use ($search) {
                             $q->where('first_name', 'like', "%{$search}%")
-                              ->orWhere('last_name', 'like', "%{$search}%");
+                                ->orWhere('last_name', 'like', "%{$search}%");
                         });
                     })
                     ->searchable(['first_name', 'last_name', 'mobile']),
 
                 TextColumn::make('invoice_number')
                     ->label('Invoice Number')
-                    ->url(fn (Invoice $record): string => route('filament.admin.resources.invoices.edit', ['record' => $record]))
+                    ->url(fn(Invoice $record): string => route('filament.admin.resources.invoices.edit', ['record' => $record]))
                     ->openUrlInNewTab()
                     ->color('primary')
                     ->weight('bold')
@@ -152,7 +153,7 @@ class GstReport extends Page implements HasTable, HasForms
                         return $this->isSameState($record) ? round((float) $record->gst_total / 2, 2) : 0;
                     })
                     ->money('INR')
-                    ->color(fn ($state) => $state > 0 ? 'success' : null),
+                    ->color(fn($state) => $state > 0 ? 'success' : null),
 
                 TextColumn::make('cgst_tax')
                     ->label('CGST Tax')
@@ -160,7 +161,7 @@ class GstReport extends Page implements HasTable, HasForms
                         return $this->isSameState($record) ? round((float) $record->gst_total / 2, 2) : 0;
                     })
                     ->money('INR')
-                    ->color(fn ($state) => $state > 0 ? 'success' : null),
+                    ->color(fn($state) => $state > 0 ? 'success' : null),
 
                 TextColumn::make('igst_tax')
                     ->label('IGST Tax')
@@ -168,14 +169,15 @@ class GstReport extends Page implements HasTable, HasForms
                         return !$this->isSameState($record) ? round((float) $record->gst_total, 2) : 0;
                     })
                     ->money('INR')
-                    ->color(fn ($state) => $state > 0 ? 'warning' : null),
+                    ->color(fn($state) => $state > 0 ? 'warning' : null),
 
                 TextColumn::make('gst_rate')
                     ->label('GST Rate')
                     ->state(function (Invoice $record): string {
-                        if ($record->items->isEmpty()) return '0%';
+                        if ($record->items->isEmpty())
+                            return '0%';
                         $rates = $record->items->groupBy('gst_percentage');
-                        $predominantRate = $rates->sortByDesc(fn ($items) => $items->sum('line_total'))->keys()->first();
+                        $predominantRate = $rates->sortByDesc(fn($items) => $items->sum('line_total'))->keys()->first();
                         return rtrim(rtrim(number_format((float) $predominantRate, 2), '0'), '.') . '%';
                     })
                     ->badge()
@@ -290,8 +292,8 @@ class GstReport extends Page implements HasTable, HasForms
     protected function getReportTitle(): string
     {
         return match ($this->reportType) {
-            'monthly' => Carbon::createFromDate((int)$this->selectedYear, (int)$this->selectedMonth, 1)->format('F Y'),
-            'quarterly' => $this->selectedQuarter . ' ' . $this->selectedYear . '-' . substr((string)((int) $this->selectedYear + 1), 2),
+            'monthly' => Carbon::createFromDate((int) $this->selectedYear, (int) $this->selectedMonth, 1)->format('F Y'),
+            'quarterly' => $this->selectedQuarter . ' ' . $this->selectedYear . '-' . substr((string) ((int) $this->selectedYear + 1), 2),
             'financial_year' => 'FY ' . $this->selectedFy,
             'custom' => Carbon::parse($this->startDate)->format('d-m-Y') . ' to ' . Carbon::parse($this->endDate)->format('d-m-Y'),
             default => 'GST Report',
@@ -301,8 +303,8 @@ class GstReport extends Page implements HasTable, HasForms
     protected function getExportFilename(): string
     {
         return match ($this->reportType) {
-            'monthly' => 'gst-report-' . Carbon::createFromDate((int)$this->selectedYear, (int)$this->selectedMonth, 1)->format('F-Y') . '.xlsx',
-            'quarterly' => 'gst-report-' . $this->selectedQuarter . '-' . $this->selectedYear . '-' . substr((string)((int) $this->selectedYear + 1), 2) . '.xlsx',
+            'monthly' => 'gst-report-' . Carbon::createFromDate((int) $this->selectedYear, (int) $this->selectedMonth, 1)->format('F-Y') . '.xlsx',
+            'quarterly' => 'gst-report-' . $this->selectedQuarter . '-' . $this->selectedYear . '-' . substr((string) ((int) $this->selectedYear + 1), 2) . '.xlsx',
             'financial_year' => 'gst-report-FY-' . $this->selectedFy . '.xlsx',
             'custom' => 'gst-report-' . Carbon::parse($this->startDate)->format('d-m-Y') . '-to-' . Carbon::parse($this->endDate)->format('d-m-Y') . '.xlsx',
             default => 'gst-report.xlsx',

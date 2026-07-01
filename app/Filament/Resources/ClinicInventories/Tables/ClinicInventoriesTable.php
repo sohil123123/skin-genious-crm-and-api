@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\Tables\Enums\FiltersLayout;
 
 class ClinicInventoriesTable
 {
@@ -26,42 +27,46 @@ class ClinicInventoriesTable
         return $table
             ->columns([
                 TextColumn::make('clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
                 TextColumn::make('product.name')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('product.type')
                     ->label('Type')
-                    ->formatStateUsing(fn ($state) => ucfirst(str_replace('_', ' ', $state)))
+                    ->formatStateUsing(fn($state) => ucfirst(str_replace('_', ' ', $state)))
                     ->badge()
-                    ->color(fn ($state) => $state === 'iv_product' ? 'warning' : 'gray'),
+                    ->color(fn($state) => $state === 'iv_product' ? 'warning' : 'gray'),
                 TextColumn::make('stock_quantity')
                     ->label('Stock')
                     ->sortable()
                     ->badge()
-                    ->color(fn ($state) => $state <= 5 ? 'danger' : ($state <= 20 ? 'warning' : 'success')),
+                    ->color(fn($state) => $state <= 5 ? 'danger' : ($state <= 20 ? 'warning' : 'success')),
             ])
             ->filters([
                 SelectFilter::make('clinic_id')
                     ->relationship('clinic', 'name')
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
                 SelectFilter::make('product_id')
-                    ->relationship('product', 'name', modifyQueryUsing: fn ($query) => $query->whereIn('type', ['product', 'iv_product']))
-                    ->getOptionLabelFromRecordUsing(fn (Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
+                    ->relationship('product', 'name', modifyQueryUsing: fn($query) => $query->whereIn('type', ['product', 'iv_product']))
+                    ->getOptionLabelFromRecordUsing(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
                     ->searchable()
                     ->preload(),
-            ])
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary'))
+            ], layout: FiltersLayout::Modal)
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary'))
             ->recordActions([
                 Action::make('create_transfers')
                     ->label('C. Transfers')
                     ->icon('heroicon-o-beaker')
                     ->color('warning')
-                    ->form(fn (ClinicInventory $record) => [
+                    ->form(fn(ClinicInventory $record) => [
                         Placeholder::make('product_info')
                             ->label('Product')
                             ->content("{$record->product->name} (" . str_replace('_', ' ', $record->product->type) . ")"),
@@ -96,18 +101,18 @@ class ClinicInventoriesTable
 
                         // Create the transfer header
                         $transfer = ConsumableTransfer::create([
-                            'clinic_id'     => $record->clinic_id,
+                            'clinic_id' => $record->clinic_id,
                             'transfer_date' => $data['transfer_date'],
-                            'notes'         => $data['notes'] ?? null,
-                            'created_by'    => auth()->id(),
-                            'updated_by'    => auth()->id(),
+                            'notes' => $data['notes'] ?? null,
+                            'created_by' => auth()->id(),
+                            'updated_by' => auth()->id(),
                         ]);
 
                         // Create the line item (stock deduction handled by model hook)
                         ConsumableTransferItem::create([
                             'consumable_transfer_id' => $transfer->id,
-                            'product_id'             => $record->product_id,
-                            'quantity_used'          => $data['quantity_used'],
+                            'product_id' => $record->product_id,
+                            'quantity_used' => $data['quantity_used'],
                         ]);
 
                         Notification::make()

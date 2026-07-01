@@ -8,6 +8,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,19 +44,19 @@ class InvoicePaymentsTable
                     ->label('Invoice #')
                     ->searchable(['invoice_number'])
                     ->sortable()
-                    ->url(fn ($record) => "/admin/invoices/{$record->invoice_id}/edit"),
+                    ->url(fn($record) => "/admin/invoices/{$record->invoice_id}/edit"),
 
                 TextColumn::make('invoice.clinic.name')
                     ->label('Clinic')
                     ->badge()
                     ->icon('heroicon-o-building-office')
-                    ->visible(fn () => check_role(config('project.roles.super_admin')))
+                    ->visible(fn() => check_role(config('project.roles.super_admin')))
                     ->sortable()
                     ->searchable(),
 
                 TextColumn::make('invoice.client.first_name')
                     ->label('Client')
-                    ->formatStateUsing(fn ($record) => $record->invoice->client?->name ?? 'N/A')
+                    ->formatStateUsing(fn($record) => $record->invoice->client?->name ?? 'N/A')
                     ->searchable(['first_name', 'last_name']),
 
                 TextColumn::make('payment_date')
@@ -69,13 +70,13 @@ class InvoicePaymentsTable
 
                 TextColumn::make('payment_method')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => ucfirst(str_replace('_', ' ', $state)))
-                    ->color(fn ($state) => match($state) {
-                        'cash'           => 'success',
-                        'upi'            => 'info',
-                        'card'           => 'warning',
+                    ->formatStateUsing(fn($state) => ucfirst(str_replace('_', ' ', $state)))
+                    ->color(fn($state) => match ($state) {
+                        'cash' => 'success',
+                        'upi' => 'info',
+                        'card' => 'warning',
                         'loyalty_points' => 'primary',
-                        default          => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('reference_number')
@@ -85,7 +86,7 @@ class InvoicePaymentsTable
                 TextColumn::make('invoice.status')
                     ->label('Invoice Status')
                     ->badge()
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn($state) => match ($state) {
                         'paid' => 'success',
                         'partial' => 'warning',
                         'unpaid' => 'danger',
@@ -156,7 +157,7 @@ class InvoicePaymentsTable
                                             ->placeholder('Select clinic')
                                             ->native(true)
                                             ->live()
-                                            ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                                            ->visible(fn() => auth()->user()->hasRole('super_admin')),
 
                                         // Client
                                         Select::make('user_id')
@@ -166,7 +167,7 @@ class InvoicePaymentsTable
                                                 if (!$clinicId)
                                                     $clinicId = auth()->user()->clinic_id;
 
-                                                return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                                return User::active()->role('client')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn($u) => [$u->id => $u->name]);
                                             })
                                             ->reactive()
                                             ->searchable()
@@ -198,11 +199,11 @@ class InvoicePaymentsTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
-                            ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('clinic_id', $id)))
-                            ->when($data['user_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('user_id', $id)))
-                            ->when($data['invoice_id'] ?? null, fn ($q, $id) => $q->whereHas('invoice', fn ($inv) => $inv->where('id', $id)))
-                            ->when($data['from'] ?? null, fn ($q, $date) => $q->whereDate('payment_date', '>=', $date))
-                            ->when($data['until'] ?? null, fn ($q, $date) => $q->whereDate('payment_date', '<=', $date));
+                            ->when($data['clinic_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('clinic_id', $id)))
+                            ->when($data['user_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('user_id', $id)))
+                            ->when($data['invoice_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('id', $id)))
+                            ->when($data['from'] ?? null, fn($q, $date) => $q->whereDate('payment_date', '>=', $date))
+                            ->when($data['until'] ?? null, fn($q, $date) => $q->whereDate('payment_date', '<=', $date));
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
@@ -237,14 +238,17 @@ class InvoicePaymentsTable
                         }
                         return $indicators;
                     }),
-            ],layout: FiltersLayout::Modal)
+            ], layout: FiltersLayout::Modal)
             ->filtersFormColumns(1)
             ->filtersTriggerAction(
-                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+                fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->actions([
-                EditAction::make(),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ]),
+
             ]);
     }
 }

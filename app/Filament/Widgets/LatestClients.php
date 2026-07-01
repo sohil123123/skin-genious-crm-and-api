@@ -11,6 +11,7 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ActionGroup;
 
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -35,7 +36,7 @@ class LatestClients extends TableWidget
 {
     use InteractsWithPageFilters, HasWidgetShield;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     protected static ?int $sort = 2;
 
@@ -61,32 +62,32 @@ class LatestClients extends TableWidget
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn (User $record) => $record->clinic)
+                            ->record(fn(User $record) => $record->clinic)
                             ->infolist(
-                                fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
+                                fn(Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
-                            ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn (User $record) => $record->clinic !== null)
+                            ->modalHeading(fn($record) => $record->clinic?->name ?? 'No Clinic Assigned')
+                            ->visible(fn(User $record) => $record->clinic !== null)
                     ),
                 TextColumn::make('name')
                     ->label('Name')
-                    ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    ->sortable(query: fn($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
-                    ->formatStateUsing(fn ($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
+                    ->formatStateUsing(fn($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
                 TextColumn::make('mobile')->searchable(),
                 TextColumn::make('gender')
                     ->label('Gender')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match (strtolower($state)) {
-                        'male'   => '👨 Male',
+                    ->formatStateUsing(fn($state) => match (strtolower($state)) {
+                        'male' => '👨 Male',
                         'female' => '👩 Female',
-                        default  => '❓ Unknown',
+                        default => '❓ Unknown',
                     })
-                    ->color(fn ($state) => match (strtolower($state)) {
-                        'male'   => 'info',
+                    ->color(fn($state) => match (strtolower($state)) {
+                        'male' => 'info',
                         'female' => 'danger',
-                        default  => 'gray',
+                        default => 'gray',
                     })
                     ->placeholder('-'),
                 TextColumn::make('email')->label('Email')->searchable()->placeholder('-'),
@@ -100,14 +101,14 @@ class LatestClients extends TableWidget
                     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))
                     ->afterStateUpdated(function ($state, $record) {
-                        if (! auth()->user()->can('toggle_user_status')) {
+                        if (!auth()->user()->can('toggle_user_status')) {
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update user status.')
                                 ->danger()
                                 ->send();
 
-                            $record->is_active = ! $state;
+                            $record->is_active = !$state;
                             $record->save();
 
                             return;
@@ -133,11 +134,13 @@ class LatestClients extends TableWidget
                 //
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->url(fn (User $record): string => UserResource::getUrl('view', ['record' => $record])),
-                EditAction::make()
-                    ->color('success')
-                    ->url(fn (User $record): string => UserResource::getUrl('edit', ['record' => $record])),
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->url(fn(User $record): string => UserResource::getUrl('view', ['record' => $record])),
+                    EditAction::make()
+                        ->color('success')
+                        ->url(fn(User $record): string => UserResource::getUrl('edit', ['record' => $record])),
+                ])
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

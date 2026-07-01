@@ -45,6 +45,8 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'first_name';
 
+    protected static ?int $navigationSort = 2;
+
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static Htmlable|string|null $navigationBadgeTooltip = 'The number of clients created this month';

@@ -23,7 +23,7 @@ class ExpenseResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'description';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 9;
 
     public static function form(Schema $schema): Schema
     {

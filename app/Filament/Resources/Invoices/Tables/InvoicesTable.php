@@ -81,8 +81,9 @@ class InvoicesTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('clinic.name')
                     ->badge()
-                    ->visible(fn() => check_role('super_admin'))
                     ->icon('heroicon-o-building-office')
+                    ->color('info')
+                    ->visible(fn() => check_role('super_admin'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('client.first_name')
@@ -240,7 +241,7 @@ class InvoicesTable
                             ->when(!empty($data['status']), fn($q) => $q->whereIn('status', $data['status']))
                             ->when($data['invoice_type'] ?? null, fn($q, $type) => $q->where('invoice_type', $type));
                         // ->when($data['state_code'] ?? null, fn($q, $state) => $q->where('state_code', $state));
-
+            
                         $reportType = $data['reportType'] ?? null;
                         if ($reportType) {
                             $startDate = null;
@@ -324,7 +325,7 @@ class InvoicesTable
                         // if ($data['state_code'] ?? null) {
                         //     $indicators[] = Indicator::make('State: ' . $data['state_code'])->removeField('state_code');
                         // }
-
+            
                         if ($data['reportType'] ?? null) {
                             switch ($data['reportType']) {
                                 case 'monthly':
@@ -373,27 +374,23 @@ class InvoicesTable
             ->actions([
                 InvoicePaymentForm::getMakePaymentAction()->hidden(fn($record) => in_array($record->status, ['paid', 'cancelled'])),
 
-                Action::make('download_pdf')
-                    ->label('PDF')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('primary')
-                    ->tooltip('Download PDF')
-                    ->action(function ($record) {
-                        $pdfService = app(InvoicePdfService::class);
-                        return $pdfService->download($record);
-                    }),
-
-                Action::make('payment_history')
-                    ->icon('heroicon-o-document-text')
-                    ->iconButton()
-                    ->color('success')
-                    ->tooltip('Payment History')
-                    ->url(fn($record) => route('filament.admin.resources.invoices.payments', ['record' => $record])),
-
                 ActionGroup::make([
                     ViewAction::make()->modalWidth('7xl'),
                     EditAction::make()->modalWidth('7xl'),
                     DeleteAction::make(),
+                    Action::make('payment_history')
+                        ->label('Payment History')
+                        ->icon('heroicon-o-document-text')
+                        ->color('success')
+                        ->url(fn($record) => route('filament.admin.resources.invoices.payments', ['record' => $record])),
+                    Action::make('download_pdf')
+                        ->label('Download PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->action(function ($record) {
+                            $pdfService = app(InvoicePdfService::class);
+                            return $pdfService->download($record);
+                        }),
                 ]),
 
             ])

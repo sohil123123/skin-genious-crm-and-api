@@ -24,11 +24,11 @@ class LoyaltySettings extends Page
 
     protected string $view = 'filament.pages.loyalty-settings';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Others';
+    protected static string|UnitEnum|null $navigationGroup = 'Others';
 
     protected static ?string $title = 'Settings';
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 20;
 
     public ?array $data = [];
 
@@ -55,7 +55,7 @@ class LoyaltySettings extends Page
 
         // ─── Dynamic Sections per Group ──────────────────────
         $allSettings = Setting::all();
-        $grouped = $allSettings->groupBy(fn ($s) => $s->group ?: 'general');
+        $grouped = $allSettings->groupBy(fn($s) => $s->group ?: 'general');
 
         foreach ($grouped as $groupName => $settings) {
             $groupLabel = ucwords(str_replace(['_', '-'], ' ', $groupName));
@@ -75,7 +75,7 @@ class LoyaltySettings extends Page
                                 ->icon('heroicon-o-trash')
                                 ->color('danger')
                                 ->requiresConfirmation()
-                                ->action(fn () => $this->deleteSetting($setting->id))
+                                ->action(fn() => $this->deleteSetting($setting->id))
                         ),
                     TextInput::make("desc_{$setting->id}")
                         ->label('Description')
@@ -110,8 +110,8 @@ class LoyaltySettings extends Page
                             Setting::updateOrCreate(
                                 ['key' => $data['key']],
                                 [
-                                    'value'       => $data['value'],
-                                    'group'       => $groupName,
+                                    'value' => $data['value'],
+                                    'group' => $groupName,
                                     'description' => $data['description'] ?? null,
                                 ]
                             );
@@ -130,9 +130,9 @@ class LoyaltySettings extends Page
         // ─── Add New Setting Section ─────────────────────────
         // Build group options for the dropdown
         $groupOptions = $grouped->keys()
-            ->map(fn ($g) => $g ?: 'general')
+            ->map(fn($g) => $g ?: 'general')
             ->unique()
-            ->mapWithKeys(fn ($g) => [$g => ucwords(str_replace(['_', '-'], ' ', $g))])
+            ->mapWithKeys(fn($g) => [$g => ucwords(str_replace(['_', '-'], ' ', $g))])
             ->toArray();
         $groupOptions['__new__'] = '➕ Create New Group';
 
@@ -170,8 +170,8 @@ class LoyaltySettings extends Page
                             TextInput::make('new_group_name')
                                 ->label('New Group Name')
                                 ->placeholder('e.g. notifications')
-                                ->required(fn (Get $get) => $get('group') === '__new__')
-                                ->visible(fn (Get $get) => $get('group') === '__new__')
+                                ->required(fn(Get $get) => $get('group') === '__new__')
+                                ->visible(fn(Get $get) => $get('group') === '__new__')
                                 ->prefixIcon('heroicon-o-plus'),
 
                             TextInput::make('description')
@@ -227,8 +227,8 @@ class LoyaltySettings extends Page
                             Setting::updateOrCreate(
                                 ['key' => $setting['key']],
                                 [
-                                    'value'       => $setting['value'] ?? '',
-                                    'group'       => $group,
+                                    'value' => $setting['value'] ?? '',
+                                    'group' => $group,
                                     'description' => $setting['description'] ?? null,
                                 ]
                             );
@@ -272,18 +272,18 @@ class LoyaltySettings extends Page
     protected function getGroupIcon(string $group): string
     {
         return match (strtolower($group)) {
-            'general'       => 'heroicon-o-cog-6-tooth',
-            'loyalty'       => 'heroicon-o-gift',
+            'general' => 'heroicon-o-cog-6-tooth',
+            'loyalty' => 'heroicon-o-gift',
             'notification', 'notifications' => 'heroicon-o-bell',
-            'sms'           => 'heroicon-o-device-phone-mobile',
-            'email'         => 'heroicon-o-envelope',
-            'payment'       => 'heroicon-o-banknotes',
-            'invoice'       => 'heroicon-o-document-text',
-            'booking'       => 'heroicon-o-calendar',
-            'clinic'        => 'heroicon-o-building-office',
-            'api'           => 'heroicon-o-globe-alt',
-            'security'      => 'heroicon-o-shield-check',
-            default         => 'heroicon-o-adjustments-horizontal',
+            'sms' => 'heroicon-o-device-phone-mobile',
+            'email' => 'heroicon-o-envelope',
+            'payment' => 'heroicon-o-banknotes',
+            'invoice' => 'heroicon-o-document-text',
+            'booking' => 'heroicon-o-calendar',
+            'clinic' => 'heroicon-o-building-office',
+            'api' => 'heroicon-o-globe-alt',
+            'security' => 'heroicon-o-shield-check',
+            default => 'heroicon-o-adjustments-horizontal',
         };
     }
 
@@ -294,15 +294,24 @@ class LoyaltySettings extends Page
     {
         $key = strtolower($key);
 
-        if (str_contains($key, 'rate') || str_contains($key, 'percent')) return 'heroicon-o-receipt-percent';
-        if (str_contains($key, 'point') || str_contains($key, 'redeem') || str_contains($key, 'star')) return 'heroicon-o-star';
-        if (str_contains($key, 'otp') || str_contains($key, 'expiry') || str_contains($key, 'time') || str_contains($key, 'minute')) return 'heroicon-o-clock';
-        if (str_contains($key, 'email') || str_contains($key, 'mail')) return 'heroicon-o-envelope';
-        if (str_contains($key, 'phone') || str_contains($key, 'mobile') || str_contains($key, 'sms')) return 'heroicon-o-device-phone-mobile';
-        if (str_contains($key, 'name') || str_contains($key, 'title')) return 'heroicon-o-identification';
-        if (str_contains($key, 'url') || str_contains($key, 'link') || str_contains($key, 'domain')) return 'heroicon-o-globe-alt';
-        if (str_contains($key, 'key') || str_contains($key, 'secret') || str_contains($key, 'token')) return 'heroicon-o-key';
-        if (str_contains($key, 'price') || str_contains($key, 'amount') || str_contains($key, 'cost')) return 'heroicon-o-currency-rupee';
+        if (str_contains($key, 'rate') || str_contains($key, 'percent'))
+            return 'heroicon-o-receipt-percent';
+        if (str_contains($key, 'point') || str_contains($key, 'redeem') || str_contains($key, 'star'))
+            return 'heroicon-o-star';
+        if (str_contains($key, 'otp') || str_contains($key, 'expiry') || str_contains($key, 'time') || str_contains($key, 'minute'))
+            return 'heroicon-o-clock';
+        if (str_contains($key, 'email') || str_contains($key, 'mail'))
+            return 'heroicon-o-envelope';
+        if (str_contains($key, 'phone') || str_contains($key, 'mobile') || str_contains($key, 'sms'))
+            return 'heroicon-o-device-phone-mobile';
+        if (str_contains($key, 'name') || str_contains($key, 'title'))
+            return 'heroicon-o-identification';
+        if (str_contains($key, 'url') || str_contains($key, 'link') || str_contains($key, 'domain'))
+            return 'heroicon-o-globe-alt';
+        if (str_contains($key, 'key') || str_contains($key, 'secret') || str_contains($key, 'token'))
+            return 'heroicon-o-key';
+        if (str_contains($key, 'price') || str_contains($key, 'amount') || str_contains($key, 'cost'))
+            return 'heroicon-o-currency-rupee';
 
         return 'heroicon-o-tag';
     }

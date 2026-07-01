@@ -50,6 +50,7 @@ class UserPackagesTable
                     ->label('Clinic')
                     ->badge()
                     ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->searchable()
                     ->sortable()
                     ->visible(fn() => check_role('super_admin')),
@@ -57,7 +58,7 @@ class UserPackagesTable
                 TextColumn::make('user.name')
                     ->label('Client')
                     ->badge()
-                    ->color('info')
+                    ->color('success')
                     ->icon('heroicon-o-user')
                     ->searchable(['first_name', 'last_name', 'mobile'])
                     ->sortable(),
@@ -253,96 +254,6 @@ class UserPackagesTable
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
 
-                // ─── Record a Session Usage ─────────────────────────────
-                Action::make('use_session')
-                    ->label('Use Session')
-                    ->icon('heroicon-o-play-circle')
-                    ->color('success')
-                    ->hidden(fn($record) => !$record->is_active || $record->getTotalRemainingSessions() <= 0)
-                    ->form(function ($record) {
-                        $record->load('items.service');
-
-                        // Build options: only items with remaining sessions
-                        $serviceOptions = $record->items
-                            ->filter(fn($item) => $item->getRemainingSessions() > 0)
-                            ->mapWithKeys(fn($item) => [
-                                $item->id => ($item->service?->name ?? ($item->service_snapshot['name'] ?? 'Service'))
-                                    . ' (' . $item->getRemainingSessions() . ' remaining)'
-                            ]);
-
-                        return [
-                            Grid::make(2)->schema([
-                                Select::make('package_item_id')
-                                    ->label('Select Service')
-                                    ->options($serviceOptions)
-                                    ->required()
-                                    ->native(false)
-                                    ->searchable()
-                                    ->helperText('Choose which service to consume a session from.'),
-
-                                TextInput::make('sessions_used')
-                                    ->label('Sessions to Consume')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->placeholder('Enter number of sessions')
-                                    ->required(),
-
-                                // Select::make('appointment_id')
-                                //     ->label('Link to Appointment (optional)')
-                                //     ->options(fn () =>
-                                //         Appointment::where('user_id', $record->user_id)
-                                //             ->when($record->clinic_id, fn($q) => $q->where('clinic_id', $record->clinic_id))
-                                //             ->orderBy('start_datetime', 'desc')
-                                //             ->get()
-                                //             ->mapWithKeys(fn ($a) => [$a->id => $a->start_datetime->format('d M Y') . ' - ' . ($a->type?->getLabel() ?? 'Appointment')])
-                                //     )
-                                //     ->searchable()
-                                //     ->nullable()
-                                //     ->placeholder('None'),
-
-                                Textarea::make('notes')
-                                    ->label('Notes')
-                                    ->nullable()
-                                    ->placeholder('Enter notes')
-                                    ->columnSpan(2),
-                            ]),
-                        ];
-                    })
-                    ->action(function ($record, array $data) {
-                        $sessions = (int) ($data['sessions_used'] ?? 1);
-                        $itemId = $data['package_item_id'];
-
-                        $item = UserPackageItem::find($itemId);
-                        if (!$item || $item->user_package_id !== $record->id) {
-                            Notification::make()
-                                ->title('Invalid Service Item ❌')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
-
-                        if ($item->used_sessions + $sessions > $item->quantity) {
-                            Notification::make()
-                                ->title('Over-usage Prevented ❌')
-                                ->body("Only {$item->getRemainingSessions()} session(s) remaining for this service. Cannot consume {$sessions}.")
-                                ->danger()
-                                ->send();
-                            return;
-                        }
-
-                        $item->consumeSessions($sessions, [
-                            'notes' => $data['notes'] ?? null,
-                            'appointment_id' => $data['appointment_id'] ?? null,
-                        ]);
-
-                        Notification::make()
-                            ->title('Session Recorded ✅')
-                            ->body("{$sessions} session(s) consumed from {$item->service?->name}. Remaining: {$item->getRemainingSessions()}.")
-                            ->success()
-                            ->send();
-                    }),
-
                 ActionGroup::make([
                     ViewAction::make()->modalWidth('7xl'),
                     EditAction::make()
@@ -354,6 +265,95 @@ class UserPackagesTable
                                 ->body('The package details have been refreshed successfully.')
                         ),
                     DeleteAction::make(),
+                    // ─── Record a Session Usage ─────────────────────────────
+                    Action::make('use_session')
+                        ->label('Use Session')
+                        ->icon('heroicon-o-play-circle')
+                        ->color('success')
+                        ->hidden(fn($record) => !$record->is_active || $record->getTotalRemainingSessions() <= 0)
+                        ->form(function ($record) {
+                            $record->load('items.service');
+
+                            // Build options: only items with remaining sessions
+                            $serviceOptions = $record->items
+                                ->filter(fn($item) => $item->getRemainingSessions() > 0)
+                                ->mapWithKeys(fn($item) => [
+                                    $item->id => ($item->service?->name ?? ($item->service_snapshot['name'] ?? 'Service'))
+                                        . ' (' . $item->getRemainingSessions() . ' remaining)'
+                                ]);
+
+                            return [
+                                Grid::make(2)->schema([
+                                    Select::make('package_item_id')
+                                        ->label('Select Service')
+                                        ->options($serviceOptions)
+                                        ->required()
+                                        ->native(false)
+                                        ->searchable()
+                                        ->helperText('Choose which service to consume a session from.'),
+
+                                    TextInput::make('sessions_used')
+                                        ->label('Sessions to Consume')
+                                        ->numeric()
+                                        ->default(1)
+                                        ->minValue(1)
+                                        ->placeholder('Enter number of sessions')
+                                        ->required(),
+
+                                    // Select::make('appointment_id')
+                                    //     ->label('Link to Appointment (optional)')
+                                    //     ->options(fn () =>
+                                    //         Appointment::where('user_id', $record->user_id)
+                                    //             ->when($record->clinic_id, fn($q) => $q->where('clinic_id', $record->clinic_id))
+                                    //             ->orderBy('start_datetime', 'desc')
+                                    //             ->get()
+                                    //             ->mapWithKeys(fn ($a) => [$a->id => $a->start_datetime->format('d M Y') . ' - ' . ($a->type?->getLabel() ?? 'Appointment')])
+                                    //     )
+                                    //     ->searchable()
+                                    //     ->nullable()
+                                    //     ->placeholder('None'),
+                
+                                    Textarea::make('notes')
+                                        ->label('Notes')
+                                        ->nullable()
+                                        ->placeholder('Enter notes')
+                                        ->columnSpan(2),
+                                ]),
+                            ];
+                        })
+                        ->action(function ($record, array $data) {
+                            $sessions = (int) ($data['sessions_used'] ?? 1);
+                            $itemId = $data['package_item_id'];
+
+                            $item = UserPackageItem::find($itemId);
+                            if (!$item || $item->user_package_id !== $record->id) {
+                                Notification::make()
+                                    ->title('Invalid Service Item ❌')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            if ($item->used_sessions + $sessions > $item->quantity) {
+                                Notification::make()
+                                    ->title('Over-usage Prevented ❌')
+                                    ->body("Only {$item->getRemainingSessions()} session(s) remaining for this service. Cannot consume {$sessions}.")
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $item->consumeSessions($sessions, [
+                                'notes' => $data['notes'] ?? null,
+                                'appointment_id' => $data['appointment_id'] ?? null,
+                            ]);
+
+                            Notification::make()
+                                ->title('Session Recorded ✅')
+                                ->body("{$sessions} session(s) consumed from {$item->service?->name}. Remaining: {$item->getRemainingSessions()}.")
+                                ->success()
+                                ->send();
+                        }),
                 ]),
             ])
             ->bulkActions([

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ExpenseCategories\Tables;
 use App\Enums\ExpenseCategoryType;
 use App\Filament\Resources\ExpenseCategories\Schemas\ExpenseCategoryForm;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
@@ -14,6 +15,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Notifications\Notification;
+use Filament\Actions\Action;
+use Filament\Tables\Enums\FiltersLayout;
 
 class ExpenseCategoriesTable
 {
@@ -30,8 +33,8 @@ class ExpenseCategoriesTable
 
                 TextColumn::make('type')
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => ($state instanceof ExpenseCategoryType ? $state : ExpenseCategoryType::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
-                    ->color(fn ($state): string => ($state instanceof ExpenseCategoryType ? $state->value : (string) $state) === ExpenseCategoryType::Fixed->value ? 'warning' : 'info')
+                    ->formatStateUsing(fn($state): string => ($state instanceof ExpenseCategoryType ? $state : ExpenseCategoryType::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
+                    ->color(fn($state): string => ($state instanceof ExpenseCategoryType ? $state->value : (string) $state) === ExpenseCategoryType::Fixed->value ? 'warning' : 'info')
                     ->sortable(),
 
                 TextColumn::make('expenses_sum_amount')
@@ -54,7 +57,7 @@ class ExpenseCategoriesTable
                     ->onColor('success')
                     // ->sortable()
                     // ->requiresConfirmation()
-                    ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
+                    ->disabled(fn() => !auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))
                     ->afterStateUpdated(function ($state, $record) {
                         $record->is_active = $state;
@@ -84,12 +87,17 @@ class ExpenseCategoriesTable
 
                 TernaryFilter::make('is_active')
                     ->label('Active'),
-            ])
+            ], layout: FiltersLayout::Modal)
+            ->filtersTriggerAction(
+                fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+            )
             ->recordActions([
-                EditAction::make()
-                    ->icon('heroicon-o-pencil-square')
-                    ->schema(ExpenseCategoryForm::components())
-                    ->modalWidth('3xl'),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->icon('heroicon-o-pencil-square')
+                        ->schema(ExpenseCategoryForm::components())
+                        ->modalWidth('3xl'),
+                ]),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

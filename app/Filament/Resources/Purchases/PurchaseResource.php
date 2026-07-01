@@ -24,9 +24,9 @@ class PurchaseResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'id';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Inventory';
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 11;
 
     public static function form(Schema $schema): Schema
     {

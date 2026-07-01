@@ -31,7 +31,7 @@ class InvoiceResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'invoice_number';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 6;
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
@@ -48,7 +48,7 @@ class InvoiceResource extends Resource
     public static function getRecordSubNavigation(Page $page): array
     {
         return $page->generateNavigationItems([
-            // ViewInvoice::class,
+                // ViewInvoice::class,
             EditInvoice::class,
             ManageInvoicePayments::class,
         ]);

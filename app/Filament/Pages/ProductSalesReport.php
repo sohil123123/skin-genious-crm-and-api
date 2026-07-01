@@ -38,7 +38,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 18;
 
     public function mount(): void
     {
@@ -166,7 +166,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
             ])
             ->actions([
                 TableAction::make('view_users')
-                    ->label('')
+                    ->label('Top Clients')
                     ->icon('heroicon-o-users')
                     ->tooltip('View purchasing clients')
                     ->color('info')

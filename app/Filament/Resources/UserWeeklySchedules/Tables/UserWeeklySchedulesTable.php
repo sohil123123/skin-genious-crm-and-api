@@ -10,6 +10,7 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -75,7 +76,7 @@ class UserWeeklySchedulesTable
                                             if (!$clinicId)
                                                 $clinicId = auth()->user()->clinic_id;
 
-                                            return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                            return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn($u) => [$u->id => $u->name]);
                                         })
                                         ->reactive()
                                         // ->searchable()
@@ -92,9 +93,9 @@ class UserWeeklySchedulesTable
                 ])
                 ->query(function (Builder $query, array $data): Builder {
                     return $query
-                        ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
-                        ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
-                        ->when($data['day_of_week'] ?? null, fn ($q, $val) => $q->where('day_of_week', $val));
+                        ->when($data['clinic_id'] ?? null, fn($q, $id) => $q->where('clinic_id', $id))
+                        ->when($data['user_id'] ?? null, fn($q, $id) => $q->where('user_id', $id))
+                        ->when($data['day_of_week'] ?? null, fn($q, $val) => $q->where('day_of_week', $val));
                 })
                 ->indicateUsing(function (array $data): array {
                     $indicators = [];
@@ -120,8 +121,7 @@ class UserWeeklySchedulesTable
 
                     return $indicators;
                 });
-        }
-        else {
+        } else {
             $filters[] = SelectFilter::make('day_of_week')->options(day_options());
         }
 
@@ -134,37 +134,37 @@ class UserWeeklySchedulesTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
-                    ->visible(fn () => check_role('super_admin'))
                     ->icon('heroicon-o-building-office')
-                    ->color('gray')
+                    ->color('info')
+                    ->visible(fn() => check_role('super_admin'))
                     ->placeholder('Unassigned')
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn ($record) => $record->clinic)
+                            ->record(fn($record) => $record->clinic)
                             ->infolist(
-                                fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
+                                fn(Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
-                            ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn ($record) => $record->clinic !== null)
+                            ->modalHeading(fn($record) => $record->clinic?->name ?? 'No Clinic Assigned')
+                            ->visible(fn($record) => $record->clinic !== null)
                     )
                     ->toggleable(),
 
                 TextColumn::make('therapist.name')
                     ->label('Therapist')
                     ->searchable(['first_name', 'last_name'])
-                    ->visible(fn () => check_role('super_admin') || check_role(['clinic_manager', 'clinic_head']))
+                    ->visible(fn() => check_role('super_admin') || check_role(['clinic_manager', 'clinic_head']))
                     ->badge()
                     ->icon('heroicon-o-user')
-                    ->color('info'),
+                    ->color('gray'),
 
                 TextColumn::make('day_of_week')
                     ->label('Day')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => day_options()[$state])
-                    ->color(fn ($state) => day_color((int) $state))
-                    ->icon(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => day_options()[$state])
+                    ->color(fn($state) => day_color((int) $state))
+                    ->icon(fn($state) => match ($state) {
                         7 => 'heroicon-o-sun',
                         default => 'heroicon-o-calendar-days',
                     })
@@ -193,11 +193,13 @@ class UserWeeklySchedulesTable
             // ->filtersFormColumns(2) // Reduced to 2 for better readability in modal; adjust as needed
             // ->filtersFormWidth('md:max-w-4xl')
             ->filtersTriggerAction(
-                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+                fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->recordActions([
-                EditAction::make(),
-                // DeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    // DeleteAction::make(),
+                ])
             ])
             // ->toolbarActions([
             //     BulkActionGroup::make([
@@ -213,26 +215,25 @@ class UserWeeklySchedulesTable
                 Group::make('clinic_id')
                     ->label('Clinic')
                     ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
+                    ->getKeyFromRecordUsing(fn($record) => $record->clinic_id ?? 'no_clinic')
+                    ->getTitleFromRecordUsing(fn($record) => $record->clinic?->name ?? 'Unassigned'),
                 Group::make('user_id')
                     ->label('Therapist')
                     ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->user_id ?? 'no_therapist')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->therapist?->first_name ?? 'Unassigned'),
+                    ->getKeyFromRecordUsing(fn($record) => $record->user_id ?? 'no_therapist')
+                    ->getTitleFromRecordUsing(fn($record) => $record->therapist?->first_name ?? 'Unassigned'),
                 Group::make('day_of_week')->label('Day Of Week'),
                 Group::make('created_at')->date()
             ]);
             // $table->groups($groups);
             $table->defaultGroup('user_id');
-        }
-        else if (check_role(['clinic_manager', 'clinic_head'])) {
+        } else if (check_role(['clinic_manager', 'clinic_head'])) {
             $table->groups([
                 Group::make('user_id')
                     ->label('Therapist')
                     ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->user_id ?? 'no_therapist')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->therapist?->first_name ?? 'Unassigned'),
+                    ->getKeyFromRecordUsing(fn($record) => $record->user_id ?? 'no_therapist')
+                    ->getTitleFromRecordUsing(fn($record) => $record->therapist?->first_name ?? 'Unassigned'),
                 Group::make('day_of_week')->label('Day Of Week'),
                 Group::make('created_at')->date()
             ]);

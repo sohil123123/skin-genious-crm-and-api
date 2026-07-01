@@ -36,7 +36,7 @@ class UserPackageResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'package_name';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 5;
 
     protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
