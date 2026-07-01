@@ -359,31 +359,90 @@ class TreatmentSessionsRelationManager extends RelationManager
                     ->icon('heroicon-o-document-chart-bar')
                     ->color('success')
                     ->visible(fn ($record) => !empty($record->post_diagnosis))
-                    ->action(function ($record) {
+                    ->form(function ($record) {
+                        if ($record->session_number > 1) {
+                            return [
+                                \Filament\Forms\Components\Select::make('compare_to')
+                                    ->label('Comparison Base')
+                                    ->options([
+                                        'previous' => 'Compare to Previous Session',
+                                        'baseline' => 'Compare to Baseline',
+                                    ])
+                                    ->default('previous')
+                                    ->required(),
+                            ];
+                        }
+                        return [];
+                    })
+                    ->action(function ($record, array $data) {
+                        $compare_to = $data['compare_to'] ?? 'previous';
                         $assessment = $record->assessment;
                         if (!$assessment) {
                             return;
                         }
-                        
+
                         $patient = $assessment->user;
-                        $data = [];
-                        $data['patient'] = $patient ? $patient->toArray() : [];
+                        $pdfData = [];
+                        $pdfData['patient'] = $patient ? $patient->toArray() : [];
                         if ($patient) {
-                            $data['patient']['name'] = $patient->name;
-                            $data['patient']['age'] = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
+                            $pdfData['patient']['name'] = $patient->name;
+                            $pdfData['patient']['age'] = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
                         } else {
-                            $data['patient']['name'] = 'N/A';
-                            $data['patient']['age'] = 'N/A';
+                            $pdfData['patient']['name'] = 'N/A';
+                            $pdfData['patient']['age'] = 'N/A';
                         }
-                        
-                        $data['assessment'] = $assessment;
-                        $data['report_date'] = $record->updated_at;
-                        $data['reassessment'] = $record->post_diagnosis['reassessment'] ?? [];
-                        $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
-                        
+
+                        $pdfData['assessment'] = $assessment;
+                        $pdfData['report_date'] = $record->updated_at;
+                        $reassessment = $record->post_diagnosis['reassessment'] ?? [];
+
+                        if ($compare_to === 'baseline') {
+                            $baselineDiagnosis = $assessment->diagnosis['diagnosis_report'] ?? [];
+                            foreach ($reassessment as $key => &$item) {
+                                $baselineScore = null;
+                                if (isset($baselineDiagnosis[$key])) {
+                                    $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
+                                }
+                                if ($baselineScore !== null) {
+                                    $item['before_treatment_score_or_label'] = $baselineScore;
+
+                                    // Recalculate result
+                                    $before = $baselineScore;
+                                    $after = $item['post_treatment_score_or_label'] ?? '';
+                                    $result = 'stable';
+                                    if (strtolower(trim($before)) !== strtolower(trim($after))) {
+                                        preg_match('/\d+/', $before, $mBefore);
+                                        preg_match('/\d+/', $after, $mAfter);
+
+                                        if (isset($mBefore[0]) && isset($mAfter[0])) {
+                                            $valBefore = intval($mBefore[0]);
+                                            $valAfter = intval($mAfter[0]);
+
+                                            if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
+                                                $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
+                                            } else {
+                                                $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
+                                            }
+                                        } else {
+                                            if (strtolower($before) === 'present' && strtolower($after) === 'absent') {
+                                                $result = 'improved';
+                                            } else if (strtolower($before) === 'absent' && strtolower($after) === 'present') {
+                                                $result = 'declined';
+                                            }
+                                        }
+                                    }
+                                    $item['result'] = $result;
+                                }
+                            }
+                            unset($item);
+                        }
+
+                        $pdfData['reassessment'] = $reassessment;
+                        $pdfData['counts'] = collect($pdfData['reassessment'])->pluck('result')->countBy();
+
                         $postAssessmentImages = $record->post_images;
 
-                        if ($record->session_number == 1) {
+                        if ($compare_to === 'baseline' || $record->session_number == 1) {
                             $assessmentImages = $assessment->images;
                         } else {
                             $prevSession = \App\Models\TreatmentSession::where('assessment_id', $assessment->id)
@@ -392,10 +451,11 @@ class TreatmentSessionsRelationManager extends RelationManager
                             $assessmentImages = $prevSession ? $prevSession->post_images : $assessment->images;
                         }
 
-                        $data['assessmentImages'] = $assessmentImages;
-                        $data['postAssessmentImages'] = $postAssessmentImages;
+                        $pdfData['assessmentImages'] = $assessmentImages;
+                        $pdfData['postAssessmentImages'] = $postAssessmentImages;
+                        $pdfData['compare_to'] = $compare_to;
 
-                        $html = view('pdf.facial.reassessment', $data)->render();
+                        $html = view('pdf.facial.reassessment', $pdfData)->render();
                         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
                         $mpdf->AddFontDirectory(__DIR__ . '/../../../Http/Controllers/Api/' . config('project.mpdf_font_dir'));
                         $mpdf->SetDisplayMode('fullpage');
@@ -404,7 +464,7 @@ class TreatmentSessionsRelationManager extends RelationManager
                         $mpdf->WriteHTML($html);
 
                         $patientName = $patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient';
-                        $filename = $patientName . '_facial_reassessment_session_' . $record->session_number . '.pdf';
+                        $filename = $patientName . '_facial_reassessment_session_' . $record->session_number . '_' . $compare_to . '_comparison.pdf';
 
                         return response()->streamDownload(function () use ($mpdf) {
                             echo $mpdf->Output('', 'S');

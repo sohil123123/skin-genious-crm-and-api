@@ -93,6 +93,7 @@ class ReportController extends BaseApiController
     public function reassessment($assessment_id, $session_id = null)
     {
         $session_id = $session_id ?: request('session_id');
+        $compare_to = request('compare_to', 'previous');
         $record = Assessment::find($assessment_id);
         $data['patient'] = $record->user->toArray();
         $data['patient']['name'] = $record->user->name;
@@ -102,12 +103,56 @@ class ReportController extends BaseApiController
         if ($session_id) {
             $session = \App\Models\TreatmentSession::findOrFail($session_id);
             $data['report_date'] = $session->updated_at;
-            $data['reassessment'] = $session->post_diagnosis['reassessment'] ?? [];
+            $reassessment = $session->post_diagnosis['reassessment'] ?? [];
+
+            if ($compare_to === 'baseline') {
+                $baselineDiagnosis = $record->diagnosis['diagnosis_report'] ?? [];
+                foreach ($reassessment as $key => &$item) {
+                    $baselineScore = null;
+                    if (isset($baselineDiagnosis[$key])) {
+                        $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
+                    }
+                    if ($baselineScore !== null) {
+                        $item['before_treatment_score_or_label'] = $baselineScore;
+                        
+                        // Recalculate result
+                        $before = $baselineScore;
+                        $after = $item['post_treatment_score_or_label'] ?? '';
+                        $result = 'stable';
+                        if (strtolower(trim($before)) !== strtolower(trim($after))) {
+                            preg_match('/\d+/', $before, $mBefore);
+                            preg_match('/\d+/', $after, $mAfter);
+                            
+                            if (isset($mBefore[0]) && isset($mAfter[0])) {
+                                $valBefore = intval($mBefore[0]);
+                                $valAfter = intval($mAfter[0]);
+                                
+                                if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
+                                    $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
+                                } else {
+                                    $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
+                                }
+                            } else {
+                                if (strtolower($before) === 'present' && strtolower($after) === 'absent') {
+                                    $result = 'improved';
+                                } else if (strtolower($before) === 'absent' && strtolower($after) === 'present') {
+                                    $result = 'declined';
+                                }
+                            }
+                        }
+                        
+                        $item['result'] = $result;
+                    }
+                }
+                unset($item);
+            }
+
+            $data['reassessment'] = $reassessment;
             $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
             
             $postAssessmentImages = $session->post_images;
 
-            if ($session->session_number == 1) {
+            if ($compare_to === 'baseline' || $session->session_number == 1) {
                 $assessmentImages = $record->images;
             } else {
                 $prevSession = \App\Models\TreatmentSession::where('assessment_id', $assessment_id)
@@ -125,6 +170,7 @@ class ReportController extends BaseApiController
 
         $data['assessmentImages'] = $assessmentImages;
         $data['postAssessmentImages'] = $postAssessmentImages;
+        $data['compare_to'] = $compare_to;
 
         $html = view('pdf.facial.reassessment', $data)->render();
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
