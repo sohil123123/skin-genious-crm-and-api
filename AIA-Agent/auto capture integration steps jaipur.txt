@@ -31,7 +31,7 @@
         - service: http_status:404
 
 4) Run python script
-    - python3 auto_capture_agent.py
+    - python3 auto_capture_agent_jaipur.py
 
 5) Run cloudflared tunnel
     - cloudflared tunnel run jaipur-aesthetics-agent
