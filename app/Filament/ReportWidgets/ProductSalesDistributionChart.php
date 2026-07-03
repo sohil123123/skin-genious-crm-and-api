@@ -41,14 +41,16 @@ class ProductSalesDistributionChart extends ChartWidget
     public ?string $startDate = null;
     public ?string $endDate = null;
     public ?string $productType = null;
+    public ?int $clinicId = null;
 
     protected $listeners = ['updateReportDates' => 'updateDates'];
 
-    public function updateDates(string $startDate, string $endDate, ?string $productType = null): void
+    public function updateDates(string $startDate, string $endDate, ?string $productType = null, ?int $clinicId = null): void
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
         $this->productType = $productType;
+        $this->clinicId = $clinicId;
         $this->updateChartData();
     }
 
@@ -57,22 +59,48 @@ class ProductSalesDistributionChart extends ChartWidget
         $startDate = $this->startDate ? Carbon::parse($this->startDate) : now()->startOfMonth();
         $endDate = $this->endDate ? Carbon::parse($this->endDate) : now()->endOfMonth();
 
-        $query = InvoiceItem::query()
+        $clinicId = $this->clinicId;
+        if ($clinicId === null && auth()->check() && !check_role('super_admin')) {
+            $clinicId = auth()->user()->clinic_id;
+        }
+
+        $invoiceQuery = DB::table('invoice_items')
             ->select('products.name', DB::raw('SUM(invoice_items.line_total) as total_revenue'))
             ->join('products', 'invoice_items.product_id', '=', 'products.id')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', '!=', 'cancelled')
             ->whereDate('invoices.invoice_date', '>=', $startDate)
-            ->whereDate('invoices.invoice_date', '<=', $endDate);
+            ->whereDate('invoices.invoice_date', '<=', $endDate)
+            ->whereIn('products.type', ['product', 'iv_product'])
+            ->when($clinicId, fn($q) => $q->where('invoices.clinic_id', $clinicId))
+            ->groupBy('products.name');
 
-        if ($this->productType) {
-            $query->where('products.type', $this->productType);
+        $packageQuery = DB::table('user_package_items')
+            ->select('products.name', DB::raw('SUM(user_package_items.total_amount * COALESCE(user_packages.final_amount / NULLIF(user_packages.subtotal, 0), 1)) as total_revenue'))
+            ->join('products', 'user_package_items.service_id', '=', 'products.id')
+            ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
+            ->whereDate('user_packages.created_at', '>=', $startDate)
+            ->whereDate('user_packages.created_at', '<=', $endDate)
+            ->where('products.type', '=', 'service')
+            ->when($clinicId, fn($q) => $q->where('user_packages.clinic_id', $clinicId))
+            ->groupBy('products.name');
+
+        if ($this->productType === 'service') {
+            $data = $packageQuery->orderByDesc('total_revenue')->limit(10)->get();
+        } elseif (in_array($this->productType, ['product', 'iv_product'])) {
+            $data = $invoiceQuery->orderByDesc('total_revenue')->limit(10)->get();
+        } else {
+            // Union and wrap
+            $unionQuery = DB::table(DB::raw("({$invoiceQuery->toSql()} UNION ALL {$packageQuery->toSql()}) as combined"))
+                ->mergeBindings($invoiceQuery)
+                ->mergeBindings($packageQuery)
+                ->select('name', DB::raw('SUM(total_revenue) as total_revenue'))
+                ->groupBy('name')
+                ->orderByDesc('total_revenue')
+                ->limit(10)
+                ->get();
+            $data = $unionQuery;
         }
-
-        $data = $query->groupBy('products.name')
-            ->orderByDesc('total_revenue')
-            ->limit(10)
-            ->get();
 
         return [
             'datasets' => [
@@ -80,8 +108,16 @@ class ProductSalesDistributionChart extends ChartWidget
                     'label' => 'Revenue',
                     'data' => $data->pluck('total_revenue')->toArray(),
                     'backgroundColor' => [
-                        '#86efac', '#93c5fd', '#fca5a5', '#fcd34d', '#a5b4fc',
-                        '#d8b4fe', '#f9a8d4', '#5eead4', '#fdba74', '#cbd5e1'
+                        '#86efac',
+                        '#93c5fd',
+                        '#fca5a5',
+                        '#fcd34d',
+                        '#a5b4fc',
+                        '#d8b4fe',
+                        '#f9a8d4',
+                        '#5eead4',
+                        '#fdba74',
+                        '#cbd5e1'
                     ],
                     'borderWidth' => 0,
                 ],
