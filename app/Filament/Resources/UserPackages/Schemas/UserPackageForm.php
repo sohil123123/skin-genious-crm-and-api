@@ -76,6 +76,7 @@ class UserPackageForm
                                 DatePicker::make('expired_at')
                                     ->label('Expires On')
                                     ->nullable()
+                                    ->default(now()->addYear()->endOfMonth())
                                     ->minDate(now())
                                     ->columnSpan(1),
                             ]),

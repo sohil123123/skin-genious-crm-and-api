@@ -17,59 +17,40 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Pages\ProductSalesReport;
 
 class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyles, WithTitle, WithEvents, ShouldAutoSize
 {
     protected ?string $startDate;
     protected ?string $endDate;
     protected ?string $productType;
+    protected ?int $clinicId;
 
-    public function __construct(?string $startDate, ?string $endDate, ?string $productType = null)
+    public function __construct(?string $startDate, ?string $endDate, ?string $productType = null, ?int $clinicId = null)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
         $this->productType = $productType;
+        $this->clinicId = $clinicId;
     }
 
     public function collection(): Collection
     {
-        $products = Product::query()
-            ->when($this->productType, fn(Builder $q) => $q->where('type', $this->productType))
-            ->withSum([
-                'invoiceItems' => function (Builder $query) {
-                    $query->whereHas('invoice', function (Builder $q) {
-                        $q->where('status', '!=', 'cancelled');
-                        if ($this->startDate) {
-                            $q->whereDate('invoice_date', '>=', $this->startDate);
-                        }
-                        if ($this->endDate) {
-                            $q->whereDate('invoice_date', '<=', $this->endDate);
-                        }
-                    });
-                }
-            ], 'quantity')
-            ->withSum([
-                'invoiceItems' => function (Builder $query) {
-                    $query->whereHas('invoice', function (Builder $q) {
-                        $q->where('status', '!=', 'cancelled');
-                        if ($this->startDate) {
-                            $q->whereDate('invoice_date', '>=', $this->startDate);
-                        }
-                        if ($this->endDate) {
-                            $q->whereDate('invoice_date', '<=', $this->endDate);
-                        }
-                    });
-                }
-            ], 'line_total')
-            ->having('invoice_items_sum_line_total', '>', 0)
-            ->orderByDesc('invoice_items_sum_line_total')
+        $products = ProductSalesReport::getSalesReportQuery(
+            $this->startDate,
+            $this->endDate,
+            $this->clinicId,
+            $this->productType
+        )
+            ->orderByDesc('sales_revenue')
             ->get();
+        dd($products->toArray());
 
         return $products->map(function ($product) {
             return [
                 'name' => $product->name,
-                'quantity_sold' => $product->type === 'product' ? ($product->invoice_items_sum_quantity ?? 0) : 0,
-                'total_revenue' => $product->invoice_items_sum_line_total ?? 0,
+                'quantity_sold' => (int) ($product->sales_qty_sold ?? 0),
+                'total_revenue' => (float) ($product->sales_revenue ?? 0),
             ];
         });
     }
@@ -124,7 +105,7 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
                 // Apply quantity format to column B, and currency to column C
                 $numberFormat = '#,##0';
                 $currencyFormat = '#,##0.00';
-                
+
                 $sheet->getStyle("B2:B{$highestRow}")
                     ->getNumberFormat()
                     ->setFormatCode($numberFormat);

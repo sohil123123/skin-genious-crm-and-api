@@ -43,13 +43,17 @@ class UserPackage extends Model
             $invoiceAmount = $remainingAmount;
         }
 
+        $installmentNumber = $this->invoices()->count() + 1;
+        $isInstallment = $invoicedTotal > 0 || (float) $invoiceAmount < (float) $this->final_amount;
+        $installmentSuffix = $isInstallment ? " (Installment {$installmentNumber})" : "";
+
         $invoice = Invoice::create([
             'clinic_id' => $this->clinic_id,
             'user_id' => $this->user_id,
             'package_id' => $this->id,
             'invoice_type' => 'package',
             'invoice_date' => now(),
-            'source_note' => "Package: {$this->package_name}" . ($invoicedTotal > 0 ? " (Installment)" : ""),
+            'source_note' => "Package: {$this->package_name}" . $installmentSuffix,
             'subtotal' => 0,
             'discount_total' => 0,
             'taxable_value' => 0,
