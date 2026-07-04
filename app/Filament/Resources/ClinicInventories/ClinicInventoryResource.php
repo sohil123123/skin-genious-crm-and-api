@@ -27,7 +27,7 @@ class ClinicInventoryResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 12;
 
     public static function form(Schema $schema): Schema
     {

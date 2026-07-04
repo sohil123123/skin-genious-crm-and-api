@@ -55,29 +55,31 @@ class UsersTable
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->placeholder('Unassigned')
                     ->sortable()
                     ->searchable()
-                    ->visible(fn () => check_role('super_admin'))
+                    ->visible(fn() => check_role('super_admin'))
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn (User $record) => $record->clinic)
+                            ->record(fn(User $record) => $record->clinic)
                             ->infolist(
-                                fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
+                                fn(Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
-                            ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn (User $record) => $record->clinic !== null)
+                            ->modalHeading(fn($record) => $record->clinic?->name ?? 'No Clinic Assigned')
+                            ->visible(fn(User $record) => $record->clinic !== null)
                     ),
                 TextColumn::make('name')
                     ->label('Name')
-                    ->sortable(query: fn ($query, $direction) => $query->orderBy('first_name', $direction))
+                    ->sortable(query: fn($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
-                    ->formatStateUsing(fn ($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
+                    ->formatStateUsing(fn($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
                 TextColumn::make('state')
                     ->label('State')
-                    ->state(fn (User $record) => $record->state ?? $record->clinic?->state)
-                    ->formatStateUsing(fn ($state) => config('project.indian_states.' . $state, $state))
+                    ->state(fn(User $record) => $record->state ?? $record->clinic?->state)
+                    ->formatStateUsing(fn($state) => config('project.indian_states.' . $state, $state))
                     ->searchable()
                     ->sortable()
                     ->badge()
@@ -87,36 +89,36 @@ class UsersTable
                 TextColumn::make('gender')
                     ->label('Gender')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => match (strtolower($state)) {
-                        'male'   => '👨 Male',
+                    ->formatStateUsing(fn($state) => match (strtolower($state)) {
+                        'male' => '👨 Male',
                         'female' => '👩 Female',
-                        default  => '❓ Unknown',
+                        default => '❓ Unknown',
                     })
-                    ->color(fn ($state) => match (strtolower($state)) {
-                        'male'   => 'info',
+                    ->color(fn($state) => match (strtolower($state)) {
+                        'male' => 'info',
                         'female' => 'danger',
-                        default  => 'gray',
+                        default => 'gray',
                     })
                     ->placeholder('-')
                     ->toggleable(),
                 BadgeColumn::make('roles.name')
                     ->label('Roles')
-                    ->formatStateUsing(fn ($state) => ucfirst($state))
-                    ->icon(fn ($state) => match ($state) {
-                        'super_admin'    => 'heroicon-o-shield-check',
-                        'therapist'      => 'heroicon-o-hand-raised',
+                    ->formatStateUsing(fn($state) => ucfirst($state))
+                    ->icon(fn($state) => match ($state) {
+                        'super_admin' => 'heroicon-o-shield-check',
+                        'therapist' => 'heroicon-o-hand-raised',
                         'clinic_manager' => 'heroicon-o-building-office',
-                        'doctor'         => 'heroicon-o-user-circle',
-                        'user'           => 'heroicon-o-user',
-                        default          => 'heroicon-o-user',
+                        'doctor' => 'heroicon-o-user-circle',
+                        'user' => 'heroicon-o-user',
+                        default => 'heroicon-o-user',
                     })
-                    ->color(fn ($state) => match ($state) {
-                        'super_admin'    => 'danger',
-                        'therapist'      => 'success',
+                    ->color(fn($state) => match ($state) {
+                        'super_admin' => 'danger',
+                        'therapist' => 'success',
                         'clinic_manager' => 'info',
-                        'doctor'         => 'warning',
-                        'user'           => 'gray',
-                        default          => 'gray',
+                        'doctor' => 'warning',
+                        'user' => 'gray',
+                        default => 'gray',
                     }),
                 TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
                 ToggleColumn::make('is_active')
@@ -129,14 +131,14 @@ class UsersTable
                     // ->disabled(fn () => ! auth()->user()?->can('toggle_user_status'))
                     // ->visible(auth()->user()->can('toggle_user_status'))
                     ->afterStateUpdated(function ($state, $record) {
-                        if (! auth()->user()->can('toggle_user_status')) {
+                        if (!auth()->user()->can('toggle_user_status')) {
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update user status.')
                                 ->danger()
                                 ->send();
 
-                            $record->is_active = ! $state;
+                            $record->is_active = !$state;
                             $record->save();
 
                             return;
@@ -205,11 +207,11 @@ class UsersTable
             //         ->columnSpanFull(),
             //     // $filters['author'],
             // ])
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 Action::make('new_iv_assessment')
                     ->label('New IV Assessment')
-                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->visible(fn($record) => $record->hasRole('client'))
                     ->icon('heroicon-o-plus')
                     ->color('info')
                     ->action(function ($record) {
@@ -220,7 +222,7 @@ class UsersTable
 
                 Action::make('new_assessment')
                     ->label('New Assessment')
-                    ->visible(fn ($record) => $record->hasRole('client'))
+                    ->visible(fn($record) => $record->hasRole('client'))
                     ->icon('heroicon-o-plus')
                     ->color('info')
                     ->action(function ($record) {
@@ -228,148 +230,6 @@ class UsersTable
                         return redirect($assessmentUrl);
                     })
                     ->requiresConfirmation(),
-
-                Action::make('holiday')
-                    ->visible(fn ($record) => $record->hasRole('therapist'))
-                    ->icon('heroicon-o-no-symbol')
-                    ->iconButton()
-                    ->color('danger')
-                    ->tooltip('Manage Holidays')
-                    ->url(fn ($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
-
-                // Action::make('appointment')
-                //     ->visible(fn ($record) => $record->hasRole('client'))
-                //     ->icon('heroicon-o-calendar-days')
-                //     ->iconButton()
-                //     ->color('info')
-                //     ->tooltip('Manage Appointments')
-                //     ->url(fn ($record) => route('filament.admin.resources.users.appointments', ['record' => $record])),
-
-                Action::make('assessment')
-                    ->visible(fn ($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-clipboard-document')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Assessments')
-                    ->url(fn ($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
-
-                Action::make('packages')
-                    ->visible(fn ($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-rectangle-stack')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Packages')
-                    ->url(fn ($record) => route('filament.admin.resources.users.packages', ['record' => $record])),
-
-                Action::make('invoice')
-                    ->visible(fn($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-document-text')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Invoices')
-                    ->url(fn($record) => route('filament.admin.resources.users.invoices', ['record' => $record])),
-
-                Action::make('weekly_schedule')
-                    ->visible(fn($record) => $record->hasRole('therapist'))
-                    ->icon('heroicon-o-calendar-days')
-                    ->iconButton()
-                    ->color('success')
-                    ->tooltip('Manage Weekly Schedule')
-                    ->url(fn ($record) => route('filament.admin.resources.users.weekly_schedule', ['record' => $record])),
-
-                Action::make('permissions')
-                    ->icon('heroicon-o-key')
-                    ->color('success')
-                    ->iconButton()
-                    ->slideOver() // or ->modalHeading("Manage permissions")
-                    // ->modalHeading("Manage permissions")
-                    ->form([
-                        CheckboxList::make('permissions')
-                            ->label('Manage Permissions')
-                            ->options(Permission::all()->pluck('name', 'id'))
-                            ->columns(3)
-                            ->searchable()
-                            ->bulkToggleable()
-                            ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
-                    ])
-                    // ->form(function () {
-                    //     $permissions = Permission::all()->groupBy(function ($perm) {
-                    //         // detect group by suffix (after ":") if exists
-                    //         if (str_contains($perm->name, ':')) {
-                    //             return Str::after($perm->name, ':'); // e.g. "User", "Role"
-                    //         }
-
-                    //         // detect custom permissions (no separator)
-                    //         if (str_starts_with($perm->name, 'toggle_')) {
-                    //             return 'Custom Permissions';
-                    //         }
-
-                    //         // detect widgets (common naming convention: "View:Something")
-                    //         if (str_starts_with($perm->name, 'View:')) {
-                    //             return 'Widgets';
-                    //         }
-
-                    //         return 'Misc';
-                    //     });
-
-                    //     return $permissions->map(function ($group, $key) {
-
-                    //         return Section::make(ucfirst($key))
-                    //             ->schema([
-                    //                 CheckboxList::make("permissions_{$key}")
-                    //                     ->label('Manage Permissions')
-                    //                     ->options($group->pluck('name', 'id'))
-                    //                     ->columns(3)
-                    //                     ->bulkToggleable()
-                    //                     ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
-                    //                 // CheckboxList::make("permissions_{$key}")
-                    //                 //     ->label("Manage {$key}")
-                    //                 //     ->options($group->pluck('name', 'id'))
-                    //                 //     ->columns(3)
-                    //                 //     ->bulkToggleable()
-                    //                 //     ->default(fn ($record) =>
-                    //                 //         $record->permissions()->pluck('id')->toArray()
-                    //                 //     ),
-                    //             ])
-                    //             ->collapsible()
-                    //             ->collapsed();
-                    //     })->values()->toArray();
-                    // })
-                    ->visible(fn ($record) => ($record->hasRole('therapist') || $record->hasRole('clinic_manager')) && auth()->user()?->can('toggle_user_permissions'))
-                    ->action(function (array $data, $record) {
-                        if (! auth()->user()->can('toggle_user_permissions')) {
-                            Notification::make()
-                                ->title('Access Denied')
-                                ->body('You do not have permission to update user status.')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
-
-                        if ($record->hasRole('super_admin'))
-                        {
-                            Notification::make()
-                                ->title('Super Admin Permissions Locked')
-                                ->body('You cannot modify permissions for Super Admin.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-
-                        $permissions = collect($data)
-                            ->filter(fn ($value, $key) => str_starts_with($key, 'permissions_'))
-                            ->flatten()
-                            ->filter()
-                            ->toArray();
-
-                        $record->syncPermissions($permissions ?? []);
-
-                        Notification::make()
-                            ->title('Permissions updated')
-                            ->body("Permissions for role **{$record->name}** have been saved successfully.")
-                            ->success()
-                            ->send();
-                    }),
 
                 ActionGroup::make([
                     ViewAction::make(),
@@ -389,6 +249,145 @@ class UsersTable
                                 ->body("The client **{$record->name}** has been removed successfully.")
                                 ->success();
                         }),
+
+                    Action::make('holiday')
+                        ->label('Manage Holidays')
+                        ->visible(fn($record) => $record->hasRole('therapist'))
+                        ->icon('heroicon-o-no-symbol')
+                        // ->iconButton()
+                        ->color('danger')
+                        ->tooltip('Manage Holidays')
+                        ->url(fn($record) => route('filament.admin.resources.users.holidays', ['record' => $record])),
+
+                    Action::make('assessment')
+                        ->label('Manage Assessments')
+                        ->visible(fn($record) => $record->hasRole('client'))
+                        ->icon('heroicon-o-clipboard-document')
+                        // ->iconButton()
+                        ->color('info')
+                        // ->tooltip('Manage Assessments')
+                        ->url(fn($record) => route('filament.admin.resources.users.assessments', ['record' => $record])),
+
+                    Action::make('packages')
+                        ->label('Manage Packages')
+                        ->visible(fn($record) => $record->hasRole('client'))
+                        ->icon('heroicon-o-rectangle-stack')
+                        // ->iconButton()
+                        ->color('warning')
+                        // ->tooltip('Manage Packages')
+                        ->url(fn($record) => route('filament.admin.resources.users.packages', ['record' => $record])),
+
+                    Action::make('invoice')
+                        ->label('Manage Invoices')
+                        ->visible(fn($record) => $record->hasRole('client'))
+                        ->icon('heroicon-o-document-text')
+                        // ->iconButton()
+                        ->color('success')
+                        // ->tooltip('Manage Invoices')
+                        ->url(fn($record) => route('filament.admin.resources.users.invoices', ['record' => $record])),
+
+                    Action::make('weekly_schedule')
+                        ->label('Manage Weekly Schedule')
+                        ->visible(fn($record) => $record->hasRole('therapist'))
+                        ->icon('heroicon-o-calendar-days')
+                        // ->iconButton()
+                        ->color('success')
+                        ->tooltip('Manage Weekly Schedule')
+                        ->url(fn($record) => route('filament.admin.resources.users.weekly_schedule', ['record' => $record])),
+
+                    Action::make('permissions')
+                        ->label('Manage Permissions')
+                        ->icon('heroicon-o-key')
+                        ->color('success')
+                        // ->iconButton()
+                        ->slideOver() // or ->modalHeading("Manage permissions")
+                        // ->modalHeading("Manage permissions")
+                        ->form([
+                            CheckboxList::make('permissions')
+                                ->label('Manage Permissions')
+                                ->options(Permission::all()->pluck('name', 'id'))
+                                ->columns(3)
+                                ->searchable()
+                                ->bulkToggleable()
+                                ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
+                        ])
+                        // ->form(function () {
+                        //     $permissions = Permission::all()->groupBy(function ($perm) {
+                        //         // detect group by suffix (after ":") if exists
+                        //         if (str_contains($perm->name, ':')) {
+                        //             return Str::after($perm->name, ':'); // e.g. "User", "Role"
+                        //         }
+
+                        //         // detect custom permissions (no separator)
+                        //         if (str_starts_with($perm->name, 'toggle_')) {
+                        //             return 'Custom Permissions';
+                        //         }
+
+                        //         // detect widgets (common naming convention: "View:Something")
+                        //         if (str_starts_with($perm->name, 'View:')) {
+                        //             return 'Widgets';
+                        //         }
+
+                        //         return 'Misc';
+                        //     });
+
+                        //     return $permissions->map(function ($group, $key) {
+
+                        //         return Section::make(ucfirst($key))
+                        //             ->schema([
+                        //                 CheckboxList::make("permissions_{$key}")
+                        //                     ->label('Manage Permissions')
+                        //                     ->options($group->pluck('name', 'id'))
+                        //                     ->columns(3)
+                        //                     ->bulkToggleable()
+                        //                     ->default(fn($record) => $record->permissions()->pluck('id')->toArray()),
+                        //                 // CheckboxList::make("permissions_{$key}")
+                        //                 //     ->label("Manage {$key}")
+                        //                 //     ->options($group->pluck('name', 'id'))
+                        //                 //     ->columns(3)
+                        //                 //     ->bulkToggleable()
+                        //                 //     ->default(fn ($record) =>
+                        //                 //         $record->permissions()->pluck('id')->toArray()
+                        //                 //     ),
+                        //             ])
+                        //             ->collapsible()
+                        //             ->collapsed();
+                        //     })->values()->toArray();
+                        // })
+                        ->visible(fn($record) => ($record->hasRole('therapist') || $record->hasRole('clinic_manager')) && auth()->user()?->can('toggle_user_permissions'))
+                        ->action(function (array $data, $record) {
+                            if (!auth()->user()->can('toggle_user_permissions')) {
+                                Notification::make()
+                                    ->title('Access Denied')
+                                    ->body('You do not have permission to update user status.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            if ($record->hasRole('super_admin')) {
+                                Notification::make()
+                                    ->title('Super Admin Permissions Locked')
+                                    ->body('You cannot modify permissions for Super Admin.')
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $permissions = collect($data)
+                                ->filter(fn($value, $key) => str_starts_with($key, 'permissions_'))
+                                ->flatten()
+                                ->filter()
+                                ->toArray();
+
+                            $record->syncPermissions($permissions ?? []);
+
+                            Notification::make()
+                                ->title('Permissions updated')
+                                ->body("Permissions for role **{$record->name}** have been saved successfully.")
+                                ->success()
+                                ->send();
+                        }),
                 ]),
 
             ])
@@ -407,22 +406,22 @@ class UsersTable
                 ]),
             ])
             ->groups(array_filter([
-                auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) ? 
-                    Group::make('clinic_id')
-                        ->label('Clinic Name')
-                        ->collapsible()
-                        ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                        ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned') 
-                    : null,
+                auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')) ?
+                Group::make('clinic_id')
+                    ->label('Clinic Name')
+                    ->collapsible()
+                    ->getKeyFromRecordUsing(fn($record) => $record->clinic_id ?? 'no_clinic')
+                    ->getTitleFromRecordUsing(fn($record) => $record->clinic?->name ?? 'Unassigned')
+                : null,
                 // Group::make('roles.name')->label('Role Name')->collapsible(),
                 Group::make('gender')->label('Gender')->collapsible(),
                 Group::make('created_at')->date(),
             ]))
             // ->groupingSettingsInDropdownOnDesktop()
             ->emptyStateDescription('Once you create your first user, it will appear here.');
-            // ->contentGrid([
-            //     'md' => 2,
-            //     'xl' => 3,
-            // ])
+        // ->contentGrid([
+        //     'md' => 2,
+        //     'xl' => 3,
+        // ])
     }
 }

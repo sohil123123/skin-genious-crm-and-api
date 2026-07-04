@@ -13,13 +13,13 @@ class WhatsAppMessageLogResource extends Resource
 {
     protected static ?string $model = WhatsAppMessageLog::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-list-bullet';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Others';
+    protected static string|\UnitEnum|null $navigationGroup = 'Others';
 
     protected static ?string $navigationLabel = 'WhatsApp Logs';
 
-    protected static ?int $navigationSort = 43;
+    protected static ?int $navigationSort = 23;
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {

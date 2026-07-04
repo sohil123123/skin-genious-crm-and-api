@@ -10,6 +10,7 @@ use App\Filament\Resources\Expenses\Schemas\ExpenseForm;
 use App\Models\Expense;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportBulkAction;
@@ -39,9 +40,13 @@ class ExpensesTable
                     ->sortable(),
 
                 TextColumn::make('clinic.name')
-                    ->searchable()
+                    ->label('Clinic')
+                    ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->sortable()
-                    ->visible(fn () => check_role('super_admin')),
+                    ->searchable()
+                    ->visible(fn() => check_role('super_admin')),
 
                 TextColumn::make('category.name')
                     ->label('Category')
@@ -57,16 +62,16 @@ class ExpensesTable
 
                 TextColumn::make('payment_method')
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => ($state instanceof ExpensePaymentMethod ? $state : ExpensePaymentMethod::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
-                    ->color(fn ($state): string => ($state instanceof ExpensePaymentMethod ? $state : ExpensePaymentMethod::tryFrom((string) $state))?->color() ?? 'gray')
+                    ->formatStateUsing(fn($state): string => ($state instanceof ExpensePaymentMethod ? $state : ExpensePaymentMethod::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
+                    ->color(fn($state): string => ($state instanceof ExpensePaymentMethod ? $state : ExpensePaymentMethod::tryFrom((string) $state))?->color() ?? 'gray')
                     ->searchable(),
 
                 TextColumn::make('reference')
-                    ->state(fn (Expense $record): string => $record->referenceType()->label() . ($record->reference_id ? " #{$record->reference_id}" : ''))
+                    ->state(fn(Expense $record): string => $record->referenceType()->label() . ($record->reference_id ? " #{$record->reference_id}" : ''))
                     ->badge()
-                    ->color(fn (Expense $record): string => $record->reference_type === ExpenseReferenceType::Purchase->value ? 'success' : 'gray')
-                    ->searchable(query: fn (Builder $query, string $search): Builder => $query
-                        ->where(fn (Builder $query): Builder => $query
+                    ->color(fn(Expense $record): string => $record->reference_type === ExpenseReferenceType::Purchase->value ? 'success' : 'gray')
+                    ->searchable(query: fn(Builder $query, string $search): Builder => $query
+                        ->where(fn(Builder $query): Builder => $query
                             ->where('reference_type', 'like', "%{$search}%")
                             ->orWhere('reference_id', 'like', "%{$search}%")
                             ->orWhere('reference_number', 'like', "%{$search}%"))),
@@ -84,8 +89,8 @@ class ExpensesTable
                 TextColumn::make('approval_status')
                     ->label('Approval')
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => ($state instanceof ExpenseApprovalStatus ? $state : ExpenseApprovalStatus::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
-                    ->color(fn ($state): string => ($state instanceof ExpenseApprovalStatus ? $state : ExpenseApprovalStatus::tryFrom((string) $state))?->color() ?? 'gray')
+                    ->formatStateUsing(fn($state): string => ($state instanceof ExpenseApprovalStatus ? $state : ExpenseApprovalStatus::tryFrom((string) $state))?->label() ?? ucfirst((string) $state))
+                    ->color(fn($state): string => ($state instanceof ExpenseApprovalStatus ? $state : ExpenseApprovalStatus::tryFrom((string) $state))?->color() ?? 'gray')
                     ->sortable(),
 
                 TextColumn::make('approver.name')
@@ -114,7 +119,7 @@ class ExpensesTable
                     ->relationship('clinic', 'name')
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
 
                 SelectFilter::make('expense_category_id')
                     ->label('Category')
@@ -136,9 +141,9 @@ class ExpensesTable
                             DatePicker::make('until')->label('Until'),
                         ]),
                     ])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['from'] ?? null, fn (Builder $query, $date): Builder => $query->whereDate('expense_date', '>=', $date))
-                        ->when($data['until'] ?? null, fn (Builder $query, $date): Builder => $query->whereDate('expense_date', '<=', $date)))
+                    ->query(fn(Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn(Builder $query, $date): Builder => $query->whereDate('expense_date', '>=', $date))
+                        ->when($data['until'] ?? null, fn(Builder $query, $date): Builder => $query->whereDate('expense_date', '<=', $date)))
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
 
@@ -156,26 +161,26 @@ class ExpensesTable
                     }),
             ], layout: FiltersLayout::Modal)
             ->filtersTriggerAction(
-                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+                fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->recordActions([
                 Action::make('approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (Expense $record): bool => auth()->user()->hasRole('super_admin')
+                    ->visible(fn(Expense $record): bool => auth()->user()->hasRole('super_admin')
                         && $record->approvalStatus() !== ExpenseApprovalStatus::Approved)
                     ->form([
                         Textarea::make('approval_comment')
                             ->label('Approval Comment')
                             ->rows(3),
                     ])
-                    ->action(fn (Expense $record, array $data) => $record->approve($data['approval_comment'] ?? null)),
+                    ->action(fn(Expense $record, array $data) => $record->approve($data['approval_comment'] ?? null)),
 
                 Action::make('reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn (Expense $record): bool => auth()->user()->hasRole('super_admin')
+                    ->visible(fn(Expense $record): bool => auth()->user()->hasRole('super_admin')
                         && $record->approvalStatus() !== ExpenseApprovalStatus::Rejected)
                     ->form([
                         Textarea::make('approval_comment')
@@ -183,17 +188,19 @@ class ExpensesTable
                             ->rows(3)
                             ->required(),
                     ])
-                    ->action(fn (Expense $record, array $data) => $record->reject($data['approval_comment'] ?? null)),
+                    ->action(fn(Expense $record, array $data) => $record->reject($data['approval_comment'] ?? null)),
 
-                EditAction::make()
-                    ->schema(ExpenseForm::components())
-                    ->modalWidth('5xl')
-                    ->successNotification(
-                        Notification::make()
-                            ->success()
-                            ->title('Expense updated successfully 🎉')
-                            ->body('The expense details have been updated.'),
-                    ),
+                ActionGroup::make([
+                    EditAction::make()
+                        ->schema(ExpenseForm::components())
+                        ->modalWidth('5xl')
+                        ->successNotification(
+                            Notification::make()
+                                ->success()
+                                ->title('Expense updated successfully 🎉')
+                                ->body('The expense details have been updated.'),
+                        ),
+                ]),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

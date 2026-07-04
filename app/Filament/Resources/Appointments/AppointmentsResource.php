@@ -28,7 +28,7 @@ class AppointmentsResource extends Resource
 
     // protected static bool $shouldRegisterNavigation = false;
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Schema $schema): Schema
     {

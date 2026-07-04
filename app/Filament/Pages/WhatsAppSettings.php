@@ -13,13 +13,13 @@ use Filament\Actions\Action;
 
 class WhatsAppSettings extends Page
 {
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Others';
+    protected static string|\UnitEnum|null $navigationGroup = 'Others';
 
     protected static ?string $title = 'WhatsApp Settings';
 
-    protected static ?int $navigationSort = 41;
+    protected static ?int $navigationSort = 21;
 
     protected string $view = 'filament.pages.whatsapp-settings';
 

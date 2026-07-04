@@ -17,10 +17,23 @@ use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 
 use App\Models\UserLeaveEntitlement;
 use Illuminate\Support\Facades\Auth;
+use Filament\Actions\Action;
 
 class Dashboard extends BaseDashboard
 {
     use HasFiltersForm;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('test_pigmentation')
+                ->label('Test Pigmentation Assessment')
+                ->color('warning')
+                ->icon('heroicon-o-sparkles')
+                ->url(fn () => new_assessment(Auth::user(), 'pigmentation-assessment'))
+                ->openUrlInNewTab(),
+        ];
+    }
 
     // protected string $view = 'filament.pages.dashboard';
 

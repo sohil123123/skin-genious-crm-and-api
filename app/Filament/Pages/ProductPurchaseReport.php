@@ -32,7 +32,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 17;
 
     public function mount(): void
     {

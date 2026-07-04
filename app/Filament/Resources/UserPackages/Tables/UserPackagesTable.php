@@ -60,6 +60,7 @@ class UserPackagesTable
                     ->label('Clinic')
                     ->badge()
                     ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->searchable()
                     ->sortable()
                     ->visible(fn() => check_role('super_admin')),
@@ -67,7 +68,7 @@ class UserPackagesTable
                 TextColumn::make('user.name')
                     ->label('Client')
                     ->badge()
-                    ->color('info')
+                    ->color('success')
                     ->icon('heroicon-o-user')
                     ->searchable(['first_name', 'last_name', 'mobile'])
                     ->sortable(),
@@ -318,7 +319,7 @@ class UserPackagesTable
                                     //     ->searchable()
                                     //     ->nullable()
                                     //     ->placeholder('None'),
-                
+
                                     Textarea::make('notes')
                                         ->label('Notes')
                                         ->nullable()

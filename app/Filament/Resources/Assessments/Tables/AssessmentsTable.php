@@ -53,29 +53,29 @@ class AssessmentsTable
                     ->searchable()
                     ->action(
                         ViewAction::make('view_clinic')
-                            ->record(fn ($record) => $record->clinic)
+                            ->record(fn($record) => $record->clinic)
                             ->infolist(
-                                fn (Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
+                                fn(Schema $schema, $record): Schema => ClinicInfolist::configure($schema->record($record->clinic))
                             )
                             ->modal()
-                            ->modalHeading(fn ($record) => $record->clinic?->name ?? 'No Clinic Assigned')
-                            ->visible(fn ($record) => $record->clinic !== null)
+                            ->modalHeading(fn($record) => $record->clinic?->name ?? 'No Clinic Assigned')
+                            ->visible(fn($record) => $record->clinic !== null)
                     )
-                    ->visible(fn () => check_role('super_admin'))
+                    ->visible(fn() => check_role('super_admin'))
                     ->toggleable(),
                 TextColumn::make('user.name')->label('User Name')->searchable(['first_name', 'last_name']),
                 TextColumn::make('name')->placeholder('-')->searchable()->sortable(),
                 TextColumn::make('assessment_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn($state) => match ($state) {
                         'normal' => 'success',
                         'iv' => 'info',
                         'instant-normal' => 'warning',
                         'instant-iv' => 'primary',
                         default => 'info',
                     })
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         'normal' => 'Facial',
                         'iv' => 'IV',
                         'instant-normal' => 'Instant Facial',
@@ -92,118 +92,100 @@ class AssessmentsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                TrashedFilter::make(),
-                // SelectFilter::make('parent_id')
-                //     ->label('Parent Assessment')
-                //     ->relationship(
-                //         name: 'parentAssessment',
-                //         titleAttribute: 'id',
-                //         modifyQueryUsing: fn ($query) => $query->whereNull('parent_id')
-                //     )
-                //     ->searchable()
-                //     ->preload(),
+            ->filters(
+                [
+                    TrashedFilter::make(),
+                    // SelectFilter::make('parent_id')
+                    //     ->label('Parent Assessment')
+                    //     ->relationship(
+                    //         name: 'parentAssessment',
+                    //         titleAttribute: 'id',
+                    //         modifyQueryUsing: fn ($query) => $query->whereNull('parent_id')
+                    //     )
+                    //     ->searchable()
+                    //     ->preload(),
 
-                SelectFilter::make('status')
-                    ->options([
-                        'in_progress' => 'in_progress',
-                        'pending' => 'pending',
-                        'completed' => 'completed',
-                        'incomplete' => 'incomplete',
-                        'cancelled' => 'cancelled',
-                        'overdue' => 'overdue',
-                    ]),
+                    SelectFilter::make('status')
+                        ->options([
+                            'in_progress' => 'in_progress',
+                            'pending' => 'pending',
+                            'completed' => 'completed',
+                            'incomplete' => 'incomplete',
+                            'cancelled' => 'cancelled',
+                            'overdue' => 'overdue',
+                        ]),
 
-                Filter::make('extra')
-                    ->label('Other Filters')
-                    ->form([
-                        Section::make('Other Filters')
-                            ->icon('heroicon-o-funnel')
-                            ->schema([
-                                Grid::make(1)->schema([
-                                    // Clinic
-                                    Select::make('clinic_id')
-                                        ->label('Clinics')
-                                        ->relationship('clinic', 'name')
-                                        ->searchable()
-                                        ->preload()
-                                        ->placeholder('Select a clinic')
-                                        ->native(false),
+                    Filter::make('extra')
+                        ->label('Other Filters')
+                        ->form([
+                            Section::make('Other Filters')
+                                ->icon('heroicon-o-funnel')
+                                ->schema([
+                                    Grid::make(1)->schema([
+                                        // Clinic
+                                        Select::make('clinic_id')
+                                            ->label('Clinics')
+                                            ->relationship('clinic', 'name')
+                                            ->searchable()
+                                            ->preload()
+                                            ->placeholder('Select a clinic')
+                                            ->native(false),
 
-                                    // User
-                                    Select::make('user_id')
-                                        ->label('Users')
-                                        ->options(function (callable $get) {
-                                            $clinicId = $get('clinic_id');
-                                            if (!$clinicId) {
-                                                return [];
-                                            }
-                                            return User::whereHas('roles', fn ($q) => $q->where('name', 'client'))
+                                        // User
+                                        Select::make('user_id')
+                                            ->label('Users')
+                                            ->options(function (callable $get) {
+                                                $clinicId = $get('clinic_id');
+                                                if (!$clinicId) {
+                                                    return [];
+                                                }
+                                                return User::whereHas('roles', fn($q) => $q->where('name', 'client'))
                                                     ->where('clinic_id', $clinicId)
                                                     ->get()
-                                                    ->mapWithKeys(fn ($u) => [$u->id => $u->name]);
+                                                    ->mapWithKeys(fn($u) => [$u->id => $u->name]);
 
-                                        })
-                                        ->reactive()
-                                        ->searchable()
-                                        ->placeholder('All users'),
+                                            })
+                                            ->reactive()
+                                            ->searchable()
+                                            ->placeholder('All users'),
+                                    ]),
                                 ]),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['clinic_id'] ?? null, fn ($q, $id) => $q->where('clinic_id', $id))
-                            ->when($data['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id));
-                    })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
+                        ])
+                        ->query(function (Builder $query, array $data): Builder {
+                            return $query
+                                ->when($data['clinic_id'] ?? null, fn($q, $id) => $q->where('clinic_id', $id))
+                                ->when($data['user_id'] ?? null, fn($q, $id) => $q->where('user_id', $id));
+                        })
+                        ->indicateUsing(function (array $data): array {
+                            $indicators = [];
 
-                        if ($data['clinic_id'] ?? null) {
-                            $clinic = Clinic::find($data['clinic_id']);
-                            if ($clinic) {
-                                $indicators[] = Indicator::make('Clinic: ' . $clinic->name)->removeField('clinic_id');
+                            if ($data['clinic_id'] ?? null) {
+                                $clinic = Clinic::find($data['clinic_id']);
+                                if ($clinic) {
+                                    $indicators[] = Indicator::make('Clinic: ' . $clinic->name)->removeField('clinic_id');
+                                }
                             }
-                        }
 
-                        if ($data['user_id'] ?? null) {
-                            $user = User::find($data['user_id']);
-                            if ($user) {
-                                $indicators[] = Indicator::make('Therapist: ' . $user->name)->removeField('user_id');
+                            if ($data['user_id'] ?? null) {
+                                $user = User::find($data['user_id']);
+                                if ($user) {
+                                    $indicators[] = Indicator::make('Therapist: ' . $user->name)->removeField('user_id');
+                                }
                             }
-                        }
-                        return $indicators;
-                    })
-            ],
-            layout: FiltersLayout::Modal)
+                            return $indicators;
+                        })
+                ],
+                layout: FiltersLayout::Modal
+            )
             ->filtersFormColumns(3)
             ->filtersTriggerAction(
-                fn (Action $action) => $action
+                fn(Action $action) => $action
                     ->button()
                     ->color('primary')
                     ->label('Filters')
                     ->icon('heroicon-o-funnel')
             )
             ->recordActions([
-                // ViewAction::make(),
-                 Action::make('edit_assessment')
-                    ->icon('heroicon-o-pencil')
-                    ->iconButton()
-                    ->color('primary')
-                    ->tooltip('Edit Assessment')
-                    ->action(function ($record) {
-                        $assessmentUrl = edit_assessment($record,  $record);
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
-
-                Action::make('treatment_sessions')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->iconButton()
-                    ->color('primary')
-                    ->tooltip('Manage Treatment Sessions')
-                    ->url(fn ($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record]))
-                    ->visible(fn ($record) => $record->assessment_type === 'normal'),
-
                 ActionGroup::make([
                     // --- Facial Reports (Normal Type) ---
                     Action::make('diagnosis_pdf')
@@ -211,7 +193,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('Facial Skin Analysis Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'instant-normal')
+                        ->visible(fn($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'instant-normal')
                         ->action(function (Assessment $record) {
 
                             $data['patient'] = $record->user->toArray();
@@ -224,7 +206,7 @@ class AssessmentsTable
 
                             $html = view('pdf.facial.skin_analysis', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
@@ -233,7 +215,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name. '_facial_skin_analysis_report.pdf');
+                            }, $record->user->name . '_facial_skin_analysis_report.pdf');
                         }),
 
                     Action::make('visual_comparison_pdf')
@@ -251,8 +233,8 @@ class AssessmentsTable
                             $data['report_date'] = $record->created_at;
                             $data['reassessment'] = $record->post_diagnosis['reassessment'];
                             $data['counts'] = collect($data['reassessment'])
-                            ->pluck('result')
-                            ->countBy();
+                                ->pluck('result')
+                                ->countBy();
                             $assessmentImages = $record->images;
                             $postAssessmentImages = $record->post_images;
 
@@ -262,7 +244,7 @@ class AssessmentsTable
 
                             $html = view('pdf.facial.reassessment', $data)->render();
                             $mpdf = new Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
@@ -433,7 +415,7 @@ class AssessmentsTable
                         ->label('Treatment Plan PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
-                        ->visible(fn ($record) => $record->assessment_type === 'normal')
+                        ->visible(fn($record) => $record->assessment_type === 'normal')
                         ->action(function (Assessment $record) {
                             $data['patient'] = $record->user->toArray();
                             $data['patient']['name'] = $record->user->name;
@@ -449,7 +431,7 @@ class AssessmentsTable
 
                             $html = view('pdf.facial.treatment_protocol', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
@@ -457,19 +439,20 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name. '_treatment_plan.pdf');
+                            }, $record->user->name . '_treatment_plan.pdf');
                         }),
 
                     Action::make('download_treatment_plan')
                         ->label('Treatment Plan Json')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
-                        ->visible(fn ($record) =>
+                        ->visible(
+                            fn($record) =>
                             $record->assessment_type === 'normal' &&
                             Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
                         )
                         ->action(function ($record) {
-                            $name = $record->user->name. '_treatment_plan.json';
+                            $name = $record->user->name . '_treatment_plan.json';
                             $filePath = "treatment-plans/treatment_plans_#{$record->id}.json";
                             return response()->download(Storage::disk('files')->path($filePath), $name);
                         }),
@@ -520,7 +503,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Wellness Analysis Report')
-                        ->visible(fn ($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis && $record->diagnosis['iv_scoring_output'])
+                        ->visible(fn($record) => ($record->assessment_type === 'iv' || $record->assessment_type === 'instant-iv') && $record->diagnosis && $record->diagnosis['iv_scoring_output'])
                         ->action(function (Assessment $record) {
                             $labels = [
                                 'FENS' => 'Fluid & Electrolyte Need',
@@ -538,7 +521,7 @@ class AssessmentsTable
 
                             $iv_scors = collect($scores)->map(function ($value, $key) use ($labels, $what_it_means, $primary_signals_reviewed) {
                                 return [
-                                    'code'  => $key,
+                                    'code' => $key,
                                     'label' => $labels[$key] ?? null,
                                     'score' => $value,
                                     'what_it_means' => $what_it_means[$key] ?? null,
@@ -553,9 +536,9 @@ class AssessmentsTable
                             $data['iv_scors'] = $iv_scors;
                             $data['telemetry'] = $record->diagnosis['iv_scoring_output']['telemetry'] ?? null;
 
-                            $html  = view('pdf.iv.wellness-analysis-report', $data)->render();
+                            $html = view('pdf.iv.wellness-analysis-report', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
@@ -563,7 +546,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name.'_IV_Wellness_Analysis_Report.pdf');
+                            }, $record->user->name . '_IV_Wellness_Analysis_Report.pdf');
                         }),
 
                     Action::make('iv_recommendation_pdf')
@@ -571,7 +554,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Recommendation Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->iv_treatment_plan)
+                        ->visible(fn($record) => $record->assessment_type === 'iv' && $record->iv_treatment_plan)
                         ->action(function (Assessment $record) {
 
                             $data['patient'] = $record->user->toArray();
@@ -580,16 +563,16 @@ class AssessmentsTable
                             $data['report_date'] = $record->created_at;
                             $data['options'] = $record->iv_treatment_plan['treatment_generation_output']['options'];
 
-                            $html  = view('pdf.iv.iv-recommendation-report', $data)->render();
+                            $html = view('pdf.iv.iv-recommendation-report', $data)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
                             $mpdf->WriteHTML($html);
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name.'_IV_Recommendation_Report.pdf');
+                            }, $record->user->name . '_IV_Recommendation_Report.pdf');
                         }),
 
                     Action::make('iv_program_roadmap_pdf')
@@ -597,7 +580,7 @@ class AssessmentsTable
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
                         ->tooltip('IV Program Roadmap Report')
-                        ->visible(fn ($record) => $record->assessment_type === 'iv' && $record->iv_selected_option)
+                        ->visible(fn($record) => $record->assessment_type === 'iv' && $record->iv_selected_option)
                         ->action(function (Assessment $record) {
                             $selected_plan = $record->iv_selected_option;
 
@@ -631,10 +614,32 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name.'_IV_Program_Roadmap.pdf');
+                            }, $record->user->name . '_IV_Program_Roadmap.pdf');
                         }),
                 ])
-                ->icon('heroicon-o-arrow-down-tray'),
+                    ->icon('heroicon-o-arrow-down-tray'),
+
+                ActionGroup::make([
+                    Action::make('edit_assessment')
+                        ->label('Edit')
+                        ->icon('heroicon-o-pencil')
+                        ->color('primary')
+                        ->tooltip('Edit Assessment')
+                        ->action(function ($record) {
+                            $assessmentUrl = edit_assessment($record, $record);
+                            return redirect($assessmentUrl);
+                        })
+                        ->requiresConfirmation(),
+
+                    Action::make('treatment_sessions')
+                        ->label('Manage Treatment Sessions')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        // ->iconButton()
+                        ->color('primary')
+                        ->tooltip('Manage Treatment Sessions')
+                        ->url(fn($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record]))
+                        ->visible(fn($record) => $record->assessment_type === 'normal'),
+                ]),
             ])
             ->groups([
                 // Group::make('parent_id')
@@ -648,8 +653,8 @@ class AssessmentsTable
                 Group::make('clinic_id')
                     ->label('Clinic')
                     ->collapsible()
-                    ->getKeyFromRecordUsing(fn ($record) => $record->clinic_id ?? 'no_clinic')
-                    ->getTitleFromRecordUsing(fn ($record) => $record->clinic?->name ?? 'Unassigned'),
+                    ->getKeyFromRecordUsing(fn($record) => $record->clinic_id ?? 'no_clinic')
+                    ->getTitleFromRecordUsing(fn($record) => $record->clinic?->name ?? 'Unassigned'),
                 Group::make('status')->label('Status')->collapsible(),
                 Group::make('created_at')->date(),
             ])
@@ -660,6 +665,7 @@ class AssessmentsTable
                     RestoreBulkAction::make(),
                 ]),
             ])
-            ->emptyStateDescription('Once you create your first assessment, it will appear here.');;
+            ->emptyStateDescription('Once you create your first assessment, it will appear here.');
+        ;
     }
 }

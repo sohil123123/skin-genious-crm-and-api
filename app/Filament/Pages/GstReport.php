@@ -35,9 +35,9 @@ class GstReport extends Page implements HasTable, HasForms
 
     protected string $view = 'filament.pages.gst-report';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Finance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 19;
 
     protected static ?string $navigationLabel = 'GST Reports';
 

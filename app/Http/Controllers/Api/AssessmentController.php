@@ -360,7 +360,7 @@ class AssessmentController extends BaseApiController
     {
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,gif,webp',
-            'assessment_type' => 'required|in:pre,post'
+            'assessment_type' => 'required|in:pre,post,pigmentation-pre,pigmentation-post'
         ]);
 
         $apiKey = config('project.openai_api_key');
@@ -396,10 +396,18 @@ class AssessmentController extends BaseApiController
             $assessment->addMedia($image)
                 ->withCustomProperties(['openai_file_id' => $openaiFileId])
                 ->toMediaCollection('assessment_images', 'user_assessment_images');
-        } else {
+        } elseif ($request->assessment_type === 'pigmentation-pre') {
+            $assessment->addMedia($image)
+                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->toMediaCollection('pigmentation_pre_assessment_images', 'user_pigmentation_pre_assessment_images');
+        } elseif ($request->assessment_type === 'post') {
             $assessment->addMedia($image)
                 ->withCustomProperties(['openai_file_id' => $openaiFileId])
                 ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
+        } elseif ($request->assessment_type === 'pigmentation-post') {
+            $assessment->addMedia($image)
+                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->toMediaCollection('pigmentation_post_assessment_images', 'user_pigmentation_post_assessment_images');
         }
 
         $data = [

@@ -26,11 +26,11 @@ class ActivityLog extends Page implements HasTable
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
-    protected static string | UnitEnum | null $navigationGroup = 'Others';
+    protected static string|UnitEnum|null $navigationGroup = 'Others';
     // protected static ?string $navigationLabel = 'Others';
     protected static ?string $title = 'Activity Logs';
 
-    protected static ?int $navigationSort = 44;
+    protected static ?int $navigationSort = 24;
 
     protected string $view = 'filament.pages.activity-log';
 
@@ -49,7 +49,7 @@ class ActivityLog extends Page implements HasTable
                 TextColumn::make('description')
                     ->searchable()
                     ->badge()
-                    ->color(fn (Activity $record): string => match ($record->event) {
+                    ->color(fn(Activity $record): string => match ($record->event) {
                         'created' => 'success',
                         'updated' => 'warning',
                         'deleted' => 'danger',
@@ -61,7 +61,8 @@ class ActivityLog extends Page implements HasTable
                     ->label('Subject')
                     ->searchable()
                     ->formatStateUsing(function ($state, Activity $record) {
-                        if (!$state) return '-';
+                        if (!$state)
+                            return '-';
                         return class_basename($state) . ' #' . $record->subject_id;
                     }),
 
@@ -84,7 +85,7 @@ class ActivityLog extends Page implements HasTable
                     ]),
             ])
             ->filtersTriggerAction(
-                fn (Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
+                fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->actions([
                 ViewAction::make()
@@ -95,7 +96,8 @@ class ActivityLog extends Page implements HasTable
                                     TextEntry::make('subject_type')
                                         ->label('Subject')
                                         ->formatStateUsing(function ($state, Activity $record) {
-                                            if (!$state) return '-';
+                                            if (!$state)
+                                                return '-';
                                             return class_basename($state) . ' #' . $record->subject_id;
                                         }),
                                     TextEntry::make('description'),
@@ -105,19 +107,19 @@ class ActivityLog extends Page implements HasTable
                             ]),
 
                         Section::make('Changes')
-                            ->visible(fn ($record) => isset($record->properties['attributes']) && isset($record->properties['old']))
+                            ->visible(fn($record) => isset($record->properties['attributes']) && isset($record->properties['old']))
                             ->schema([
                                 KeyValue::make('properties.attributes')
                                     ->label('New Values')
                                     ->keyLabel('Field')
                                     ->valueLabel('Value')
-                                    ->visible(fn ($record) => isset($record->properties['attributes'])),
+                                    ->visible(fn($record) => isset($record->properties['attributes'])),
 
                                 KeyValue::make('properties.old')
                                     ->label('Old Values')
                                     ->keyLabel('Field')
                                     ->valueLabel('Value')
-                                    ->visible(fn ($record) => isset($record->properties['old'])),
+                                    ->visible(fn($record) => isset($record->properties['old'])),
                             ]),
 
                         // Section::make('Changes')
@@ -131,11 +133,11 @@ class ActivityLog extends Page implements HasTable
                         //     ->columns(3)
 
                         Section::make('Emergency Overrides')
-                            ->visible(fn ($record) => filled($record->properties['emergency_reason'] ?? null))
+                            ->visible(fn($record) => filled($record->properties['emergency_reason'] ?? null))
                             ->schema([
                                 RepeatableEntry::make('emergency_reason')
                                     ->label('Emergency Reasons')
-                                    ->getStateUsing(fn ($record) => $record->properties['emergency_reason'] ?? [])
+                                    ->getStateUsing(fn($record) => $record->properties['emergency_reason'] ?? [])
                                     ->schema([
                                         TextEntry::make('message')
                                             ->label('Message')
@@ -153,13 +155,13 @@ class ActivityLog extends Page implements HasTable
                                             ->label('Capacity')
                                             ->placeholder('-')
                                             ->numeric()
-                                            ->visible(fn ($state) => filled($state)),
+                                            ->visible(fn($state) => filled($state)),
 
                                         TextEntry::make('confirmed')
                                             ->label('Confirmed')
                                             ->placeholder('-')
                                             ->numeric()
-                                            ->visible(fn ($state) => filled($state)),
+                                            ->visible(fn($state) => filled($state)),
                                     ])
                                     ->columns(2),
                             ])

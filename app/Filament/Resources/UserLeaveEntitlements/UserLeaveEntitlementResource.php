@@ -23,11 +23,11 @@ class UserLeaveEntitlementResource extends Resource
 
     // protected static ?string $recordTitleAttribute = 'UserLeaveEntitlement';
 
-    protected static string | UnitEnum | null $navigationGroup = 'User Scheduling & Holidays';
+    protected static string|UnitEnum|null $navigationGroup = 'User Scheduling & Holidays';
 
     protected static ?string $navigationLabel = 'Leave Entitlement';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 16;
 
     public static function form(Schema $schema): Schema
     {
@@ -59,7 +59,7 @@ class UserLeaveEntitlementResource extends Resource
     {
         return parent::getEloquentQuery()
             ->when(!auth()->user()->hasRole(config('project.roles.super_admin', 'super_admin')), function ($query) {
-                $query->whereHas('user', fn ($q) => $q->where('clinic_id', auth()->user()->clinic_id));
+                $query->whereHas('user', fn($q) => $q->where('clinic_id', auth()->user()->clinic_id));
             });
     }
 }

@@ -82,8 +82,9 @@ class InvoicesTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('clinic.name')
                     ->badge()
-                    ->visible(fn() => check_role('super_admin'))
                     ->icon('heroicon-o-building-office')
+                    ->color('info')
+                    ->visible(fn() => check_role('super_admin'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('client.first_name')
@@ -393,7 +394,6 @@ class InvoicesTable
                             $pdfService = app(InvoicePdfService::class);
                             return $pdfService->download($record);
                         }),
-
                 ]),
 
             ])

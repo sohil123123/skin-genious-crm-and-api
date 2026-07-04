@@ -7,6 +7,7 @@ use App\Models\Purchase;
 use App\Services\PurchasePdfService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -17,6 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -28,9 +30,13 @@ class PurchasesTable
         return $table
             ->columns([
                 TextColumn::make('clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->icon('heroicon-o-building-office')
+                    ->color('info')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
                 TextColumn::make('supplier_name')
                     ->searchable(),
                 TextColumn::make('items_count')
@@ -40,10 +46,10 @@ class PurchasesTable
                     ->color('gray'),
                 TextColumn::make('items_summary')
                     ->label('Product Summary')
-                    ->state(fn (Purchase $record): string => $record->items->map(fn ($item) => "{$item->product->name} (x{$item->quantity})")->join(', '))
+                    ->state(fn(Purchase $record): string => $record->items->map(fn($item) => "{$item->product->name} (x{$item->quantity})")->join(', '))
                     ->limit(30)
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('items.product', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                        return $query->whereHas('items.product', fn($q) => $q->where('name', 'like', "%{$search}%"));
                     })
                     ->color('primary')
                     ->size('xs')
@@ -80,7 +86,7 @@ class PurchasesTable
                 TextColumn::make('status')
                     ->searchable()
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'Paid' => 'success',
                         'Partial' => 'warning',
                         'Unpaid' => 'danger',
@@ -96,7 +102,7 @@ class PurchasesTable
                     ->relationship('clinic', 'name')
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => auth()->user()->hasRole('super_admin')),
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
 
                 Filter::make('purchase_date')
                     ->form([
@@ -111,11 +117,11 @@ class PurchasesTable
                         return $query
                             ->when(
                                 $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('purchase_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('purchase_date', '>=', $date),
                             )
                             ->when(
                                 $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('purchase_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('purchase_date', '<=', $date),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -130,15 +136,18 @@ class PurchasesTable
                         }
                         return $indicators;
                     }),
-            ])
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary'))
+            ], layout: FiltersLayout::Modal)
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary'))
             ->recordActions([
-                EditAction::make(),
-                Action::make('download')
-                    ->label('Download PDF')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(fn (Purchase $record, PurchasePdfService $service) => $service->download($record)),
+                ActionGroup::make([
+                    EditAction::make(),
+                    Action::make('download')
+                        ->label('Download PDF')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->action(fn(Purchase $record, PurchasePdfService $service) => $service->download($record)),
+                ]),
+
             ])
             ->bulkActions([
                 BulkActionGroup::make([
