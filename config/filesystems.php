@@ -65,6 +65,24 @@ return [
             'report' => false,
         ],
 
+        'user_pigmentation_pre_assessment_images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/user_pigmentation_pre_assessment_images'),
+            'url' => env('APP_URL').'/storage/user_pigmentation_pre_assessment_images',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'user_pigmentation_post_assessment_images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/user_pigmentation_post_assessment_images'),
+            'url' => env('APP_URL').'/storage/user_pigmentation_post_assessment_images',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'files' => [
             'driver' => 'local',
             'root' => storage_path('app/public/files'),
