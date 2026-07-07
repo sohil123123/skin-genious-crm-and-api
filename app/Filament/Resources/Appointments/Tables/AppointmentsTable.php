@@ -462,7 +462,6 @@ class AppointmentsTable
                         ->visible(fn($record) => can_create_assessment($record))
                         ->icon('heroicon-o-plus')
                         ->color('info')
-                        ->button()
                         ->action(function ($record) {
                             $assessmentUrl = new_assessment($record->client, 'iv', $record);
                             return redirect($assessmentUrl);
@@ -473,9 +472,25 @@ class AppointmentsTable
                         ->visible(fn($record) => can_create_assessment($record))
                         ->icon('heroicon-o-plus')
                         ->color('info')
-                        ->button()
                         ->action(function ($record) {
                             $assessmentUrl = new_assessment($record->client, 'assessment', $record);
+                            return redirect($assessmentUrl);
+                        })
+                        ->requiresConfirmation(),
+                    Action::make('new_pigmentation_assessment')
+                        ->label('Create Pigmentation Assessment')
+                        ->visible(fn($record) => can_create_assessment($record))
+                        ->icon('heroicon-o-plus')
+                        ->color('info')
+                        ->action(function ($record) {
+                            $assessment = \App\Models\Assessment::create([
+                                'user_id' => $record->client->id,
+                                'assessment_type' => 'pigmentation',
+                                'status' => \App\Enums\AssessmentStatus::InProgress,
+                            ]);
+                            $record->update(['assessment_id' => $assessment->id]);
+                            $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
+                            $assessmentUrl .= '&assessment_id=' . $assessment->id;
                             return redirect($assessmentUrl);
                         })
                         ->requiresConfirmation(),
@@ -484,7 +499,6 @@ class AppointmentsTable
                         ->visible(fn($record) => can_start_session($record))
                         ->icon('heroicon-o-plus')
                         ->color('warning')
-                        ->button()
                         ->action(function ($record) {
                             $startSessionUrl = start_session($record);
                             return redirect($startSessionUrl);

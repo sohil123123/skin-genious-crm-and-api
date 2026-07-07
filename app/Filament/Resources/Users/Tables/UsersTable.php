@@ -209,27 +209,46 @@ class UsersTable
             // ])
             ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                Action::make('new_iv_assessment')
-                    ->label('New IV Assessment')
-                    ->visible(fn($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record, 'iv');
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                ActionGroup::make([
+                    Action::make('new_assessment')
+                        ->label('Facial Assessment')
+                        ->icon('heroicon-m-plus')
+                        ->action(function ($record) {
+                            $assessmentUrl = new_assessment($record);
+                            return redirect($assessmentUrl);
+                        })
+                        ->requiresConfirmation(),
 
-                Action::make('new_assessment')
-                    ->label('New Assessment')
-                    ->visible(fn($record) => $record->hasRole('client'))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record);
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                    Action::make('new_iv_assessment')
+                        ->label('IV Assessment')
+                        ->icon('heroicon-m-plus')
+                        ->action(function ($record) {
+                            $assessmentUrl = new_assessment($record, 'iv');
+                            return redirect($assessmentUrl);
+                        })
+                        ->requiresConfirmation(),
+
+                    Action::make('new_pigmentation_assessment')
+                        ->label('Pigmentation Assessment')
+                        ->icon('heroicon-m-plus')
+                        ->action(function ($record) {
+                            $assessment = \App\Models\Assessment::create([
+                                'user_id' => $record->id,
+                                'assessment_type' => 'pigmentation',
+                                'status' => \App\Enums\AssessmentStatus::InProgress,
+                            ]);
+                            $assessmentUrl = new_assessment($record, 'pigmentation');
+                            $assessmentUrl .= '&assessment_id=' . $assessment->id;
+                            return redirect($assessmentUrl);
+                        })
+                        ->requiresConfirmation(),
+                ])
+                ->label('Start Assessment')
+                ->icon('heroicon-o-document-plus')
+                ->color('info')
+                ->button()
+                ->visible(fn($record) => $record->hasRole('client')),
+
 
                 ActionGroup::make([
                     ViewAction::make(),

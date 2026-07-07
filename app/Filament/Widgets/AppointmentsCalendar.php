@@ -84,6 +84,25 @@ class AppointmentsCalendar extends FullCalendarWidget
                     })
                     ->requiresConfirmation(),
 
+            Action::make('new_pigmentation_assessment')
+                    ->label('Create Pigmentation Assessment')
+                    ->visible(fn ($record) => can_create_assessment($record))
+                    ->icon('heroicon-o-plus')
+                    ->color('info')
+                    ->button()
+                    ->action(function ($record) {
+                        $assessment = \App\Models\Assessment::create([
+                            'user_id' => $record->client->id,
+                            'assessment_type' => 'pigmentation',
+                            'status' => \App\Enums\AssessmentStatus::InProgress,
+                        ]);
+                        $record->update(['assessment_id' => $assessment->id]);
+                        $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
+                        $assessmentUrl .= '&assessment_id=' . $assessment->id;
+                        return redirect($assessmentUrl);
+                    })
+                    ->requiresConfirmation(),
+
             // 🔹 Start Treatment Session
             Action::make('start_session')
                 ->label('Start Session')
