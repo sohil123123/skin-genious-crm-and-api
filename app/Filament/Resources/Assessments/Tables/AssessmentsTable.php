@@ -73,6 +73,7 @@ class AssessmentsTable
                         'iv' => 'info',
                         'instant-normal' => 'warning',
                         'instant-iv' => 'primary',
+                        'pigmentation' => 'success',
                         default => 'info',
                     })
                     ->formatStateUsing(fn($state) => match ($state) {
@@ -80,7 +81,7 @@ class AssessmentsTable
                         'iv' => 'IV',
                         'instant-normal' => 'Instant Facial',
                         'instant-iv' => 'Instant IV',
-                        default => '-',
+                        default => $state ? ucfirst(str_replace(['-', '_'], ' ', $state)) : '-',
                     }),
                 TextColumn::make('selected_plan_type')->label('Selected Plan')->badge()->placeholder('-'),
                 // TextColumn::make('total_time')->searchable()->placeholder('-'),

@@ -57,7 +57,7 @@ class TreatmentSessionsRelationManager extends RelationManager
                     ->collapsible()
                     ->icon('heroicon-o-sparkles')
                     ->schema(function ($record) {
-                        $isIv = $record->assessment && !in_array($record->assessment->assessment_type, ['normal', 'instant-normal']);
+                        $isIv = $record->assessment && in_array($record->assessment->assessment_type, ['iv', 'instant-iv']);
 
                         if ($isIv) {
                             return [
@@ -137,10 +137,25 @@ class TreatmentSessionsRelationManager extends RelationManager
                             ];
                         }
 
+                        $isStructured = false;
+                        if ($record->steps && is_array($record->steps) && count($record->steps) > 0) {
+                            $first = $record->steps[0];
+                            if (is_array($first) && (isset($first['how_to_do']) || isset($first['step_number']))) {
+                                $isStructured = true;
+                            }
+                        }
+
+                        $isStructuredRoutine = false;
+                        if ($record->daily_home_care_routine && is_array($record->daily_home_care_routine)) {
+                            if (isset($record->daily_home_care_routine['morning']) || isset($record->daily_home_care_routine['evening'])) {
+                                $isStructuredRoutine = true;
+                            }
+                        }
+
                         return [
                             Tabs::make('Treatment Details')->tabs([
                                 // 🧰 Therapist Preparation
-                                Tab::make('Therapist Checklist Checklist')
+                                Tab::make('Therapist Checklist')
                                     ->icon('heroicon-o-user')
                                     ->schema([
                                         ViewEntry::make('preparations_checklist_for_therapist')
@@ -152,60 +167,120 @@ class TreatmentSessionsRelationManager extends RelationManager
                                 // 💆 Concerns Addressed
                                 Tab::make('Concerns')
                                     ->icon('heroicon-o-heart')
-                                    ->schema([
-                                        RepeatableEntry::make('concerns_addressed')
-                                            ->label('Concerns Addressed')
-                                            ->columns(3)
-                                            ->schema([
-                                                TextEntry::make('concern')
-                                                    ->label('Concern')
-                                                    ->color('primary')
-                                                    ->weight('bold'),
+                                    ->schema(
+                                        $isStructured
+                                            ? [
+                                                RepeatableEntry::make('concerns_addressed')
+                                                    ->label('Concerns Addressed')
+                                                    ->columns(3)
+                                                    ->schema([
+                                                        TextEntry::make('concern')
+                                                            ->label('Concern')
+                                                            ->color('primary')
+                                                            ->weight('bold'),
 
-                                                TextEntry::make('current_value')
-                                                    ->label('Current Value')
-                                                    ->icon('heroicon-o-arrow-trending-down')
-                                                    ->color('danger')
-                                                    ->placeholder('—'),
+                                                        TextEntry::make('current_value')
+                                                            ->label('Current Value')
+                                                            ->icon('heroicon-o-arrow-trending-down')
+                                                            ->color('danger')
+                                                            ->placeholder('—'),
 
-                                                TextEntry::make('target_value')
-                                                    ->label('Target Value')
-                                                    ->icon('heroicon-o-arrow-trending-up')
-                                                    ->color('success')
-                                                    ->placeholder('—'),
-                                            ])
-                                            ->placeholder('No concerns listed.')
-                                            ->columnSpanFull(),
-                                    ]),
+                                                        TextEntry::make('target_value')
+                                                            ->label('Target Value')
+                                                            ->icon('heroicon-o-arrow-trending-up')
+                                                            ->color('success')
+                                                            ->placeholder('—'),
+                                                    ])
+                                                    ->placeholder('No concerns listed.')
+                                                    ->columnSpanFull(),
+                                            ]
+                                            : [
+                                                TextEntry::make('concerns_addressed')
+                                                    ->label('Concerns Addressed')
+                                                    ->listWithLineBreaks()
+                                                    ->bulleted()
+                                                    ->placeholder('—')
+                                                    ->columnSpanFull(),
+                                            ]
+                                    ),
 
                                 // ⚙️ Treatment Steps
                                 Tab::make('Steps')
                                     ->icon('heroicon-o-clipboard-document-check')
-                                    ->schema([
-                                        RepeatableEntry::make('steps')
-                                            ->label('Treatment Steps')
-                                            ->columns(4)
-                                            ->schema([
-                                                TextEntry::make('step_number')
-                                                    ->label('Step #')
-                                                    ->badge()
-                                                    ->color('primary'),
+                                    ->schema(
+                                        $isStructured
+                                            ? [
+                                                RepeatableEntry::make('steps')
+                                                    ->label('Treatment Steps')
+                                                    ->columns(4)
+                                                    ->schema([
+                                                        TextEntry::make('step_number')
+                                                            ->label('Step #')
+                                                            ->badge()
+                                                            ->color('primary'),
 
-                                                TextEntry::make('duration')
-                                                    ->label('Duration')
-                                                    ->suffix(' mins'),
+                                                        TextEntry::make('duration')
+                                                            ->label('Duration')
+                                                            ->suffix(' mins'),
 
-                                                TextEntry::make('ingredients_equipments')
-                                                    ->label('Ingredients & Equipments')
-                                                    ->columnSpan(2),
+                                                        TextEntry::make('ingredients_equipments')
+                                                            ->label('Ingredients & Equipments')
+                                                            ->columnSpan(2),
 
-                                                TextEntry::make('how_to_do')
-                                                    ->label('How To Do')
-                                                    ->columnSpanFull()
-                                                    ->markdown()
+                                                        TextEntry::make('how_to_do')
+                                                            ->label('How To Do')
+                                                            ->columnSpanFull()
+                                                            ->markdown()
+                                                            ->placeholder('—'),
+                                                    ])
+                                                    ->placeholder('No treatment steps listed.')
+                                                    ->columnSpanFull(),
+                                            ]
+                                            : [
+                                                TextEntry::make('steps')
+                                                    ->label('Treatment Steps')
+                                                    ->listWithLineBreaks()
+                                                    ->bulleted()
+                                                    ->placeholder('—')
+                                                    ->columnSpanFull(),
+                                            ]
+                                    ),
+
+                                // 🏡 Daily Home Care Routine
+                                Tab::make('Home Care Routine')
+                                    ->icon('heroicon-o-home')
+                                    ->schema(
+                                        $isStructuredRoutine
+                                            ? [
+                                                TextEntry::make('daily_home_care_routine.morning')
+                                                    ->label('Morning Routine')
+                                                    ->listWithLineBreaks()
+                                                    ->bulleted()
                                                     ->placeholder('—'),
-                                            ])
-                                            ->placeholder('No treatment steps listed.')
+                                                TextEntry::make('daily_home_care_routine.evening')
+                                                    ->label('Evening Routine')
+                                                    ->listWithLineBreaks()
+                                                    ->bulleted()
+                                                    ->placeholder('—'),
+                                            ]
+                                            : [
+                                                TextEntry::make('daily_home_care_routine')
+                                                    ->label('Home Care Instructions')
+                                                    ->listWithLineBreaks()
+                                                    ->bulleted()
+                                                    ->placeholder('—')
+                                                    ->columnSpanFull(),
+                                            ]
+                                    ),
+
+                                // 🎙️ Therapist Audio Script
+                                Tab::make('Audio Script')
+                                    ->icon('heroicon-o-microphone')
+                                    ->schema([
+                                        TextEntry::make('audio_text')
+                                            ->label('Voiceover Script')
+                                            ->placeholder('—')
+                                            ->markdown()
                                             ->columnSpanFull(),
                                     ]),
                             ]),

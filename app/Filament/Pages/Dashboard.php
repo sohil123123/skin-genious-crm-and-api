@@ -25,14 +25,7 @@ class Dashboard extends BaseDashboard
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('test_pigmentation')
-                ->label('Test Pigmentation Assessment')
-                ->color('warning')
-                ->icon('heroicon-o-sparkles')
-                ->url(fn () => new_assessment(Auth::user(), 'pigmentation-assessment'))
-                ->openUrlInNewTab(),
-        ];
+        return [];
     }
 
     // protected string $view = 'filament.pages.dashboard';
