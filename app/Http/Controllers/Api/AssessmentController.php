@@ -56,7 +56,7 @@ class AssessmentController extends BaseApiController
         unset($update_input['treatment_plans']);
         $update_input['total_time'] = $request->treatment_plans['treatment_plans']['total_time'] ?? NULL;
 
-        if($request->has('selected_plan_type') && $request->selected_plan_type == 'single'){
+        if($request->has('selected_plan_type') && ($request->selected_plan_type == 'single' || $request->selected_plan_type == 'multiple')){
             $update_input['recommended_full_plan'] = !empty($request->treatment_plans['recommended_full_plan']) ? $request->treatment_plans['recommended_full_plan'] : NULL;
         }
 
@@ -360,7 +360,8 @@ class AssessmentController extends BaseApiController
     {
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,gif,webp',
-            'assessment_type' => 'required|in:pre,post,pigmentation-pre,pigmentation-post'
+            'assessment_type' => 'required|in:pre,post,pigmentation-pre,pigmentation-post',
+            'mode' => 'nullable|string'
         ]);
 
         $apiKey = config('project.openai_api_key');
@@ -394,19 +395,19 @@ class AssessmentController extends BaseApiController
         // Save media (your existing logic)
         if ($request->assessment_type === 'pre') {
             $assessment->addMedia($image)
-                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
                 ->toMediaCollection('assessment_images', 'user_assessment_images');
         } elseif ($request->assessment_type === 'pigmentation-pre') {
             $assessment->addMedia($image)
-                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
                 ->toMediaCollection('pigmentation_pre_assessment_images', 'user_pigmentation_pre_assessment_images');
         } elseif ($request->assessment_type === 'post') {
             $assessment->addMedia($image)
-                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
                 ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
         } elseif ($request->assessment_type === 'pigmentation-post') {
             $assessment->addMedia($image)
-                ->withCustomProperties(['openai_file_id' => $openaiFileId])
+                ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
                 ->toMediaCollection('pigmentation_post_assessment_images', 'user_pigmentation_post_assessment_images');
         }
 
