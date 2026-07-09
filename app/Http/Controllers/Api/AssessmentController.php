@@ -63,7 +63,7 @@ class AssessmentController extends BaseApiController
         $assessment->update($update_input);
 
         // Update therapist_id for the associated appointments if therapist_id is provided in the request
-        if ($request->has('therapist_id')) {
+        if ($request->filled('therapist_id')) {
             $treatmentSessions = $assessment->treatmentSessions['treatments'][0];
             if($treatmentSessions){
                 \App\Models\Appointment::where('assessment_id', $assessment->id)

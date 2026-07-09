@@ -325,4 +325,89 @@ class ReportController extends BaseApiController
             'Content-Disposition' => 'inline; filename="daily_homecare_routine.pdf"',
         ]);
     }
+
+    // ─────────────────────────────────────────────
+    //  10. Pigmentation Diagnosis Report
+    // ─────────────────────────────────────────────
+    public function downloadPigmentationDiagnosis($id)
+    {
+        $record = Assessment::findOrFail($id);
+
+        $html = view('pdf.pigmentation.diagnosis', ['record' => $record])->render();
+
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $mpdf->showImageErrors = true;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('diagnosis-report.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="diagnosis-report.pdf"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  11. Pigmentation Treatment Plan Report
+    // ─────────────────────────────────────────────
+    public function downloadPigmentationTreatmentPlan($id)
+    {
+        $record = Assessment::findOrFail($id);
+
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $mpdf->SetTitle('Treatment Plan');
+
+        $html = view('pdf.pigmentation.treatment-plan', [
+            'client' => [
+                'name' => $record->user->name,
+                'age' => $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A',
+                'gender' => $record->user->gender,
+                'clinic' => $record->clinic->name ?? 'Main Clinic',
+            ],
+            'summary' => [
+                'duration' => $record->total_time,
+                'total_sessions' => count($record->treatmentSessions['treatments'] ?? []),
+            ],
+            'sessions' => $record->treatmentSessions,
+        ])->render();
+
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('treatment-plan.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="treatment-plan.pdf"',
+        ]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  12. Pigmentation Reassessment (Post-Diagnosis) Report
+    // ─────────────────────────────────────────────
+    public function downloadPigmentationPostDiagnosis($id)
+    {
+        $record = Assessment::findOrFail($id);
+
+        $data['patient'] = $record->user;
+        $data['post_diagnosis'] = $record->post_diagnosis;
+        $data['record'] = $record;
+
+        $html = view('pdf.pigmentation.post-treatment', $data)->render();
+        
+        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($html);
+
+        return response($mpdf->Output('post-treatment-comparison.pdf', 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="post-treatment-comparison.pdf"',
+        ]);
+    }
 }
