@@ -72,10 +72,15 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         Route::post('/treatment-sessions/{treatmentSession}/iv-prep-data', [TreatmentSessionController::class, 'saveIvPrepData']);
         Route::post('/treatment-sessions/status/{treatmentSession}', [TreatmentSessionController::class, 'updateStatus']);
+        Route::post('/treatment-sessions/{treatmentSession}/images', [TreatmentSessionController::class, 'storeImage']);
+        Route::delete('/treatment-sessions/{treatmentSession}/images/{media}', [TreatmentSessionController::class, 'deleteImage']);
+        Route::delete('/treatment-sessions/{treatmentSession}/images', [TreatmentSessionController::class, 'deleteAllImage']);
+        Route::post('/treatment-sessions/{treatmentSession}/post-assessment', [TreatmentSessionController::class, 'savePostAssessment']);
 
         // INFO: Download Report
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
         Route::get('download-homecare-routine/{assessment_id}/{session_id}', [ReportController::class, 'downloadHomeCareRoutine'])->name('download-homecare-routine');
+        Route::get('download-client-journey/{assessment_id}', [ReportController::class, 'downloadClientJourney'])->name('download-client-journey');
 
         Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
