@@ -424,7 +424,7 @@
             <tr>
                 <td width="48%" align="center" class="comparison-col">
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px;">
-                       <tr><td class="label-before"><span class="label-index-before">01.</span> BEFORE <span class="label-sub">Baseline</span></td></tr>
+                       <tr><td class="label-before"><span class="label-index-before">01.</span> BEFORE <span class="label-sub">{{ (isset($compare_to) && $compare_to === 'baseline') ? 'Baseline' : 'Prev. Session' }}</span></td></tr>
                     </table>
                     <div class="image-frame-before">
                         <img src="{{ $beforeImageUrl ?: public_path('images/no-image.jpg') }}" class="comparison-image" style="border-radius: 8px;">
