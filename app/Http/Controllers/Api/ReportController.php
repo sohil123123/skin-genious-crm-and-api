@@ -395,6 +395,10 @@ class ReportController extends BaseApiController
         $data['patient'] = $record->user;
         $data['post_diagnosis'] = $record->post_diagnosis;
         $data['record'] = $record;
+        $data['assessmentImages'] = $record->images;
+        $data['postAssessmentImages'] = $record->post_images;
+        $data['compareRecord'] = null;
+        $data['compare_type'] = 'baseline';
 
         $html = view('pdf.pigmentation.post-treatment', $data)->render();
         

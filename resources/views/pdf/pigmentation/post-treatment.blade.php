@@ -112,6 +112,35 @@
         margin-right: 5px;
         display: inline-block;
     }
+
+    /* ─── Image Comparison ─── */
+    .image-frame-before {
+        border: 1px solid #E2E8F0;
+        padding: 5px;
+        background: #FFFFFF;
+        border-radius: 6px;
+    }
+    .image-frame-after {
+        border: 1px solid #C29F5D;
+        padding: 5px;
+        background: #FFFFFF;
+        border-radius: 6px;
+    }
+    .comparison-image {
+        width: 100%;
+        display: block;
+        border-radius: 4px;
+    }
+    .comparison-divider {
+        width: 1px;
+        height: 180px;
+        background-color: #E2E8F0;
+        margin: 0 auto;
+    }
+    .comparison-wrapper {
+        margin-top: 20px;
+        page-break-inside: avoid;
+    }
 </style>
 
 @php
@@ -399,6 +428,93 @@
     <div style="font-size: 10px; color: #888888; font-style: italic; margin-top: 30px;">
         * {{ $reassessment['disclaimer'] }}
     </div>
+    @endif
+
+    {{-- ── Comparative Scans ── --}}
+    @php
+        $imageOrder = config('project.assessment_image_order_5');
+
+        // Create image maps using custom properties 'mode' or name
+        $assessmentImageMap = [];
+        if (isset($assessmentImages)) {
+            foreach ($assessmentImages as $img) {
+                $mode = $img['custom_properties']['mode'] ?? $img['name'];
+                $assessmentImageMap[$mode] = $img['url'];
+            }
+        }
+
+        $postAssessmentImageMap = [];
+        if (isset($postAssessmentImages)) {
+            foreach ($postAssessmentImages as $img) {
+                $mode = $img['custom_properties']['mode'] ?? $img['name'];
+                $postAssessmentImageMap[$mode] = $img['url'];
+            }
+        }
+
+        // Prepare image pages data
+        $imagePages = [];
+        foreach ($imageOrder as $imageType) {
+            $beforeImageUrl = $assessmentImageMap[$imageType] ?? null;
+            $afterImageUrl = $postAssessmentImageMap[$imageType] ?? null;
+
+            if ($beforeImageUrl || $afterImageUrl) {
+                $imagePages[$imageType] = [
+                    'before_image' => $beforeImageUrl,
+                    'after_image' => $afterImageUrl,
+                ];
+            }
+        }
+    @endphp
+
+    @if(count($imagePages) > 0)
+        @foreach($imagePages as $imageType => $imageData)
+            @php
+                $beforeImageUrl = $imageData['before_image'] ?? null;
+                $afterImageUrl = $imageData['after_image'] ?? null;
+            @endphp
+
+            <pagebreak page-selector="report_content" />
+
+            <div class="comparison-wrapper" style="margin-top: 20px;">
+                <div style="background-color: #0E2B5C; color: white; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px; text-align: center; margin-bottom: 20px;">
+                    {{ str_replace('_', ' ', strtoupper($imageType)) }} LIGHT
+                </div>
+
+                <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td width="48%" align="center" style="vertical-align: top;">
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
+                                <tr>
+                                    <td style="font-weight: bold; color: #4A5568; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        01. BEFORE ({{ isset($compare_type) && $compare_type === 'baseline' ? 'Baseline' : 'Previous Session' }})
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="image-frame-before">
+                                <img src="{{ $beforeImageUrl ?: public_path('images/no-image.jpg') }}" class="comparison-image">
+                            </div>
+                        </td>
+
+                        <td width="4%" align="center" style="vertical-align: middle;">
+                            <div class="comparison-divider"></div>
+                        </td>
+
+                        <td width="48%" align="center" style="vertical-align: top;">
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
+                                <tr>
+                                    <td style="font-weight: bold; color: #C29F5D; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        02. AFTER (Current Session)
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="image-frame-after">
+                                <img src="{{ $afterImageUrl ?: public_path('images/no-image.jpg') }}" class="comparison-image">
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        @endforeach
     @endif
 </div>
 

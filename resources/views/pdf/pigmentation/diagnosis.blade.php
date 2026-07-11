@@ -19,11 +19,11 @@
     }
 
     .overview-text {
-        font-size: 14px;
+        font-size: 12px;
         color: #4A5568;
         line-height: 1.5;
         text-align: justify;
-        margin-bottom: 30px;
+        margin-bottom: 25px;
         padding: 0 5px;
     }
 
@@ -51,6 +51,7 @@
         border-radius: 12px;
         padding: 20px;
         margin-top: 10px;
+        page-break-inside: avoid;
     }
     .section-header {
         background: #0E2B5C;
@@ -93,22 +94,18 @@
 @php
     $patient = $record->user;
     $diagnosis = $record->diagnosis ?? [];
+
     $impression = $diagnosis['working_impression'] ?? [];
-    $scores = $diagnosis['scores'] ?? [];
-    
-    $primaryDx = $diagnosis['differential']['primary']['dx'] ?? $impression['primary_category'] ?? $impression['primary_impression'] ?? 'N/A';
+    $primaryDx = $impression['primary_category'] ?? 'N/A';
     $primaryDxLabel = ucwords(str_replace('_', ' ', $primaryDx));
-    
-    $confidence = $diagnosis['differential']['primary']['confidence'] ?? $impression['primary_confidence_100'] ?? 80;
-    $pigmentationType = $diagnosis['depth_assessment']['verdict'] ?? $impression['pigmentation_type'] ?? 'N/A';
-    
-    $melaninIndex = $scores['melanin_load_index'] ?? $scores['melanin_index'] ?? '—';
-    $erythemaIndex = $scores['erythema_load_index'] ?? $scores['erythema_index'] ?? '—';
-    
+    $confidence = $impression['primary_confidence_100'] ?? 0;
+
+    $profile = $diagnosis['pigmentation_profile'] ?? [];
+    $regional = $diagnosis['regional_interpretation'] ?? [];
+    $summaries = $diagnosis['summaries'] ?? [];
+
     $age = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
     $gender = $patient->gender ? strtoupper(substr($patient->gender, 0, 1)) : 'N/A';
-    
-    $alternatives = $diagnosis['differential']['alternatives'] ?? $diagnosis['differential_diagnosis'] ?? [];
 @endphp
 
 <pagebreak page-selector="report_content" />
@@ -157,207 +154,280 @@
         </tr>
     </table>
 
-    {{-- ── Assessment Overview ── --}}
-    <table class="section-title-table" cellpadding="0" cellspacing="0">
-        <tr>
-            <td class="section-title">ASSESSMENT OVERVIEW</td>
-        </tr>
-    </table>
-
-    <div class="overview-text">
-        {!! preg_replace('/\*\*(.*?)\*\*/', '<b>$1</b>', e($diagnosis['clinical_summary_for_doctor'] ?? 'N/A')) !!}
-    </div>
-
-    {{-- ── Clinical Metrics Table ── --}}
-    <table class="section-title-table" cellpadding="0" cellspacing="0">
-        <tr>
-            <td class="section-title">CLINICAL METRICS & SEVERITY INDICES</td>
-        </tr>
-    </table>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px; border: 1px solid #E2E8F0; border-collapse: collapse; margin-bottom: 30px;">
-        <thead>
-            <tr style="color: #0E2B5C;">
-                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Parameter name</th>
-                <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Value / Score</th>
-                <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D;">Interpretation</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr style="background-color: #FFFFFF;">
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Melanin Index</td>
-                <td align="center" style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px;">{{ $melaninIndex }}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; font-size: 11px; color: #4A5568;">Measures overall pigment distribution and melanin load density on scanning.</td>
-            </tr>
-            <tr style="background-color: #F8FAFC;">
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Erythema Index</td>
-                <td align="center" style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px;">{{ $erythemaIndex }}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; font-size: 11px; color: #4A5568;">Measures micro-vascular redness or baseline inflammation in skin regions.</td>
-            </tr>
-            <tr style="background-color: #FFFFFF;">
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Wood's Lamp Accentuation</td>
-                <td align="center" style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px;">{{ !empty($scores['wood_lamp_accentuation']) && $scores['wood_lamp_accentuation'] === 'accentuated' ? 'Accentuated' : 'Not Accentuated' }}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; font-size: 11px; color: #4A5568;">Accentuation implies epidermal depth; non-accentuation suggests mixed or dermal depth.</td>
-            </tr>
-            <tr style="background-color: #F8FAFC;">
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Dermis Involvement</td>
-                <td align="center" style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 14px;">{{ !empty($scores['dermis_involvement']) && ($scores['dermis_involvement'] === 'yes' || $scores['dermis_involvement'] === true) ? 'Yes' : 'No' }}</td>
-                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; font-size: 11px; color: #4A5568;">Indicates presence of deep dermal pigment components, affecting treatment selection.</td>
-            </tr>
-        </tbody>
-    </table>
-
-    <pagebreak />
-
     {{-- ── Clinical Working Impression ── --}}
-    <div class="section-header">
-        PRIMARY IMPRESSION: {{ $primaryDxLabel }}
-    </div>
-
-    <!-- Card -->
-    <div class="section-card">
-
-        <!-- Description -->
-        <div class="section-label">DIAGNOSIS OVERVIEW</div>
-        <div class="section-text" style="margin-bottom: 20px;">
-            This primary diagnosis represents the dominant clinical impression based on AI-assisted scan indices and patient anamnesis.
-        </div>
-
-        <table width="100%">
+    <!-- <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">WORKING IMPRESSION</td>
+        </tr>
+    </table>
+    <div class="section-card" style="margin-bottom: 25px; padding: 15px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-
-                <!-- LEFT -->
-                <td width="45%" valign="top">
-                    <table>
-                        <tr>
-                            <td style="padding-bottom: 10px;">
-                                <div class="section-label">CONFIDENCE SCORE</div>
-                            </td>
-                        </tr>
-                    </table>
-                    <table class="score-circle" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+                <td width="70%" valign="top">
+                    <div style="font-size: 15px; font-weight: bold; color: #0E2B5C; text-transform: uppercase;">
+                        {{ $primaryDxLabel }}
+                    </div>
+                    <div style="font-size: 11px; color: #718096; margin-top: 5px;">
+                        Working Category (Not final diagnosis)
+                    </div>
+                </td>
+                <td width="30%" align="right" valign="top">
+                    <table class="score-circle" cellpadding="0" cellspacing="0" style="display: inline-block;">
                         <tr>
                             <td align="center" valign="middle">
-                                <div class="score-inner">
+                                <div class="score-inner" style="font-size: 20px;">
                                     {{ $confidence }}%
                                 </div>
                             </td>
                         </tr>
                     </table>
-
-                    <div style="margin-top:20px;">
-                        <table>
-                            <tr>
-                                <td style="padding-bottom: 10px;">
-                                    <div class="section-label">PIGMENTATION SCAN</div>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <div class="img-box">
-                            @php
-                                $sortedImages = collect($record->images ?? []);
-                                $firstImg = $sortedImages->first();
-                            @endphp
-
-                            @if($firstImg && !empty($firstImg['url']))
-                                <img src="{{ $firstImg['url'] }}" style="width: 25%;">
-                            @else
-                                <div style="padding: 30px; color:#999;">NO IMAGE</div>
-                            @endif
-                        </div>
+                    <div style="font-size: 9px; color: #718096; text-transform: uppercase; font-weight: bold; text-align: right; margin-top: 4px; margin-right: 10px;">
+                        Confidence
                     </div>
-
                 </td>
-
-                <!-- DIVIDER -->
-                <td width="5%" class="divider"></td>
-
-                <!-- RIGHT -->
-                <td width="50%" valign="top">
-
-                    <table>
-                        <tr>
-                            <td style="padding-bottom: 5px;"><div class="section-label" style="margin-top: 20px;">PIGMENTATION DEPTH</div></td>
-                        </tr>
-                        <tr>
-                            <td style="padding-bottom: 10px;"><div class="section-text" style="margin-bottom: 20px; font-weight: bold; color: #0E2B5C;">{{ ucfirst($pigmentationType) }} Depth</div></td>
-                        </tr>
-
-                        @if(!empty($impression['clinical_pathway']))
-                            <tr>
-                                <td style="padding-bottom: 5px;"><div class="section-label" style="margin-top: 20px;">CLINICAL PATHWAY</div></td>
-                            </tr>
-                            <tr>
-                                <td style="padding-bottom: 10px;"><div class="section-text" style="margin-bottom: 20px;">{{ $impression['clinical_pathway'] }}</div></td>
-                            </tr>
-                        @endif
-
-                        @if(!empty($impression['pathophysiology_explanation']))
-                            <tr>
-                                <td style="padding-bottom: 5px;"><div class="section-label" style="margin-top: 20px;">PATHOPHYSIOLOGY EXPLANATION</div></td>
-                            </tr>
-                            <tr>
-                                <td style="padding-bottom: 10px;"><div class="section-text" style="margin-bottom: 20px;">{{ $impression['pathophysiology_explanation'] }}</div></td>
-                            </tr>
-                        @endif
-                    </table>
-                </td>
-
             </tr>
         </table>
+    </div> -->
 
+    {{-- ── Clinical Profiles Table & Depth ── --}}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px; page-break-inside: avoid;">
+        <tr>
+            <td width="48%" valign="top">
+                <table class="section-title-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="section-title">CLINICAL METRICS</td>
+                    </tr>
+                </table>
+                <table width="100%" style="border: 1px solid #E2E8F0; border-collapse: collapse;">
+                    <tr style="background-color: #F8FAFC;">
+                        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Melanin Load Index</td>
+                        <td align="right" style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 12px;">{{ $profile['melanin_load_index'] ?? 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Erythema Load Index</td>
+                        <td align="right" style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 12px;">{{ $profile['erythema_load_index'] ?? 'N/A' }}</td>
+                    </tr>
+                    <tr style="background-color: #F8FAFC;">
+                        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Melanin Percent</td>
+                        <td align="right" style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 12px;">{{ $profile['composition']['melanin_percent'] ?? 'N/A' }}%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold; color: #0E2B5C; font-size: 11px;">Vascular Percent</td>
+                        <td align="right" style="padding: 8px; font-weight: bold; color: #0E2B5C; font-size: 12px;">{{ $profile['composition']['vascular_percent'] ?? 'N/A' }}%</td>
+                    </tr>
+                </table>
+            </td>
+            <td width="4%"></td>
+            <td width="48%" valign="top">
+                <table class="section-title-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="section-title">SKIN PHOTOTYPE & DEPTH</td>
+                    </tr>
+                </table>
+                <table width="100%" style="border: 1px solid #E2E8F0; border-collapse: collapse; margin-bottom: 10px;">
+                    <tr style="background-color: #F8FAFC;">
+                        <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">Fitzpatrick Type</td>
+                        <td align="right" style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">{{ $profile['estimated_fitzpatrick']['patient_display'] ?? 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold; color: #0E2B5C; font-size: 11px;">Estimated Depth</td>
+                        <td align="right" style="padding: 8px; font-weight: bold; color: #0E2B5C; font-size: 11px;">{{ $profile['estimated_depth']['patient_label'] ?? 'N/A' }}</td>
+                    </tr>
+                </table>
+                <div style="font-size: 10px; color: #4A5568; line-height: 1.4; text-align: justify; font-style: italic;">
+                    <b>Depth Explanation:</b> {{ $profile['estimated_depth']['patient_explanation'] ?? '' }}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    {{-- ── Doctor clinical impression summary ── --}}
+    <div style="page-break-inside: avoid;">
+        <table class="section-title-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="section-title">CLINICAL SUMMARY (DOCTOR-FACING)</td>
+            </tr>
+        </table>
+        <div style="font-size: 11px; color: #2D3748; line-height: 1.5; text-align: justify; margin-bottom: 25px; border-left: 3px solid #0E2B5C; padding-left: 10px;">
+            {!! preg_replace('/\*\*(.*?)\*\*/', '<b>$1</b>', e($summaries['clinical_summary_for_doctor'] ?? 'N/A')) !!}
+        </div>
     </div>
 
-    {{-- ── Differential Diagnosis Considerations ── --}}
-    @if(!empty($alternatives) && count($alternatives) > 0)
-        <pagebreak />
-        <div class="section-header">
-            DIFFERENTIAL DIAGNOSIS CONSIDERATIONS
+    {{-- ── Patient-Facing summary ── --}}
+    <div style="page-break-inside: avoid;">
+        <table class="section-title-table" cellpadding="0" cellspacing="0">
+            <tr>
+                <td class="section-title">SUMMARY FOR THE PATIENT</td>
+            </tr>
+        </table>
+        <div class="overview-text" style="margin-bottom: 10px;">
+            {{ $summaries['patient_summary'] ?? 'N/A' }}
         </div>
-        <div class="section-card">
-            <div class="section-label">ALTERNATIVE DIAGNOSES ELIMINATED OR UNDER REVIEW</div>
-            <div class="section-text" style="margin-bottom: 20px;">
-                The following conditions were evaluated as part of the differential analysis framework:
-            </div>
-            
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px; border: 1px solid #E2E8F0; border-collapse: collapse;">
-                <thead>
-                    <tr style="color: #0E2B5C;">
-                        <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Condition</th>
-                        <th align="center" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0;">Likelihood</th>
-                        <th align="left" style="padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #C29F5D;">Clinical Basis / Rationale</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($alternatives as $diff)
-                        @if(is_array($diff))
-                            @php
-                                $dxName = $diff['dx'] ?? $diff['name'] ?? $diff['condition_name'] ?? 'N/A';
-                                $dxLabel = ucwords(str_replace('_', ' ', $dxName));
-                                $likelihood = $diff['likelihood'] ?? '—';
-                                $basis = $diff['reconsider_when'] ?? $diff['rationale'] ?? '—';
-                            @endphp
-                            <tr style="background-color: {{ $loop->iteration % 2 == 0 ? '#F8FAFC' : '#FFFFFF' }};">
-                                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 11px;">
-                                    {{ $dxLabel }}
-                                </td>
-                                <td align="center" style="padding: 10px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; color: #0E2B5C; font-weight: bold; font-size: 11px;">
-                                    {{ $likelihood }}
-                                </td>
-                                <td style="padding: 10px; border-bottom: 1px solid #E2E8F0; font-size: 11px; color: #4A5568; line-height: 1.4;">
-                                    {{ $basis }}
-                                </td>
-                            </tr>
-                        @endif
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
+    </div>
 
+</div>
+
+<pagebreak page-selector="report_content" />
+
+<div class="report_content_div">
+    {{-- ── Regional Interpretation Image Analysis ── --}}
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">REGIONAL INTERPRETATION & IMAGE ANALYSIS</td>
+        </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px;">
+        <tr>
+            <td width="48%">
+                <div class="info-card" style="padding: 10px;">
+                    <div class="info-label" style="font-size: 8px;">OVERALL DISTRIBUTION</div>
+                    <div class="info-value" style="font-size: 12px; text-transform: uppercase;">
+                        {{ str_replace('_', ' ', $regional['overall_distribution'] ?? 'N/A') }}
+                    </div>
+                </div>
+            </td>
+            <td width="4%"></td>
+            <td width="48%">
+                <div class="info-card" style="padding: 10px;">
+                    <div class="info-label" style="font-size: 8px;">SYMMETRY</div>
+                    <div class="info-value" style="font-size: 12px; text-transform: uppercase;">
+                        {{ str_replace('_', ' ', $regional['symmetry'] ?? 'N/A') }}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div style="font-size: 11px; color: #2D3748; margin-bottom: 20px;">
+        <b>Dominant Regions:</b>
+        @if(!empty($regional['dominant_regions']))
+            {{ implode(', ', array_map(fn($r) => ucwords(str_replace('_', ' ', $r)), $regional['dominant_regions'])) }}
+        @else
+            N/A
+        @endif
+    </div>
+
+    {{-- ── Detailed Table ── --}}
+    <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E2E8F0; border-collapse: collapse; margin-bottom: 25px; page-break-inside: avoid;">
+        <thead>
+            <tr style="background-color: #F8FAFC; color: #0E2B5C;">
+                <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0; width: 25%;">Region</th>
+                <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0; width: 37%;">Patient-Facing Findings</th>
+                <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; width: 38%;">Clinical Interpretation</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse(($regional['regions'] ?? []) as $reg)
+            <tr style="background-color: {{ $loop->iteration % 2 == 0 ? '#F8FAFC' : '#FFFFFF' }};">
+                <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-weight: bold; color: #0E2B5C; font-size: 10px;">
+                    {{ ucwords(str_replace('_', ' ', $reg['region'] ?? '')) }}
+                    <div style="font-size: 8px; color: #C29F5D; font-weight: bold; text-transform: uppercase; margin-top: 3px;">
+                        {{ str_replace('_', ' ', $reg['support_level'] ?? '') }}
+                    </div>
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; font-size: 10px; color: #4A5568; line-height: 1.4;">
+                    {{ $reg['patient_description'] ?? 'N/A' }}
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #E2E8F0; font-size: 10px; color: #2D3748; line-height: 1.4;">
+                    {{ $reg['clinical_interpretation'] ?? 'N/A' }}
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="3" align="center" style="padding: 20px; color: #999; font-size: 11px;">No regional findings available.</td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    {{-- ── Local modifiers ── --}}
+    @if(!empty($diagnosis['localized_restrictions']['local_modifiers']))
+    <div style="page-break-inside: avoid;">
+        <div style="font-size: 11px; font-weight: bold; color: #0E2B5C; margin-bottom: 8px;">LOCAL ANATOMICAL MODIFIERS / CONFOUNDERS</div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #E2E8F0; border-collapse: collapse;">
+            @foreach($diagnosis['localized_restrictions']['local_modifiers'] as $mod)
+            <tr style="background-color: #FFFDF9;">
+                <td style="padding: 8px; font-weight: bold; font-size: 9.5px; color: #C29F5D; border-bottom: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; width: 30%;">
+                    {{ ucwords(str_replace('_', ' ', $mod['region'] ?? '')) }} ({{ ucwords(str_replace('_', ' ', $mod['modifier_type'] ?? '')) }})
+                </td>
+                <td style="padding: 8px; font-size: 9.5px; color: #4A5568; border-bottom: 1px solid #E2E8F0; line-height: 1.4;">
+                    {{ $mod['treatment_implication'] ?? '' }}
+                </td>
+            </tr>
+            @endforeach
+        </table>
+    </div>
+    @endif
+</div>
+
+<pagebreak page-selector="report_content" />
+
+<div class="report_content_div">
+    {{-- ── Pigmentation Components & Treatment Implications ── --}}
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">PIGMENTATION COMPONENTS &amp; CLINICAL SIGNIFICANCE</td>
+        </tr>
+    </table>
+
+    <div style="margin-bottom: 20px;">
+        @forelse(($diagnosis['patient_facing_components'] ?? []) as $comp)
+        <div class="section-card" style="padding: 15px; margin-bottom: 15px; border-left: 4px solid #C29F5D; margin-top: 5px; page-break-inside: avoid;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 5px;">
+                <tr>
+                    <td style="font-size: 12px; font-weight: bold; color: #0E2B5C; text-transform: uppercase;">
+                        {{ $comp['title'] ?? ucwords(str_replace('_', ' ', $comp['component'] ?? '')) }}
+                    </td>
+                    <td align="right" style="font-size: 9px; color: #718096; font-weight: bold; text-transform: uppercase;">
+                        {{ str_replace('_', ' ', $comp['support_level'] ?? '') }} ({{ $comp['confidence_100'] ?? 'N/A' }}% Conf.)
+                    </td>
+                </tr>
+            </table>
+            <div style="font-size: 10.5px; color: #4A5568; margin-top: 4px; line-height: 1.4; text-align: justify;">
+                <b>Description:</b> {{ $comp['explanation'] ?? '' }}
+            </div>
+            <div style="font-size: 10.5px; color: #2D3748; margin-top: 8px; line-height: 1.4; text-align: justify; font-style: italic; background-color: #F8FAFC; padding: 8px 12px; border-radius: 6px;">
+                <b>Treatment Implication:</b> {{ $comp['treatment_meaning'] ?? '' }}
+            </div>
+        </div>
+        @empty
+        <div align="center" style="padding: 20px; color: #999; font-size: 11px;">No pigmentation component details available.</div>
+        @endforelse
+    </div>
+
+    {{-- ── Doctor Review Safety Alert Note ── --}}
+    @if(!empty($diagnosis['patient_doctor_review_note']['required']) && $diagnosis['patient_doctor_review_note']['required'] === true)
+    <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 8px; padding: 15px; margin-top: 15px; page-break-inside: avoid;">
+        <div style="font-size: 12px; font-weight: bold; color: #9B1C1C; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">
+            ⚠️ {{ $diagnosis['patient_doctor_review_note']['headline'] ?? 'Doctor Review Required Before Spot Treatment' }}
+        </div>
+        <div style="font-size: 10.5px; color: #742A2A; line-height: 1.4; margin-bottom: 8px;">
+            {{ $diagnosis['patient_doctor_review_note']['summary'] ?? '' }}
+        </div>
+        <div style="font-size: 9.5px; color: #9B2C2C; font-style: italic; margin-bottom: 10px;">
+            * {{ $diagnosis['patient_doctor_review_note']['reassurance'] ?? '' }}
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #FED7D7; padding-top: 8px;">
+            @foreach(($diagnosis['patient_doctor_review_note']['areas'] ?? []) as $area)
+            <tr>
+                <td style="font-size: 10px; font-weight: bold; color: #9B1C1C; padding: 4px 0; width: 45%; vertical-align: top;">
+                    • {{ $area['natural_location'] ?? '' }}
+                </td>
+                <td style="font-size: 10px; color: #742A2A; padding: 4px 0; vertical-align: top;">
+                    {{ $area['instruction'] ?? '' }}
+                </td>
+            </tr>
+            @endforeach
+        </table>
+    </div>
+    @endif
+</div>
+
+<pagebreak page-selector="report_content" />
+
+<div class="report_content_div">
     {{-- ── Patient Scan Images ── --}}
-    <pagebreak />
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">PATIENT SCAN IMAGES (BASELINE)</td>
@@ -406,7 +476,6 @@
             @endforelse
         </table>
     </div>
-
 </div>
 
 @endsection
