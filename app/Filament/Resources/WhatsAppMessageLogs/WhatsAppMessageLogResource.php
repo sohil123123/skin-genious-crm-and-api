@@ -19,7 +19,7 @@ class WhatsAppMessageLogResource extends Resource
 
     protected static ?string $navigationLabel = 'WhatsApp Logs';
 
-    protected static ?int $navigationSort = 23;
+    protected static ?int $navigationSort = 24;
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {

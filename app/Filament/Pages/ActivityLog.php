@@ -30,7 +30,7 @@ class ActivityLog extends Page implements HasTable
     // protected static ?string $navigationLabel = 'Others';
     protected static ?string $title = 'Activity Logs';
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 25;
 
     protected string $view = 'filament.pages.activity-log';
 

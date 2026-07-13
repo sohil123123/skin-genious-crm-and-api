@@ -45,7 +45,7 @@ class RoleResource extends Resource
 
     // protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 27;
 
     public static function getNavigationSort(): ?int
     {

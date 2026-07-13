@@ -28,7 +28,7 @@ class LoyaltySettings extends Page
 
     protected static ?string $title = 'Settings';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 21;
 
     public ?array $data = [];
 

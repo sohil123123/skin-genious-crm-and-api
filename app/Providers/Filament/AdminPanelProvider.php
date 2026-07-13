@@ -332,6 +332,7 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn(): string => route('log-viewer.index'))
                     ->icon('heroicon-o-document-text')
                     ->group('Others')
+                    ->sort(26)
                     ->visible(fn(): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }
