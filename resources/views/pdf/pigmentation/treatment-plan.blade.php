@@ -10,7 +10,7 @@
         margin-bottom: 14px;
         background: #fff;
     }
-    
+
     /* Goals & Modalities side by side */
     .two-col-table { width: 100%; margin-bottom: 14px; }
     .col-box {
@@ -237,55 +237,5 @@
 </table>
 
 <div class="generated-note" style="margin-top: 15px;">Doctor-designed, AI Controlled and Human Delivered</div>
-
-{{-- ── Session Procedural Pages ── --}}
-@foreach ($treatmentsList as $session)
-    <pagebreak />
-    
-    <div class="session-header-badge">
-        {{ $session['title'] }}
-        <span class="badge-timing">SESSION {{ $session['session_number'] }} &bull; WEEK {{ $session['week'] ?? $session['session_number'] }}</span>
-    </div>
-
-    <table class="two-col-table" cellpadding="0" cellspacing="0">
-        <tr>
-            <td class="col-box" width="48%">
-                <div class="col-title">— Therapist Preparation —</div>
-                <ul style="margin: 5px 0; padding-left: 15px; font-size: 11px;">
-                    @foreach ($session['preparations_checklist_for_therapist'] as $item)
-                        <li style="margin-bottom: 5px; line-height: 1.4;">{{ $item }}</li>
-                    @endforeach
-                </ul>
-            </td>
-            <td width="4%"></td>
-            <td class="col-box" width="48%">
-                <div class="col-title">— Focus Area —</div>
-                <ul style="margin: 5px 0; padding-left: 15px; font-size: 11px;">
-                    @foreach ($session['concerns_addressed'] as $concern)
-                        <li style="margin-bottom: 5px; line-height: 1.4;">{{ is_array($concern) ? ($concern['concern'] ?? '') : $concern }}</li>
-                    @endforeach
-                </ul>
-            </td>
-        </tr>
-    </table>
-
-    <div style="font-weight: bold; color: #0E2B5C; font-size: 12px; margin-top: 15px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Procedure Execution Steps</div>
-    
-    @foreach ($session['steps'] as $step)
-        <div class="procedure-step-card">
-            <div>
-                <span class="step-number-badge">Step {{ $step['step_number'] }}</span>
-                <span class="step-duration-badge">{{ $step['duration'] }}</span>
-            </div>
-            
-            <div style="margin-top: 8px; color: #4b5563; font-size: 11px;">
-                <span class="detail-label">Equipment / Ingredients:</span>
-                {{ is_array($step['ingredients_equipments']) ? implode(', ', $step['ingredients_equipments']) : $step['ingredients_equipments'] }}
-            </div>
-            
-            <div style="margin-top: 6px; font-size: 12px; line-height: 1.4; color: #374151; white-space: pre-line;">{{ $step['how_to_do'] }}</div>
-        </div>
-    @endforeach
-@endforeach
 
 @endsection
