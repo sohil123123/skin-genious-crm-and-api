@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\Product;
+use App\Models\InvoicePayment;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -17,56 +17,73 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Pages\ProductSalesReport;
 
-class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyles, WithTitle, WithEvents, ShouldAutoSize
+class CollectionReportExport implements FromCollection, WithHeadings, WithStyles, WithTitle, WithEvents, ShouldAutoSize
 {
     protected ?string $startDate;
     protected ?string $endDate;
-    protected ?string $productType;
     protected ?int $clinicId;
 
-    public function __construct(?string $startDate, ?string $endDate, ?string $productType = null, ?int $clinicId = null)
+    public function __construct(?string $startDate, ?string $endDate, ?int $clinicId = null)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
-        $this->productType = $productType;
         $this->clinicId = $clinicId;
     }
 
     public function collection(): Collection
     {
-        $products = ProductSalesReport::getSalesReportQuery(
-            $this->startDate,
-            $this->endDate,
-            $this->clinicId,
-            $this->productType
-        )
-            ->orderByDesc('sales_revenue')
+        $payments = InvoicePayment::query()
+            ->selectRaw('payment_method, COUNT(invoice_payments.id) as transaction_count, SUM(invoice_payments.amount) as total_amount')
+            ->join('invoices', 'invoice_payments.invoice_id', '=', 'invoices.id')
+            ->where('invoices.status', '!=', 'cancelled')
+            ->when($this->startDate, fn(Builder $q) => $q->whereDate('invoice_payments.payment_date', '>=', $this->startDate))
+            ->when($this->endDate, fn(Builder $q) => $q->whereDate('invoice_payments.payment_date', '<=', $this->endDate))
+            ->where(function (Builder $query) {
+                if ($this->clinicId) {
+                    $query->where('invoices.clinic_id', $this->clinicId);
+                } elseif (!check_role('super_admin')) {
+                    $query->where('invoices.clinic_id', auth()->user()->clinic_id);
+                }
+            })
+            ->groupBy('payment_method')
+            ->orderByDesc('total_amount')
             ->get();
-        dd($products->toArray());
 
-        return $products->map(function ($product) {
+        return $payments->map(function ($payment) {
             return [
-                'name' => $product->name,
-                'quantity_sold' => (int) ($product->sales_qty_sold ?? 0),
-                'total_revenue' => (float) ($product->sales_revenue ?? 0),
+                'payment_method' => $this->getPaymentMethodLabel($payment->payment_method),
+                'transaction_count' => $payment->transaction_count ?? 0,
+                'total_amount' => $payment->total_amount ?? 0,
             ];
         });
+    }
+
+    protected function getPaymentMethodLabel(string $method): string
+    {
+        return match ($method) {
+            'cash' => 'Cash',
+            'card' => 'Card',
+            'upi' => 'UPI',
+            'bank_transfer' => 'Bank Transfer',
+            'loyalty_points' => 'Loyalty Points',
+            'other' => 'Other',
+            default => ucfirst(str_replace('_', ' ', $method)),
+        };
     }
 
     public function headings(): array
     {
         return [
-            'Product Name',
-            'Quantity Sold',
-            'Total Revenue',
+            'Payment Method',
+            'Transaction Count',
+            'Total Collected',
         ];
     }
 
     public function title(): string
     {
-        return 'Product Sales Report';
+        return 'Collection Report';
     }
 
     public function styles(Worksheet $sheet): array
@@ -102,10 +119,10 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
                 // Set auto-filter on header row
                 $sheet->setAutoFilter("A1:{$highestColumn}1");
 
-                // Apply quantity format to column B, and currency to column C
+                // Apply transaction count format to column B, and currency to column C
                 $numberFormat = '#,##0';
                 $currencyFormat = '#,##0.00';
-
+                
                 $sheet->getStyle("B2:B{$highestRow}")
                     ->getNumberFormat()
                     ->setFormatCode($numberFormat);
@@ -169,8 +186,8 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
 
                 // Set minimum column widths
                 $minWidths = [
-                    'A' => 35,
-                    'B' => 18,
+                    'A' => 25,
+                    'B' => 20,
                     'C' => 20,
                 ];
                 foreach ($minWidths as $col => $width) {

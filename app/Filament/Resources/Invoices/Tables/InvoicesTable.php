@@ -53,7 +53,8 @@ class InvoicesTable
             // ->recordUrl(null)
             ->defaultSort('invoice_date', 'desc')
             ->recordClasses(fn($record) => match ($record->status) {
-                'paid' => '!bg-green-50 dark:!bg-green-900/20',
+                // 'paid' => 'invoice-status-paid',
+                'partial', 'unpaid' => 'invoice-status-partial',
                 default => '',
             })
             ->columns([
@@ -373,20 +374,22 @@ class InvoicesTable
             )
             ->actions([
                 InvoicePaymentForm::getMakePaymentAction()->hidden(fn($record) => in_array($record->status, ['paid', 'cancelled'])),
-
                 ActionGroup::make([
                     ViewAction::make()->modalWidth('7xl'),
                     EditAction::make()->modalWidth('7xl'),
                     DeleteAction::make(),
                     Action::make('payment_history')
                         ->label('Payment History')
-                        ->icon('heroicon-o-document-text')
+                        ->icon('heroicon-o-currency-rupee')
+                        // ->iconButton()
                         ->color('success')
+                        // ->tooltip('Payment History')
                         ->url(fn($record) => route('filament.admin.resources.invoices.payments', ['record' => $record])),
                     Action::make('download_pdf')
                         ->label('Download PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
+                        // ->tooltip('Download PDF')
                         ->action(function ($record) {
                             $pdfService = app(InvoicePdfService::class);
                             return $pdfService->download($record);

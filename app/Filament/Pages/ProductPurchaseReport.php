@@ -145,7 +145,7 @@ class ProductPurchaseReport extends Page implements HasTable, HasForms
             ->columns([
                 TextColumn::make('name')
                     ->label('Product Name')
-                    ->state(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
+                    // ->state(fn(Product $record) => "{$record->name} (" . str_replace('_', ' ', $record->type) . ")")
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('total_purchased_qty')

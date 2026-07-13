@@ -299,7 +299,23 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn(): string => \Illuminate\Support\Facades\Blade::render("@vite('resources/js/app.js')")
+                fn(): string => \Illuminate\Support\Facades\Blade::render(<<<'HTML'
+                    @vite('resources/js/app.js')
+                    <style>
+                        /* .invoice-status-paid {
+                            background-color: #f0fdf4 !important;
+                        } */
+                        .invoice-status-partial, .invoice-status-unpaid {
+                            background-color: #fef2f2 !important;
+                        }
+                        /* .dark .invoice-status-paid {
+                            background-color: rgba(6, 78, 59, 0.2) !important;
+                        } */
+                        .dark .invoice-status-partial, .dark .invoice-status-unpaid {
+                            background-color: rgba(127, 29, 29, 0.2) !important;
+                        }
+                    </style>
+                HTML)
             )
             ->navigationGroups([
                 // NavigationGroup::make()
@@ -313,12 +329,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationItems([
                 NavigationItem::make('Logs')
-                    ->label('System Logs')
                     ->url(fn(): string => route('log-viewer.index'))
-                    ->icon('heroicon-o-clock')
+                    ->icon('heroicon-o-document-text')
                     ->group('Others')
-                    ->sort(25)
-                    ->visible(fn(): bool => auth()->check() && check_role('super_admin'))
+                    ->visible(fn(): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }
 

@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Invoices\Schemas;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\ClinicInventory;
-use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Schemas\Components\Group;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -46,7 +46,7 @@ class InvoiceForm
                                                 'product_id' => null,
                                                 'quantity' => 1,
                                                 'unit_price' => null,
-                                                'discount_type' => 'flat',
+                                                'discount_type' => 'percentage',
                                                 'discount_value' => 0,
                                                 'gst_percentage' => 18,
                                                 'gst_amount' => 0,
@@ -102,7 +102,7 @@ class InvoiceForm
                                     ->disabled()
                                     ->visible(fn($record) => $record && $record->package_id)
                                     ->columnSpan(1),
-                                DatePicker::make('invoice_date')
+                                DateTimePicker::make('invoice_date')
                                     ->default(now())
                                     ->required()
                                     ->columnSpan(1),
@@ -202,7 +202,13 @@ class InvoiceForm
                                                         $icon = @file_get_contents(public_path('images/product.svg')) ?: '';
                                                     }
 
-                                                    $html = '<div style="display: flex; align-items: center; gap: 8px;">' . $icon . '<span style="font-weight: 500; color: inherit;">' . e($product->name) . '</span>' . ($stockLabel ? ' <span style="font-size: 0.75rem; ' . $stockColor . '">' . e($stockLabel) . '</span>' : '') . '</div>';
+                                                    $html = '<div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px;">' .
+                                                        '<div style="display: flex; align-items: center; gap: 8px; min-width: 0;">' .
+                                                        $icon .
+                                                        '<span style="font-weight: 500; color: inherit; white-space: normal;">' . e($product->name) . '</span>' .
+                                                        '</div>' .
+                                                        ($stockLabel ? '<span style="font-size: 0.75rem; ' . $stockColor . ' white-space: nowrap; flex-shrink: 0;">' . e($stockLabel) . '</span>' : '') .
+                                                        '</div>';
 
                                                     return [$product->id => $html];
                                                 });
@@ -257,6 +263,7 @@ class InvoiceForm
                                         TextInput::make('hsn_sac_code')
                                             ->label('HSN/SAC')
                                             ->dehydrated()
+                                            ->disabled()
                                             ->required(),
 
                                         TextInput::make('quantity')
@@ -485,7 +492,7 @@ class InvoiceForm
             $qty = (int) ($item['quantity'] ?? 1);
             $gstP = (float) ($item['gst_percentage'] ?? 0);
             $disc = (float) ($item['discount_value'] ?? 0);
-            $dType = $item['discount_type'] ?? 'flat';
+            $dType = $item['discount_type'] ?? 'percentage';
 
             $metrics = $service->calculateLineItem($qty, $price, $dType, $disc, $gstP);
 

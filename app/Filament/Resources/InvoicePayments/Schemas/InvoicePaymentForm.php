@@ -6,7 +6,7 @@ use App\Models\Invoice;
 use App\Models\Setting;
 use App\Services\LoyaltyOtpService;
 use App\Services\LoyaltyPointService;
-use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -24,6 +24,7 @@ use App\Models\Clinic;
 use App\Models\InvoicePayment;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
+use App\Models\UserPackage;
 
 
 class InvoicePaymentForm
@@ -40,21 +41,36 @@ class InvoicePaymentForm
             ->modalHeading('Make Payment')
             ->modalWidth('4xl')
             ->form(function ($record = null, $livewire = null) {
-                // Determine invoice: either passed as $record or from $livewire owner
-                $invoice = $record;
-                if (!$invoice && $livewire && method_exists($livewire, 'getOwnerRecord')) {
-                    $invoice = $livewire->getOwnerRecord();
+                // Determine model: either passed as $record or from $livewire owner
+                $isPackage = $record instanceof UserPackage;
+                $isInvoice = $record instanceof Invoice;
+                $invoice = null;
+
+                if (!$isPackage && !$isInvoice && $livewire && method_exists($livewire, 'getOwnerRecord')) {
+                    $owner = $livewire->getOwnerRecord();
+                    if ($owner instanceof UserPackage) {
+                        $record = $owner;
+                        $isPackage = true;
+                    } elseif ($owner instanceof Invoice) {
+                        $invoice = $owner;
+                        $isInvoice = true;
+                    }
+                } elseif ($isInvoice) {
+                    $invoice = $record;
                 }
 
-                if (!$invoice)
+                if (!$isPackage && !$isInvoice && !$invoice) {
                     return [];
+                }
+
+                $balanceDue = $isPackage ? $record->getOutstandingAmount() : ($invoice ? $invoice->grand_total - $invoice->amount_paid : 0);
 
                 return [
                     Section::make('Payment Details')
                         ->schema([
                             Placeholder::make('balance_due')
                                 ->label('Balance Due')
-                                ->content('₹' . number_format($invoice->grand_total - $invoice->amount_paid, 2))
+                                ->content('₹' . number_format($balanceDue, 2))
                                 ->extraAttributes(['class' => 'text-danger-600 font-bold text-xl']),
 
                             Repeater::make('payments')
@@ -73,9 +89,9 @@ class InvoicePaymentForm
                                         ->required()
                                         ->live()
                                         ->prefixIcon('heroicon-o-credit-card')
-                                        ->afterStateUpdated(function (Set $set, $state) use ($invoice) {
-                                            if ($state === 'loyalty_points' && $invoice) {
-                                                $client = $invoice->client;
+                                        ->afterStateUpdated(function (Set $set, $state) use ($record, $isPackage, $invoice) {
+                                            if ($state === 'loyalty_points') {
+                                                $client = $isPackage ? $record->user : ($invoice ? $invoice->client : null);
                                                 if ($client) {
                                                     $balance = $client->getLoyaltyBalance();
                                                     $minRedeem = Setting::getLoyaltyMinRedeem();
@@ -104,20 +120,24 @@ class InvoicePaymentForm
                                         ->numeric()
                                         ->required()
                                         ->minValue(0.01)
-                                        ->maxValue(function (Get $get) use ($invoice) {
-                                            if ($get('payment_method') === 'loyalty_points' && $invoice && $invoice->client) {
-                                                return $invoice->client->getLoyaltyBalance();
+                                        ->maxValue(function (Get $get) use ($record, $isPackage, $invoice) {
+                                            if ($get('payment_method') === 'loyalty_points') {
+                                                $client = $isPackage ? $record->user : ($invoice ? $invoice->client : null);
+                                                if ($client) {
+                                                    return $client->getLoyaltyBalance();
+                                                }
                                             }
                                             return null;
                                         })
                                         ->prefix(fn(Get $get) => $get('payment_method') === 'loyalty_points' ? '⭐' : '₹')
-                                        ->helperText(function (Get $get) use ($invoice) {
+                                        ->helperText(function (Get $get) use ($record, $isPackage, $invoice) {
                                             if ($get('payment_method') !== 'loyalty_points') {
                                                 return null;
                                             }
 
-                                            if ($invoice && $invoice->client) {
-                                                $balance = $invoice->client->getLoyaltyBalance();
+                                            $client = $isPackage ? $record->user : ($invoice ? $invoice->client : null);
+                                            if ($client) {
+                                                $balance = $client->getLoyaltyBalance();
                                                 return "Available: {$balance} pts (1 pt = ₹1)";
                                             }
 
@@ -146,12 +166,9 @@ class InvoicePaymentForm
                                 ->live()
                                 ->columnSpanFull()
                                 ->rules([
-                                    function (Get $get) use ($invoice) {
-                                        return function (string $attribute, $value, $fail) use ($get, $invoice) {
-                                            if (!$invoice)
-                                                return;
-
-                                            $remaining = $invoice->grand_total - $invoice->amount_paid;
+                                    function (Get $get) use ($record, $isPackage, $invoice) {
+                                        return function (string $attribute, $value, $fail) use ($get, $record, $isPackage, $invoice) {
+                                            $remaining = $isPackage ? $record->getOutstandingAmount() : ($invoice ? $invoice->grand_total - $invoice->amount_paid : 0);
                                             $total = collect($value)->sum(fn($p) => floatval($p['amount'] ?? 0));
 
                                             if (round($total, 2) > round($remaining, 2)) {
@@ -164,7 +181,7 @@ class InvoicePaymentForm
                                             // Validate loyalty points specific rules
                                             foreach ($value as $paymentEntry) {
                                                 if (($paymentEntry['payment_method'] ?? '') === 'loyalty_points') {
-                                                    $client = $invoice->client;
+                                                    $client = $isPackage ? $record->user : ($invoice ? $invoice->client : null);
                                                     if (!$client) {
                                                         $fail('Cannot find client for loyalty validation.');
                                                         return;
@@ -210,7 +227,7 @@ class InvoicePaymentForm
                                     return new HtmlString('<span class="text-xl font-bold text-success-600">₹' . number_format((float) $total, 2) . '</span>');
                                 }),
 
-                            DatePicker::make('payment_date')
+                            DateTimePicker::make('payment_date')
                                 ->label('Payment Date')
                                 ->default(now())
                                 ->required(),
@@ -224,15 +241,35 @@ class InvoicePaymentForm
                 ];
             })
             ->action(function ($record, array $data, $livewire) {
-                $invoice = $record;
-                if (!$invoice && $livewire && method_exists($livewire, 'getOwnerRecord')) {
-                    $invoice = $livewire->getOwnerRecord();
+                // Determine if package or invoice
+                $isPackage = $record instanceof UserPackage;
+                $isInvoice = $record instanceof Invoice;
+
+                if (!$isPackage && !$isInvoice && $livewire && method_exists($livewire, 'getOwnerRecord')) {
+                    $owner = $livewire->getOwnerRecord();
+                    if ($owner instanceof UserPackage) {
+                        $record = $owner;
+                        $isPackage = true;
+                    } elseif ($owner instanceof Invoice) {
+                        $record = $owner;
+                        $isInvoice = true;
+                    }
                 }
 
-                if (!$invoice)
+                if (!$isPackage && !$isInvoice) {
                     return;
+                }
 
                 $payments = $data['payments'] ?? [];
+                $totalPaid = collect($payments)->sum(fn($p) => floatval($p['amount'] ?? 0));
+
+                if ($isPackage) {
+                    // Create partial/installment invoice for total paid
+                    $invoice = $record->createInvoice($totalPaid);
+                } else {
+                    $invoice = $record;
+                }
+
                 $loyaltyService = app(LoyaltyPointService::class);
 
                 foreach ($payments as $paymentData) {
@@ -263,11 +300,8 @@ class InvoicePaymentForm
                     }
                 }
 
-                // // Force refresh
-                // if ($livewire) {
-                //     $livewire->js('window.location.reload()');
-                // }
-    
+                $invoice->recalculatePaymentStatus();
+
                 Notification::make()
                     ->title('Payment Processed ✅')
                     ->body('Payments have been recorded and invoice status updated.')
@@ -578,7 +612,7 @@ class InvoicePaymentForm
                                     ->visible(fn(?InvoicePayment $record) => $record === null),
                                 // ->columnSpanFull(),
 
-                                DatePicker::make('payment_date')
+                                DateTimePicker::make('payment_date')
                                     ->label('Payment Date')
                                     ->default(now())
                                     ->required()

@@ -76,6 +76,7 @@ class UserPackageForm
                                 DatePicker::make('expired_at')
                                     ->label('Expires On')
                                     ->nullable()
+                                    ->default(now()->addYear()->endOfMonth())
                                     ->minDate(now())
                                     ->columnSpan(1),
                             ]),
@@ -93,13 +94,25 @@ class UserPackageForm
                                     Grid::make(12)->schema([
                                         Select::make('service_id')
                                             ->label('Service')
-                                            ->options(
-                                                fn() =>
-                                                Product::active()
+                                            ->options(function () {
+                                                $icon = @file_get_contents(public_path('images/service.svg')) ?: '';
+                                                return Product::active()
                                                     ->where('type', 'service')
+                                                    ->orderBy('name', 'asc')
                                                     ->get()
-                                                    ->mapWithKeys(fn($p) => [$p->id => $p->name])
-                                            )
+                                                    ->mapWithKeys(function ($p) use ($icon) {
+                                                        $price = number_format($p->sell_price, 0);
+                                                        $html = '<div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px;">' .
+                                                            '<div style="display: flex; align-items: center; gap: 8px;">' .
+                                                            $icon .
+                                                            '<span style="font-weight: 500; color: inherit;">' . e($p->name) . '</span>' .
+                                                            '</div>' .
+                                                            '<span style="font-size: 0.8rem; color: #10b981; font-weight: 600;">(₹' . $price . ')</span>' .
+                                                            '</div>';
+                                                        return [$p->id => $html];
+                                                    });
+                                            })
+                                            ->allowHtml()
                                             ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                             ->searchable()
                                             ->native(false)
@@ -129,8 +142,8 @@ class UserPackageForm
                                                 // Recalculate item + package totals
                                                 self::recalculateAllFromItem($set, $get);
                                             })
-                                            ->helperText('Only services are shown.')
-                                            ->columnSpan(4),
+                                            // ->helperText('Only services are shown.')
+                                            ->columnSpan(5),
 
                                         TextInput::make('quantity')
                                             ->label('Sessions')
@@ -156,7 +169,7 @@ class UserPackageForm
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(fn(Get $get, Set $set) => self::recalculateAllFromItem($set, $get))
                                             ->extraInputAttributes(['min' => 1, 'step' => 1])
-                                            ->columnSpan(3),
+                                            ->columnSpan(2),
 
                                         TextInput::make('total_amount')
                                             ->label('Item Total')

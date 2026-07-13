@@ -57,6 +57,10 @@ trait HasReportDateFilters
                     Select::make('reportType')
                         ->label('Report Type')
                         ->options([
+                            // 'today' => 'Today',
+                            // 'this_week' => 'This Week',
+                            // 'this_month' => 'This Month',
+                            // 'this_year' => 'This Year',
                             'monthly' => 'Monthly',
                             'quarterly' => 'Quarterly',
                             'financial_year' => 'Financial Year',
@@ -185,6 +189,26 @@ trait HasReportDateFilters
     protected function calculateDateRange(): void
     {
         switch ($this->reportType) {
+            // case 'today':
+            //     $this->startDate = now()->toDateString();
+            //     $this->endDate = now()->toDateString();
+            //     break;
+
+            // case 'this_week':
+            //     $this->startDate = now()->startOfWeek(Carbon::MONDAY)->toDateString();
+            //     $this->endDate = now()->endOfWeek(Carbon::SUNDAY)->toDateString();
+            //     break;
+
+            // case 'this_month':
+            //     $this->startDate = now()->startOfMonth()->toDateString();
+            //     $this->endDate = now()->endOfMonth()->toDateString();
+            //     break;
+
+            // case 'this_year':
+            //     $this->startDate = now()->startOfYear()->toDateString();
+            //     $this->endDate = now()->endOfYear()->toDateString();
+            //     break;
+
             case 'monthly':
                 $date = Carbon::createFromDate((int) $this->selectedYear, (int) $this->selectedMonth, 1);
                 $this->startDate = $date->startOfMonth()->toDateString();

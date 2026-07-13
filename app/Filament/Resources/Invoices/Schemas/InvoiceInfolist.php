@@ -35,18 +35,15 @@ class InvoiceInfolist
                         TextEntry::make('clinic.name')->weight(FontWeight::Bold)->label('Clinic'),
                         TextEntry::make('status')
                             ->badge()
-                            ->color(fn (string $state): string => match ($state) {
+                            ->color(fn(string $state): string => match ($state) {
                                 'paid' => 'success',
                                 'draft' => 'gray',
                                 'pending' => 'warning',
                                 'cancelled' => 'danger',
                                 default => 'info',
                             }),
-                        TextEntry::make('invoice_date')->date(),
-                        TextEntry::make('payment_mode')->badge()->placeholder('-'),
+                        TextEntry::make('invoice_date')->dateTime()->label('Date and Time'),
                         TextEntry::make('source_note')->label('Note')->placeholder('-'),
-                        TextEntry::make('created_at')->dateTime()->label('Created At'),
-                        TextEntry::make('updated_at')->dateTime()->label('Last Updated'),
                     ])
                     ->columns(4),
 
@@ -67,7 +64,9 @@ class InvoiceInfolist
                             ->schema([
                                 Grid::make(5)->schema([
                                     TextEntry::make('product.name')->label('Product'),
-                                    TextEntry::make('quantity')->label('Qty'),
+                                    TextEntry::make('quantity')
+                                        ->label('Qty')
+                                        ->hidden(fn($record) => $record && $record->invoice?->invoice_type === 'package'),
                                     TextEntry::make('unit_price')->label('Price')->money('INR'),
                                     // TextEntry::make('discount_value')
                                     //     ->label('Discount')
@@ -82,7 +81,7 @@ class InvoiceInfolist
                                     //     ->color('info'),
                                     TextEntry::make('gst_amount')
                                         ->label('GST')
-                                        ->formatStateUsing(fn ($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
+                                        ->formatStateUsing(fn($record) => ($record->gst_percentage ?? 0) . '% (₹' . number_format($record->gst_amount ?? 0, 2) . ')')
                                         ->badge()
                                         ->color('info'),
                                     TextEntry::make('line_total')->label('Total')->money('INR')->weight(FontWeight::Bold),
@@ -91,44 +90,45 @@ class InvoiceInfolist
                     ])
                     ->collapsible(),
 
-                    Grid::make(12)->schema([
-                        Group::make()->columnSpan(8),
-                        Section::make()
-                            ->schema([
-                                TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
-                                TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
-                                TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
-                                TextEntry::make('discount_total')
-                                        ->label('Discount')
-                                        ->inlineLabel()
-                                        ->formatStateUsing(function ($record) {
-                                            $actualDiscount = $record->discount_total ?? 0;
+                Grid::make(12)->schema([
+                    Group::make()->columnSpan(8),
+                    Section::make()
+                        ->schema([
+                            TextEntry::make('subtotal')->money('INR')->label('Subtotal')->inlineLabel(),
+                            TextEntry::make('taxable_value')->money('INR')->label('Taxable Value')->inlineLabel(),
+                            TextEntry::make('gst_total')->money('INR')->label('GST Total')->inlineLabel(),
+                            TextEntry::make('discount_total')
+                                ->label('Discount')
+                                ->inlineLabel()
+                                ->formatStateUsing(function ($record) {
+                                    $actualDiscount = $record->discount_total ?? 0;
 
-                                            if ($record->package_id && $record->package) {
-                                                $type = $record->package->discount_type instanceof \App\Enums\PackageDiscountType
-                                                    ? $record->package->discount_type->value
-                                                    : $record->package->discount_type;
+                                    if ($record->package_id && $record->package) {
+                                        $type = $record->package->discount_type instanceof \App\Enums\PackageDiscountType
+                                            ? $record->package->discount_type->value
+                                            : $record->package->discount_type;
 
-                                                if ($type === 'percentage') {
-                                                    $percent = $record->package->discount_value ?? 0;
-                                                    return $percent . '% (₹' . number_format($actualDiscount, 2) . ')';
-                                                }
-                                            }
+                                        if ($type === 'percentage') {
+                                            $percent = $record->package->discount_value ?? 0;
+                                            return $percent . '% (₹' . number_format($actualDiscount, 2) . ')';
+                                        }
+                                    }
 
-                                            return '₹' . number_format($actualDiscount, 2);
-                                        })
-                                        ->color('success'),
-                                TextEntry::make('grand_total')
-                                    ->money('INR')
-                                    ->label('Grand Total')
-                                    ->weight(FontWeight::Bold)
-                                    ->size(TextSize::Large)
-                                    ->color('primary')
-                                    ->inlineLabel(),
+                                    return '₹' . number_format($actualDiscount, 2);
+                                })
+                                ->color('success')
+                                ->hidden(fn($record) => $record && $record->invoice_type === 'package'),
+                            TextEntry::make('grand_total')
+                                ->money('INR')
+                                ->label('Grand Total')
+                                ->weight(FontWeight::Bold)
+                                ->size(TextSize::Large)
+                                ->color('primary')
+                                ->inlineLabel(),
 
-                            ])
-                            ->columnSpan(4),
-                    ]),
+                        ])
+                        ->columnSpan(4),
+                ]),
             ])
             ->columns(1);
     }

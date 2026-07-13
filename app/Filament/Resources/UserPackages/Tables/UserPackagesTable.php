@@ -8,7 +8,9 @@ use App\Models\Appointment;
 use App\Models\UserPackageItem;
 use App\Models\Product;
 use App\Filament\Resources\Invoices\Schemas\InvoiceInfolist;
+use App\Filament\Resources\InvoicePayments\Schemas\InvoicePaymentForm;
 use App\Filament\Resources\Users\RelationManagers\UserPackagesRelationManager;
+use App\Filament\Resources\UserPackages\UserPackageResource;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -19,6 +21,10 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -39,6 +45,10 @@ class UserPackagesTable
         return $table
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
+            ->recordClasses(fn($record) => match (true) {
+                $record->getOutstandingAmount() > 0 => 'invoice-status-partial',
+                default => '',
+            })
             ->columns([
                 TextColumn::make('package_name')
                     ->label('Package')
@@ -81,7 +91,9 @@ class UserPackagesTable
                     ->label('Total Sessions')
                     ->getStateUsing(fn($record) => $record->getTotalSessions())
                     ->alignCenter()
-                    ->suffix(' sessions')
+                    ->badge()
+                    ->color('primary')
+                    // ->suffix(' sessions')
                     ->sortable(
                         query: fn(Builder $query, string $direction) =>
                         $query->withSum('items', 'quantity')->orderBy('items_sum_quantity', $direction)
@@ -106,6 +118,21 @@ class UserPackagesTable
                     ->money('INR')
                     ->sortable(),
 
+                TextColumn::make('paid_amount')
+                    ->label('Paid')
+                    ->getStateUsing(fn($record) => $record->getPaidAmount())
+                    ->money('INR')
+                    ->badge()
+                    ->color('success'),
+
+                TextColumn::make('outstanding_amount')
+                    ->label('Outstanding')
+                    ->getStateUsing(fn($record) => $record->getOutstandingAmount() > 0 ? $record->getOutstandingAmount() : null)
+                    ->placeholder('')
+                    ->money('INR')
+                    ->badge()
+                    ->color(fn($record) => $record->getOutstandingAmount() > 0 ? 'warning' : null),
+
                 TextColumn::make('expired_at')
                     ->label('Expires')
                     ->date()
@@ -114,23 +141,23 @@ class UserPackagesTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                ToggleColumn::make('is_active')
-                    ->label('Status')
-                    ->onIcon('heroicon-o-bolt')
-                    ->offIcon('heroicon-o-power')
-                    ->offColor('dark-danger')
-                    ->onColor('success')
-                    ->disabled(fn() => !auth()->user()?->can('toggle_user_status'))
-                    ->afterStateUpdated(function ($state, $record) {
-                        $record->is_active = $state;
-                        $record->save();
+                // ToggleColumn::make('is_active')
+                //     ->label('Status')
+                //     ->onIcon('heroicon-o-bolt')
+                //     ->offIcon('heroicon-o-power')
+                //     ->offColor('dark-danger')
+                //     ->onColor('success')
+                //     ->disabled(fn() => !auth()->user()?->can('toggle_user_status'))
+                //     ->afterStateUpdated(function ($state, $record) {
+                //         $record->is_active = $state;
+                //         $record->save();
 
-                        Notification::make()
-                            ->title($record->is_active ? 'Package Activated ✅' : 'Package Deactivated 🚫')
-                            ->body("Package status has been updated successfully.")
-                            ->success()
-                            ->send();
-                    }),
+                //         Notification::make()
+                //             ->title($record->is_active ? 'Package Activated ✅' : 'Package Deactivated 🚫')
+                //             ->body("Package status has been updated successfully.")
+                //             ->success()
+                //             ->send();
+                //     }),
 
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -226,33 +253,8 @@ class UserPackagesTable
                 fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )
             ->actions([
-                Action::make('generate_invoice')
-                    ->label('Generate Invoice')
-                    ->icon('heroicon-o-document-plus')
-                    ->color('primary')
-                    ->hidden(fn($record) => $record->invoice !== null)
-                    ->action(function ($record) {
-                        $record->createInvoice();
-
-                        Notification::make()
-                            ->title('Invoice Created Successfully')
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation(),
-
-                Action::make('view_invoice')
-                    ->visible(fn($record) => $record->invoice !== null)
-                    ->icon('heroicon-o-document-text')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('View Invoice')
-                    ->infolist(fn(Schema $schema, $record): Schema => InvoiceInfolist::configure($schema->record($record->invoice)))
-                    ->modal()
-                    ->modalHeading(fn($record) => 'Invoice ' . $record->invoice->invoice_number)
-                    ->modalWidth('7xl')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                InvoicePaymentForm::getMakePaymentAction()
+                    ->visible(fn($record) => $record->is_active && $record->getOutstandingAmount() > 0),
 
                 ActionGroup::make([
                     ViewAction::make()->modalWidth('7xl'),
@@ -265,6 +267,11 @@ class UserPackagesTable
                                 ->body('The package details have been refreshed successfully.')
                         ),
                     DeleteAction::make(),
+                    Action::make('manage_invoices')
+                        ->label('Invoices')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('info')
+                        ->url(fn($record) => UserPackageResource::getUrl('invoice', ['record' => $record])),
                     // ─── Record a Session Usage ─────────────────────────────
                     Action::make('use_session')
                         ->label('Use Session')
@@ -356,11 +363,11 @@ class UserPackagesTable
                         }),
                 ]),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
+            // ->bulkActions([
+            //     BulkActionGroup::make([
+            //         DeleteBulkAction::make(),
+            //     ]),
+            // ])
             ->emptyStateIcon('heroicon-o-rectangle-stack')
             ->emptyStateHeading('No Packages Found')
             ->emptyStateDescription('Start by creating a patient package using the button above.');
