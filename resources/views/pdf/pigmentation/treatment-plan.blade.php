@@ -236,6 +236,104 @@
     </tr>
 </table>
 
+@if (!empty($recommended_full_plan['future_treatment_roadmap']['future_blocks']))
+{{-- ── Future Treatment Roadmap ── --}}
+<table class="section-box" width="100%" cellpadding="0" cellspacing="0" style="page-break-inside: avoid; margin-top: 15px;">
+    <tr>
+        <td width="100%" class="col-title">— FUTURE TREATMENT ROADMAP (PROVISIONAL) —</td>
+    </tr>
+    <tr>
+        <td style="padding-top: 6px;">
+            <p style="font-size: 11px; color: #666; margin-bottom: 12px; font-style: italic; line-height: 1.5;">
+                These subsequent blocks are provisional. Detailed parameters will be generated dynamically post-reassessment based on patient response.
+            </p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <table width="100%" cellpadding="0" cellspacing="0">
+                @foreach ($recommended_full_plan['future_treatment_roadmap']['future_blocks'] as $index => $block)
+                @if ($index > 0)
+                <tr>
+                    <td style="height: 12px; font-size: 1px; line-height: 1px;">&nbsp;</td>
+                </tr>
+                @endif
+                <tr>
+                    <td style="background: #fafafa; border: 1px solid #e2e8f0; border-left: 3.5px solid #C29F5D; border-radius: 4px; padding: 12px;">
+                        <div style="font-size: 13px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                            {{ str_replace('_', ' ', ucwords($block['provisional_block_id'] ?? '')) }} ({{ str_replace('_', ' ', ucwords($block['expected_session_range'] ?? '')) }})
+                        </div>
+                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
+                            <span style="font-weight: bold; color: #475569;">Expected Objectives:</span> {{ implode(', ', $block['expected_objectives'] ?? []) }}
+                        </div>
+                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
+                            <span style="font-weight: bold; color: #475569;">Likely Modalities:</span> {{ implode(', ', array_map(function($m) { return ucwords(str_replace('_', ' ', $m)); }, $block['likely_modality_categories'] ?? [])) }}
+                        </div>
+                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
+                            <span style="font-weight: bold; color: #475569;">Expected Response:</span> {{ $block['expected_response'] ?? '' }}
+                        </div>
+                        <div style="font-size: 10.5px; color: #888; font-style: italic; margin-top: 6px; border-top: 1px dashed #eee; padding-top: 4px;">
+                            * {{ $block['finalization_rule'] ?? '' }}
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </table>
+        </td>
+    </tr>
+</table>
+@endif
+
+@if (!empty($recommended_full_plan['client_report']))
+{{-- ── Client Communication & Report ── --}}
+<table class="section-box" width="100%" cellpadding="0" cellspacing="0" style="page-break-inside: avoid; margin-top: 15px;">
+    <tr>
+        <td width="100%" class="col-title">— CLIENT COMMUNICATION &amp; REPORT —</td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0;">
+            @if (!empty($recommended_full_plan['client_report']['headline']))
+            <div style="font-size: 14px; font-weight: bold; color: #4F46E5; font-style: italic; line-height: 1.5; margin-bottom: 10px;">
+                "{{ $recommended_full_plan['client_report']['headline'] }}"
+            </div>
+            @endif
+
+            @if (!empty($recommended_full_plan['client_report']['simple_explanation']))
+            <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 15px;">
+                {{ $recommended_full_plan['client_report']['simple_explanation'] }}
+            </div>
+            @endif
+
+            @if (!empty($recommended_full_plan['client_report']['roadmap']))
+            <div style="font-size: 11px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; margin-bottom: 8px;">
+                Patient Roadmap Milestones:
+            </div>
+            <table width="100%" cellpadding="0" cellspacing="0">
+                @foreach ($recommended_full_plan['client_report']['roadmap'] as $index => $step)
+                <tr>
+                    <td valign="top" style="width: 24px; padding-bottom: 8px;">
+                        <div style="background: #4F46E5; color: #fff; width: 18px; height: 18px; line-height: 18px; border-radius: 9px; text-align: center; font-size: 10px; font-weight: bold;">
+                            {{ $index + 1 }}
+                        </div>
+                    </td>
+                    <td valign="top" style="font-size: 11.5px; color: #444; line-height: 1.5; padding-bottom: 8px; padding-left: 6px;">
+                        {{ $step }}
+                    </td>
+                </tr>
+                @endforeach
+            </table>
+            @endif
+
+            @if (!empty($recommended_full_plan['client_report']['disclaimer']))
+            <div style="font-size: 10px; color: #888; font-style: italic; margin-top: 10px; border-top: 1px solid #eee; padding-top: 6px;">
+                * {{ $recommended_full_plan['client_report']['disclaimer'] }}
+            </div>
+            @endif
+        </td>
+    </tr>
+</table>
+@endif
+
 <div class="generated-note" style="margin-top: 15px;">Doctor-designed, AI Controlled and Human Delivered</div>
 
 @endsection

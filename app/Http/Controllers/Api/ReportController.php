@@ -472,6 +472,7 @@ class ReportController extends BaseApiController
                 'total_sessions' => count($record->treatmentSessions['treatments'] ?? []),
             ],
             'sessions' => $record->treatmentSessions,
+            'recommended_full_plan' => $record->recommended_full_plan,
         ])->render();
 
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');

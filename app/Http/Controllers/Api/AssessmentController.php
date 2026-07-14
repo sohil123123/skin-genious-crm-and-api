@@ -105,7 +105,7 @@ class AssessmentController extends BaseApiController
 
                 // Create appointment for the first session
                 if ($key == 0) {
-                    \App\Models\Appointment::updateOrCreate(
+                    \App\Models\Appointment::firstOrCreate(
                         [
                             'assessment_id' => $assessment->id,
                             'treatment_session_id' => $treatmentSession->id,

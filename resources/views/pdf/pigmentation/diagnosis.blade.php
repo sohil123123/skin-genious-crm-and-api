@@ -89,6 +89,15 @@
         height: 150px;
         display: inline-block;
     }
+    .status-badge-blue {
+        background-color: #E3F2FD;
+        color: #1565C0;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 11px;
+        display: inline-block;
+    }
 </style>
 
 @php
@@ -103,6 +112,8 @@
     $profile = $diagnosis['pigmentation_profile'] ?? [];
     $regional = $diagnosis['regional_interpretation'] ?? [];
     $summaries = $diagnosis['summaries'] ?? [];
+    $clinicalActivity = $diagnosis['clinical_activity'] ?? [];
+    $riskProfile = $diagnosis['risk_profile'] ?? [];
 
     $age = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
     $gender = $patient->gender ? strtoupper(substr($patient->gender, 0, 1)) : 'N/A';
@@ -241,8 +252,95 @@
         </tr>
     </table>
 
+    {{-- ── Clinical Activity & Risk Profile ── --}}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px; page-break-inside: avoid;">
+        <tr>
+            <td width="48%" valign="top">
+                <table class="section-title-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="section-title">CLINICAL ACTIVITY</td>
+                    </tr>
+                </table>
+                <div class="section-card" style="margin-top: 0; padding: 15px; min-height: 155px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px;">
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 4px 0; vertical-align: middle;">
+                                <strong>Stability Status:</strong>
+                                <span class="status-badge-blue" style="margin-left: 8px;">
+                                    {{ ucfirst($clinicalActivity['stability_status'] ?? 'N/A') }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">Acne Driver:</td>
+                            <td align="right" style="font-size: 11px; font-weight: bold; color: #1E293B; padding: 6px 0; border-bottom: 1px solid #F1F5F9; text-transform: uppercase;">
+                                {{ !empty($clinicalActivity['active_acne_driver']) ? 'ACTIVE' : 'NONE' }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">Inflammation Control:</td>
+                            <td align="right" style="font-size: 11px; font-weight: bold; color: #1E293B; padding: 6px 0; border-bottom: 1px solid #F1F5F9; text-transform: uppercase;">
+                                {{ !empty($clinicalActivity['inflammation_first_required']) ? 'REQUIRED' : 'NO' }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #4A5568; padding: 6px 0;">Barrier Repair First:</td>
+                            <td align="right" style="font-size: 11px; font-weight: bold; color: #1E293B; padding: 6px 0; text-transform: uppercase;">
+                                {{ !empty($clinicalActivity['barrier_repair_first_required']) ? 'REQUIRED' : 'NO' }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+            <td width="4%"></td>
+            <td width="48%" valign="top">
+                <table class="section-title-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="section-title">RISK PROFILE</td>
+                    </tr>
+                </table>
+                <div class="section-card" style="margin-top: 0; padding: 15px; min-height: 155px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 6px 0; border-bottom: 1px solid #F1F5F9;"><strong>Recurrence:</strong></td>
+                            <td align="right" style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+                                {{ ucwords(str_replace('_', ' ', $riskProfile['recurrence_risk'] ?? 'N/A')) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 6px 0; border-bottom: 1px solid #F1F5F9;"><strong>Procedure Risk:</strong></td>
+                            <td align="right" style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+                                {{ ucwords(str_replace('_', ' ', $riskProfile['procedure_risk'] ?? 'N/A')) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 6px 0; border-bottom: 1px solid #F1F5F9;"><strong>Sunscreen compliance:</strong></td>
+                            <td align="right" style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+                                {{ ucwords(str_replace('_', ' ', $riskProfile['sunscreen_compliance_risk'] ?? 'N/A')) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 6px 0; border-bottom: 1px solid #F1F5F9;"><strong>PIH Risk:</strong></td>
+                            <td align="right" style="font-size: 11.5px; color: #4A5568; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+                                {{ ucwords(str_replace('_', ' ', $riskProfile['pih_risk'] ?? 'N/A')) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 11.5px; color: #2D3748; padding: 6px 0;"><strong>Red flag lesion risk:</strong></td>
+                            <td align="right" style="font-size: 11.5px; color: #4A5568; padding: 6px 0;">
+                                {{ ucwords(str_replace('_', ' ', $riskProfile['red_flag_lesion_risk'] ?? 'N/A')) }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+        </tr>
+    </table>
+
     {{-- ── Doctor clinical impression summary ── --}}
-    <div style="page-break-inside: avoid;">
+    <!-- <div style="page-break-inside: avoid;">
         <table class="section-title-table" cellpadding="0" cellspacing="0">
             <tr>
                 <td class="section-title">CLINICAL SUMMARY (DOCTOR-FACING)</td>
@@ -251,7 +349,7 @@
         <div style="font-size: 11px; color: #2D3748; line-height: 1.5; text-align: justify; margin-bottom: 25px; border-left: 3px solid #0E2B5C; padding-left: 10px;">
             {!! preg_replace('/\*\*(.*?)\*\*/', '<b>$1</b>', e($summaries['clinical_summary_for_doctor'] ?? 'N/A')) !!}
         </div>
-    </div>
+    </div> -->
 
     {{-- ── Patient-Facing summary ── --}}
     <div style="page-break-inside: avoid;">
@@ -380,7 +478,7 @@
                         {{ $comp['title'] ?? ucwords(str_replace('_', ' ', $comp['component'] ?? '')) }}
                     </td>
                     <td align="right" style="font-size: 9px; color: #718096; font-weight: bold; text-transform: uppercase;">
-                        {{ str_replace('_', ' ', $comp['support_level'] ?? '') }} ({{ $comp['confidence_100'] ?? 'N/A' }}% Conf.)
+                        {{ str_replace('_', ' ', $comp['support_level'] ?? '') }}
                     </td>
                 </tr>
             </table>

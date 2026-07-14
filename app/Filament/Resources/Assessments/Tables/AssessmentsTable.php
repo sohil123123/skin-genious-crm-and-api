@@ -722,6 +722,7 @@ class AssessmentsTable
                                     'total_sessions' => count($record->treatmentSessions['treatments'] ?? []),
                                 ],
                                 'sessions' => $record->treatmentSessions,
+                                'recommended_full_plan' => $record->recommended_full_plan,
                             ])->render();
 
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));

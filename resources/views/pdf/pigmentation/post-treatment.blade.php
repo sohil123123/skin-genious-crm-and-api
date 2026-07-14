@@ -146,7 +146,8 @@
 @php
     $patient = $record->user;
     $reassessment = $post_diagnosis['reassessment'] ?? [];
-    $overall = $reassessment['overall'] ?? [];
+    $comparison = $reassessment['reassessment_comparison'] ?? $reassessment;
+    $overall = $comparison['overall'] ?? [];
     
     $age = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
     $gender = $patient->gender ? strtoupper(substr($patient->gender, 0, 1)) : 'N/A';
@@ -229,6 +230,45 @@
         </div>
     </div>
 
+    {{-- ── Block Closure & Continuity ── --}}
+    @if(!empty($reassessment['previous_block_closure']) || !empty($reassessment['continuity_with_master_roadmap']))
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px; page-break-inside: avoid;">
+        <tr>
+            @if(!empty($reassessment['previous_block_closure']))
+            <td width="{{ !empty($reassessment['continuity_with_master_roadmap']) ? '48%' : '100%' }}" valign="top" style="background: #F0FDF4; border: 1px solid #115E59; border-left: 4px solid #115E59; border-radius: 6px; padding: 12px;">
+                <div style="font-size: 12px; font-weight: bold; color: #115E59; text-transform: uppercase; margin-bottom: 5px;">
+                    Previous Block Closure ({{ str_replace('_', ' ', ucwords($reassessment['previous_block_closure']['block_id'] ?? '')) }})
+                </div>
+                <div style="font-size: 11px; color: #4A5568; margin-bottom: 4px;">
+                    <strong>Completed Sessions:</strong> {{ $reassessment['previous_block_closure']['completed_sessions'] ?? 0 }}
+                </div>
+                <div style="font-size: 11px; color: #374151; line-height: 1.45;">
+                    {{ $reassessment['previous_block_closure']['block_outcome_summary'] ?? '' }}
+                </div>
+            </td>
+            @endif
+
+            @if(!empty($reassessment['previous_block_closure']) && !empty($reassessment['continuity_with_master_roadmap']))
+            <td width="4%"></td>
+            @endif
+
+            @if(!empty($reassessment['continuity_with_master_roadmap']))
+            <td width="{{ !empty($reassessment['previous_block_closure']) ? '48%' : '100%' }}" valign="top" style="background: #EFF6FF; border: 1px solid #1D4ED8; border-left: 4px solid #1D4ED8; border-radius: 6px; padding: 12px;">
+                <div style="font-size: 12px; font-weight: bold; color: #1D4ED8; text-transform: uppercase; margin-bottom: 5px;">
+                    Roadmap Continuity (Action: {{ str_replace('_', ' ', ucwords($reassessment['continuity_with_master_roadmap']['action'] ?? '')) }})
+                </div>
+                <div style="font-size: 11px; color: #374151; line-height: 1.45; margin-bottom: 6px;">
+                    {{ $reassessment['continuity_with_master_roadmap']['detail'] ?? '' }}
+                </div>
+                <div style="font-size: 10px; color: #4B5563; font-style: italic; border-top: 1px dashed #BFDBFE; padding-top: 4px;">
+                    <strong>Changes Explained:</strong> {{ $reassessment['continuity_with_master_roadmap']['changes_explained'] ?? '' }}
+                </div>
+            </td>
+            @endif
+        </tr>
+    </table>
+    @endif
+
     {{-- ── Diagnosis Re-examine Warning ── --}}
     @if(!empty($reassessment['diagnosis_reexamine']['needed']))
     <div style="background-color: #FDF2F2; border-left: 4px solid #9B1C1C; padding: 12px; margin-bottom: 25px; border-radius: 4px;">
@@ -240,6 +280,8 @@
         </div>
     </div>
     @endif
+
+    <pagebreak page-selector="report_content" />
 
     {{-- ── Goal-by-Goal Scorecard ── --}}
     <table class="section-title-table" cellpadding="0" cellspacing="0">
@@ -260,7 +302,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($reassessment['goals'] ?? [] as $g)
+            @forelse ($comparison['goals'] ?? [] as $g)
             @php
                 $status = strtolower($g['status'] ?? 'unknown');
                 $stColor = '#4A5568';
@@ -299,8 +341,10 @@
         </tbody>
     </table>
 
+    <pagebreak page-selector="report_content" />
+
     {{-- ── Regional Changes ── --}}
-    @if(!empty($reassessment['regional_changes']))
+    @if(!empty($comparison['regional_changes']))
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">REGIONAL METRIC COMPARISON</td>
@@ -317,7 +361,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach ($reassessment['regional_changes'] as $reg)
+            @foreach ($comparison['regional_changes'] as $reg)
             @php
                 $traj = strtolower($reg['trajectory'] ?? 'unknown');
                 $trColor = '#4A5568';
