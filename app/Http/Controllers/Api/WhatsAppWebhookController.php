@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Setting;
 use App\Models\WhatsAppMessageLog;
+use App\Models\WhatsAppTemplate;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppWebhookController extends Controller
@@ -52,7 +53,9 @@ class WhatsAppWebhookController extends Controller
         if (isset($payload['object']) && $payload['object'] === 'whatsapp_business_account') {
             foreach ($payload['entry'] as $entry) {
                 foreach ($entry['changes'] as $change) {
-                    if ($change['field'] === 'messages') {
+                    $field = $change['field'] ?? '';
+
+                    if ($field === 'messages') {
                         $value = $change['value'];
 
                         // Check if it's a message status update
@@ -63,6 +66,11 @@ class WhatsAppWebhookController extends Controller
                         }
 
                         // We can also handle incoming messages here by checking $value['messages']
+                    }
+
+                    // Handle template status update events
+                    if ($field === 'message_template_status_update') {
+                        $this->handleTemplateStatusUpdate($change['value'] ?? []);
                     }
                 }
             }
@@ -93,5 +101,70 @@ class WhatsAppWebhookController extends Controller
                 $log->save();
             }
         }
+    }
+
+    /**
+     * Handle message_template_status_update webhook events.
+     *
+     * Meta sends these when a template is approved, rejected, or paused.
+     * Payload example:
+     * {
+     *   "event": "APPROVED" | "REJECTED" | "PAUSED" | "DISABLED",
+     *   "message_template_id": 123456789,
+     *   "message_template_name": "template_name",
+     *   "message_template_language": "en_US",
+     *   "reason": "Optional rejection reason"
+     * }
+     */
+    protected function handleTemplateStatusUpdate(array $value)
+    {
+        $event = $value['event'] ?? null;
+        $templateName = $value['message_template_name'] ?? null;
+        $templateLanguage = $value['message_template_language'] ?? null;
+        $metaTemplateId = $value['message_template_id'] ?? null;
+        $reason = $value['reason'] ?? null;
+
+        Log::info('WhatsApp Template Status Update', [
+            'event'    => $event,
+            'name'     => $templateName,
+            'language' => $templateLanguage,
+            'id'       => $metaTemplateId,
+            'reason'   => $reason,
+        ]);
+
+        if (!$templateName || !$event) {
+            Log::warning('WhatsApp Template Status Update: Missing required fields.');
+            return;
+        }
+
+        // Find the template in our database
+        $query = WhatsAppTemplate::where('name', $templateName);
+
+        if ($templateLanguage) {
+            $query->where('language', $templateLanguage);
+        }
+
+        $template = $query->first();
+
+        if (!$template) {
+            Log::warning("WhatsApp Template Status Update: Template '{$templateName}' not found in database.");
+            return;
+        }
+
+        // Update the template status
+        $template->status = strtoupper($event);
+
+        if ($metaTemplateId) {
+            $template->meta_template_id = (string) $metaTemplateId;
+        }
+
+        if ($event === 'REJECTED' && $reason) {
+            $template->rejected_reason = $reason;
+        }
+
+        $template->last_synced_at = now();
+        $template->save();
+
+        Log::info("WhatsApp Template '{$templateName}' status updated to: {$event}");
     }
 }
