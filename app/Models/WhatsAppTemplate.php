@@ -219,4 +219,134 @@ class WhatsAppTemplate extends Model
 
         return $components;
     }
+
+    /**
+     * Build the components array required by the Send Message API.
+     *
+     * @param array $bodyVariables Key-value array for named, or sequential array for positional
+     * @param array $headerVariables Key-value array for named, or sequential array for positional
+     * @param array $buttonUrlVariables Sequential array of string values for dynamic URL button parameters (in order of URL buttons)
+     */
+    public function buildComponentsForSending(
+        array $bodyVariables,
+        array $headerVariables = [],
+        array $buttonUrlVariables = []
+    ): array {
+        $components = [];
+
+        // 1. Header Components
+        if ($this->header_type === 'text' && str_contains($this->header_content ?? '', '{{')) {
+            // Find header placeholders
+            preg_match_all('/\{\{([^}]+)\}\}/', $this->header_content, $matches);
+            $headerPlaceholders = array_unique($matches[1] ?? []);
+            if (!empty($headerPlaceholders)) {
+                $parameters = [];
+                foreach ($headerPlaceholders as $placeholder) {
+                    if ($this->variable_type === 'name') {
+                        $val = $headerVariables[$placeholder] ?? '';
+                        $parameters[] = [
+                            'type' => 'text',
+                            'parameter_name' => $placeholder,
+                            'text' => (string) $val,
+                        ];
+                    } else {
+                        $idx = (int)$placeholder - 1;
+                        $val = $headerVariables[$placeholder] ?? $headerVariables[$idx] ?? '';
+                        $parameters[] = [
+                            'type' => 'text',
+                            'text' => (string) $val,
+                        ];
+                    }
+                }
+                $components[] = [
+                    'type' => 'header',
+                    'parameters' => $parameters,
+                ];
+            }
+        } elseif (in_array(strtoupper($this->header_type ?? ''), ['IMAGE', 'DOCUMENT', 'VIDEO'])) {
+            // Media header
+            $mediaId = $headerVariables['media_id'] ?? $headerVariables[0] ?? null;
+            $mediaUrl = $headerVariables['media_url'] ?? null;
+            $filename = $headerVariables['filename'] ?? null;
+
+            if ($mediaId || $mediaUrl) {
+                $mediaType = strtolower($this->header_type);
+                $mediaPayload = [];
+                if ($mediaId) {
+                    $mediaPayload['id'] = $mediaId;
+                } else {
+                    $mediaPayload['link'] = $mediaUrl;
+                }
+
+                if ($mediaType === 'document' && $filename) {
+                    $mediaPayload['filename'] = $filename;
+                }
+
+                $components[] = [
+                    'type' => 'header',
+                    'parameters' => [
+                        [
+                            'type' => $mediaType,
+                            $mediaType => $mediaPayload,
+                        ]
+                    ],
+                ];
+            }
+        }
+
+        // 2. Body Components
+        $bodyPlaceholders = $this->getVariablePlaceholders();
+        if (!empty($bodyPlaceholders)) {
+            $parameters = [];
+            foreach ($bodyPlaceholders as $placeholder) {
+                $val = '';
+                if ($this->variable_type === 'name') {
+                    $val = $bodyVariables[$placeholder] ?? '';
+                    $parameters[] = [
+                        'type' => 'text',
+                        'parameter_name' => $placeholder,
+                        'text' => (string) $val,
+                    ];
+                } else {
+                    $idx = (int)$placeholder - 1;
+                    $val = $bodyVariables[$placeholder] ?? $bodyVariables[$idx] ?? '';
+                    $parameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $val,
+                    ];
+                }
+            }
+            $components[] = [
+                'type' => 'body',
+                'parameters' => $parameters,
+            ];
+        }
+
+        // 3. Buttons Component (dynamic URL buttons)
+        if (!empty($this->buttons)) {
+            $urlButtonIndex = 0;
+            $buttonIndex = 0;
+            foreach ($this->buttons as $button) {
+                $type = $button['type'] ?? 'QUICK_REPLY';
+                if ($type === 'URL' && str_contains($button['url'] ?? '', '{{')) {
+                    $val = $buttonUrlVariables[$urlButtonIndex] ?? '';
+                    $components[] = [
+                        'type' => 'button',
+                        'sub_type' => 'url',
+                        'index' => (string) $buttonIndex,
+                        'parameters' => [
+                            [
+                                'type' => 'text',
+                                'text' => (string) $val,
+                            ]
+                        ],
+                    ];
+                    $urlButtonIndex++;
+                }
+                $buttonIndex++;
+            }
+        }
+
+        return $components;
+    }
 }

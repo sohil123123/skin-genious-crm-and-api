@@ -4,22 +4,24 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
+use App\Models\WhatsAppTemplate;
 use Filament\Actions\Action;
 
 class WhatsAppSettings extends Page
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Others';
+    protected static string|\UnitEnum|null $navigationGroup = 'WhatsApp';
 
     protected static ?string $title = 'WhatsApp Settings';
 
-    protected static ?int $navigationSort = 22;
+    protected static ?int $navigationSort = 21;
 
     protected string $view = 'filament.pages.whatsapp-settings';
 
@@ -34,6 +36,7 @@ class WhatsAppSettings extends Page
             'whatsapp_phone_number_id',
             'whatsapp_access_token',
             'whatsapp_webhook_verify_token',
+            'whatsapp_appointment_template_name',
         ];
 
         $formData = [];
@@ -88,6 +91,14 @@ class WhatsAppSettings extends Page
                                 ->required()
                                 ->placeholder('Custom string for webhook verification')
                                 ->helperText('This token will be used to verify the webhook URL on Meta.')
+                                ->columnSpanFull(),
+
+                            Select::make('whatsapp_appointment_template_name')
+                                ->label('Appointment Confirmation Template')
+                                ->options(fn() => WhatsAppTemplate::pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->placeholder('Select template name')
+                                ->helperText('This template will be sent automatically when a new appointment is created.')
                                 ->columnSpanFull(),
                         ]),
                     ]),

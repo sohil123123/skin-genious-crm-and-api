@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use UnitEnum;
 use BackedEnum;
 
-class LoyaltySettings extends Page
+class Settings extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-gift';
 
@@ -28,7 +28,7 @@ class LoyaltySettings extends Page
 
     protected static ?string $title = 'Settings';
 
-    protected static ?int $navigationSort = 21;
+    protected static ?int $navigationSort = 24;
 
     public ?array $data = [];
 

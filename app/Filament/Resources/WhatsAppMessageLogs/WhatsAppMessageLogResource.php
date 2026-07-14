@@ -15,11 +15,11 @@ class WhatsAppMessageLogResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Others';
+    protected static string|\UnitEnum|null $navigationGroup = 'WhatsApp';
 
     protected static ?string $navigationLabel = 'WhatsApp Logs';
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 22;
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {

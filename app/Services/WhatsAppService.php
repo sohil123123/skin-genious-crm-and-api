@@ -480,6 +480,64 @@ class WhatsAppService
     }
 
     /**
+     * Send a plain text message (customer reply) using Meta Cloud API.
+     */
+    public function sendTextMessage(string $to, string $text, ?int $userId = null): ?WhatsAppMessageLog
+    {
+        if (!$this->phoneNumberId || !$this->accessToken) {
+            Log::error('WhatsApp API credentials are not set.');
+            return null;
+        }
+
+        // Format phone number
+        $to = preg_replace('/[^0-9]/', '', $to);
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+            'type' => 'text',
+            'text' => [
+                'preview_url' => false,
+                'body' => $text,
+            ],
+        ];
+
+        $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
+
+        try {
+            $response = Http::withToken($this->accessToken)->post($endpoint, $payload);
+            $responseData = $response->json();
+
+            $log = WhatsAppMessageLog::create([
+                'user_id' => $userId,
+                'phone_number' => $to,
+                'template_name' => 'TEXT_MESSAGE_REPLY',
+                'message_id' => $responseData['messages'][0]['id'] ?? null,
+                'status' => $response->successful() ? 'sent' : 'failed',
+                'error_response' => $response->successful() ? null : $responseData,
+                'sent_at' => $response->successful() ? now() : null,
+            ]);
+
+            if (!$response->successful()) {
+                Log::error('WhatsApp API Error: ' . json_encode($responseData));
+            }
+
+            return $log;
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Exception: ' . $e->getMessage());
+
+            return WhatsAppMessageLog::create([
+                'user_id' => $userId,
+                'phone_number' => $to,
+                'template_name' => 'TEXT_MESSAGE_REPLY',
+                'status' => 'failed',
+                'error_response' => ['exception' => $e->getMessage()],
+            ]);
+        }
+    }
+
+    /**
      * Upload Media to Meta and return the media ID.
      * This is useful for sending invoices as PDF.
      */

@@ -18,6 +18,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
     public string $languageCode;
     public array $components;
     public ?int $userId;
+    public string $type;
 
     /**
      * Create a new job instance.
@@ -27,13 +28,15 @@ class SendWhatsAppMessageJob implements ShouldQueue
         string $templateName,
         array $components = [],
         string $languageCode = 'en_US',
-        ?int $userId = null
+        ?int $userId = null,
+        string $type = 'template'
     ) {
         $this->to = $to;
         $this->templateName = $templateName;
         $this->components = $components;
         $this->languageCode = $languageCode;
         $this->userId = $userId;
+        $this->type = $type;
     }
 
     /**
@@ -41,12 +44,20 @@ class SendWhatsAppMessageJob implements ShouldQueue
      */
     public function handle(WhatsAppService $whatsappService): void
     {
-        $whatsappService->sendTemplateMessage(
-            $this->to,
-            $this->templateName,
-            $this->languageCode,
-            $this->components,
-            $this->userId
-        );
+        if ($this->type === 'text') {
+            $whatsappService->sendTextMessage(
+                $this->to,
+                $this->templateName, // contains the raw text body
+                $this->userId
+            );
+        } else {
+            $whatsappService->sendTemplateMessage(
+                $this->to,
+                $this->templateName,
+                $this->languageCode,
+                $this->components,
+                $this->userId
+            );
+        }
     }
 }
