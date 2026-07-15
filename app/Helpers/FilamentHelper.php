@@ -142,7 +142,7 @@ if (!function_exists('start_session')) {
             $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=iv-treatment';
             return $assessmentUrl;
         } else {
-            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment';
+            $assessmentUrl = config('project.frontend_url').'/authenticate?token=' . $token . '&user_id=' . $appointment->user_id . '&appointment_id=' . $appointment->id . '&assessment_id=' . $appointment->assessment_id . '&session_id=' . $appointment->treatment_session_id . '&type=treatment&assessment_type=' . $assessment_type;
             return $assessmentUrl;
         }
     }

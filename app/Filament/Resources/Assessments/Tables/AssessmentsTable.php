@@ -617,6 +617,126 @@ class AssessmentsTable
                                 echo $mpdf->Output('', 'S');
                             }, $record->user->name . '_IV_Program_Roadmap.pdf');
                         }),
+
+                    // --- Pigmentation Reports (Pigmentation Type) ---
+                    Action::make('pigmentation_diagnosis_pdf')
+                        ->label('Pigmentation Skin Analysis Report')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Pigmentation Skin Analysis Report')
+                        ->visible(fn($record) => $record->assessment_type === 'pigmentation')
+                        ->action(function (Assessment $record) {
+                            $html = view('pdf.pigmentation.diagnosis', ['record' => $record])->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $mpdf->showImageErrors = true;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, $record->user->name . '_pigmentation_skin_analysis_report.pdf');
+                        }),
+
+                    Action::make('pigmentation_reassessment_pdf')
+                        ->label('Pigmentation Re-Assessment & Progress Report')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Pigmentation Re-Assessment & Progress Report')
+                        ->visible(function (Assessment $record) {
+                            return $record->assessment_type === 'pigmentation' && $record->post_diagnosis && $record->images && $record->post_images;
+                        })
+                        ->form(function (Assessment $record) {
+                            $options = Assessment::where('user_id', $record->user_id)
+                                ->where('assessment_type', 'pigmentation')
+                                ->where('id', '!=', $record->id)
+                                ->whereNotNull('diagnosis')
+                                ->orderBy('created_at', 'desc')
+                                ->get()
+                                ->mapWithKeys(function ($item) {
+                                    return [$item->id => "Session on " . $item->created_at->format('d M Y, h:i A') . " (ID: #{$item->id})"];
+                                })
+                                ->toArray();
+
+                            return [
+                                Select::make('compare_id')
+                                    ->label('Compare Current Session With')
+                                    ->options(array_merge(
+                                        ['baseline' => 'Baseline (Pre-treatment images of this assessment)'],
+                                        $options
+                                    ))
+                                    ->default('baseline')
+                                    ->required(),
+                            ];
+                        })
+                        ->action(function (Assessment $record, array $data) {
+                            $compareId = $data['compare_id'] ?? 'baseline';
+
+                            $compareRecord = null;
+                            if ($compareId !== 'baseline') {
+                                $compareRecord = Assessment::find($compareId);
+                            }
+
+                            $viewData['patient'] = $record->user;
+                            $viewData['post_diagnosis'] = $record->post_diagnosis;
+                            $viewData['record'] = $record;
+
+                            $viewData['assessmentImages'] = $compareRecord 
+                                ? (count($compareRecord->post_images) > 0 ? $compareRecord->post_images : $compareRecord->images)
+                                : $record->images;
+                            $viewData['postAssessmentImages'] = $record->post_images;
+                            $viewData['compareRecord'] = $compareRecord;
+                            $viewData['compare_type'] = $compareId;
+
+                            $html = view('pdf.pigmentation.post-treatment', $viewData)->render();
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->showImageErrors = true;
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, $record->user->name . '_pigmentation_reassessment_report.pdf');
+                        }),
+
+                    Action::make('pigmentation_treatment_plan_pdf')
+                        ->label('Treatment Plan PDF')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->visible(fn($record) => $record->assessment_type === 'pigmentation')
+                        ->action(function (Assessment $record) {
+                            $html = view('pdf.pigmentation.treatment-plan', [
+                                'client' => [
+                                    'name' => $record->user->name,
+                                    'age' => $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A',
+                                    'gender' => $record->user->gender,
+                                    'clinic' => $record->clinic->name ?? 'Main Clinic',
+                                ],
+                                'summary' => [
+                                    'duration' => $record->total_time,
+                                    'total_sessions' => count($record->treatmentSessions['treatments'] ?? []),
+                                ],
+                                'sessions' => $record->treatmentSessions,
+                                'recommended_full_plan' => $record->recommended_full_plan,
+                            ])->render();
+
+                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
+                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->SetDisplayMode('fullpage');
+                            $mpdf->shrink_tables_to_fit = 1;
+                            $mpdf->SetTitle('Treatment Plan');
+                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+                            $mpdf->WriteHTML($html);
+
+                            return response()->streamDownload(function () use ($mpdf) {
+                                echo $mpdf->Output('', 'S');
+                            }, $record->user->name . '_pigmentation_treatment_plan.pdf');
+                        }),
                 ])
                     ->icon('heroicon-o-arrow-down-tray'),
 
@@ -639,7 +759,7 @@ class AssessmentsTable
                         ->color('primary')
                         ->tooltip('Manage Treatment Sessions')
                         ->url(fn($record) => route('filament.admin.resources.assessments.treatment-plans', ['record' => $record]))
-                        ->visible(fn($record) => $record->assessment_type === 'normal'),
+                        ->visible(fn($record) => $record->assessment_type === 'normal' || $record->assessment_type === 'pigmentation'),
                 ]),
             ])
             ->groups([

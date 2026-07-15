@@ -84,6 +84,11 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
 
         Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
+        // INFO: Pigmentation Report PDF Downloads
+        Route::get('download-pigmentation-report/diagnosis/{id}', [ReportController::class, 'downloadPigmentationDiagnosis'])->name('download-pigmentation-report.diagnosis');
+        Route::get('download-pigmentation-report/treatment-plan/{id}', [ReportController::class, 'downloadPigmentationTreatmentPlan'])->name('download-pigmentation-report.treatment-plan');
+        Route::get('download-pigmentation-report/reassessment/{id}', [ReportController::class, 'downloadPigmentationPostDiagnosis'])->name('download-pigmentation-report.reassessment');
+
         // INFO: Loyalty Points Routes
         Route::prefix('loyalty')->group(function () {
             Route::get('/balance', [LoyaltyController::class, 'balance']);
