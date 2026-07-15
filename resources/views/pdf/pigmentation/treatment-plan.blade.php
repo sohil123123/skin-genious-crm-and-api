@@ -291,44 +291,58 @@
         <td width="100%" class="col-title">— CLIENT COMMUNICATION &amp; REPORT —</td>
     </tr>
     <tr>
-        <td style="padding: 10px 0;">
-            @if (!empty($recommended_full_plan['client_report']['headline']))
-            <div style="font-size: 14px; font-weight: bold; color: #4F46E5; font-style: italic; line-height: 1.5; margin-bottom: 10px;">
-                "{{ $recommended_full_plan['client_report']['headline'] }}"
-            </div>
-            @endif
-
-            @if (!empty($recommended_full_plan['client_report']['simple_explanation']))
-            <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 15px;">
-                {{ $recommended_full_plan['client_report']['simple_explanation'] }}
-            </div>
-            @endif
-
-            @if (!empty($recommended_full_plan['client_report']['roadmap']))
-            <div style="font-size: 11px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; margin-bottom: 8px;">
-                Patient Roadmap Milestones:
-            </div>
+        <td style="padding: 12px 0 0 0;">
             <table width="100%" cellpadding="0" cellspacing="0">
-                @foreach ($recommended_full_plan['client_report']['roadmap'] as $index => $step)
+                @if (!empty($recommended_full_plan['client_report']['headline']))
                 <tr>
-                    <td valign="top" style="width: 24px; padding-bottom: 8px;">
-                        <div style="background: #4F46E5; color: #fff; width: 18px; height: 18px; line-height: 18px; border-radius: 9px; text-align: center; font-size: 10px; font-weight: bold;">
-                            {{ $index + 1 }}
+                    <td style="padding-bottom: 15px;">
+                        <div style="font-size: 15px; font-weight: bold; color: #0E2B5C; font-style: italic; line-height: 1.5; padding: 8px 12px; background: #F8FAFC; border-left: 3px solid #C29F5D; border-radius: 0 4px 4px 0;">
+                            "{{ $recommended_full_plan['client_report']['headline'] }}"
                         </div>
                     </td>
-                    <td valign="top" style="font-size: 11.5px; color: #444; line-height: 1.5; padding-bottom: 8px; padding-left: 6px;">
-                        {{ $step }}
+                </tr>
+                @endif
+
+                @if (!empty($recommended_full_plan['client_report']['simple_explanation']))
+                <tr>
+                    <td style="font-size: 13px; color: #2D3748; line-height: 1.6; padding-bottom: 20px;">
+                        {{ $recommended_full_plan['client_report']['simple_explanation'] }}
                     </td>
                 </tr>
-                @endforeach
-            </table>
-            @endif
+                @endif
 
-            @if (!empty($recommended_full_plan['client_report']['disclaimer']))
-            <div style="font-size: 10px; color: #888; font-style: italic; margin-top: 10px; border-top: 1px solid #eee; padding-top: 6px;">
-                * {{ $recommended_full_plan['client_report']['disclaimer'] }}
-            </div>
-            @endif
+                @if (!empty($recommended_full_plan['client_report']['roadmap']))
+                <tr>
+                    <td style="font-size: 13px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 12px;">
+                        Patient Roadmap Milestones:
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding-bottom: 15px;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            @foreach ($recommended_full_plan['client_report']['roadmap'] as $index => $step)
+                            <tr>
+                                <td valign="top" style="width: 20px; padding-bottom: 12px; font-size: 14px; font-weight: bold; color: #0E2B5C; line-height: 1.6;">
+                                    {{ $index + 1 }}.
+                                </td>
+                                <td valign="top" style="font-size: 13px; color: #2D3748; line-height: 1.6; padding-bottom: 12px; padding-left: 4px;">
+                                    {{ $step }}
+                                </td>
+                            </tr>
+                            @endforeach
+                        </table>
+                    </td>
+                </tr>
+                @endif
+
+                @if (!empty($recommended_full_plan['client_report']['disclaimer']))
+                <tr>
+                    <td style="font-size: 11px; color: #718096; font-style: italic; border-top: 1px solid #E2E8F0; padding-top: 8px; line-height: 1.5;">
+                        * {{ $recommended_full_plan['client_report']['disclaimer'] }}
+                    </td>
+                </tr>
+                @endif
+            </table>
         </td>
     </tr>
 </table>
