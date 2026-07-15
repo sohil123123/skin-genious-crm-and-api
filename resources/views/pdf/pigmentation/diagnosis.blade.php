@@ -411,7 +411,7 @@
         <thead>
             <tr style="background-color: #F8FAFC; color: #0E2B5C;">
                 <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0; width: 25%;">Region</th>
-                <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0; width: 37%;">Patient-Facing Findings</th>
+                <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; border-right: 1px solid #E2E8F0; width: 37%;">Findings</th>
                 <th align="left" style="padding: 8px; font-size: 10px; text-transform: uppercase; border-bottom: 2px solid #C29F5D; width: 38%;">Clinical Interpretation</th>
             </tr>
         </thead>
@@ -469,8 +469,22 @@
         </tr>
     </table>
 
+    @php
+        $sortedComponents = collect($diagnosis['patient_facing_components'] ?? [])->sortBy(function($comp) {
+            $level = strtolower(str_replace(' ', '_', $comp['support_level'] ?? ''));
+            if (str_contains($level, 'strong')) {
+                return 1;
+            } elseif (str_contains($level, 'moderate')) {
+                return 2;
+            } elseif (str_contains($level, 'weak')) {
+                return 3;
+            }
+            return 4;
+        });
+    @endphp
+
     <div style="margin-bottom: 20px;">
-        @forelse(($diagnosis['patient_facing_components'] ?? []) as $comp)
+        @forelse($sortedComponents as $comp)
         <div class="section-card" style="padding: 15px; margin-bottom: 15px; border-left: 4px solid #C29F5D; margin-top: 5px; page-break-inside: avoid;">
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 5px;">
                 <tr>
@@ -494,32 +508,6 @@
         @endforelse
     </div>
 
-    {{-- ── Doctor Review Safety Alert Note ── --}}
-    @if(!empty($diagnosis['patient_doctor_review_note']['required']) && $diagnosis['patient_doctor_review_note']['required'] === true)
-    <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 8px; padding: 15px; margin-top: 15px; page-break-inside: avoid;">
-        <div style="font-size: 12px; font-weight: bold; color: #9B1C1C; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">
-            ⚠️ {{ $diagnosis['patient_doctor_review_note']['headline'] ?? 'Doctor Review Required Before Spot Treatment' }}
-        </div>
-        <div style="font-size: 10.5px; color: #742A2A; line-height: 1.4; margin-bottom: 8px;">
-            {{ $diagnosis['patient_doctor_review_note']['summary'] ?? '' }}
-        </div>
-        <div style="font-size: 9.5px; color: #9B2C2C; font-style: italic; margin-bottom: 10px;">
-            * {{ $diagnosis['patient_doctor_review_note']['reassurance'] ?? '' }}
-        </div>
-        <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #FED7D7; padding-top: 8px;">
-            @foreach(($diagnosis['patient_doctor_review_note']['areas'] ?? []) as $area)
-            <tr>
-                <td style="font-size: 10px; font-weight: bold; color: #9B1C1C; padding: 4px 0; width: 45%; vertical-align: top;">
-                    • {{ $area['natural_location'] ?? '' }}
-                </td>
-                <td style="font-size: 10px; color: #742A2A; padding: 4px 0; vertical-align: top;">
-                    {{ $area['instruction'] ?? '' }}
-                </td>
-            </tr>
-            @endforeach
-        </table>
-    </div>
-    @endif
 </div>
 
 <pagebreak page-selector="report_content" />
