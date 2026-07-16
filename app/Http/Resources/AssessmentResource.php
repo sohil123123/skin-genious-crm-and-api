@@ -37,6 +37,8 @@ class AssessmentResource extends BaseResource
             'is_pregnant' => $this->is_pregnant,
             'breastfeeding' => $this->breastfeeding,
             'iv_inputs' => $this->iv_inputs,
+            'pigmentation_inputs' => $this->pigmentation_inputs,
+            'recommended_full_plan' => $this->recommended_full_plan,
             'assessment_type' => $this->assessment_type,
             'feature_packet' => $this->feature_packet,
             'diagnosis' => $this->diagnosis,

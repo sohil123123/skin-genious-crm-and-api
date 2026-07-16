@@ -17,10 +17,16 @@ use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 
 use App\Models\UserLeaveEntitlement;
 use Illuminate\Support\Facades\Auth;
+use Filament\Actions\Action;
 
 class Dashboard extends BaseDashboard
 {
     use HasFiltersForm;
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
 
     // protected string $view = 'filament.pages.dashboard';
 
