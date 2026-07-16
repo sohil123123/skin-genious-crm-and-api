@@ -47,7 +47,7 @@ class WhatsAppAiService
         $messagesPayload = [];
         $messagesPayload[] = [
             'role' => 'system',
-            'content' => 'You are an AI assistant for a skin and hair care clinic called Skin Genious. Generate a polite, brief, and helpful reply to the customer message. Keep answers conversational, helpful, and concise. Support the client\'s language.',
+            'content' => 'You are an AI assistant for a dermatology and aesthetics clinic called Ai Aesthetics. Generate a polite, brief, and helpful reply to the customer message. Keep answers conversational, helpful, and concise. Support the client\'s language.',
         ];
 
         foreach ($messages as $msg) {
@@ -63,11 +63,11 @@ class WhatsAppAiService
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->apiUrl, [
-                'model' => $this->model,
-                'messages' => $messagesPayload,
-                'max_tokens' => 150,
-                'temperature' => 0.7,
-            ]);
+                        'model' => $this->model,
+                        'messages' => $messagesPayload,
+                        'max_tokens' => 150,
+                        'temperature' => 0.7,
+                    ]);
 
             if ($response->successful()) {
                 return $response->json()['choices'][0]['message']['content'] ?? null;
@@ -95,20 +95,20 @@ class WhatsAppAiService
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->apiUrl, [
-                'model' => $this->model,
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Identify the language of the user text. Reply with ONLY the name of the language (e.g. English, Hindi, Spanish).',
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => $text,
-                    ],
-                ],
-                'max_tokens' => 10,
-                'temperature' => 0.3,
-            ]);
+                        'model' => $this->model,
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => 'Identify the language of the user text. Reply with ONLY the name of the language (e.g. English, Hindi, Spanish).',
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $text,
+                            ],
+                        ],
+                        'max_tokens' => 10,
+                        'temperature' => 0.3,
+                    ]);
 
             if ($response->successful()) {
                 return trim($response->json()['choices'][0]['message']['content'] ?? '');
@@ -151,20 +151,20 @@ class WhatsAppAiService
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->apiUrl, [
-                'model' => $this->model,
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Summarize the following customer conversation log in 2-3 brief bullet points listing main concern, actions taken, and next steps.',
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => $dialogue,
-                    ],
-                ],
-                'max_tokens' => 100,
-                'temperature' => 0.5,
-            ]);
+                        'model' => $this->model,
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => 'Summarize the following customer conversation log in 2-3 brief bullet points listing main concern, actions taken, and next steps.',
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $dialogue,
+                            ],
+                        ],
+                        'max_tokens' => 100,
+                        'temperature' => 0.5,
+                    ]);
 
             if ($response->successful()) {
                 return trim($response->json()['choices'][0]['message']['content'] ?? '');
@@ -191,20 +191,20 @@ class WhatsAppAiService
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->apiUrl, [
-                'model' => $this->model,
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Determine the sentiment of the user text. Reply with exactly one word: positive, negative, or neutral.',
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => $text,
-                    ],
-                ],
-                'max_tokens' => 10,
-                'temperature' => 0.2,
-            ]);
+                        'model' => $this->model,
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => 'Determine the sentiment of the user text. Reply with exactly one word: positive, negative, or neutral.',
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $text,
+                            ],
+                        ],
+                        'max_tokens' => 10,
+                        'temperature' => 0.2,
+                    ]);
 
             if ($response->successful()) {
                 return strtolower(trim($response->json()['choices'][0]['message']['content'] ?? 'neutral'));

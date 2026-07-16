@@ -59,6 +59,7 @@ class CreateWhatsAppTemplate extends CreateRecord
         // Success — update with Meta response
         $data['meta_template_id'] = $result['template_id'] ?? null;
         $data['status'] = $result['status'] ?? 'PENDING';
+        $data['variable_type'] = $data['variable_type'] ?? 'number';
 
         $data['components'] = $components;
         $data['variable_samples'] = $variableSamples;

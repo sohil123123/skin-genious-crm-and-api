@@ -501,7 +501,7 @@ class WhatsAppService
                 'failed_reason' => $e->getMessage(),
             ]);
             $message->save();
-            
+
             return $message;
         }
     }

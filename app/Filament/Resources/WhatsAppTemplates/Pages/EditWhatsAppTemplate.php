@@ -65,6 +65,7 @@ class EditWhatsAppTemplate extends EditRecord
         // Transform variable_samples from repeater format to key-value
         $variableSamples = $this->transformVariableSamples($data['variable_samples'] ?? []);
         $data['variable_samples'] = $variableSamples;
+        $data['variable_type'] = $data['variable_type'] ?? $record->variable_type ?? 'number';
 
         // Build components from form data
         $tempModel = new WhatsAppTemplate();
@@ -82,14 +83,54 @@ class EditWhatsAppTemplate extends EditRecord
             ]);
 
             if (!$result['success']) {
-                Notification::make()
-                    ->title('Meta API Error ❌')
-                    ->body($result['error'] ?? 'Failed to update template on Meta.')
-                    ->danger()
-                    ->persistent()
-                    ->send();
+                $errorString = $result['error'] ?? '';
+                $isStatusError = str_contains(strtolower($errorString), 'status') 
+                    || str_contains(strtolower($errorString), 'can\'t be changed')
+                    || str_contains(strtolower($errorString), 'only delete or add')
+                    || str_contains(strtolower($errorString), '2388039');
 
-                $this->halt();
+                if ($isStatusError) {
+                    // Fallback Workaround: Delete and Re-create template on Meta since status is locked for direct edits
+                    $whatsAppService->deleteTemplate($record->name);
+                    
+                    $createResult = $whatsAppService->createTemplate([
+                        'name' => $record->name,
+                        'category' => $data['category'] ?? $record->category,
+                        'language' => $data['language'] ?? $record->language,
+                        'components' => $components,
+                        'variable_type' => $data['variable_type'] ?? $record->variable_type,
+                    ]);
+
+                    if ($createResult['success']) {
+                        $data['meta_template_id'] = $createResult['template_id'];
+                        $data['status'] = $createResult['status'] ?? 'PENDING';
+
+                        Notification::make()
+                            ->title('Template Recreated on Meta 🔄')
+                            ->body('Since Meta locked edits for this template, it was automatically deleted and recreated on Meta for review.')
+                            ->success()
+                            ->duration(10000)
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Meta API Error ❌')
+                            ->body('Failed to recreate template on Meta: ' . ($createResult['error'] ?? 'Unknown error'))
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        $this->halt();
+                    }
+                } else {
+                    Notification::make()
+                        ->title('Meta API Error ❌')
+                        ->body($result['error'] ?? 'Failed to update template on Meta.')
+                        ->danger()
+                        ->persistent()
+                        ->send();
+
+                    $this->halt();
+                }
             }
         }
 
