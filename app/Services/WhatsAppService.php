@@ -287,8 +287,10 @@ class WhatsAppService
     public function syncTemplatesFromMeta(): int
     {
         $metaTemplates = $this->listTemplates();
+        $metaTemplateIds = [];
 
         if (empty($metaTemplates)) {
+            // Optional: Handle full sync deletion here if no templates exist
             return 0;
         }
 
@@ -296,6 +298,11 @@ class WhatsAppService
 
         foreach ($metaTemplates as $metaTemplate) {
             $parsedData = $this->parseMetaTemplateComponents($metaTemplate);
+            
+            $metaId = $metaTemplate['id'] ?? null;
+            if ($metaId) {
+                $metaTemplateIds[] = $metaId;
+            }
 
             WhatsAppTemplate::updateOrCreate(
                 [
@@ -303,7 +310,7 @@ class WhatsAppService
                     'language' => $metaTemplate['language'],
                 ],
                 [
-                    'meta_template_id' => $metaTemplate['id'] ?? null,
+                    'meta_template_id' => $metaId,
                     'category' => $metaTemplate['category'] ?? null,
                     'variable_type' => (strtolower($metaTemplate['parameter_format'] ?? '') === 'named') ? 'name' : 'number',
                     'components' => $metaTemplate['components'] ?? [],
@@ -322,6 +329,13 @@ class WhatsAppService
 
             $syncedCount++;
         }
+
+        // Delete local records that have been deleted on Meta (records with a meta_template_id not present in the Meta API response)
+        $query = WhatsAppTemplate::query()->whereNotNull('meta_template_id');
+        if (!empty($metaTemplateIds)) {
+            $query->whereNotIn('meta_template_id', $metaTemplateIds);
+        }
+        $query->delete();
 
         return $syncedCount;
     }

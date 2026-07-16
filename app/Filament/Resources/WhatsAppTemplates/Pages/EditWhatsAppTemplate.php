@@ -101,13 +101,42 @@ class EditWhatsAppTemplate extends EditRecord
                         'variable_type' => $data['variable_type'] ?? $record->variable_type,
                     ]);
 
+                    if (!$createResult['success']) {
+                        $errorDetails = $createResult['details'] ?? [];
+                        $subcode = $errorDetails['error']['error_subcode'] ?? null;
+                        $errorMsg = $createResult['error'] ?? '';
+
+                        $isDeletionLock = ($subcode == 2388023)
+                            || str_contains(strtolower($errorMsg), 'being deleted')
+                            || str_contains(strtolower($errorMsg), 'try again in 4 weeks');
+
+                        if ($isDeletionLock) {
+                            // Generate a new versioned template name and retry
+                            $newTemplateName = $this->incrementTemplateName($record->name);
+
+                            $createResult = $whatsAppService->createTemplate([
+                                'name' => $newTemplateName,
+                                'category' => $data['category'] ?? $record->category,
+                                'language' => $data['language'] ?? $record->language,
+                                'components' => $components,
+                                'variable_type' => $data['variable_type'] ?? $record->variable_type,
+                            ]);
+
+                            if ($createResult['success']) {
+                                $data['name'] = $newTemplateName; // Save new versioned name to our DB
+                            }
+                        }
+                    }
+
                     if ($createResult['success']) {
                         $data['meta_template_id'] = $createResult['template_id'];
                         $data['status'] = $createResult['status'] ?? 'PENDING';
+                        
+                        $recreatedName = $data['name'] ?? $record->name;
 
                         Notification::make()
                             ->title('Template Recreated on Meta 🔄')
-                            ->body('Since Meta locked edits for this template, it was automatically deleted and recreated on Meta for review.')
+                            ->body("Since Meta locked edits, it was recreated as '{$recreatedName}' for review.")
                             ->success()
                             ->duration(10000)
                             ->send();
@@ -139,6 +168,18 @@ class EditWhatsAppTemplate extends EditRecord
         $record->update($data);
 
         return $record;
+    }
+
+    /**
+     * Increment the version suffix of a template name (e.g. name -> name_v2 -> name_v3).
+     */
+    private function incrementTemplateName(string $name): string
+    {
+        if (preg_match('/_v(\d+)$/', $name, $matches)) {
+            $version = (int)$matches[1] + 1;
+            return preg_replace('/_v\d+$/', '_v' . $version, $name);
+        }
+        return $name . '_v2';
     }
 
     /**
