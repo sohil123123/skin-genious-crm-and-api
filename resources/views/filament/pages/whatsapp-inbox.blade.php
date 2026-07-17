@@ -1,7 +1,32 @@
 <x-filament-panels::page>
     <style>
-        .wa-inbox-container { display: flex; height: calc(100vh - 200px); min-height: 500px; border-radius: 12px; overflow: hidden; border: 1px solid #e9edef; background: #eae6df; }
-        .dark .wa-inbox-container { border-color: #2f3b43; background: #0b141a; }
+        /* Hide page header and prevent outer scrollbars */
+        .fi-header {
+            display: none !important;
+        }
+        html, body {
+            overflow: hidden !important;
+        }
+        .fi-page-header-main-ctn {
+            padding-block: unset !important;
+        }
+        .fi-main, .fi-main-ctn, .fi-page, .fi-content {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            height: calc(100vh - 64px) !important;
+            overflow: hidden !important;
+        }
+        .wa-inbox-container {
+            display: flex;
+            height: calc(100vh - 64px);
+            min-height: calc(100vh - 64px);
+            border-radius: 0;
+            border: none;
+            background: #eae6df;
+            margin: 0 !important;
+        }
+        .dark .wa-inbox-container { border: none; background: #0b141a; }
 
         /* Left Panel - Conversations */
         .wa-sidebar { width: 360px; min-width: 300px; border-right: 1px solid #e9edef; display: flex; flex-direction: column; background: white; }
@@ -456,7 +481,13 @@
                         @endif
                     </div>
 
-                    <div class="wa-chat-header-actions">
+                    <div class="wa-chat-header-actions" style="display: flex; align-items: center; gap: 8px;">
+                        <button class="wa-header-btn" wire:click="mountAction('newConversation')" title="New Chat" style="color: #00a884; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #00a884; padding: 4px 8px; border-radius: 6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 14px; height: 14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            New Chat
+                        </button>
                         <button class="wa-header-btn" wire:click="toggleStar" title="Star">
                             {{ $this->activeConversation->is_starred ? '⭐' : '☆' }}
                         </button>
@@ -485,7 +516,7 @@
                      @load.capture="$el.scrollTop = $el.scrollHeight">
 
                     @php
-                        $groupedMessages = $this->messages->groupBy(function($msg) {
+                        $groupedMessages = $this->messages->groupBy(function ($msg) {
                             return $msg->created_at->format('Y-m-d');
                         });
                     @endphp
@@ -640,7 +671,7 @@
                                     @if($isFailed)
                                         <div style="font-size: 11px; color: #ef4444; margin-top: 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(239, 68, 68, 0.15); padding-top: 4px;">
                                             <span style="font-style: italic;">⚠️ {{ $msg->failed_reason ?? 'Failed to send' }}</span>
-                                            <button wire:click="retryMessage({{ $msg->id }})" 
+                                            <button wire:click="retryMessage({{ $msg->id }})"
                                                     style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; font-weight: 600; text-transform: uppercase; transition: opacity 0.15s;"
                                                     onmouseover="this.style.opacity='0.8'"
                                                     onmouseout="this.style.opacity='1'">
@@ -801,7 +832,15 @@
                 <div class="wa-no-chat">
                     <div class="wa-no-chat-icon">💬</div>
                     <div class="wa-no-chat-text">Skin Genious WhatsApp</div>
-                    <div class="wa-no-chat-sub">Select a conversation to start chatting</div>
+                    <div class="wa-no-chat-sub" style="margin-bottom: 16px;">Select a conversation to start chatting</div>
+                    <button type="button"
+                            wire:click="mountAction('newConversation')"
+                            style="background: #00a884; color: white; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        New Chat
+                    </button>
                 </div>
             @endif
         </div>
@@ -932,7 +971,7 @@
         document.addEventListener('play-notification-sound', () => {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
+
                 // Beep 1 (A5 note)
                 const osc1 = audioCtx.createOscillator();
                 const gain1 = audioCtx.createGain();
@@ -942,10 +981,10 @@
                 osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
                 gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
                 gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                
+
                 osc1.start(audioCtx.currentTime);
                 osc1.stop(audioCtx.currentTime + 0.1);
-                
+
                 // Beep 2 (G5 note, staggered by 0.12s)
                 const osc2 = audioCtx.createOscillator();
                 const gain2 = audioCtx.createGain();
@@ -955,7 +994,7 @@
                 osc2.frequency.setValueAtTime(784, audioCtx.currentTime + 0.12);
                 gain2.gain.setValueAtTime(0.2, audioCtx.currentTime + 0.12);
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-                
+
                 osc2.start(audioCtx.currentTime + 0.12);
                 osc2.stop(audioCtx.currentTime + 0.3);
             } catch (e) {
