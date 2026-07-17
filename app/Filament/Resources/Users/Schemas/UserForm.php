@@ -247,16 +247,16 @@ class UserForm
                                         ->relationship(
                                             name: 'clinic',
                                             titleAttribute: 'name',
-                                            modifyQueryUsing: fn (\Illuminate\Database\Eloquent\Builder $query) => auth()->user()->clinic_id ? $query->where('id', auth()->user()->clinic_id) : $query
+                                            modifyQueryUsing: fn(\Illuminate\Database\Eloquent\Builder $query) => auth()->user()->clinic_id ? $query->where('id', auth()->user()->clinic_id) : $query
                                         )
                                         // ->searchable()
                                         // ->preload()
                                         ->placeholder('Select a clinic')
-                                        ->default(fn () => auth()->user()->clinic_id)
+                                        ->default(fn() => auth()->user()->clinic_id)
                                         ->native(false)
                                         ->reactive()
-                                        ->visible(fn ($get) => check_role(config('project.roles.super_admin')) && has_clinic_related_role($get('role_id')))
-                                        ->required(fn ($get) => check_role(config('project.roles.super_admin')) && has_clinic_related_role($get('role_id')))
+                                        ->visible(fn($get) => check_role(config('project.roles.super_admin')) && has_clinic_related_role($get('role_id')))
+                                        ->required(fn($get) => check_role(config('project.roles.super_admin')) && has_clinic_related_role($get('role_id')))
                                         ->dehydrated(true)
                                         ->afterStateUpdated(function ($state, callable $set, $get, $livewire) {
                                             $livewire->validateOnly('clinic_id');
@@ -268,7 +268,7 @@ class UserForm
                                             }
                                         })
                                         ->rules([
-                                            fn ($get, ?User $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                            fn($get, ?User $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                                 if (!$value)
                                                     return;
 
@@ -284,7 +284,7 @@ class UserForm
 
                                                 // Check if ANY user at this clinic has clinic_manager role
                                                 $exists = User::where('clinic_id', $value)
-                                                    ->whereHas('roles', fn ($q) => $q->where('name', 'clinic_manager'))
+                                                    ->whereHas('roles', fn($q) => $q->where('name', 'clinic_manager'))
                                                     ->when($record, fn($q) => $q->where('id', '!=', $record->id))
                                                     ->exists();
 
@@ -300,7 +300,7 @@ class UserForm
                                     ->multiple()
                                     ->preload()
                                     ->searchable()
-                                    ->hidden(fn ($record) => ($record === null || $record->hasRole('client'))),
+                                    ->hidden(fn($record) => ($record === null || $record->hasRole('client'))),
 
                             ]),
 
@@ -317,19 +317,19 @@ class UserForm
                         Section::make('Medical Background')
                             ->icon('heroicon-o-heart')
                             ->schema(static::getMedicalBackgroundComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
+                            ->visible(fn($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Skin Profile')
                             ->icon('heroicon-o-face-smile')
                             ->schema(static::getSkinProfileComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
+                            ->visible(fn($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Aesthetic Goals')
                             ->icon('heroicon-o-sparkles')
                             ->schema(static::getAestheticGoalsComponents())
-                            ->visible(fn ($get) => has_user_related_role($get('role_id')))
+                            ->visible(fn($get) => has_user_related_role($get('role_id')))
                             ->collapsible(),
 
                         Section::make('Account Settings')
@@ -337,7 +337,7 @@ class UserForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     Select::make('how_did_you_hear')
-                                        ->visible(fn ($get) => has_user_related_role($get('role_id')))
+                                        ->visible(fn($get) => has_user_related_role($get('role_id')))
                                         ->options([
                                             'Skin Genius' => 'Skin genius',
                                             'Social Media' => 'Social media',
@@ -349,16 +349,16 @@ class UserForm
                                         ]),
 
                                     ToggleButtons::make('opt_for_loyalty')
-                                        ->visible(fn ($get) => has_user_related_role($get('role_id')))
+                                        ->visible(fn($get) => has_user_related_role($get('role_id')))
                                         ->inline()
                                         ->label('Opted for Loyalty Program?')
-                                        ->default(false)
+                                        ->default(true)
                                         ->boolean(),
 
                                     ToggleButtons::make('is_active')
                                         ->inline()
                                         ->boolean()
-                                        ->default(fn ($record) => $record?->is_active ?? true)
+                                        ->default(fn($record) => $record?->is_active ?? true)
                                         ->required(),
                                 ]),
 
@@ -367,30 +367,30 @@ class UserForm
                                         ->password()
                                         ->revealable()
                                         ->placeholder('Password')
-                                        ->required(fn (string $context): bool => $context === 'create')
-                                        ->dehydrateStateUsing(fn ($state) => filled($state) ? bcrypt($state) : null)
-                                        ->dehydrated(fn ($state) => filled($state))
+                                        ->required(fn(string $context): bool => $context === 'create')
+                                        ->dehydrateStateUsing(fn($state) => filled($state) ? bcrypt($state) : null)
+                                        ->dehydrated(fn($state) => filled($state))
                                 ]),
                             ])
                             ->collapsible(),
 
 
                     ])
-                    ->columnSpan(['lg' => fn (?User $record) => $record === null ? 3 : 2]),
+                    ->columnSpan(['lg' => fn(?User $record) => $record === null ? 3 : 2]),
 
                 Section::make()
                     ->icon('heroicon-o-clock')
                     ->schema([
                         TextEntry::make('created_at')
                             ->label('User created date')
-                            ->state(fn (User $record): ?string => $record->created_at?->diffForHumans()),
+                            ->state(fn(User $record): ?string => $record->created_at?->diffForHumans()),
 
                         TextEntry::make('updated_at')
                             ->label('Last modified at')
-                            ->state(fn (User $record): ?string => $record->updated_at?->diffForHumans()),
+                            ->state(fn(User $record): ?string => $record->updated_at?->diffForHumans()),
                     ])
                     ->columnSpan(['lg' => 1])
-                    ->hidden(fn (?User $record) => $record === null),
+                    ->hidden(fn(?User $record) => $record === null),
             ])
             ->columns(3);
     }
