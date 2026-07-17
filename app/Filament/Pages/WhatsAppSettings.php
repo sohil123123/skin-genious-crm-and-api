@@ -46,6 +46,7 @@ class WhatsAppSettings extends Page
             'whatsapp_webhook_verify_token',
             'whatsapp_override_callback_url',
             'whatsapp_appointment_template_name',
+            'whatsapp_loyalty_earn_template_name',
             'openai_api_key',
             'openai_model',
         ];
@@ -137,8 +138,16 @@ class WhatsAppSettings extends Page
                                 ->options(fn() => WhatsAppTemplate::pluck('name', 'name')->toArray())
                                 ->searchable()
                                 ->placeholder('Select template name')
-                                ->helperText('This template will be sent automatically when a new appointment is created.')
-                                ->columnSpanFull(),
+                                ->helperText('This template will be sent automatically when a new appointment is created.'),
+                            // ->columnSpanFull(),
+
+                            Select::make('whatsapp_loyalty_earn_template_name')
+                                ->label('Loyalty Earn Template')
+                                ->options(fn() => WhatsAppTemplate::pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->placeholder('Select template name')
+                                ->helperText('This template will be sent automatically when a user earns loyalty points.'),
+                            // ->columnSpanFull(),
                         ]),
                     ]),
 
@@ -293,6 +302,7 @@ class WhatsAppSettings extends Page
                         'whatsapp_webhook_verify_token',
                         'whatsapp_override_callback_url',
                         'whatsapp_appointment_template_name',
+                        'whatsapp_loyalty_earn_template_name',
                         'openai_api_key',
                         'openai_model',
                     ];
