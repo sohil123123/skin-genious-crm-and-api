@@ -325,9 +325,8 @@ class WhatsAppAiService
     protected function buildClinicsContext(): string
     {
         $clinics = Clinic::where('is_active', true)
-            ->where(function($query) {
-                $query->where('name', 'like', '%AI Aesthetics Jaipur%')
-                      ->orWhere('name', 'like', '%AI Aesthetics%');
+            ->where(function ($query) {
+                $query->where('name', 'like', '%Jaipur%');
             })
             ->get(['id', 'name', 'address_line1', 'address_line2', 'pincode', 'city', 'state', 'start_time', 'end_time', 'phone']);
 
@@ -373,9 +372,9 @@ class WhatsAppAiService
     protected function buildAvailabilityContext(array $requestedDates = []): string
     {
         $clinics = Clinic::where('is_active', true)
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->where('name', 'like', '%AI Aesthetics Jaipur%')
-                      ->orWhere('name', 'like', '%AI Aesthetics%');
+                    ->orWhere('name', 'like', '%AI Aesthetics%');
             })
             ->get();
 
@@ -461,9 +460,9 @@ class WhatsAppAiService
     protected function buildSystemPrompt(array $context): string
     {
         $clinic = Clinic::where('is_active', true)
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->where('name', 'like', '%AI Aesthetics Jaipur%')
-                      ->orWhere('name', 'like', '%AI Aesthetics%');
+                    ->orWhere('name', 'like', '%AI Aesthetics%');
             })
             ->first(['phone']);
 
@@ -492,11 +491,19 @@ class WhatsAppAiService
         $prompt .= "- **Doctor-led Aesthetic Care**: Botox, Fillers, Skin Boosters (Profhilo, etc.), Threads (scheduled on Dr. Aakriti visit days).\n";
         $prompt .= "- **WEBSITE PHILOSOPHY & EXPECTATIONS (https://ai-aesthetics.in)**: When clients ask about expectations, suitability, or how much improvement they can get for any concern (such as pigmentation, acne, etc.), always align with our website's principles: explain that improvement depends on the depth and type of the concern, caution that Indian skin requires a careful/staged approach (avoiding aggressive treatments that can trigger rebound issues or irritation), and recommend starting with an AI Skin Analysis to map the skin before choosing a treatment.\n\n";
 
+        $prompt .= "=== WEBSITE URL PATTERNS (https://ai-aesthetics.in) ===\n";
+        $prompt .= "Construct and provide a direct link to the relevant page on our website depending on the client's question:\n";
+        $prompt .= "- General Treatments: https://ai-aesthetics.in/jaipur/[treatment-slug] (where treatment-slug can be: chemical-peel, laser-hair-removal, facials, hydrafacial, carbon-facial, iv-drip-therapy, hair-treatments, ai-skin-analysis)\n";
+        $prompt .= "- Skin Concerns: https://ai-aesthetics.in/jaipur/[concern-slug] (where concern-slug can be: pigmentation-treatment, melasma-treatment, dark-spots-treatment, post-acne-pigmentation-treatment, acne-treatment, acne-scar-treatment, tan-removal-treatment, uneven-skin-tone-treatment)\n";
+        $prompt .= "- Specific Chemical Peels: Append the name as an anchor to chemical-peel page, e.g., https://ai-aesthetics.in/jaipur/chemical-peel#[peel-slug] (where peel-slug is: glow-peel, acne-peel, acne-marks-peel, pigmentation-peel, detan-peel, yellow-peel, cosmelan-treatment, enzymatic-peel)\n";
+        $prompt .= "- General Pages: About Dr. Aakriti is https://ai-aesthetics.in/dr-aakriti-mehra, Pricing is https://ai-aesthetics.in/jaipur/pricing, Location is https://ai-aesthetics.in/jaipur/c-scheme\n\n";
+
         $prompt .= "=== CRITICAL RULES ===\n";
         $prompt .= "- **NO CODING ANSWERS**: Never provide any programming, coding-level, databases, API, webhook, development, or code-related responses. If asked technical questions or code-related prompts, politely refuse and steer back to skin services.\n";
         $prompt .= "- **CLINIC IDENTITY**: Always refer to the clinic only as \"AI Aesthetics Jaipur\".\n";
         $prompt .= "- **PRICE CITATION**: Only quote prices from the CRM data listed below. If a price is not listed, refer them to the team or tell them to check the website/contact the clinic.\n";
         $prompt .= "- **BOOKING RULE**: Do not say 'appointment booked' yourself. Check the CLINIC LOCATIONS section below, share the specific clinic's name, phone number, and address from that dynamic data, and ask the client to contact them directly to book.\n";
+        $prompt .= "- **SPECIFIC WEBPAGE LINKS**: When answering questions about a concern, treatment, price, or doctor, you **MUST** construct and provide the corresponding link using the WEBSITE URL PATTERNS rules above so the client can explore details directly on the website.\n";
         $prompt .= "- **CONNECTING TO TEAM**: If a client asks about something not in the data, or you say \"Let me connect you with our team for more details...\", you **MUST** include this WhatsApp chat link: {$whatsappLink}.\n";
         $prompt .= "- **CONCISE**: Keep responses friendly, warm, clear, and under 150 words.\n\n";
 
