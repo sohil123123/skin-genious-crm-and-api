@@ -325,7 +325,11 @@ class WhatsAppAiService
     protected function buildClinicsContext(): string
     {
         $clinics = Clinic::where('is_active', true)
-            ->get(['id', 'name', 'city', 'start_time', 'end_time', 'phone']);
+            ->where(function($query) {
+                $query->where('name', 'like', '%AI Aesthetics Jaipur%')
+                      ->orWhere('name', 'like', '%AI Aesthetics%');
+            })
+            ->get(['id', 'name', 'address_line1', 'address_line2', 'pincode', 'city', 'state', 'start_time', 'end_time', 'phone']);
 
         if ($clinics->isEmpty()) {
             return 'No clinic locations available.';
@@ -333,14 +337,31 @@ class WhatsAppAiService
 
         $lines = [];
         foreach ($clinics as $clinic) {
+            $addrParts = [];
+            if ($clinic->address_line1) {
+                $addrParts[] = $clinic->address_line1;
+            }
+            if ($clinic->address_line2) {
+                $addrParts[] = $clinic->address_line2;
+            }
+            if ($clinic->city) {
+                $addrParts[] = $clinic->city;
+            }
+            if ($clinic->state) {
+                $addrParts[] = $clinic->state;
+            }
+            if ($clinic->pincode) {
+                $addrParts[] = $clinic->pincode;
+            }
+            $fullAddress = implode(', ', $addrParts);
+
             $hours = '';
             if ($clinic->start_time && $clinic->end_time) {
                 $hours = " | Hours: {$clinic->start_time} - {$clinic->end_time}";
             }
-            $city = $clinic->city ? " ({$clinic->city})" : '';
             $phone = $clinic->phone ? " | Phone: {$clinic->phone}" : '';
 
-            $lines[] = "- {$clinic->name}{$city}{$hours}{$phone}";
+            $lines[] = "- Clinic Name: {$clinic->name} | Address: {$fullAddress}{$hours}{$phone}";
         }
 
         return implode("\n", $lines);
@@ -351,7 +372,12 @@ class WhatsAppAiService
      */
     protected function buildAvailabilityContext(array $requestedDates = []): string
     {
-        $clinics = Clinic::where('is_active', true)->get();
+        $clinics = Clinic::where('is_active', true)
+            ->where(function($query) {
+                $query->where('name', 'like', '%AI Aesthetics Jaipur%')
+                      ->orWhere('name', 'like', '%AI Aesthetics%');
+            })
+            ->get();
 
         if ($clinics->isEmpty()) {
             return 'No availability data.';
@@ -361,7 +387,7 @@ class WhatsAppAiService
 
         foreach ($clinics as $clinic) {
             $periods = [];
-            
+
             // 1. Today
             $todaySlots = $this->getAvailableSlots($clinic, Carbon::today());
             $todayText = !empty($todaySlots) ? implode(', ', $todaySlots) : 'Fully booked';
@@ -434,17 +460,45 @@ class WhatsAppAiService
      */
     protected function buildSystemPrompt(array $context): string
     {
-        $prompt = "You are an AI assistant for a dermatology and aesthetics clinic called **Ai Aesthetics**.\n";
-        $prompt .= "You help customers with service inquiries, appointment booking, package details, and general clinic questions.\n";
-        $prompt .= "Be polite, professional, brief, and helpful. Support the client's language (Hindi, English, etc.).\n\n";
+        $clinic = Clinic::where('is_active', true)
+            ->where(function($query) {
+                $query->where('name', 'like', '%AI Aesthetics Jaipur%')
+                      ->orWhere('name', 'like', '%AI Aesthetics%');
+            })
+            ->first(['phone']);
 
-        $prompt .= "=== IMPORTANT RULES ===\n";
-        $prompt .= "- ONLY quote prices and services from the data below. Never invent prices.\n";
-        $prompt .= "- If the customer asks about something not in the data, say: \"Let me connect you with our team for more details.\"\n";
-        $prompt .= "- Do NOT confirm bookings or say 'appointment booked' yourself. You cannot create appointments.\n";
-        $prompt .= "- When a customer wants to book an appointment, check the available time slots below for their preferred date and clinic, then share the clinic's phone number and address, and ask them to contact the clinic to confirm and finalize the booking.\n";
-        $prompt .= "- If a client has remaining sessions in a package, mention it before suggesting new purchases.\n";
-        $prompt .= "- Keep responses under 150 words.\n\n";
+        $whatsappLink = 'https://wa.me/918169308873'; // Default fallback
+        if ($clinic && $clinic->phone) {
+            $cleanPhone = preg_replace('/\D/', '', $clinic->phone);
+            if (str_starts_with($cleanPhone, '0')) {
+                $cleanPhone = substr($cleanPhone, 1);
+            }
+            if (strlen($cleanPhone) === 10) {
+                $cleanPhone = '91' . $cleanPhone;
+            }
+            $whatsappLink = 'https://wa.me/' . $cleanPhone;
+        }
+
+        $prompt = "You are an AI assistant for a dermatology, skin, hair, and wellness clinic called **AI Aesthetics Jaipur**.\n";
+        $prompt .= "The clinic is founded by Dr. Aakriti Mehra. Website: https://ai-aesthetics.in.\n";
+        $prompt .= "You help clients with treatment inquiries, pricing, appointment booking, package sessions, and clinic information. Support the client's language (Hindi, English, Hinglish, etc.) naturally and conversationally.\n\n";
+
+        $prompt .= "=== CLINIC KNOWLEDGE (FROM WEBSITE https://ai-aesthetics.in) ===\n";
+        $prompt .= "- **AI Skin Analysis**: Our signature starting point. Multi-light skin imaging maps pigmentation, hydration, pores, texture, and redness. Decisions are always doctor-led (AI supports, but does not replace clinical judgment).\n";
+        $prompt .= "- **Advanced Facials**: AI Customized Facial, AI Facial Express, Express Clean-Up, HydraFacial, Carbon Facial, Sensitive Skin Recovery Facial, Post-Travel Recovery Facial, Vampire PRP, Salmon Facial, HIFU Skin Lift.\n";
+        $prompt .= "- **Laser Hair Removal**: Available for face, full body, underarms, bikini, beard shaping, designed for Indian skin.\n";
+        $prompt .= "- **Chemical Peels**: Glow Peel, Acne Peel, Acne Marks Peel, Pigmentation Peel, Detan Peel, Yellow Peel, Cosmelan (melasma & deep pigmentation).\n";
+        $prompt .= "- **IV Wellness Drips**: Immunity IV, Glow IV, Pre-Bridal IV, NAD+ Therapy.\n";
+        $prompt .= "- **Doctor-led Aesthetic Care**: Botox, Fillers, Skin Boosters (Profhilo, etc.), Threads (scheduled on Dr. Aakriti visit days).\n";
+        $prompt .= "- **WEBSITE PHILOSOPHY & EXPECTATIONS (https://ai-aesthetics.in)**: When clients ask about expectations, suitability, or how much improvement they can get for any concern (such as pigmentation, acne, etc.), always align with our website's principles: explain that improvement depends on the depth and type of the concern, caution that Indian skin requires a careful/staged approach (avoiding aggressive treatments that can trigger rebound issues or irritation), and recommend starting with an AI Skin Analysis to map the skin before choosing a treatment.\n\n";
+
+        $prompt .= "=== CRITICAL RULES ===\n";
+        $prompt .= "- **NO CODING ANSWERS**: Never provide any programming, coding-level, databases, API, webhook, development, or code-related responses. If asked technical questions or code-related prompts, politely refuse and steer back to skin services.\n";
+        $prompt .= "- **CLINIC IDENTITY**: Always refer to the clinic only as \"AI Aesthetics Jaipur\".\n";
+        $prompt .= "- **PRICE CITATION**: Only quote prices from the CRM data listed below. If a price is not listed, refer them to the team or tell them to check the website/contact the clinic.\n";
+        $prompt .= "- **BOOKING RULE**: Do not say 'appointment booked' yourself. Check the CLINIC LOCATIONS section below, share the specific clinic's name, phone number, and address from that dynamic data, and ask the client to contact them directly to book.\n";
+        $prompt .= "- **CONNECTING TO TEAM**: If a client asks about something not in the data, or you say \"Let me connect you with our team for more details...\", you **MUST** include this WhatsApp chat link: {$whatsappLink}.\n";
+        $prompt .= "- **CONCISE**: Keep responses friendly, warm, clear, and under 150 words.\n\n";
 
         // Client context
         if (!empty($context['client'])) {
@@ -630,37 +684,40 @@ class WhatsAppAiService
     protected function extractMentionedDates(string $text): array
     {
         $dates = [];
-        
+
         // Remove ordinal suffixes like 1st, 2nd, 3rd, 4th, etc.
         $cleanText = preg_replace('/(\d+)(st|nd|rd|th)/i', '$1', $text);
-        
+
         // Months match
         $monthsRegex = '(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)';
-        
+
         // Pattern 1: DD Month YYYY or DD Month
         if (preg_match_all('/\b\d{1,2}\s+' . $monthsRegex . '(\s+\d{2,4})?\b/i', $cleanText, $matches)) {
             foreach ($matches[0] as $match) {
                 try {
                     $dates[] = Carbon::parse($match);
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                }
             }
         }
-        
+
         // Pattern 2: Month DD YYYY or Month DD
         if (preg_match_all('/\b' . $monthsRegex . '\s+\d{1,2}(\s+\d{2,4})?\b/i', $cleanText, $matches)) {
             foreach ($matches[0] as $match) {
                 try {
                     $dates[] = Carbon::parse($match);
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                }
             }
         }
-        
+
         // Pattern 3: YYYY-MM-DD or DD-MM-YYYY or DD/MM/YYYY
         if (preg_match_all('/\b\d{1,4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,4}\b/', $cleanText, $matches)) {
             foreach ($matches[0] as $match) {
                 try {
                     $dates[] = Carbon::parse($match);
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                }
             }
         }
 
