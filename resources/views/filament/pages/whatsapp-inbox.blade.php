@@ -48,9 +48,10 @@
         .wa-conversation-list { flex: 1; overflow-y: auto; background: white; scroll-behavior: smooth; }
         .dark .wa-conversation-list { background: #111b21; }
         .wa-conversation-list::-webkit-scrollbar { width: 6px; }
-        .wa-conversation-list::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
-        .wa-conversation-list:hover::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
-        .dark .wa-conversation-list:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+        .wa-conversation-list::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
+        .wa-conversation-list:hover::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.35); }
+        .dark .wa-conversation-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+        .dark .wa-conversation-list:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); }
 
         .wa-conversation-item { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f2f5; transition: background 0.15s; gap: 12px; }
         .dark .wa-conversation-item { border-color: #222e35; }
@@ -97,9 +98,10 @@
         /* Messages Area */
         .wa-messages { flex: 1; overflow-y: auto; padding: 5px 5% 10px 5%; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
         .wa-messages::-webkit-scrollbar { width: 6px; }
-        .wa-messages::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
-        .wa-messages:hover::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
-        .dark .wa-messages:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+        .wa-messages::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
+        .wa-messages:hover::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.35); }
+        .dark .wa-messages::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+        .dark .wa-messages:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.35); }
 
         .wa-message { max-width: 65%; padding: 6px 9px 8px 9px; border-radius: 7.5px; position: relative; font-size: 14.2px; line-height: 1.45; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13); }
 
