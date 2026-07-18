@@ -37,6 +37,18 @@ class WhatsAppInbox extends Page
 
     protected static ?int $navigationSort = 20;
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = WhatsAppConversation::notArchived()->sum('unread_count');
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
     protected string $view = 'filament.pages.whatsapp-inbox';
 
     // Livewire properties
@@ -84,11 +96,11 @@ class WhatsAppInbox extends Page
     public function rendering(): void
     {
         $currentMaxIncoming = WhatsAppMessage::where('direction', WhatsAppMessageDirection::Incoming)->max('id');
-        
+
         if ($this->lastIncomingMessageId !== null && $currentMaxIncoming > $this->lastIncomingMessageId) {
             $this->dispatch('play-notification-sound');
         }
-        
+
         $this->lastIncomingMessageId = $currentMaxIncoming;
     }
 
@@ -451,7 +463,7 @@ class WhatsAppInbox extends Page
         if ($message) {
             $retryService = app(WhatsAppRetryService::class);
             $retryService->retryMessage($message);
-            
+
             Notification::make()
                 ->title('Resending Message...')
                 ->info()
