@@ -95,7 +95,24 @@ class WhatsAppTemplateForm
                                             'AUTHENTICATION' => 'Authentication',
                                         ])
                                         ->required()
-                                        ->default('UTILITY'),
+                                        ->default('UTILITY')
+                                        ->live()
+                                        ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
+                                            if ($state === 'AUTHENTICATION') {
+                                                $authText = "*{{1}}* is your verification code. For your security, do not share this code.";
+                                                $set('body_text', $authText);
+                                                $set('variable_type', 'number');
+                                                $set('header_type', 'none');
+                                                $set('footer_text', 'Expires in 10 minutes.');
+                                                self::updateVariableSamples($get, $set, $authText);
+                                            }
+                                        })
+                                        ->helperText(
+                                            fn(Get $get): string =>
+                                            $get('category') === 'AUTHENTICATION'
+                                            ? '🔒 Authentication category locks text to Meta standard format and auto-attaches Copy Code button.'
+                                            : 'Select UTILITY for custom text templates or custom verification messages.'
+                                        ),
                                 ]),
                             ]),
 
@@ -153,6 +170,8 @@ class WhatsAppTemplateForm
                                     ])
                                     ->default('number')
                                     ->live()
+                                    ->disabled(fn(Get $get): bool => $get('category') === 'AUTHENTICATION')
+                                    ->dehydrated()
                                     ->afterStateUpdated(function (Get $get, Set $set) {
                                         self::updateVariableSamples($get, $set, $get('body_text'));
                                     })
@@ -167,6 +186,8 @@ class WhatsAppTemplateForm
                                     ])
                                     ->default('none')
                                     ->live()
+                                    ->disabled(fn(Get $get): bool => $get('category') === 'AUTHENTICATION')
+                                    ->dehydrated()
                                     ->columnSpanFull(),
 
                                 TextInput::make('header_content')
@@ -174,7 +195,7 @@ class WhatsAppTemplateForm
                                     ->maxLength(60)
                                     ->placeholder('Enter header text')
                                     ->helperText('Max 60 characters')
-                                    ->visible(fn(Get $get): bool => $get('header_type') === 'text')
+                                    ->visible(fn(Get $get): bool => $get('header_type') === 'text' && $get('category') !== 'AUTHENTICATION')
                                     ->columnSpanFull(),
 
                                 // Body
@@ -182,7 +203,9 @@ class WhatsAppTemplateForm
                                     ->label('Body')
                                     ->required()
                                     ->maxLength(1024)
-                                    ->rows(6)
+                                    ->rows(5)
+                                    ->disabled(fn(Get $get): bool => $get('category') === 'AUTHENTICATION')
+                                    ->dehydrated()
                                     ->placeholder(
                                         fn(Get $get): string =>
                                         ($get('variable_type') === 'name')
@@ -191,9 +214,11 @@ class WhatsAppTemplateForm
                                     )
                                     ->helperText(
                                         fn(Get $get): string =>
-                                        ($get('variable_type') === 'name')
-                                        ? 'Use {{variable_name}} for variables (only letters, numbers, underscores). Max 1024 characters.'
-                                        : 'Use {{1}}, {{2}}, etc. for variables. Max 1024 characters.'
+                                        ($get('category') === 'AUTHENTICATION')
+                                        ? '🔒 Locked to Meta standard security text format. Custom text is forbidden by Meta for Authentication templates.'
+                                        : (($get('variable_type') === 'name')
+                                            ? 'Use {{variable_name}} for variables. Max 1024 characters.'
+                                            : 'Use {{1}}, {{2}}, etc. for variables. Max 1024 characters.')
                                     )
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
@@ -205,6 +230,8 @@ class WhatsAppTemplateForm
                                 TextInput::make('footer_text')
                                     ->label('Footer · Optional')
                                     ->maxLength(60)
+                                    ->disabled(fn(Get $get): bool => $get('category') === 'AUTHENTICATION')
+                                    ->dehydrated()
                                     ->placeholder('Enter footer text')
                                     ->helperText('Max 60 characters')
                                     ->columnSpanFull(),
@@ -212,15 +239,29 @@ class WhatsAppTemplateForm
 
                         /*
                         |--------------------------------------------------------------
-                        | Section 4: Buttons (Optional)
+                        | Section 4: Buttons (Optional or Automatic OTP for Authentication)
                         |--------------------------------------------------------------
                         */
-                        Section::make('Buttons · Optional')
-                            ->description('Create buttons that let customers respond to your message or take action. You can add up to 10 buttons.')
+                        Section::make('Buttons')
+                            ->description(
+                                fn(Get $get): string =>
+                                $get('category') === 'AUTHENTICATION'
+                                ? '✨ Meta automatically attaches an OTP Copy Code button for Authentication templates.'
+                                : 'Create buttons that let customers respond to your message or take action.'
+                            )
                             ->icon('heroicon-o-cursor-arrow-ripple')
                             ->schema([
+                                TextInput::make('auth_button_preview')
+                                    ->label('Automatic Button')
+                                    ->default('📋 Copy Code (Meta OTP Button)')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->visible(fn(Get $get): bool => $get('category') === 'AUTHENTICATION')
+                                    ->columnSpanFull(),
+
                                 Repeater::make('buttons')
                                     ->label('')
+                                    ->visible(fn(Get $get): bool => $get('category') !== 'AUTHENTICATION')
                                     ->schema([
                                         Select::make('type')
                                             ->label('Button Type')
@@ -241,14 +282,12 @@ class WhatsAppTemplateForm
 
                                         TextInput::make('url')
                                             ->label('Website URL')
-                                            ->url()
                                             ->maxLength(2000)
                                             ->placeholder('https://example.com/{{1}}')
                                             ->visible(fn(Get $get): bool => $get('type') === 'URL'),
 
                                         TextInput::make('url_example')
                                             ->label('Sample URL')
-                                            ->url()
                                             ->maxLength(2000)
                                             ->placeholder('https://example.com/order/12345')
                                             ->helperText('Provide a sample URL for Meta review')
@@ -267,7 +306,7 @@ class WhatsAppTemplateForm
                                     ->columnSpanFull(),
                             ])
                             ->collapsible()
-                            ->collapsed(),
+                            ->collapsed(fn(Get $get): bool => $get('category') !== 'AUTHENTICATION'),
                     ])
                     ->columnSpan(['lg' => 1]),
             ])

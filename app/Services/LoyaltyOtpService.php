@@ -25,49 +25,43 @@ class LoyaltyOtpService
         $expiryMinutes = Setting::getLoyaltyOtpExpiry();
 
         $loyaltyOtp = LoyaltyOtp::create([
-            'user_id'    => $client->id,
-            'otp'        => $otp,
-            'purpose'    => 'loyalty_redeem',
+            'user_id' => $client->id,
+            'otp' => $otp,
+            'purpose' => 'loyalty_redeem',
             'expires_at' => now()->addMinutes($expiryMinutes),
         ]);
 
-        // // Dispatch the WhatsApp job
-        // // Example component structure for OTP template:
-        // // [
-        // //     [
-        // //         'type' => 'body',
-        // //         'parameters' => [
-        // //             ['type' => 'text', 'text' => $otp],
-        // //         ],
-        // //     ],
-        // //     [
-        // //         'type' => 'button',
-        // //         'sub_type' => 'url',
-        // //         'index' => '0',
-        // //         'parameters' => [
-        // //             ['type' => 'text', 'text' => $otp],
-        // //         ],
-        // //     ]
-        // // ]
-        // $components = [
-        //     [
-        //         'type' => 'body',
-        //         'parameters' => [
-        //             ['type' => 'text', 'text' => $otp],
-        //         ],
-        //     ]
-        // ];
+        $templateName = Setting::getValue('whatsapp_loyalty_redemption_otp_template_name', 'loyalty_redemption_otp');
+        $phone = $client->mobile ?? $client->phone;
 
-        // // Ensure you have configured a template named 'loyalty_otp_verification' in Meta
-        // SendWhatsAppMessageJob::dispatch(
-        //     $client->mobile ?? $client->phone,
-        //     'loyalty_otp_verification',
-        //     $components,
-        //     'en_US',
-        //     $client->id
-        // );
+        if ($templateName && $phone) {
+            $components = [
+                [
+                    'type' => 'body',
+                    'parameters' => [
+                        ['type' => 'text', 'text' => (string) $otp],
+                    ],
+                ],
+                [
+                    'type' => 'button',
+                    'sub_type' => 'url',
+                    'index' => '0',
+                    'parameters' => [
+                        ['type' => 'text', 'text' => (string) $otp],
+                    ],
+                ]
+            ];
 
-        Log::info("Loyalty OTP generated for client #{$client->id} ({$client->mobile}): {$otp}");
+            SendWhatsAppMessageJob::dispatch(
+                $phone,
+                $templateName,
+                $components,
+                'en_US',
+                $client->id
+            );
+        }
+
+        Log::info("Loyalty OTP generated and dispatched via WhatsApp for client #{$client->id} ({$phone}): {$otp}");
 
         return $loyaltyOtp;
     }

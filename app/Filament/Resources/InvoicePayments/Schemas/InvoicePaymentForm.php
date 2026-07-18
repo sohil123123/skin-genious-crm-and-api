@@ -108,7 +108,7 @@ class InvoicePaymentForm
                                                     $loyaltyOtp = app(LoyaltyOtpService::class)->sendOtp($client);
                                                     Notification::make()
                                                         ->title('OTP Sent 📲')
-                                                        ->body("Verification OTP ({$loyaltyOtp->otp}) has been sent to {$client->mobile}. Available balance: {$balance} pts.")
+                                                        ->body("Verification OTP has been sent to {$client->mobile}. Available balance: {$balance} pts.")
                                                         ->info()
                                                         ->send();
                                                 }
@@ -269,6 +269,19 @@ class InvoicePaymentForm
                 } else {
                     $invoice = $record;
                 }
+
+                // Sort payments so loyalty_points redemptions are processed first
+                usort($payments, function ($a, $b) {
+                    $aIsLoyalty = ($a['payment_method'] ?? '') === 'loyalty_points';
+                    $bIsLoyalty = ($b['payment_method'] ?? '') === 'loyalty_points';
+                    if ($aIsLoyalty && !$bIsLoyalty) {
+                        return -1;
+                    }
+                    if (!$aIsLoyalty && $bIsLoyalty) {
+                        return 1;
+                    }
+                    return 0;
+                });
 
                 $loyaltyService = app(LoyaltyPointService::class);
 
@@ -475,7 +488,7 @@ class InvoicePaymentForm
 
                                                         Notification::make()
                                                             ->title('OTP Sent 📲')
-                                                            ->body("Verification OTP ({$loyaltyOtp->otp}) has been sent to {$client->mobile}. Available balance: {$balance} pts.")
+                                                            ->body("Verification OTP has been sent to {$client->mobile}. Available balance: {$balance} pts.")
                                                             ->info()
                                                             ->send();
                                                     }

@@ -44,6 +44,7 @@ class WhatsAppTemplateResource extends Resource
             'index' => Pages\ListWhatsAppTemplates::route('/'),
             'create' => Pages\CreateWhatsAppTemplate::route('/create'),
             'edit' => Pages\EditWhatsAppTemplate::route('/{record}/edit'),
+            'library' => Pages\WhatsAppTemplateLibrary::route('/library'),
         ];
     }
 }

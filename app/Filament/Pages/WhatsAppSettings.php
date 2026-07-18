@@ -47,6 +47,7 @@ class WhatsAppSettings extends Page
             'whatsapp_override_callback_url',
             'whatsapp_appointment_template_name',
             'whatsapp_loyalty_earn_template_name',
+            'whatsapp_loyalty_redemption_otp_template_name',
             'openai_api_key',
             'openai_model',
         ];
@@ -86,8 +87,8 @@ class WhatsAppSettings extends Page
     {
         return $schema
             ->schema([
-                Section::make('Meta App Credentials')
-                    ->description('Configuration for WhatsApp Business Cloud API.')
+                Section::make('Meta App Credentials & Automated Templates')
+                    ->description('Configuration for WhatsApp Business Cloud API & default templates.')
                     ->icon('heroicon-o-key')
                     ->schema([
                         Grid::make(2)->schema([
@@ -139,7 +140,6 @@ class WhatsAppSettings extends Page
                                 ->searchable()
                                 ->placeholder('Select template name')
                                 ->helperText('This template will be sent automatically when a new appointment is created.'),
-                            // ->columnSpanFull(),
 
                             Select::make('whatsapp_loyalty_earn_template_name')
                                 ->label('Loyalty Earn Template')
@@ -147,7 +147,13 @@ class WhatsAppSettings extends Page
                                 ->searchable()
                                 ->placeholder('Select template name')
                                 ->helperText('This template will be sent automatically when a user earns loyalty points.'),
-                            // ->columnSpanFull(),
+
+                            Select::make('whatsapp_loyalty_redemption_otp_template_name')
+                                ->label('Loyalty Redemption OTP Template')
+                                ->options(fn() => WhatsAppTemplate::pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->placeholder('Select template name (e.g. loyalty_redemption_otp)')
+                                ->helperText('This template will be sent automatically when a client requests an OTP code to redeem loyalty points.'),
                         ]),
                     ]),
 
@@ -303,6 +309,7 @@ class WhatsAppSettings extends Page
                         'whatsapp_override_callback_url',
                         'whatsapp_appointment_template_name',
                         'whatsapp_loyalty_earn_template_name',
+                        'whatsapp_loyalty_redemption_otp_template_name',
                         'openai_api_key',
                         'openai_model',
                     ];

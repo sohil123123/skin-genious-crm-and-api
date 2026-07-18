@@ -132,13 +132,75 @@ class WhatsAppTemplate extends Model
     */
 
     /**
-     * Build the components array for the Meta Cloud API.
+     * Build the components array for registering/creating a template in Meta Cloud API.
      */
     public function buildComponentsForApi(): array
     {
+        $category = strtoupper($this->category ?? 'UTILITY');
+
+        if ($category === 'AUTHENTICATION') {
+            return $this->buildAuthComponentsForApi();
+        }
+
+        return $this->buildUtilityOrMarketingComponentsForApi();
+    }
+
+    /**
+     * Build Meta API registration components specifically for AUTHENTICATION category.
+     */
+    protected function buildAuthComponentsForApi(): array
+    {
         $components = [];
 
-        // Header component
+        // 1. Body component (Meta forbids custom text string in BODY for AUTHENTICATION category)
+        $body = [
+            'type' => 'BODY',
+            'add_security_recommendation' => true,
+        ];
+
+        // Body variable examples (e.g. [['123456']])
+        $placeholders = $this->getVariablePlaceholders();
+        if (!empty($placeholders)) {
+            $positionalExamples = [];
+            foreach ($placeholders as $placeholder) {
+                $positionalExamples[] = $this->getSampleValue($placeholder);
+            }
+            $body['example'] = ['body_text' => [$positionalExamples]];
+        } else {
+            $body['example'] = ['body_text' => [['123456']]];
+        }
+
+        $components[] = $body;
+
+        // 2. Footer component (Meta Cloud API Authentication Expiration)
+        $components[] = [
+            'type' => 'FOOTER',
+            'code_expiration_minutes' => 10,
+        ];
+
+        // 3. Buttons component (Mandatory OTP Copy Code button)
+        $components[] = [
+            'type' => 'BUTTONS',
+            'buttons' => [
+                [
+                    'type' => 'OTP',
+                    'otp_type' => 'COPY_CODE',
+                    'text' => 'Copy Code',
+                ],
+            ],
+        ];
+
+        return $components;
+    }
+
+    /**
+     * Build Meta API registration components for UTILITY and MARKETING categories.
+     */
+    protected function buildUtilityOrMarketingComponentsForApi(): array
+    {
+        $components = [];
+
+        // 1. Header component
         if ($this->header_type && $this->header_type !== 'none') {
             $header = ['type' => 'HEADER'];
 
@@ -150,37 +212,37 @@ class WhatsAppTemplate extends Model
             $components[] = $header;
         }
 
-        // Body component
+        // 2. Body component
         if (!empty($this->body_text)) {
             $body = [
                 'type' => 'BODY',
                 'text' => $this->body_text,
             ];
 
-            // Add example values for variables
             $placeholders = $this->getVariablePlaceholders();
             if (!empty($placeholders)) {
-                $examples = [];
                 if ($this->variable_type === 'name') {
+                    $namedExamples = [];
                     foreach ($placeholders as $placeholder) {
-                        $examples[] = [
+                        $namedExamples[] = [
                             'param_name' => $placeholder,
                             'example' => $this->getSampleValue($placeholder),
                         ];
                     }
-                    $body['example'] = ['body_text_named_params' => $examples];
+                    $body['example'] = ['body_text_named_params' => $namedExamples];
                 } else {
+                    $positionalExamples = [];
                     foreach ($placeholders as $placeholder) {
-                        $examples[] = $this->getSampleValue($placeholder);
+                        $positionalExamples[] = $this->getSampleValue($placeholder);
                     }
-                    $body['example'] = ['body_text' => [$examples]];
+                    $body['example'] = ['body_text' => [$positionalExamples]];
                 }
             }
 
             $components[] = $body;
         }
 
-        // Footer component
+        // 3. Footer component
         if (!empty($this->footer_text)) {
             $components[] = [
                 'type' => 'FOOTER',
@@ -188,10 +250,9 @@ class WhatsAppTemplate extends Model
             ];
         }
 
-        // Buttons component
+        // 4. Buttons component
         if (!empty($this->buttons)) {
             $buttonItems = [];
-
             foreach ($this->buttons as $button) {
                 $buttonType = $button['type'] ?? 'QUICK_REPLY';
                 $btn = [
@@ -221,7 +282,7 @@ class WhatsAppTemplate extends Model
     }
 
     /**
-     * Build the components array required by the Send Message API.
+     * Build components array required by the Send Message API.
      *
      * @param array $bodyVariables Key-value array for named, or sequential array for positional
      * @param array $headerVariables Key-value array for named, or sequential array for positional
@@ -232,11 +293,99 @@ class WhatsAppTemplate extends Model
         array $headerVariables = [],
         array $buttonUrlVariables = []
     ): array {
+        $category = strtoupper($this->category ?? 'UTILITY');
+
+        if ($category === 'AUTHENTICATION') {
+            return $this->buildAuthComponentsForSending($bodyVariables, $buttonUrlVariables);
+        }
+
+        return $this->buildUtilityOrMarketingComponentsForSending($bodyVariables, $headerVariables, $buttonUrlVariables);
+    }
+
+    /**
+     * Build sending components specifically for AUTHENTICATION category templates.
+     */
+    protected function buildAuthComponentsForSending(array $bodyVariables, array $buttonUrlVariables): array
+    {
+        $components = [];
+
+        // Determine fallback OTP Code value if variables are missing
+        $otpValue = $buttonUrlVariables[0] ?? $bodyVariables['code'] ?? $bodyVariables['otp'] ?? $bodyVariables['1'] ?? $bodyVariables[0] ?? '';
+        if (empty($otpValue) && !empty($bodyVariables)) {
+            $firstVal = reset($bodyVariables);
+            $otpValue = is_string($firstVal) || is_numeric($firstVal) ? (string) $firstVal : '';
+        }
+        if (empty($otpValue)) {
+            $otpValue = '123456';
+        }
+
+        // 1. Body parameters for AUTHENTICATION template (Meta expects 1 localizable param for OTP code)
+        $bodyParameters = [];
+        $placeholders = $this->getVariablePlaceholders();
+
+        if (!empty($placeholders)) {
+            foreach ($placeholders as $placeholder) {
+                $idx = (int) $placeholder - 1;
+                $val = $bodyVariables[$placeholder] ?? $bodyVariables[$idx] ?? $otpValue;
+                if ((string) $val !== '') {
+                    $bodyParameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $val,
+                    ];
+                }
+            }
+        } elseif (!empty($bodyVariables)) {
+            foreach ($bodyVariables as $val) {
+                if (is_scalar($val) && (string) $val !== '') {
+                    $bodyParameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $val,
+                    ];
+                }
+            }
+        }
+
+        // Guarantee at least 1 body parameter for AUTHENTICATION category (to match Meta 1 param requirement)
+        if (empty($bodyParameters)) {
+            $bodyParameters[] = [
+                'type' => 'text',
+                'text' => (string) $otpValue,
+            ];
+        }
+
+        $components[] = [
+            'type' => 'body',
+            'parameters' => $bodyParameters,
+        ];
+
+        // 2. Button parameter for OTP Copy Code
+        $components[] = [
+            'type' => 'button',
+            'sub_type' => 'url',
+            'index' => '0',
+            'parameters' => [
+                [
+                    'type' => 'text',
+                    'text' => (string) $otpValue,
+                ],
+            ],
+        ];
+
+        return array_values($components);
+    }
+
+    /**
+     * Build sending components for UTILITY and MARKETING category templates.
+     */
+    protected function buildUtilityOrMarketingComponentsForSending(
+        array $bodyVariables,
+        array $headerVariables = [],
+        array $buttonUrlVariables = []
+    ): array {
         $components = [];
 
         // 1. Header Components
         if ($this->header_type === 'text' && str_contains($this->header_content ?? '', '{{')) {
-            // Find header placeholders
             preg_match_all('/\{\{([^}]+)\}\}/', $this->header_content, $matches);
             $headerPlaceholders = array_unique($matches[1] ?? []);
             if (!empty($headerPlaceholders)) {
@@ -250,7 +399,7 @@ class WhatsAppTemplate extends Model
                             'text' => (string) $val,
                         ];
                     } else {
-                        $idx = (int)$placeholder - 1;
+                        $idx = (int) $placeholder - 1;
                         $val = $headerVariables[$placeholder] ?? $headerVariables[$idx] ?? '';
                         $parameters[] = [
                             'type' => 'text',
@@ -264,7 +413,6 @@ class WhatsAppTemplate extends Model
                 ];
             }
         } elseif (in_array(strtoupper($this->header_type ?? ''), ['IMAGE', 'DOCUMENT', 'VIDEO'])) {
-            // Media header
             $mediaId = $headerVariables['media_id'] ?? $headerVariables[0] ?? null;
             $mediaUrl = $headerVariables['media_url'] ?? null;
             $filename = $headerVariables['filename'] ?? null;
@@ -299,7 +447,6 @@ class WhatsAppTemplate extends Model
         if (!empty($bodyPlaceholders)) {
             $parameters = [];
             foreach ($bodyPlaceholders as $placeholder) {
-                $val = '';
                 if ($this->variable_type === 'name') {
                     $val = $bodyVariables[$placeholder] ?? '';
                     $parameters[] = [
@@ -308,7 +455,7 @@ class WhatsAppTemplate extends Model
                         'text' => (string) $val,
                     ];
                 } else {
-                    $idx = (int)$placeholder - 1;
+                    $idx = (int) $placeholder - 1;
                     $val = $bodyVariables[$placeholder] ?? $bodyVariables[$idx] ?? '';
                     $parameters[] = [
                         'type' => 'text',
@@ -320,9 +467,25 @@ class WhatsAppTemplate extends Model
                 'type' => 'body',
                 'parameters' => $parameters,
             ];
+        } elseif (!empty($bodyVariables)) {
+            $parameters = [];
+            foreach ($bodyVariables as $key => $val) {
+                if (is_scalar($val) && (string) $val !== '') {
+                    $parameters[] = [
+                        'type' => 'text',
+                        'text' => (string) $val,
+                    ];
+                }
+            }
+            if (!empty($parameters)) {
+                $components[] = [
+                    'type' => 'body',
+                    'parameters' => $parameters,
+                ];
+            }
         }
 
-        // 3. Buttons Component (dynamic URL buttons)
+        // 3. Dynamic URL Buttons Component
         if (!empty($this->buttons)) {
             $urlButtonIndex = 0;
             $buttonIndex = 0;
@@ -330,23 +493,25 @@ class WhatsAppTemplate extends Model
                 $type = $button['type'] ?? 'QUICK_REPLY';
                 if ($type === 'URL' && str_contains($button['url'] ?? '', '{{')) {
                     $val = $buttonUrlVariables[$urlButtonIndex] ?? '';
-                    $components[] = [
-                        'type' => 'button',
-                        'sub_type' => 'url',
-                        'index' => (string) $buttonIndex,
-                        'parameters' => [
-                            [
-                                'type' => 'text',
-                                'text' => (string) $val,
-                            ]
-                        ],
-                    ];
+                    if (!empty($val)) {
+                        $components[] = [
+                            'type' => 'button',
+                            'sub_type' => 'url',
+                            'index' => (string) $buttonIndex,
+                            'parameters' => [
+                                [
+                                    'type' => 'text',
+                                    'text' => (string) $val,
+                                ]
+                            ],
+                        ];
+                    }
                     $urlButtonIndex++;
                 }
                 $buttonIndex++;
             }
         }
 
-        return $components;
+        return array_values($components);
     }
 }

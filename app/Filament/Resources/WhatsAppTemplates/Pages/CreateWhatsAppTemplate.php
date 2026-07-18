@@ -14,10 +14,48 @@ class CreateWhatsAppTemplate extends CreateRecord
 {
     protected static string $resource = WhatsAppTemplateResource::class;
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        $category = request()->query('category');
+        $presetKey = request()->query('preset');
+
+        if ($category && $presetKey) {
+            $library = \App\Services\WhatsAppTemplateLibraryService::getTemplates();
+            $preset = $library[strtoupper($category)][$presetKey] ?? null;
+
+            if ($preset) {
+                $this->form->fill([
+                    'name' => $preset['title'],
+                    'category' => $preset['category'],
+                    'header_type' => $preset['header_type'] ?? 'none',
+                    'header_content' => $preset['header_content'] ?? null,
+                    'body_text' => $preset['body_text'],
+                    'footer_text' => $preset['footer_text'] ?? null,
+                    'buttons' => $preset['buttons'] ?? [],
+                    'variable_samples' => $preset['variable_samples'] ?? [],
+                    'variable_type' => 'number',
+                    'language' => 'en_US',
+                ]);
+            }
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('back')->label('Back to List')->icon('heroicon-o-arrow-left')->url(static::getResource()::getUrl('index'))->color('gray'),
+            Action::make('templateLibrary')
+                ->label('Browse Template Library')
+                ->icon('heroicon-o-rectangle-stack')
+                ->color('info')
+                ->url(fn(): string => WhatsAppTemplateResource::getUrl('library')),
+
+            Action::make('back')
+                ->label('Back to List')
+                ->icon('heroicon-o-arrow-left')
+                ->url(static::getResource()::getUrl('index'))
+                ->color('gray'),
         ];
     }
 
@@ -38,11 +76,11 @@ class CreateWhatsAppTemplate extends CreateRecord
 
         // Push to Meta Cloud API
         $result = $whatsAppService->createTemplate([
-            'name'          => $data['name'],
-            'category'      => $data['category'],
+            'name' => $data['name'],
+            'category' => $data['category'],
             'variable_type' => $data['variable_type'] ?? 'number',
-            'language'      => $data['language'],
-            'components'    => $components,
+            'language' => $data['language'],
+            'components' => $components,
         ]);
 
         if (!$result['success']) {

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\InvoicePayments\Pages;
 use App\Filament\Resources\InvoicePayments\InvoicePaymentResource;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\Invoice;
+use App\Models\InvoicePayment;
 use App\Services\LoyaltyPointService;
 
 class CreateInvoicePayment extends CreateRecord
@@ -20,6 +21,19 @@ class CreateInvoicePayment extends CreateRecord
             $data['created_by'] = auth()->id();
             return static::getModel()::create($data);
         }
+
+        // Sort payments so loyalty_points redemptions are processed first
+        usort($payments, function ($a, $b) {
+            $aIsLoyalty = ($a['payment_method'] ?? '') === 'loyalty_points';
+            $bIsLoyalty = ($b['payment_method'] ?? '') === 'loyalty_points';
+            if ($aIsLoyalty && !$bIsLoyalty) {
+                return -1;
+            }
+            if (!$aIsLoyalty && $bIsLoyalty) {
+                return 1;
+            }
+            return 0;
+        });
 
         $invoice = Invoice::find($data['invoice_id']);
         $loyaltyService = app(LoyaltyPointService::class);
@@ -52,7 +66,7 @@ class CreateInvoicePayment extends CreateRecord
             }
         }
 
-        return $firstPayment ?? new \App\Models\InvoicePayment();
+        return $firstPayment ?? new InvoicePayment();
     }
 
     protected function getRedirectUrl(): string

@@ -465,8 +465,40 @@ class WhatsAppService
             ],
         ];
 
+        if (empty($components)) {
+            $tpl = WhatsAppTemplate::where('name', $templateName)->first();
+            if ($tpl) {
+                $components = $tpl->buildComponentsForSending([]);
+            } else {
+                $components = [
+                    [
+                        'type' => 'body',
+                        'parameters' => [
+                            ['type' => 'text', 'text' => '123456']
+                        ]
+                    ],
+                    [
+                        'type' => 'button',
+                        'sub_type' => 'url',
+                        'index' => '0',
+                        'parameters' => [
+                            ['type' => 'text', 'text' => '123456']
+                        ]
+                    ]
+                ];
+            }
+        }
+
         if (!empty($components)) {
-            $payload['template']['components'] = $components;
+            $validComponents = [];
+            foreach ($components as $comp) {
+                if (is_array($comp) && !empty($comp['type']) && !empty($comp['parameters']) && is_array($comp['parameters'])) {
+                    $validComponents[] = $comp;
+                }
+            }
+            if (!empty($validComponents)) {
+                $payload['template']['components'] = array_values($validComponents);
+            }
         }
 
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
