@@ -388,6 +388,30 @@
         .dark .wa-bubble-time {
             color: #8696a0;
         }
+
+        .wa-clinic-select {
+            width: 100%;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #e9edef;
+            font-size: 13px;
+            background: white;
+            color: #54656f;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+            cursor: pointer;
+            margin-top: 8px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .dark .wa-clinic-select {
+            background: #202c33;
+            border-color: #2f3b43;
+            color: #d1d7db;
+            box-shadow: none;
+        }
+        .wa-clinic-select:focus {
+            border-color: #00a884;
+        }
     </style>
 
     <div class="wa-inbox-container" wire:poll.5s>
@@ -409,6 +433,13 @@
                     <button class="wa-filter-btn {{ $filterType === 'archived' ? 'active' : '' }}"
                             wire:click="setFilter('archived')">🗄️ Archived</button>
                 </div>
+
+                <select wire:model.live="filterClinicId" class="wa-clinic-select">
+                    <option value="">🏢 All Clinics</option>
+                    @foreach($this->clinicsForFilter as $c)
+                        <option value="{{ $c->id }}">{{ $c->name }}</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="wa-conversation-list">
@@ -428,13 +459,28 @@
                                     <span class="wa-starred">⭐</span>
                                 @endif
                             </div>
+                            @if($conv->user?->clinic?->name)
+                                <div style="font-size: 11px; color: #00a884; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 1px;">
+                                    🏢 {{ $conv->user->clinic->name }}
+                                </div>
+                            @endif
                             <div class="wa-conv-phone">{{ $conv->phone_number }}</div>
                             <div class="wa-conv-preview">{{ $conv->last_message_preview ?? 'No messages yet' }}</div>
                         </div>
 
                         <div class="wa-conv-meta">
                             @if($conv->last_message_at)
-                                <div class="wa-conv-time">{{ $conv->last_message_at->diffForHumans(null, true) }}</div>
+                                <div class="wa-conv-time">
+                                    @if($conv->last_message_at->isToday())
+                                        {{ $conv->last_message_at->format('h:i A') }}
+                                    @elseif($conv->last_message_at->isYesterday())
+                                        Yesterday
+                                    @elseif($conv->last_message_at->gt(now()->subDays(7)))
+                                        {{ $conv->last_message_at->format('l') }}
+                                    @else
+                                        {{ $conv->last_message_at->format('d/m/Y') }}
+                                    @endif
+                                </div>
                             @endif
                             @if($conv->unread_count > 0)
                                 <div class="wa-unread-badge">{{ $conv->unread_count }}</div>
@@ -460,7 +506,14 @@
                     </div>
 
                     <div class="wa-chat-header-info">
-                        <div class="wa-chat-header-name">{{ $this->activeConversation->display_name }}</div>
+                        <div class="wa-chat-header-name" style="display: flex; align-items: center; gap: 8px;">
+                            <span>{{ $this->activeConversation->display_name }}</span>
+                            @if($this->activeConversation->user?->clinic?->name)
+                                <span style="font-size: 11px; background: rgba(0, 168, 132, 0.12); color: #00a884; padding: 2px 8px; border-radius: 9999px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; display: inline-flex; align-items: center;">
+                                    🏢 {{ $this->activeConversation->user->clinic->name }}
+                                </span>
+                            @endif
+                        </div>
                         <div class="wa-chat-header-status">
                             {{ $this->activeConversation->phone_number }}
                             @if($this->activeConversation->user)
@@ -524,7 +577,18 @@
                     @forelse($groupedMessages as $dateStr => $dayMessages)
                         <div class="wa-day-group" style="display: flex; flex-direction: column; gap: 8px;">
                             <div class="wa-date-divider">
-                                <span>{{ $dayMessages->first()->created_at->format('M d, Y') }}</span>
+                                <span>
+                                    @php
+                                        $firstMsgDate = $dayMessages->first()->created_at;
+                                    @endphp
+                                    @if($firstMsgDate->isToday())
+                                        Today
+                                    @elseif($firstMsgDate->isYesterday())
+                                        Yesterday
+                                    @else
+                                        {{ $firstMsgDate->format('M d, Y') }}
+                                    @endif
+                                </span>
                             </div>
 
                             @foreach($dayMessages as $msg)

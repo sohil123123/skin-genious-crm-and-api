@@ -9,6 +9,7 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppTemplate;
 use App\Models\User;
+use App\Models\Clinic;
 use App\Services\WhatsAppConversationService;
 use App\Services\WhatsAppRetryService;
 use App\Services\WhatsAppService;
@@ -59,6 +60,7 @@ class WhatsAppInbox extends Page
     public string $filterType = 'all'; // all, unread, starred
     public ?int $replyToMessageId = null;
     public ?int $lastIncomingMessageId = null;
+    public ?int $filterClinicId = null;
 
     // Modal properties
     public bool $isTemplateModalOpen = false;
@@ -66,6 +68,11 @@ class WhatsAppInbox extends Page
     public array $templateParameterValues = [];
 
     protected ?string $pollingInterval = '5s';
+
+    public function getClinicsForFilterProperty(): Collection
+    {
+        return Clinic::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+    }
 
     public function getSelectedTemplateForModalProperty(): ?WhatsAppTemplate
     {
@@ -116,8 +123,14 @@ class WhatsAppInbox extends Page
             ? WhatsAppConversation::where('is_archived', true)
             : WhatsAppConversation::notArchived();
 
-        $query->with('user:id,first_name,last_name,mobile')
+        $query->with(['user:id,first_name,last_name,mobile,clinic_id', 'user.clinic:id,name'])
             ->orderByDesc('last_message_at');
+
+        if ($this->filterClinicId) {
+            $query->whereHas('user', function ($uq) {
+                $uq->where('clinic_id', $this->filterClinicId);
+            });
+        }
 
         if ($this->searchQuery) {
             $query->where(function ($q) {
@@ -149,7 +162,7 @@ class WhatsAppInbox extends Page
             return null;
         }
 
-        $conversation = WhatsAppConversation::with('user')->find($this->activeConversationId);
+        $conversation = WhatsAppConversation::with(['user.clinic'])->find($this->activeConversationId);
 
         if ($conversation && $conversation->unread_count > 0) {
             $conversation->markAsRead();
