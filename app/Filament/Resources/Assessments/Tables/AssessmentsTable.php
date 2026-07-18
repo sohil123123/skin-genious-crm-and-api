@@ -219,44 +219,6 @@ class AssessmentsTable
                             }, $record->user->name . '_facial_skin_analysis_report.pdf');
                         }),
 
-                    Action::make('visual_comparison_pdf')
-                        ->label('Facial Re-Assessment & Progress Report')
-                        ->icon('heroicon-o-arrow-down-tray')
-                        ->color('primary')
-                        ->tooltip('Facial Re-Assessment & Progress Report')
-                        ->visible(function (Assessment $record) {
-                            return $record->assessment_type === 'normal' && $record->post_diagnosis && $record->images && $record->post_images;
-                        })
-                        ->action(function (Assessment $record) {
-                            $data['patient'] = $record->user->toArray();
-                            $data['patient']['name'] = $record->user->name;
-                            $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
-                            $data['report_date'] = $record->created_at;
-                            $data['reassessment'] = $record->post_diagnosis['reassessment'];
-                            $data['counts'] = collect($data['reassessment'])
-                                ->pluck('result')
-                                ->countBy();
-                            $assessmentImages = $record->images;
-                            $postAssessmentImages = $record->post_images;
-
-                            $data['assessmentImages'] = $assessmentImages;
-                            $data['postAssessmentImages'] = $postAssessmentImages;
-                            $data['assessment'] = $record;
-
-                            $html = view('pdf.facial.reassessment', $data)->render();
-                            $mpdf = new Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
-                            $mpdf->SetDisplayMode('fullpage');
-                            $mpdf->shrink_tables_to_fit = 1;
-                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
-                            $mpdf->showImageErrors = true;
-                            $mpdf->WriteHTML($html);
-
-                            return response()->streamDownload(function () use ($mpdf) {
-                                echo $mpdf->Output('', 'S');
-                            }, $record->user->name . '_facial_reassessment_report.pdf');
-                        }),
-
                     Action::make('session_reassessment_pdf')
                         ->label('Facial Re-Assessment Report')
                         ->tooltip('Facial Re-Assessment Report')
@@ -641,58 +603,119 @@ class AssessmentsTable
                         }),
 
                     Action::make('pigmentation_reassessment_pdf')
-                        ->label('Pigmentation Re-Assessment & Progress Report')
+                        ->label('Pigmentation Re-Assessment Report')
+                        ->tooltip('Pigmentation Re-Assessment Report')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
-                        ->tooltip('Pigmentation Re-Assessment & Progress Report')
-                        ->visible(function (Assessment $record) {
-                            return $record->assessment_type === 'pigmentation' && $record->post_diagnosis && $record->images && $record->post_images;
-                        })
+                        ->visible(fn ($record) =>
+                            $record->assessment_type === 'pigmentation' && (
+                                !empty($record->post_diagnosis) ||
+                                \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                                    ->where('status', 'completed')
+                                    ->whereNotNull('post_diagnosis')
+                                    ->exists()
+                            )
+                        )
                         ->form(function (Assessment $record) {
-                            $options = Assessment::where('user_id', $record->user_id)
-                                ->where('assessment_type', 'pigmentation')
-                                ->where('id', '!=', $record->id)
-                                ->whereNotNull('diagnosis')
-                                ->orderBy('created_at', 'desc')
-                                ->get()
-                                ->mapWithKeys(function ($item) {
-                                    return [$item->id => "Session on " . $item->created_at->format('d M Y, h:i A') . " (ID: #{$item->id})"];
-                                })
-                                ->toArray();
+                            $completedSessions = \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                                ->where('status', 'completed')
+                                ->whereNotNull('post_diagnosis')
+                                ->orderBy('session_number', 'asc')
+                                ->get();
+
+                            $sessionOptions = [];
+                            foreach ($completedSessions as $sess) {
+                                $sessionOptions[$sess->id] = "Session " . $sess->session_number . ": " . $sess->title;
+                            }
+
+                            if (empty($sessionOptions) && !empty($record->post_diagnosis)) {
+                                $sessionOptions['latest'] = 'Latest Reassessment Results';
+                            }
 
                             return [
-                                Select::make('compare_id')
-                                    ->label('Compare Current Session With')
-                                    ->options(array_merge(
-                                        ['baseline' => 'Baseline (Pre-treatment images of this assessment)'],
-                                        $options
-                                    ))
+                                \Filament\Forms\Components\Select::make('session_id')
+                                    ->label('Select Session')
+                                    ->options($sessionOptions)
+                                    ->default(array_key_first($sessionOptions))
+                                    ->required()
+                                    ->reactive(),
+
+                                \Filament\Forms\Components\Select::make('compare_to')
+                                    ->label('Comparison Base')
+                                    ->options(function (callable $get) {
+                                        $sessId = $get('session_id');
+                                        if (!$sessId || $sessId === 'latest') {
+                                            return [
+                                                'baseline' => 'Compare to Baseline',
+                                            ];
+                                        }
+                                        $sess = \App\Models\TreatmentSession::find($sessId);
+                                        if ($sess && $sess->session_number == 1) {
+                                            return [
+                                                'baseline' => 'Compare to Baseline',
+                                            ];
+                                        }
+                                        return [
+                                            'previous' => 'Compare to Previous Session',
+                                            'baseline' => 'Compare to Baseline',
+                                        ];
+                                    })
                                     ->default('baseline')
                                     ->required(),
                             ];
                         })
                         ->action(function (Assessment $record, array $data) {
-                            $compareId = $data['compare_id'] ?? 'baseline';
+                            $sessionId = $data['session_id'];
+                            $compareTo = $data['compare_to'] ?? 'previous';
 
-                            $compareRecord = null;
-                            if ($compareId !== 'baseline') {
-                                $compareRecord = Assessment::find($compareId);
+                            $patient = $record->user;
+                            $pdfData = [];
+                            $pdfData['patient'] = $patient ? $patient->toArray() : [];
+                            if ($patient) {
+                                $pdfData['patient']['name'] = $patient->name;
+                                $pdfData['patient']['age'] = $patient->date_of_birth ? \Carbon\Carbon::parse($patient->date_of_birth)->age : 'N/A';
+                            } else {
+                                $pdfData['patient']['name'] = 'N/A';
+                                $pdfData['patient']['age'] = 'N/A';
                             }
 
-                            $viewData['patient'] = $record->user;
-                            $viewData['post_diagnosis'] = $record->post_diagnosis;
-                            $viewData['record'] = $record;
+                            $pdfData['record'] = $record;
 
-                            $viewData['assessmentImages'] = $compareRecord 
-                                ? (count($compareRecord->post_images) > 0 ? $compareRecord->post_images : $compareRecord->images)
-                                : $record->images;
-                            $viewData['postAssessmentImages'] = $record->post_images;
-                            $viewData['compareRecord'] = $compareRecord;
-                            $viewData['compare_type'] = $compareId;
+                            if ($sessionId === 'latest') {
+                                $pdfData['report_date'] = $record->updated_at;
+                                $pdfData['post_diagnosis'] = $record->post_diagnosis;
+                                $pdfData['assessmentImages'] = $record->images;
+                                $pdfData['postAssessmentImages'] = $record->post_images;
+                                $pdfData['compare_type'] = 'baseline';
+                                $filename = ($patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient') . '_pigmentation_reassessment_latest.pdf';
+                            } else {
+                                $session = \App\Models\TreatmentSession::find($sessionId);
+                                if (!$session) {
+                                    return;
+                                }
+                                $pdfData['report_date'] = $session->updated_at;
+                                $pdfData['post_diagnosis'] = $session->post_diagnosis;
+                                $postAssessmentImages = $session->post_images;
 
-                            $html = view('pdf.pigmentation.post-treatment', $viewData)->render();
+                                if ($compareTo === 'baseline' || $session->session_number == 1) {
+                                    $assessmentImages = $record->images;
+                                } else {
+                                    $prevSession = \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                                        ->where('session_number', $session->session_number - 1)
+                                        ->first();
+                                    $assessmentImages = $prevSession ? $prevSession->post_images : $record->images;
+                                }
+
+                                $pdfData['assessmentImages'] = $assessmentImages;
+                                $pdfData['postAssessmentImages'] = $postAssessmentImages;
+                                $pdfData['compare_type'] = $compareTo;
+                                $patientName = $patient ? str_replace(' ', '_', strtolower($patient->name)) : 'patient';
+                                $filename = $patientName . '_pigmentation_reassessment_session_' . $session->session_number . '_' . $compareTo . '_comparison.pdf';
+                            }
+
+                            $html = view('pdf.pigmentation.post-treatment', $pdfData)->render();
                             $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
+                            $mpdf->AddFontDirectory(__DIR__ . '/../../../Http/Controllers/Api/' . config('project.mpdf_font_dir'));
                             $mpdf->SetDisplayMode('fullpage');
                             $mpdf->shrink_tables_to_fit = 1;
                             $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
@@ -701,7 +724,7 @@ class AssessmentsTable
 
                             return response()->streamDownload(function () use ($mpdf) {
                                 echo $mpdf->Output('', 'S');
-                            }, $record->user->name . '_pigmentation_reassessment_report.pdf');
+                            }, $filename);
                         }),
 
                     Action::make('pigmentation_treatment_plan_pdf')

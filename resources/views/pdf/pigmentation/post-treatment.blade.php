@@ -166,6 +166,34 @@
         $trajColor = '#B45309';
         $trajBg = '#FFFBEB';
     }
+
+    // Determine diagnosis recheck warning
+    $diagnosisRecheckNeeded = !empty($reassessment['diagnosis_reexamine']['needed']);
+    $recheckReason = $reassessment['diagnosis_reexamine']['reason'] ?? '';
+    
+    if (!$diagnosisRecheckNeeded && !empty($reassessment['component_decisions'])) {
+        foreach ($reassessment['component_decisions'] as $cd) {
+            if (!empty($cd['diagnosis_recheck_triggered'])) {
+                $diagnosisRecheckNeeded = true;
+                $compName = ucwords(str_replace(['_', '-'], ' ', $cd['diagnostic_component_id'] ?? ''));
+                if (empty($recheckReason)) {
+                    $recheckReason = "Diagnosis recheck triggered for component: " . $compName;
+                } else {
+                    $recheckReason .= ", " . $compName;
+                }
+            }
+        }
+    }
+
+    // Unify goals scorecard: global_metrics (V2) or goals (V1)
+    $goalsList = $comparison['global_metrics'] ?? $comparison['goals'] ?? [];
+
+    // Unify recommendation action & detail
+    $recAction = $reassessment['recommendation']['action'] ?? $reassessment['continuity_with_master_roadmap']['action'] ?? '';
+    $recDetail = $reassessment['recommendation']['detail'] ?? $reassessment['continuity_with_master_roadmap']['detail'] ?? '';
+
+    // Unify patient summary
+    $patSummary = $reassessment['patient_summary'] ?? $overall['summary'] ?? $reassessment['continuity_with_master_roadmap']['changes_explained'] ?? '';
 @endphp
 
 <pagebreak page-selector="report_content" />
@@ -242,6 +270,13 @@
                 <div style="font-size: 11px; color: #4A5568; margin-bottom: 4px;">
                     <strong>Completed Sessions:</strong> {{ $reassessment['previous_block_closure']['completed_sessions'] ?? 0 }}
                 </div>
+                @if(!empty($reassessment['previous_block_closure']['deviations_from_plan']))
+                    <ul style="font-size: 10px; color: #4B5563; margin-top: 4px; padding-left: 15px; margin-bottom: 6px; line-height: 1.4;">
+                        @foreach($reassessment['previous_block_closure']['deviations_from_plan'] as $dev)
+                            <li>{{ $dev }}</li>
+                        @endforeach
+                    </ul>
+                @endif
                 <div style="font-size: 11px; color: #374151; line-height: 1.45;">
                     {{ $reassessment['previous_block_closure']['block_outcome_summary'] ?? '' }}
                 </div>
@@ -270,13 +305,13 @@
     @endif
 
     {{-- ── Diagnosis Re-examine Warning ── --}}
-    @if(!empty($reassessment['diagnosis_reexamine']['needed']))
+    @if($diagnosisRecheckNeeded)
     <div style="background-color: #FDF2F2; border-left: 4px solid #9B1C1C; padding: 12px; margin-bottom: 25px; border-radius: 4px;">
         <div style="font-size: 12px; font-weight: bold; color: #9B1C1C; margin-bottom: 3px;">
             ⚠️ ALERT: DIAGNOSIS RE-EXAMINATION REQUIRED
         </div>
         <div style="font-size: 11px; color: #7F1D1D; line-height: 1.4;">
-            {{ $reassessment['diagnosis_reexamine']['reason'] ?? '' }}
+            {{ $recheckReason }}
         </div>
     </div>
     @endif
@@ -302,7 +337,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse ($comparison['goals'] ?? [] as $g)
+            @forelse ($goalsList as $g)
             @php
                 $status = strtolower($g['status'] ?? 'unknown');
                 $stColor = '#4A5568';
@@ -341,10 +376,61 @@
         </tbody>
     </table>
 
-    <pagebreak page-selector="report_content" />
+    {{-- ── Component Outcomes (V2) or Regional changes (V1) ── --}}
+    @if(!empty($comparison['component_outcomes']))
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">COMPONENT CLINICAL OUTCOMES</td>
+        </tr>
+    </table>
 
-    {{-- ── Regional Changes ── --}}
-    @if(!empty($comparison['regional_changes']))
+    <table class="comparison-table">
+        <thead>
+            <tr>
+                <th align="left">Component ID</th>
+                <th align="left" style="width: 30%;">Working Diagnosis</th>
+                <th align="center" style="width: 15%;">Trajectory</th>
+                <th align="center" style="width: 15%;">Status</th>
+                <th align="left">Clinical Comments</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($comparison['component_outcomes'] as $comp)
+            @php
+                $trajVal = strtolower($comp['trajectory'] ?? 'unknown');
+                $trColor = '#4A5568';
+                if ($trajVal === 'improving') $trColor = '#065F46';
+                elseif ($trajVal === 'worsening') $trColor = '#9B1C1C';
+                elseif ($trajVal === 'mixed' || $trajVal === 'plateaued') $trColor = '#B45309';
+
+                $statusVal = strtolower($comp['target_status'] ?? 'unknown');
+                $stColor = '#4A5568';
+                if ($statusVal === 'met' || $statusVal === 'on_track') $stColor = '#065F46';
+                elseif ($statusVal === 'worsening') $stColor = '#9B1C1C';
+            @endphp
+            <tr>
+                <td style="font-weight: bold; color: #0E2B5C;">
+                    {{ ucwords(str_replace(['_', '-'], ' ', $comp['diagnostic_component_id'] ?? '')) }}
+                </td>
+                <td>
+                    {{ ucwords(str_replace(['_', '-'], ' ', $comp['diagnosis'] ?? '—')) }}
+                </td>
+                <td align="center" style="font-weight: bold; color: {{ $trColor }};">
+                    {{ ucwords($trajVal) }}
+                </td>
+                <td align="center">
+                    <span class="badge-status" style="color: {{ $stColor }}; font-size: 10px;">
+                        [{{ str_replace('_', ' ', $statusVal) }}]
+                    </span>
+                </td>
+                <td style="font-size: 11px;">
+                    {{ $comp['comment'] ?? '' }}
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @elseif(!empty($comparison['regional_changes']))
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">REGIONAL METRIC COMPARISON</td>
@@ -391,8 +477,65 @@
     </table>
     @endif
 
-    {{-- ── Treatment Adjustment Suggestions ── --}}
-    @if(!empty($reassessment['treatment_adjustment_suggestion']))
+    {{-- ── New or Changed Morphology Groups ── --}}
+    @if(!empty($comparison['new_or_changed_morphology_groups']))
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">⚠️ NEW OR CHANGED MORPHOLOGY GROUPS</td>
+        </tr>
+    </table>
+    <div style="background-color: #FFFBEB; border: 1px solid #D97706; border-left: 4px solid #D97706; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+        @foreach($comparison['new_or_changed_morphology_groups'] as $mg)
+        <div style="margin-bottom: 8px; font-size: 12px;">
+            <strong style="color: #B45309;">Group {{ $mg['group_id'] }}: {{ ucwords($mg['change'] ?? '') }}</strong>
+            <div style="color: #4A5568; margin-top: 3px; line-height: 1.45;">
+                {{ $mg['clinical_implication'] ?? '' }}
+            </div>
+        </div>
+        @endforeach
+    </div>
+    @endif
+
+    {{-- ── Component Decisions (V2) or Treatment Adjustments (V1) ── --}}
+    @if(!empty($reassessment['component_decisions']))
+    <table class="section-title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="section-title">COMPONENT DECISIONS &amp; ADJUSTMENTS</td>
+        </tr>
+    </table>
+
+    <table class="comparison-table">
+        <thead>
+            <tr>
+                <th width="20%" align="left">Component ID</th>
+                <th width="15%" align="left">Decision</th>
+                <th width="30%" align="left">Reasoning / Rationale</th>
+                <th width="35%" align="left">Preferred Modality &amp; Target</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($reassessment['component_decisions'] as $cd)
+            <tr>
+                <td style="font-weight: bold; color: #0E2B5C;">
+                    {{ ucwords(str_replace(['_', '-'], ' ', $cd['diagnostic_component_id'] ?? '')) }}
+                </td>
+                <td style="font-weight: bold; color: #C29F5D;">
+                    {{ ucwords(str_replace(['_', '-'], ' ', $cd['decision'] ?? '')) }}
+                </td>
+                <td style="font-size: 11px;">
+                    {{ $cd['reason'] ?? '' }}
+                </td>
+                <td style="font-size: 11px;">
+                    <strong>Modality:</strong> {{ ucwords(str_replace(['_', '-'], ' ', $cd['updated_preferred_modality'] ?? '—')) }}
+                    @if(!empty($cd['updated_target']))
+                        <br/><strong style="color: #4A5568;">Target:</strong> {{ $cd['updated_target'] }}
+                    @endif
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @elseif(!empty($reassessment['treatment_adjustment_suggestion']))
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">CLINICAL TREATMENT PROTOCOL ADJUSTMENTS</td>
@@ -422,7 +565,7 @@
     @endif
 
     {{-- ── Clinician Recommendations ── --}}
-    @if(!empty($reassessment['recommendation']))
+    @if(!empty($recAction))
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">CLINICIAN RECOMMENDATION</td>
@@ -431,16 +574,16 @@
 
     <div style="border: 1px solid #C29F5D; border-radius: 8px; padding: 15px; margin-bottom: 25px; background-color: #FFFDF9;">
         <div style="font-size: 12px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">
-            Action Mode: {{ ucwords(str_replace('_', ' ', $reassessment['recommendation']['action'] ?? '')) }}
+            Action Mode: {{ ucwords(str_replace('_', ' ', $recAction)) }}
         </div>
         <div style="font-size: 12px; color: #4A5568; line-height: 1.5; text-align: justify;">
-            {{ $reassessment['recommendation']['detail'] ?? '' }}
+            {{ $recDetail }}
         </div>
     </div>
     @endif
 
     {{-- ── Patient Summary ── --}}
-    @if(!empty($reassessment['patient_summary']))
+    @if(!empty($patSummary))
     <table class="section-title-table" cellpadding="0" cellspacing="0">
         <tr>
             <td class="section-title">SUMMARY FOR THE PATIENT</td>
@@ -448,7 +591,7 @@
     </table>
 
     <div class="overview-text" style="margin-bottom: 25px;">
-        {{ $reassessment['patient_summary'] }}
+        {{ $patSummary }}
     </div>
     @endif
 
