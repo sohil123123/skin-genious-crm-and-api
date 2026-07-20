@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\Clinic;
+use App\Models\LoyaltyPointTransaction;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
@@ -178,9 +179,32 @@ class WhatsAppAiService
         if ($client->skin_type) {
             $parts[] = "Skin Type: {$client->skin_type}";
         }
-        if ($client->loyalty_points > 0) {
-            $parts[] = "Loyalty Points: {$client->loyalty_points}";
+        // Loyalty Points Details
+        $currentBalance = $client->getLoyaltyBalance();
+        $minRedeem = Setting::getLoyaltyMinRedeem();
+        $ratePercent = Setting::getLoyaltyRate();
+
+        $lastEarnTx = LoyaltyPointTransaction::where('user_id', $client->id)
+            ->where('type', 'earn')
+            ->latest()
+            ->first();
+
+        $loyaltyDetails = "Loyalty Program: ENABLED | Available Balance: {$currentBalance} points (1 pt = ₹1)";
+        if ($lastEarnTx) {
+            $earnedDate = Carbon::parse($lastEarnTx->created_at)->format('d M Y');
+            $loyaltyDetails .= " | Last Earned: +{$lastEarnTx->points} pts on {$earnedDate}";
+        } else {
+            $loyaltyDetails .= " | Last Earned: No points earned yet";
         }
+
+        if ($currentBalance >= $minRedeem) {
+            $loyaltyDetails .= " | Redemption Status: Eligible to redeem (Minimum threshold of {$minRedeem} pts met)";
+        } else {
+            $needed = $minRedeem - $currentBalance;
+            $loyaltyDetails .= " | Redemption Status: Minimum {$minRedeem} pts required to redeem (Need {$needed} more pts)";
+        }
+
+        $parts[] = $loyaltyDetails;
 
         // Medical conditions
         $conditions = [];
@@ -498,9 +522,23 @@ class WhatsAppAiService
         $prompt .= "- Specific Chemical Peels: Append the name as an anchor to chemical-peel page, e.g., https://ai-aesthetics.in/jaipur/chemical-peel#[peel-slug] (where peel-slug is: glow-peel, acne-peel, acne-marks-peel, pigmentation-peel, detan-peel, yellow-peel, cosmelan-treatment, enzymatic-peel)\n";
         $prompt .= "- General Pages: About Dr. Aakriti is https://ai-aesthetics.in/dr-aakriti-mehra, Pricing is https://ai-aesthetics.in/jaipur/pricing, Location is https://ai-aesthetics.in/jaipur/c-scheme\n\n";
 
+        $loyaltyRate = Setting::getLoyaltyRate();
+        $minRedeemPoints = Setting::getLoyaltyMinRedeem();
+
+        $prompt .= "=== LOYALTY POINTS PROGRAM INFORMATION ===\n";
+        $prompt .= "- **Program Status**: ENABLED at AI Aesthetics Jaipur.\n";
+        $prompt .= "- **Earning Rule**: Clients earn {$loyaltyRate}% back in loyalty points on all eligible treatment and service payments.\n";
+        $prompt .= "- **Redemption Value**: 1 Loyalty Point = ₹1 discount on invoice payments.\n";
+        $prompt .= "- **Minimum Threshold**: A minimum balance of {$minRedeemPoints} points is required before points can be redeemed.\n";
+        $prompt .= "- **LOYALTY INQUIRIES INSTRUCTIONS**:\n";
+        $prompt .= "  * When a KNOWN CLIENT (in CRM) asks about loyalty points, check their available points balance, their last earned points (+pts & date), and tell them if they are eligible to redeem or how many points they need to reach {$minRedeemPoints} pts.\n";
+        $prompt .= "  * When an UNKNOWN/NEW CLIENT asks about loyalty points, explain that our loyalty program is active ({$loyaltyRate}% earning back, 1 pt = ₹1), and warmly inform them that they have 0 points currently but will automatically start earning points upon their first registered visit/payment.\n";
+        $prompt .= "  * **STRICT PRIVACY / OWN POINTS ONLY**: ONLY share loyalty points data for the specific client currently chatting (given in KNOWN CLIENT). NEVER disclose, confirm, or share loyalty point balances, transactions, or account details of ANY other user, friend, relative, or phone number under any circumstances. If asked about another person's points, politely decline due to privacy policy.\n\n";
+
         $prompt .= "=== CRITICAL RULES ===\n";
         $prompt .= "- **NO CODING ANSWERS**: Never provide any programming, coding-level, databases, API, webhook, development, or code-related responses. If asked technical questions or code-related prompts, politely refuse and steer back to skin services.\n";
         $prompt .= "- **CLINIC IDENTITY**: Always refer to the clinic only as \"AI Aesthetics Jaipur\".\n";
+        $prompt .= "- **PRIVACY RESTRICTION**: Strictly provide loyalty point info ONLY for the active client chatting. NEVER share or reveal any other user's loyalty points, balance, or CRM information.\n";
         $prompt .= "- **PRICE CITATION**: Only quote prices from the CRM data listed below. If a price is not listed, refer them to the team or tell them to check the website/contact the clinic.\n";
         $prompt .= "- **BOOKING RULE**: Do not say 'appointment booked' yourself. Check the CLINIC LOCATIONS section below, share the specific clinic's name, phone number, and address from that dynamic data, and ask the client to contact them directly to book.\n";
         $prompt .= "- **SPECIFIC WEBPAGE LINKS**: When answering questions about a concern, treatment, price, or doctor, you **MUST** construct and provide the corresponding link using the WEBSITE URL PATTERNS rules above so the client can explore details directly on the website.\n";
