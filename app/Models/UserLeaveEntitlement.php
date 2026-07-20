@@ -9,8 +9,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 use App\Enums\LeaveType;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
 class UserLeaveEntitlement extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('user_leave_entitlement');
+    }
+
     protected $fillable = ['user_id', 'year', 'leave_type', 'total_allowed', 'remaining', 'used'];
 
     protected $casts = [

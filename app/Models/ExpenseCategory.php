@@ -12,10 +12,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Cviebrock\EloquentSluggable\Sluggable;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
 class ExpenseCategory extends Model
 {
-    use HasAuditColumns, SoftDeletes;
+    use HasAuditColumns, SoftDeletes, LogsActivity;
     use Sluggable;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('expense_category');
+    }
 
     protected $fillable = [
         'name',

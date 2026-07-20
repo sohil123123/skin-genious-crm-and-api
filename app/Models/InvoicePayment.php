@@ -8,9 +8,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Services\LoyaltyPointService;
 use Illuminate\Support\Facades\Log;
 use App\Models\LoyaltyPointTransaction;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class InvoicePayment extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('invoice_payment');
+    }
     protected $fillable = [
         'invoice_id',
         'transaction_id',

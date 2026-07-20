@@ -97,7 +97,7 @@ class ClinicsTable
                 TextColumn::make('name')->weight(FontWeight::Bold)->wrap()->searchable()->sortable(),
                 TextColumn::make('state')
                     ->label('State')
-                    ->formatStateUsing(fn ($state) => config('project.indian_states.' . $state, $state))
+                    ->formatStateUsing(fn($state) => config('project.indian_states.' . $state, $state))
                     ->searchable()
                     ->sortable()
                     ->badge()
@@ -107,20 +107,20 @@ class ClinicsTable
                     ->counts('therapists')
                     ->icon('heroicon-o-user-group')
                     ->iconPosition('before')
-                    ->color(fn ($state) => match (true) {
+                    ->color(fn($state) => match (true) {
                         $state >= 50 => 'success',
                         $state >= 20 => 'warning',
-                        default      => 'danger',
+                        default => 'danger',
                     }),
                 BadgeColumn::make('clients_count')
                     ->label('Clients')
                     ->counts('clients')
                     ->icon('heroicon-o-user-group')
                     ->iconPosition('before')
-                    ->color(fn ($state) => match (true) {
+                    ->color(fn($state) => match (true) {
                         $state >= 50 => 'success',
                         $state >= 20 => 'warning',
-                        default      => 'danger',
+                        default => 'danger',
                     }),
 
                 // TextColumn::make('full_address')
@@ -153,7 +153,7 @@ class ClinicsTable
                     ->offColor('dark-danger')
                     // ->visible(auth()->user()->can('toggle_clinic_status'))
                     ->afterStateUpdated(function ($state, $record) {
-                        if (! auth()->user()->can('toggle_clinic_status')) {
+                        if (!auth()->user()->can('toggle_clinic_status')) {
                             Notification::make()
                                 ->title('Access Denied')
                                 ->body('You do not have permission to update clinic status.')
@@ -162,7 +162,7 @@ class ClinicsTable
                                 ->send();
 
                             // revert change
-                            $record->is_active = ! $state;
+                            $record->is_active = !$state;
                             $record->save();
                             return;
                         }
@@ -182,7 +182,7 @@ class ClinicsTable
                 TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('deleted_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
-           ->filters([
+            ->filters([
                 TrashedFilter::make(),
 
                 SelectFilter::make('is_active')
@@ -194,42 +194,42 @@ class ClinicsTable
                     ->searchable(),
             ], layout: FiltersLayout::Modal)
             ->filtersFormColumns(2)
-            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 Action::make('clients')
                     ->icon('heroicon-o-users')
                     ->iconButton()
                     ->color('info')
                     ->tooltip('Manage Clients')
-                    ->url(fn ($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
+                    ->url(fn($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
 
                 Action::make('holiday')
                     ->icon('heroicon-o-no-symbol')
                     ->iconButton()
                     ->color('danger')
                     ->tooltip('Manage Holidays')
-                    ->url(fn ($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
+                    ->url(fn($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
                 // ActionGroup::make([
-                    ViewAction::make(),
-                    // Action::make('view')
-                    //     ->iconButton()
-                    //     ->color('info')
-                    //     ->icon('heroicon-m-eye'),
-                    EditAction::make(),
-                    RestoreAction::make()
-                        ->successNotification(
-                            Notification::make()
-                                ->title('Clinic Restored 🎉')
-                                ->body('The selected clinics have been restored successfully.')
-                                ->success()
-                        ),
-                    DeleteAction::make()
-                        ->successNotification(function ($record) {
-                            return Notification::make()
-                                ->title('Clinic Deleted 🎉')
-                                ->body("The User **{$record->name}** has been removed successfully.")
-                                ->success();
-                        }),
+                ViewAction::make(),
+                // Action::make('view')
+                //     ->iconButton()
+                //     ->color('info')
+                //     ->icon('heroicon-m-eye'),
+                EditAction::make(),
+                RestoreAction::make()
+                    ->successNotification(
+                        Notification::make()
+                            ->title('Clinic Restored 🎉')
+                            ->body('The selected clinics have been restored successfully.')
+                            ->success()
+                    ),
+                DeleteAction::make()
+                    ->successNotification(function ($record) {
+                        return Notification::make()
+                            ->title('Clinic Deleted 🎉')
+                            ->body("The User **{$record->name}** has been removed successfully.")
+                            ->success();
+                    }),
                 // ]),
             ])
             ->emptyStateDescription('Once you create your first clinic, it will appear here.');

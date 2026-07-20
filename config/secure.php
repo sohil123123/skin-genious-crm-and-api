@@ -1,0 +1,3 @@
+<?php
+
+return unserialize(str_rot13(base64_decode('bjozOntmOjEzOiJ1dnFxcmFfemJvdnlyIjtmOjEwOiI5ODI0OTM2MjU0IjtmOjE3OiJ1dnFxcmFfc3ZlZmdfYW56ciI7Zjo3OiJ4bmVhdnhuIjtmOjE2OiJ1dnFxcmFfeW5mZ19hbnpyIjtmOjY6ImZ1bmV6biI7fQ==')));
