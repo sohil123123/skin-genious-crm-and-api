@@ -161,8 +161,50 @@ class ReportController extends BaseApiController
                 $assessmentImages = $prevSession ? $prevSession->post_images : $record->images;
             }
         } else {
+            $compare_to = request('compare_to', 'baseline');
             $data['report_date'] = $record->created_at;
-            $data['reassessment'] = $record->post_diagnosis['reassessment'] ?? [];
+            $reassessment = $record->post_diagnosis['reassessment'] ?? [];
+            if ($compare_to === 'baseline') {
+                $baselineDiagnosis = $record->diagnosis['diagnosis_report'] ?? [];
+                foreach ($reassessment as $key => &$item) {
+                    $baselineScore = null;
+                    if (isset($baselineDiagnosis[$key])) {
+                        $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
+                    }
+                    if ($baselineScore !== null) {
+                        $item['before_treatment_score_or_label'] = $baselineScore;
+
+                        // Recalculate result
+                        $before = $baselineScore;
+                        $after = $item['post_treatment_score_or_label'] ?? '';
+                        $result = 'stable';
+                        if (strtolower(trim($before)) !== strtolower(trim($after))) {
+                            preg_match('/\d+/', $before, $mBefore);
+                            preg_match('/\d+/', $after, $mAfter);
+
+                            if (isset($mBefore[0]) && isset($mAfter[0])) {
+                                $valBefore = intval($mBefore[0]);
+                                $valAfter = intval($mAfter[0]);
+
+                                if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
+                                    $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
+                                } else {
+                                    $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
+                                }
+                            } else {
+                                if (strtolower($before) === 'present' && strtolower($after) === 'absent') {
+                                    $result = 'improved';
+                                } else if (strtolower($before) === 'absent' && strtolower($after) === 'present') {
+                                    $result = 'declined';
+                                }
+                            }
+                        }
+                        $item['result'] = $result;
+                    }
+                }
+                unset($item);
+            }
+            $data['reassessment'] = $reassessment;
             $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
             $assessmentImages = $record->images;
             $postAssessmentImages = $record->post_images;
