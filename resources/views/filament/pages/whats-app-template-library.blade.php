@@ -316,20 +316,6 @@
                         <span>Authentication ({{ $counts['AUTHENTICATION'] ?? 0 }})</span>
                     </div>
                 </div>
-
-                <!-- Meta Sidebar Accordions -->
-                <div class="meta-filter-accordion">
-                    <span>Industry</span>
-                    <span class="meta-filter-accordion-chevron">▼</span>
-                </div>
-                <div class="meta-filter-accordion">
-                    <span>Identity verification</span>
-                    <span class="meta-filter-accordion-chevron">▼</span>
-                </div>
-                <div class="meta-filter-accordion">
-                    <span>Payments</span>
-                    <span class="meta-filter-accordion-chevron">▼</span>
-                </div>
             </div>
 
             <!-- Content Grid -->

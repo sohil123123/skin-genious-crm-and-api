@@ -36,6 +36,15 @@ use App\Models\Clinic;
 use App\Models\User;
 use App\Models\Assessment;
 use App\Models\TreatmentSession;
+use App\Models\Appointment;
+use App\Models\Setting;
+use App\Models\WhatsAppTemplate;
+use App\Services\WhatsAppService;
+use App\Jobs\SendTodayAppointmentsWhatsAppJob;
+use Filament\Actions\BulkAction;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Placeholder;
+use Illuminate\Database\Eloquent\Collection;
 
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
@@ -535,13 +544,161 @@ class AppointmentsTable
                 Group::make('status')->label('Status')->collapsible(),
                 Group::make('created_at')->date(),
             ])
-            // ->toolbarActions([
-            //     BulkActionGroup::make([
-            //         DeleteBulkAction::make(),
-            //         ForceDeleteBulkAction::make(),
-            //         RestoreBulkAction::make(),
-            //     ]),
-            // ])
+            ->headerActions([
+                Action::make('send_today_whatsapp_reminders')
+                    ->label("Send Today's WhatsApp Reminders")
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->modalHeading("Send Today's Appointment WhatsApp Reminders")
+                    ->modalDescription("This will dispatch queued WhatsApp template messages for all clients with appointments scheduled for today.")
+                    ->form([
+                        Placeholder::make('today_appointments_count')
+                            ->label("Today's Appointments")
+                            ->content(function () {
+                                $count = Appointment::whereDate('start_datetime', Carbon::today())
+                                    ->where('status', '!=', 'cancelled')
+                                    ->count();
+                                return "{$count} active appointment(s) scheduled for today.";
+                            }),
+                        Toggle::make('force')
+                            ->label('Force send even if already sent today')
+                            ->default(false),
+                    ])
+                    ->action(function (array $data) {
+                        $force = (bool) ($data['force'] ?? false);
+
+                        SendTodayAppointmentsWhatsAppJob::dispatch(
+                            Carbon::today()->format('Y-m-d'),
+                            null,
+                            null,
+                            $force
+                        );
+
+                        Notification::make()
+                            ->title("WhatsApp Reminders Queued 🚀")
+                            ->body("The queue job for today's appointment WhatsApp reminders has been dispatched.")
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('send_selected_whatsapp_reminders')
+                        ->label("Send WhatsApp Reminders")
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records) {
+                            $whatsAppService = app(WhatsAppService::class);
+
+                            $activeTemplateName = Setting::getValue('whatsapp_today_appointment_reminder_template_name')
+                                ?: Setting::getValue('whatsapp_appointment_template_name', 'appointment_confirmation_v1');
+
+                            $template = WhatsAppTemplate::where('name', $activeTemplateName)->first();
+
+                            if (!$template) {
+                                Notification::make()
+                                    ->title("Template Not Found ⚠️")
+                                    ->body("WhatsApp template '{$activeTemplateName}' was not found in database.")
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $sentCount = 0;
+
+                            foreach ($records as $appointment) {
+                                $client = $appointment->client;
+                                if (!$client || empty($client->mobile)) {
+                                    continue;
+                                }
+
+                                $clientName = $client->name ?? 'Client';
+                                $appointmentTime = $appointment->start_datetime
+                                    ? $appointment->start_datetime->format('jS F Y \a\t g:i A')
+                                    : 'Scheduled Time';
+                                $timeOnly = $appointment->start_datetime
+                                    ? $appointment->start_datetime->format('g:i A')
+                                    : 'Scheduled Time';
+                                $appointmentDate = $appointment->start_datetime
+                                    ? $appointment->start_datetime->format('jS F Y')
+                                    : Carbon::today()->format('jS F Y');
+                                $clinicName = $appointment->clinic?->name ?? 'Skin Genious Clinic';
+                                $therapistName = $appointment->therapist?->name ?? 'Therapist';
+
+                                // Extract dynamic URL button parameter from clinic's google_map_link
+                                $googleMapLink = $appointment->clinic?->google_map_link ?? '';
+                                $buttonUrlParam = $googleMapLink;
+                                if ($googleMapLink && str_starts_with($googleMapLink, 'https://maps.app.goo.gl/')) {
+                                    $suffix = ltrim(substr($googleMapLink, strlen('https://maps.app.goo.gl/')), '/');
+                                    if (!empty($suffix)) {
+                                        $buttonUrlParam = $suffix;
+                                    }
+                                }
+
+                                $components = $template->buildComponentsForSending(
+                                    [
+                                        'client_name' => $clientName,
+                                        'appointment_datetime' => $appointmentTime,
+                                        'appointment_date' => $appointmentDate,
+                                        'appointment_time' => $timeOnly,
+                                        'clinic_name' => $clinicName,
+                                        'therapist_name' => $therapistName,
+                                        '1' => $clientName,
+                                        '2' => $appointmentTime,
+                                        '3' => $clinicName,
+                                        '4' => $therapistName,
+                                        0 => $clientName,
+                                        1 => $appointmentTime,
+                                        2 => $clinicName,
+                                        3 => $therapistName,
+                                    ],
+                                    [
+                                        'client_name' => $clientName,
+                                        'appointment_datetime' => $appointmentTime,
+                                        '1' => $clientName,
+                                        '2' => $appointmentTime,
+                                        0 => $clientName,
+                                        1 => $appointmentTime,
+                                    ],
+                                    !empty($buttonUrlParam) ? [$buttonUrlParam] : []
+                                );
+
+                                $conversationId = null;
+                                if (method_exists($client, 'whatsappConversations')) {
+                                    $conversation = $client->whatsappConversations()->latest()->first();
+                                    if ($conversation) {
+                                        $conversationId = $conversation->id;
+                                    }
+                                }
+
+                                // Send template message via WhatsAppService
+                                $messageLog = $whatsAppService->sendTemplateMessage(
+                                    $client->mobile,
+                                    $template->name,
+                                    $template->language ?? 'en_US',
+                                    $components,
+                                    $client->id,
+                                    null,
+                                    $conversationId
+                                );
+
+                                if ($messageLog && $messageLog->message_id) {
+                                    $sentCount++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title("WhatsApp Messages Sent 🚀")
+                                ->body("Successfully sent {$sentCount} WhatsApp template messages for selected appointments.")
+                                ->success()
+                                ->send();
+                        }),
+                    DeleteBulkAction::make(),
+                    ForceDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                ]),
+            ])
             ->emptyStateDescription('Once you create your first appointment, it will appear here.');
     }
 }
