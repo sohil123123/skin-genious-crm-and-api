@@ -136,16 +136,26 @@ class AiController extends Controller
      */
     private function executeOpenAiCall($apiKey, $payload)
     {
-        return Http::withOptions([
-            'verify' => false,
-        ])->withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type'  => 'application/json',
-        ])
-        ->connectTimeout(10)
-        ->timeout(180)
-        ->retry(2, 1000)
-        ->post('https://api.openai.com/v1/responses', $payload);
+        try {
+            return Http::withOptions([
+                'verify' => false,
+            ])->withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type'  => 'application/json',
+            ])
+            ->connectTimeout(10)
+            ->timeout(180)
+            ->retry(2, 1000, function ($exception, $request) {
+                // Do not retry on client errors like 400 Bad Request
+                if ($exception instanceof \Illuminate\Http\Client\RequestException && $exception->response->clientError()) {
+                    return false;
+                }
+                return true;
+            })
+            ->post('https://api.openai.com/v1/responses', $payload);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            return $e->response;
+        }
     }
 
     /**
@@ -168,10 +178,10 @@ class AiController extends Controller
     {
         $payload = [
             'metadata' => [
-                'patient_id'    => $assessment->user_id,
-                'patient_name'  => $assessment->user->name ?? 'N/A',
-                'assessment_id' => $assessment->id,
-                'recovered_from_conversation' => $assessment->conversation_id
+                'patient_id'    => (string) $assessment->user_id,
+                'patient_name'  => (string) ($assessment->user->name ?? 'N/A'),
+                'assessment_id' => (string) $assessment->id,
+                'recovered_from_conversation' => (string) $assessment->conversation_id
             ],
         ];
 
