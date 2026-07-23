@@ -504,7 +504,7 @@ class WhatsAppService
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
 
         try {
-            $response = Http::withToken($this->accessToken)
+            $response = Http::retry(3, 1000)->timeout(30)->withToken($this->accessToken)
                 ->post($endpoint, $payload);
 
             $responseData = $response->json();
@@ -601,7 +601,7 @@ class WhatsAppService
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
 
         try {
-            $response = Http::withToken($this->accessToken)->post($endpoint, $payload);
+            $response = Http::retry(3, 1000)->timeout(30)->withToken($this->accessToken)->post($endpoint, $payload);
             $responseData = $response->json();
 
             // Create or update Message entry
@@ -719,7 +719,7 @@ class WhatsAppService
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
 
         try {
-            $response = Http::withToken($this->accessToken)->post($endpoint, $payload);
+            $response = Http::retry(3, 1000)->timeout(30)->withToken($this->accessToken)->post($endpoint, $payload);
             $responseData = $response->json();
 
             $messageId = $responseData['messages'][0]['id'] ?? null;
@@ -799,7 +799,7 @@ class WhatsAppService
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
 
         try {
-            $response = Http::withToken($this->accessToken)->post($endpoint, $payload);
+            $response = Http::retry(3, 1000)->timeout(30)->withToken($this->accessToken)->post($endpoint, $payload);
             $responseData = $response->json();
 
             if ($response->successful()) {
@@ -831,7 +831,7 @@ class WhatsAppService
         $endpoint = $this->apiUrl . $this->phoneNumberId . '/messages';
 
         try {
-            $response = Http::withToken($this->accessToken)->post($endpoint, [
+            $response = Http::retry(3, 1000)->timeout(30)->withToken($this->accessToken)->post($endpoint, [
                 'messaging_product' => 'whatsapp',
                 'status' => 'read',
                 'message_id' => $messageId,

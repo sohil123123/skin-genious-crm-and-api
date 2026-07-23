@@ -296,6 +296,9 @@ class WhatsAppConversationService
             return null;
         }
 
+        // Convert double asterisks ** to single asterisk * for WhatsApp bolding
+        $text = str_replace('**', '*', $text);
+
         // Create the outgoing message record
         $message = WhatsAppMessage::create([
             'conversation_id' => $conversation->id,

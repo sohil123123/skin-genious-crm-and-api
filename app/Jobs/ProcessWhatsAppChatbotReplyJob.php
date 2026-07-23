@@ -20,6 +20,9 @@ class ProcessWhatsAppChatbotReplyJob implements ShouldQueue
     public int $conversationId;
     public int $messageId;
 
+    public int $tries = 3;
+    public int $backoff = 3;
+
     public function __construct(int $conversationId, int $messageId)
     {
         $this->conversationId = $conversationId;

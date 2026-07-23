@@ -77,42 +77,24 @@ class Appointment extends Model
         });
 
         static::created(function ($appointment) {
-            $templateName = Setting::getValue('whatsapp_appointment_template_name', 'appointment_confirmation_v1');
-            $template = WhatsAppTemplate::where('name', $templateName)->first();
+            $statusValue = $appointment->status instanceof AppointmentStatus
+                ? $appointment->status->value
+                : (string) $appointment->status;
 
-            if ($template && $appointment->client && $appointment->client->mobile) {
-                $clientName = $appointment->client->name ?? 'Client';
-                $appointmentTime = $appointment->start_datetime
-                    ? $appointment->start_datetime->format('jS F Y \a\t g:i A')
-                    : 'Scheduled Time';
+            if ($statusValue === 'confirmed') {
+                $appointment->sendConfirmationWhatsAppTemplate();
+            }
+        });
 
-                // Dynamically build components (Header, Body, Buttons) for sending
-                $components = $template->buildComponentsForSending(
-                    // Body variables
-                    [
-                        'client_name' => $clientName,
-                        'appointment_datetime' => $appointmentTime,
-                        0 => $clientName,
-                        1 => $appointmentTime,
-                    ],
-                    // Header variables
-                    [
-                        'client_name' => $clientName,
-                        'appointment_datetime' => $appointmentTime,
-                        0 => $clientName,
-                        1 => $appointmentTime,
-                    ],
-                    // Button variables
-                    []
-                );
+        static::updated(function ($appointment) {
+            if ($appointment->wasChanged('status')) {
+                $statusValue = $appointment->status instanceof AppointmentStatus
+                    ? $appointment->status->value
+                    : (string) $appointment->status;
 
-                SendWhatsAppMessageJob::dispatch(
-                    $appointment->client->mobile,
-                    $template->name,
-                    $components,
-                    $template->language ?? 'en_US',
-                    $appointment->user_id
-                );
+                if ($statusValue === 'confirmed') {
+                    $appointment->sendConfirmationWhatsAppTemplate();
+                }
             }
         });
 
@@ -191,5 +173,45 @@ class Appointment extends Model
     public function treatmentSession(): BelongsTo
     {
         return $this->belongsTo(TreatmentSession::class);
+    }
+
+    /**
+     * Send WhatsApp appointment confirmation template message.
+     */
+    public function sendConfirmationWhatsAppTemplate(): void
+    {
+        $templateName = Setting::getValue('whatsapp_appointment_template_name', 'appointment_confirmation_v1');
+        $template = WhatsAppTemplate::where('name', $templateName)->first();
+
+        if ($template && $this->client && $this->client->mobile) {
+            $clientName = $this->client->name ?? 'Client';
+            $appointmentTime = $this->start_datetime
+                ? $this->start_datetime->format('jS F Y \a\t g:i A')
+                : 'Scheduled Time';
+
+            $components = $template->buildComponentsForSending(
+                [
+                    'client_name' => $clientName,
+                    'appointment_datetime' => $appointmentTime,
+                    0 => $clientName,
+                    1 => $appointmentTime,
+                ],
+                [
+                    'client_name' => $clientName,
+                    'appointment_datetime' => $appointmentTime,
+                    0 => $clientName,
+                    1 => $appointmentTime,
+                ],
+                []
+            );
+
+            SendWhatsAppMessageJob::dispatch(
+                $this->client->mobile,
+                $template->name,
+                $components,
+                $template->language ?? 'en_US',
+                $this->user_id
+            );
+        }
     }
 }

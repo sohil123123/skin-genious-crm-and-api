@@ -30,6 +30,9 @@ class SendWhatsAppMessageJob implements ShouldQueue
     public bool $isMediaId;
     public ?int $dbMessageId;
 
+    public int $tries = 3;
+    public int $backoff = 3;
+
     /**
      * Create a new job instance.
      */
