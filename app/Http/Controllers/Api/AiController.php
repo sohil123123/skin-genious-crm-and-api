@@ -64,27 +64,58 @@ class AiController extends Controller
             ], 500);
         }
 
-        $payload = $request->all(); // pass-through from frontend
+        $keys = [
+            'model',
+            'input',
+            'max_output_tokens',
+            'reasoning',
+            'text',
+            'metadata',
+            'prompt_cache_key',
+            'prompt_cache_retention',
+        ];
+
+        $payload = [];
+        foreach ($keys as $key) {
+            if ($request->has($key)) {
+                $payload[$key] = $request->input($key);
+            }
+        }
+
+        if (!empty($request->input('conversation'))) {
+            $payload['conversation'] = $request->input('conversation');
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer ' . $apiKey,
+            'Content-Type'  => 'application/json',
+        ];
+
+        if ($request->hasHeader('X-Client-Request-Id')) {
+            $headers['X-Client-Request-Id'] = $request->header('X-Client-Request-Id');
+        }
 
         $response =  Http::withOptions([
             'verify' => false,   // 🔥 THIS MUST BE HERE
-        ])->withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type'  => 'application/json',
-        ])
+        ])->withHeaders($headers)
         ->connectTimeout(10)
-        ->timeout(180)
-        ->retry(2, 1000)
+        ->timeout(600)
         ->post('https://api.openai.com/v1/responses', $payload);
 
+        $openaiRequestId = $response->header('x-request-id');
+
         if ($response->successful()) {
+            Log::info('OpenAI responses API success', [
+                'x-request-id' => $openaiRequestId,
+            ]);
             // IMPORTANT: return AS-IS
             return response()->json($response->json(), 200);
         }
 
         Log::error('OpenAI responses API error', [
-            'status' => $response->status(),
-            'body'   => $response->body(),
+            'x-request-id' => $openaiRequestId,
+            'status'       => $response->status(),
+            'body'         => $response->body(),
         ]);
 
         return response()->json([
