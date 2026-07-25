@@ -847,7 +847,47 @@ class AssessmentsTable
                     RestoreBulkAction::make(),
                 ]),
             ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('download_all_clients_reassessment_zip')
+                    ->label('Download Reassessment Reports (ZIP)')
+                    ->icon('heroicon-o-archive-box')
+                    ->color('success')
+                    ->tooltip('Download all available reassessment reports for filtered clients as a ZIP file')
+                    ->action(function ($livewire) {
+                        $query = $livewire->getFilteredTableQuery();
+
+                        // We only want normal and instant-normal assessments with completed treatment sessions having post_diagnosis
+                        $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
+                            ->whereHas('treatmentSessions', function ($q) {
+                                $q->where('status', 'completed')
+                                  ->whereNotNull('post_diagnosis');
+                            })
+                            ->get();
+
+                        if ($assessments->isEmpty()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No completed reassessment sessions found for matching clients.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $service = new \App\Services\ReassessmentReportService();
+                        $zipFilePath = $service->generateZipOfMultipleAssessments($assessments);
+
+                        if (!$zipFilePath) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No completed reassessment reports generated for matching clients.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $zipName = 'clients_facial_reassessment_reports.zip';
+
+                        return response()->download($zipFilePath, $zipName)->deleteFileAfterSend(true);
+                    }),
+            ])
             ->emptyStateDescription('Once you create your first assessment, it will appear here.');
-        ;
     }
 }
