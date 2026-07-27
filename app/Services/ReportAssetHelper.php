@@ -42,7 +42,7 @@ class ReportAssetHelper
     public static function buildReportAssets(Assessment $record, $session = null)
     {
         $baselineMedia = $record->getMedia('assessment_images');
-        
+
         if ($session instanceof TreatmentSession) {
             $postMedia = $session->getMedia('post_treatment_images');
             if ($postMedia->isEmpty()) {
@@ -212,7 +212,7 @@ class ReportAssetHelper
     {
         $defaultConfig = (new \Mpdf\Config\ConfigVariables())->getDefaults();
         $fontVars = (new \Mpdf\Config\FontVariables())->getDefaults();
-        
+
         $fontDirs = array_values(array_unique(array_merge(
             $defaultConfig['fontDir'],
             [
@@ -220,9 +220,9 @@ class ReportAssetHelper
                 public_path('fonts/Montserrat'),
             ]
         )));
-        
+
         $fontData = $fontVars['fontdata'];
-        
+
         // Add Playfair font
         $fontData['playfair'] = [
             'R' => 'PlayfairDisplay-Regular.ttf',
@@ -230,7 +230,7 @@ class ReportAssetHelper
             'I' => 'PlayfairDisplay-Italic.ttf',
             'BI' => 'PlayfairDisplay-BoldItalic.ttf'
         ];
-        
+
         // Add Montserrat font
         $fontData['montserrat'] = [
             'R' => 'Montserrat-Regular.ttf',
@@ -261,11 +261,11 @@ class ReportAssetHelper
             'showImageErrors' => true,
             'shrink_tables_to_fit' => 0,
         ]);
-        
+
         $mpdf->SetDisplayMode('fullpage');
         $mpdf->shrink_tables_to_fit = 1;
         $mpdf->showImageErrors = true;
-        
+
         return $mpdf;
     }
 
@@ -279,12 +279,12 @@ class ReportAssetHelper
         $data['diagnosis'] = $record->diagnosis;
         $data['key_parametrs'] = collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores'] ?? []);
         $data['assessmentImages'] = $record->images;
-        
+
         $data['reportAssets'] = self::buildReportAssets($record);
         $data['uiAssets'] = self::getUiAssets();
 
         $html  = view('pdf.facial.skin_analysis_v2', $data)->render();
-        
+
         $mpdf = self::createMpdfInstance();
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
@@ -338,7 +338,25 @@ class ReportAssetHelper
                         $valBefore = intval($mBefore[0]);
                         $valAfter = intval($mAfter[0]);
 
-                        if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
+                        // Determine polarity (higher is better vs higher is worse)
+                        $polarity = $baselineDiagnosis[$key]['score_polarity'] ?? null;
+                        if (!$polarity && isset($item['score_polarity'])) {
+                            $polarity = $item['score_polarity'];
+                        }
+
+                        $higherIsBetter = false;
+                        if ($polarity === 'higher_is_better') {
+                            $higherIsBetter = true;
+                        } elseif ($polarity === 'higher_is_worse') {
+                            $higherIsBetter = false;
+                        } else {
+                            // Fallback to key-based matching
+                            $higherIsBetter = strpos(strtolower($key), 'glow') !== false || 
+                                             strpos(strtolower($key), 'luminosity') !== false || 
+                                             strpos(strtolower($key), 'hydration') !== false;
+                        }
+
+                        if ($higherIsBetter) {
                             $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
                         } else {
                             $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
@@ -355,7 +373,6 @@ class ReportAssetHelper
             }
         }
         unset($item);
-
         $data['reassessment'] = $reassessment;
         $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
 
@@ -367,7 +384,7 @@ class ReportAssetHelper
         $data['uiAssets'] = self::getUiAssets();
 
         $html = view('pdf.facial.reassessment_v2', $data)->render();
-        
+
         $mpdf = self::createMpdfInstance();
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);

@@ -79,7 +79,6 @@ class ReportController extends BaseApiController
         $session_id = $session_id ?: request('session_id');
         $record = Assessment::findOrFail($assessment_id);
         $session = $session_id ? \App\Models\TreatmentSession::findOrFail($session_id) : null;
-
         $pdfContent = \App\Services\ReportAssetHelper::getReassessmentPdfContent($record, $session);
 
         return response($pdfContent, 200, [
@@ -402,7 +401,7 @@ class ReportController extends BaseApiController
         $data['compare_type'] = 'baseline';
 
         $html = view('pdf.pigmentation.post-treatment', $data)->render();
-        
+
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
         $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
         $mpdf->SetDisplayMode('fullpage');
