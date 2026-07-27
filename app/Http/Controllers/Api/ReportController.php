@@ -490,14 +490,41 @@ class ReportController extends BaseApiController
     public function downloadPigmentationPostDiagnosis($id)
     {
         $record = Assessment::findOrFail($id);
+        $sessionId = request('session_id');
+        $compareTo = request('compare_to', 'baseline');
+
+        $session = null;
+        if ($sessionId) {
+            $session = \App\Models\TreatmentSession::find($sessionId);
+        }
 
         $data['patient'] = $record->user;
-        $data['post_diagnosis'] = $record->post_diagnosis;
         $data['record'] = $record;
-        $data['assessmentImages'] = $record->images;
-        $data['postAssessmentImages'] = $record->post_images;
+        
+        if ($session) {
+            $data['post_diagnosis'] = $session->post_diagnosis;
+            $data['report_date'] = $session->updated_at;
+            $postAssessmentImages = $session->post_images;
+
+            if ($compareTo === 'baseline' || $session->session_number == 1) {
+                $assessmentImages = $record->images;
+            } else {
+                $prevSession = \App\Models\TreatmentSession::where('assessment_id', $record->id)
+                    ->where('session_number', $session->session_number - 1)
+                    ->first();
+                $assessmentImages = $prevSession ? $prevSession->post_images : $record->images;
+            }
+        } else {
+            $data['post_diagnosis'] = $record->post_diagnosis;
+            $data['report_date'] = $record->updated_at;
+            $assessmentImages = $record->images;
+            $postAssessmentImages = $record->post_images;
+        }
+
+        $data['assessmentImages'] = $assessmentImages;
+        $data['postAssessmentImages'] = $postAssessmentImages;
         $data['compareRecord'] = null;
-        $data['compare_type'] = 'baseline';
+        $data['compare_type'] = $compareTo;
 
         $html = view('pdf.pigmentation.post-treatment', $data)->render();
         
@@ -508,9 +535,12 @@ class ReportController extends BaseApiController
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output('post-treatment-comparison.pdf', 'S'), 200, [
+        $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
+        $filename = $patientName . '_pigmentation_reassessment' . ($session ? '_session_' . $session->session_number : '') . '_' . $compareTo . '_comparison.pdf';
+
+        return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="post-treatment-comparison.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 }

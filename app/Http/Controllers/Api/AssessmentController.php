@@ -64,7 +64,7 @@ class AssessmentController extends BaseApiController
 
         // Update therapist_id for the associated appointments if therapist_id is provided in the request
         if ($request->filled('therapist_id')) {
-            $treatmentSessions = $assessment->treatmentSessions['treatments'][0];
+            $treatmentSessions = isset($assessment->treatmentSessions['treatments'][0]) ? $assessment->treatmentSessions['treatments'][0] : null;
             if($treatmentSessions){
                 \App\Models\Appointment::where('assessment_id', $assessment->id)
                     ->where('treatment_session_id', $treatmentSessions['id'])
@@ -103,8 +103,8 @@ class AssessmentController extends BaseApiController
                     'audio_text' => $treatment['script'] ?? null,
                 ]);
 
-                // Create appointment for the first session
-                if ($key == 0) {
+                // Create appointment for the first session only if therapist is selected
+                if ($key == 0 && $request->filled('therapist_id')) {
                     \App\Models\Appointment::firstOrCreate(
                         [
                             'assessment_id' => $assessment->id,
@@ -114,7 +114,7 @@ class AssessmentController extends BaseApiController
                             'type' => 'treatment',
                             'clinic_id' => $assessment->clinic_id,
                             'user_id' => $assessment->user_id,
-                            'therapist_id' => $request->input('therapist_id') ?? $assessment->created_by,
+                            'therapist_id' => $request->input('therapist_id'),
                             'status' => 'confirmed',
                             'start_datetime' => now(),
                             'end_datetime' => now()->addMinutes(isset($treatment['treatment_time']) ? (int) filter_var($treatment['treatment_time'], FILTER_SANITIZE_NUMBER_INT) : null),

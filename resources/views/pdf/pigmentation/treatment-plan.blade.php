@@ -48,27 +48,31 @@
         vertical-align: top;
     }
     .session-label {
-        font-size: 9px;
+        font-size: 11px;
         font-weight: bold;
         color: #C29F5D;
         letter-spacing: 1px;
         text-transform: uppercase;
-        margin-bottom: 3px;
+        margin-bottom: 4px;
+        line-height: 1.4;
     }
     .session-name {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: bold;
         color: #0E2B5C;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
+        line-height: 1.4;
     }
     .session-meta {
-        font-size: 9px;
-        color: #888;
-        margin-bottom: 2px;
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 4px;
+        line-height: 1.4;
     }
     .session-focus {
-        font-size: 10px;
-        color: #555;
+        font-size: 12px;
+        color: #444;
+        line-height: 1.5;
     }
 
     /* Detailed procedure styles */
@@ -126,13 +130,36 @@
 </style>
 
 @php
-    $treatmentsList = $sessions['treatments'] ?? [];
-    $treatmentGoals = collect($treatmentsList)
-        ->pluck('concerns_addressed')
-        ->flatten(1)
-        ->unique()
-        ->values()
-        ->toArray();
+    $plan = $recommended_full_plan['linear_treatment_plan'] ?? $recommended_full_plan ?? [];
+    $treatmentsList = $sessions['treatments'] ?? $plan['current_treatment_block']['sessions'] ?? $plan['sessions'] ?? [];
+
+    $treatmentGoals = [];
+    if (!empty($plan['treatment_goals'])) {
+        foreach ($plan['treatment_goals'] as $timeframe => $g) {
+            if (!empty($g['clinical_goal'])) {
+                $treatmentGoals[] = $g['clinical_goal'];
+            }
+        }
+    } elseif (!empty($plan['measurable_goals'])) {
+        foreach ($plan['measurable_goals'] as $timeframe => $g) {
+            if (!empty($g['clinical_goal'])) {
+                $treatmentGoals[] = $g['clinical_goal'];
+            }
+        }
+    }
+
+    if (empty($treatmentGoals)) {
+        $treatmentGoals = collect($treatmentsList)
+            ->pluck('concerns_addressed')
+            ->flatten(1)
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    $clientReport = $recommended_full_plan['client_report'] ?? $plan['client_report'] ?? [];
+    $clientRoadmap = $clientReport['component_roadmap'] ?? $clientReport['roadmap'] ?? [];
+    $futureBlocks = $recommended_full_plan['future_treatment_roadmap']['future_blocks'] ?? $plan['future_treatment_roadmap']['future_blocks'] ?? [];
 @endphp
 
 {{-- ── Title ── --}}
@@ -219,11 +246,20 @@
                 @foreach ($chunks as $row)
                 <tr>
                     @foreach ($row as $session)
+                    @php
+                        $timingLabel = str_replace('week_', 'Week ', $session['timing'] ?? $session['week'] ?? $session['session_number']);
+                        $focusLabel = '';
+                        if (!empty($session['treated_component_ids'])) {
+                            $focusLabel = implode(', ', array_map(function($id) { return str_replace('_', ' ', ucwords($id)); }, $session['treated_component_ids']));
+                        } elseif (!empty($session['concerns_addressed'])) {
+                            $focusLabel = collect($session['concerns_addressed'])->implode(', ');
+                        }
+                    @endphp
                     <td width="50%" class="session-card" style="margin: 4px;">
-                        <div class="session-label">Session {{ $session['session_number'] }} — Week {{ $session['week'] ?? $session['session_number'] }}</div>
-                        <div class="session-name">{{ $session['title'] }}</div>
+                        <div class="session-label">Session {{ $session['session_number'] }} — {{ $timingLabel }}</div>
+                        <div class="session-name">{{ $session['goal'] ?? $session['title'] ?? 'Treatment Session' }}</div>
                         <div class="session-meta">Duration: {{ $session['treatment_time'] ?? '45' }} Mins</div>
-                        <div class="session-focus">Focus: {{ collect($session['concerns_addressed'])->implode(', ') }}</div>
+                        <div class="session-focus">Focus: {{ $focusLabel ?: 'Pigmentation treatment' }}</div>
                     </td>
                     @endforeach
                     @if($row->count() == 1)
@@ -236,7 +272,7 @@
     </tr>
 </table>
 
-@if (!empty($recommended_full_plan['future_treatment_roadmap']['future_blocks']))
+@if (!empty($futureBlocks))
 {{-- ── Future Treatment Roadmap ── --}}
 <table class="section-box" width="100%" cellpadding="0" cellspacing="0" style="page-break-inside: avoid; margin-top: 15px;">
     <tr>
@@ -252,7 +288,7 @@
     <tr>
         <td>
             <table width="100%" cellpadding="0" cellspacing="0">
-                @foreach ($recommended_full_plan['future_treatment_roadmap']['future_blocks'] as $index => $block)
+                @foreach ($futureBlocks as $index => $block)
                 @if ($index > 0)
                 <tr>
                     <td style="height: 12px; font-size: 1px; line-height: 1px;">&nbsp;</td>
@@ -260,21 +296,29 @@
                 @endif
                 <tr>
                     <td style="background: #fafafa; border: 1px solid #e2e8f0; border-left: 3.5px solid #C29F5D; border-radius: 4px; padding: 12px;">
-                        <div style="font-size: 13px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
-                            {{ str_replace('_', ' ', ucwords($block['provisional_block_id'] ?? '')) }} ({{ str_replace('_', ' ', ucwords($block['expected_session_range'] ?? '')) }})
+                        <div style="font-size: 15px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            {{ str_replace('_', ' ', ucwords($block['provisional_block_id'] ?? '')) }}
                         </div>
-                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
-                            <span style="font-weight: bold; color: #475569;">Expected Objectives:</span> {{ implode(', ', $block['expected_objectives'] ?? []) }}
+                        @if(!empty($block['expected_objectives']))
+                        <div style="font-size: 13px; color: #333; line-height: 1.7; margin-bottom: 6px;">
+                            <span style="font-weight: bold; color: #475569;">Expected Objectives:</span> {{ implode(', ', $block['expected_objectives']) }}
                         </div>
-                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
-                            <span style="font-weight: bold; color: #475569;">Likely Modalities:</span> {{ implode(', ', array_map(function($m) { return ucwords(str_replace('_', ' ', $m)); }, $block['likely_modality_categories'] ?? [])) }}
+                        @endif
+                        @if(!empty($block['likely_modality_categories']))
+                        <div style="font-size: 13px; color: #333; line-height: 1.7; margin-bottom: 6px;">
+                            <span style="font-weight: bold; color: #475569;">Likely Modalities:</span> {{ implode(', ', array_map(function($m) { return ucwords(str_replace('_', ' ', $m)); }, $block['likely_modality_categories'])) }}
                         </div>
-                        <div style="font-size: 11.5px; color: #333; line-height: 1.6; margin-bottom: 4px;">
-                            <span style="font-weight: bold; color: #475569;">Expected Response:</span> {{ $block['expected_response'] ?? '' }}
+                        @endif
+                        @if(!empty($block['expected_response']))
+                        <div style="font-size: 13px; color: #333; line-height: 1.7; margin-bottom: 6px;">
+                            <span style="font-weight: bold; color: #475569;">Expected Response:</span> {{ $block['expected_response'] }}
                         </div>
-                        <div style="font-size: 10.5px; color: #888; font-style: italic; margin-top: 6px; border-top: 1px dashed #eee; padding-top: 4px;">
-                            * {{ $block['finalization_rule'] ?? '' }}
+                        @endif
+                        @if(!empty($block['finalization_rule']))
+                        <div style="font-size: 11.5px; color: #888; font-style: italic; margin-top: 6px; border-top: 1px dashed #eee; padding-top: 4px;">
+                            * {{ $block['finalization_rule'] }}
                         </div>
+                        @endif
                     </td>
                 </tr>
                 @endforeach
@@ -284,7 +328,7 @@
 </table>
 @endif
 
-@if (!empty($recommended_full_plan['client_report']))
+@if (!empty($clientReport))
 {{-- ── Client Communication & Report ── --}}
 <table class="section-box" width="100%" cellpadding="0" cellspacing="0" style="page-break-inside: avoid; margin-top: 15px;">
     <tr>
@@ -293,39 +337,39 @@
     <tr>
         <td style="padding: 12px 0 0 0;">
             <table width="100%" cellpadding="0" cellspacing="0">
-                @if (!empty($recommended_full_plan['client_report']['headline']))
+                @if (!empty($clientReport['headline']))
                 <tr>
-                    <td style="padding-bottom: 15px;">
-                        <div style="font-size: 15px; font-weight: bold; color: #0E2B5C; font-style: italic; line-height: 1.5; padding: 8px 12px; background: #F8FAFC; border-left: 3px solid #C29F5D; border-radius: 0 4px 4px 0;">
-                            "{{ $recommended_full_plan['client_report']['headline'] }}"
+                    <td style="padding-bottom: 18px;">
+                        <div style="font-size: 17px; font-weight: bold; color: #0E2B5C; font-style: italic; line-height: 1.6; padding: 10px 14px; background: #F8FAFC; border-left: 3px solid #C29F5D; border-radius: 0 4px 4px 0;">
+                            "{{ $clientReport['headline'] }}"
                         </div>
                     </td>
                 </tr>
                 @endif
 
-                @if (!empty($recommended_full_plan['client_report']['simple_explanation']))
+                @if (!empty($clientReport['simple_explanation']))
                 <tr>
-                    <td style="font-size: 13px; color: #2D3748; line-height: 1.6; padding-bottom: 20px;">
-                        {{ $recommended_full_plan['client_report']['simple_explanation'] }}
+                    <td style="font-size: 14.5px; color: #2D3748; line-height: 1.7; padding-bottom: 24px;">
+                        {{ $clientReport['simple_explanation'] }}
                     </td>
                 </tr>
                 @endif
 
-                @if (!empty($recommended_full_plan['client_report']['roadmap']))
+                @if (!empty($clientRoadmap))
                 <tr>
-                    <td style="font-size: 13px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 12px;">
+                    <td style="font-size: 14.5px; font-weight: bold; color: #0E2B5C; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 12px;">
                         Patient Roadmap Milestones:
                     </td>
                 </tr>
                 <tr>
                     <td style="padding-bottom: 15px;">
                         <table width="100%" cellpadding="0" cellspacing="0">
-                            @foreach ($recommended_full_plan['client_report']['roadmap'] as $index => $step)
+                            @foreach ($clientRoadmap as $index => $step)
                             <tr>
-                                <td valign="top" style="width: 20px; padding-bottom: 12px; font-size: 14px; font-weight: bold; color: #0E2B5C; line-height: 1.6;">
+                                <td valign="top" style="width: 24px; padding-bottom: 12px; font-size: 16px; font-weight: bold; color: #0E2B5C; line-height: 1.7;">
                                     {{ $index + 1 }}.
                                 </td>
-                                <td valign="top" style="font-size: 13px; color: #2D3748; line-height: 1.6; padding-bottom: 12px; padding-left: 4px;">
+                                <td valign="top" style="font-size: 14.5px; color: #2D3748; line-height: 1.7; padding-bottom: 12px; padding-left: 4px;">
                                     {{ $step }}
                                 </td>
                             </tr>
@@ -335,10 +379,10 @@
                 </tr>
                 @endif
 
-                @if (!empty($recommended_full_plan['client_report']['disclaimer']))
+                @if (!empty($clientReport['disclaimer']))
                 <tr>
-                    <td style="font-size: 11px; color: #718096; font-style: italic; border-top: 1px solid #E2E8F0; padding-top: 8px; line-height: 1.5;">
-                        * {{ $recommended_full_plan['client_report']['disclaimer'] }}
+                    <td style="font-size: 12px; color: #718096; font-style: italic; border-top: 1px solid #E2E8F0; padding-top: 10px; line-height: 1.6;">
+                        * {{ $clientReport['disclaimer'] }}
                     </td>
                 </tr>
                 @endif
