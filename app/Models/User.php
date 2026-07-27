@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\LoyaltyPointTransaction;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -25,7 +28,15 @@ use Filament\Panel;
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, SoftDeletes, HasApiTokens;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes, HasApiTokens, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('user');
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -45,6 +56,7 @@ class User extends Authenticatable implements FilamentUser
         'address_line_2',
         'pincode',
         'city',
+        'state',
         'referral_code',
         'referred_by',
         'opt_for_loyalty',
@@ -121,6 +133,13 @@ class User extends Authenticatable implements FilamentUser
             'goal_slim_face' => 'boolean',
         ];
     }
+
+    /**
+     * Flag to prevent infinite recursion during global scope resolution.
+     *
+     * @var bool
+     */
+    public static bool $isApplyingScope = false;
 
     public function createDefaultLeaveEntitlementsIfTherapist(): void
     {

@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 use App\Enums\AppointmentType;
 use App\Enums\AppointmentStatus;
+use App\Models\WhatsAppTemplate;
+use App\Jobs\SendWhatsAppMessageJob;
+use App\Models\Setting;
 
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
@@ -23,9 +26,25 @@ class Appointment extends Model
     use SoftDeletes, LogsActivity;
 
     protected $fillable = [
-        'type', 'clinic_id', 'user_id', 'therapist_id', 'assessment_id',
-        'treatment_session_id', 'start_datetime', 'end_datetime', 'duration_minutes',
-        'status', 'products_used', 'resources_used', 'notes', 'is_emergency', 'emergency_reason', 'is_billable', 'is_billed', 'created_by', 'updated_by'
+        'type',
+        'clinic_id',
+        'user_id',
+        'therapist_id',
+        'assessment_id',
+        'treatment_session_id',
+        'start_datetime',
+        'end_datetime',
+        'duration_minutes',
+        'status',
+        'products_used',
+        'resources_used',
+        'notes',
+        'is_emergency',
+        'emergency_reason',
+        'is_billable',
+        'is_billed',
+        'created_by',
+        'updated_by'
     ];
 
     protected $casts = [
@@ -51,9 +70,32 @@ class Appointment extends Model
     //         ->end($this->end_datetime);
     // }
 
-    protected static function booted() {
+    protected static function booted()
+    {
         static::creating(function ($appointment) {
             $appointment->created_by ??= auth()->id();
+        });
+
+        static::created(function ($appointment) {
+            $statusValue = $appointment->status instanceof AppointmentStatus
+                ? $appointment->status->value
+                : (string) $appointment->status;
+
+            if ($statusValue === 'confirmed') {
+                $appointment->sendConfirmationWhatsAppTemplate();
+            }
+        });
+
+        static::updated(function ($appointment) {
+            if ($appointment->wasChanged('status')) {
+                $statusValue = $appointment->status instanceof AppointmentStatus
+                    ? $appointment->status->value
+                    : (string) $appointment->status;
+
+                if ($statusValue === 'confirmed') {
+                    $appointment->sendConfirmationWhatsAppTemplate();
+                }
+            }
         });
 
         static::updating(function ($appointment) {
@@ -64,7 +106,7 @@ class Appointment extends Model
             if ($appointment->start_datetime && $appointment->end_datetime) {
 
                 $start = Carbon::parse($appointment->start_datetime);
-                $end   = Carbon::parse($appointment->end_datetime);
+                $end = Carbon::parse($appointment->end_datetime);
 
                 // Prevent negative duration
                 $appointment->duration_minutes = max(0, $start->diffInMinutes($end));
@@ -98,31 +140,78 @@ class Appointment extends Model
     }
 
     //---------------------------- Relations --------------------------
-    public function client(): BelongsTo {
+    public function client(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function therapist(): BelongsTo {
+    public function therapist(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'therapist_id');
     }
 
-    public function clinic(): BelongsTo {
+    public function clinic(): BelongsTo
+    {
         return $this->belongsTo(Clinic::class);
     }
 
-    public function createdBy(): BelongsTo {
+    public function createdBy(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updatedBy(): BelongsTo {
+    public function updatedBy(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function assessment(): BelongsTo {
+    public function assessment(): BelongsTo
+    {
         return $this->belongsTo(Assessment::class);
     }
 
-    public function treatmentSession(): BelongsTo {
+    public function treatmentSession(): BelongsTo
+    {
         return $this->belongsTo(TreatmentSession::class);
+    }
+
+    /**
+     * Send WhatsApp appointment confirmation template message.
+     */
+    public function sendConfirmationWhatsAppTemplate(): void
+    {
+        $templateName = Setting::getValue('whatsapp_appointment_template_name', 'appointment_confirmation_v1');
+        $template = WhatsAppTemplate::where('name', $templateName)->first();
+
+        if ($template && $this->client && $this->client->mobile) {
+            $clientName = $this->client->name ?? 'Client';
+            $appointmentTime = $this->start_datetime
+                ? $this->start_datetime->format('jS F Y \a\t g:i A')
+                : 'Scheduled Time';
+
+            $components = $template->buildComponentsForSending(
+                [
+                    'client_name' => $clientName,
+                    'appointment_datetime' => $appointmentTime,
+                    0 => $clientName,
+                    1 => $appointmentTime,
+                ],
+                [
+                    'client_name' => $clientName,
+                    'appointment_datetime' => $appointmentTime,
+                    0 => $clientName,
+                    1 => $appointmentTime,
+                ],
+                []
+            );
+
+            SendWhatsAppMessageJob::dispatch(
+                $this->client->mobile,
+                $template->name,
+                $components,
+                $template->language ?? 'en_US',
+                $this->user_id
+            );
+        }
     }
 }

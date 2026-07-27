@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\VisionQuantifierController;
 use App\Http\Controllers\Api\FeaturePacketCvController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
+use App\Http\Controllers\Api\WhatsAppTemplateController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -103,12 +104,19 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         // INFO: Feature Packet CV Route
         Route::post('/feature-packet-cv/quantify', [FeaturePacketCvController::class, 'quantify']);
 
+        // // INFO: WhatsApp Template Management Routes
+        // Route::prefix('whatsapp/templates')->group(function () {
+        //     Route::get('/', [WhatsAppTemplateController::class, 'index']);
+        //     Route::post('/', [WhatsAppTemplateController::class, 'store']);
+        //     Route::post('/sync', [WhatsAppTemplateController::class, 'sync']);
+        //     Route::get('/{id}', [WhatsAppTemplateController::class, 'show']);
+        //     Route::put('/{id}', [WhatsAppTemplateController::class, 'update']);
+        //     Route::delete('/{id}', [WhatsAppTemplateController::class, 'destroy']);
+        // });
+
     });
 
-    // Route::get('/availability/slots', [AppointmentController::class, 'slots']);
-    // Route::apiResource('appointments', 'AppointmentController');
-
-});
+        });
 
 Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (Request $request) {
     // Sanctum middleware auto-validates the token
@@ -136,7 +144,7 @@ Route::middleware('auth:sanctum')->get('/validate-assessment-token', function (R
 Route::get('/vue-sso', function (Request $request) {
 
     // ❌ Invalid or expired signature
-    if (! $request->hasValidSignature())
+    if (!$request->hasValidSignature())
         return response()->json(['message' => 'Invalid or expired link'], 401);
 
     $user = \App\Models\User::findOrFail($request->user_id);
@@ -159,7 +167,7 @@ Route::get('/vue-sso', function (Request $request) {
     $url = $frontend . '/authenticate?token=' . $token . '&type=appointment';
 
     // 🔁 Role-based redirect
-    if(in_array($request->role, ['clinic_manager', 'therapist', 'clinic_head']))
+    if (in_array($request->role, ['clinic_manager', 'therapist', 'clinic_head']))
         $url .= '&clinic_id=' . $user->clinic_id;
 
     if ($request->role === 'therapist')
@@ -167,4 +175,4 @@ Route::get('/vue-sso', function (Request $request) {
 
     return redirect()->away($url);
 })
-->name('vue.sso');
+    ->name('vue.sso');

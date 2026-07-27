@@ -157,6 +157,10 @@ class AppointmentController extends BaseApiController
     {
         $appointment = $this->model->find($appointment_id);
 
+        if (!$appointment) {
+            return $this->error('Error', ['Appointment not found'], HTTP_BAD_REQUEST);
+        }
+
         if($appointment->type->value !== 'consult')
             return $this->error('Error', ['Invalid appointment type'], HTTP_BAD_REQUEST);
 

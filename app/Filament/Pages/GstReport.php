@@ -37,7 +37,7 @@ class GstReport extends Page implements HasTable, HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 19;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $navigationLabel = 'GST Reports';
 

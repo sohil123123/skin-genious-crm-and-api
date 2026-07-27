@@ -328,10 +328,11 @@ class AdminPanelProvider extends PanelProvider
                 //     // ->icon('heroicon-o-hand-raised'),
             ])
             ->navigationItems([
-                \Filament\Navigation\NavigationItem::make('Logs')
+                NavigationItem::make('Logs')
                     ->url(fn(): string => route('log-viewer.index'))
                     ->icon('heroicon-o-document-text')
                     ->group('Others')
+                    ->sort(26)
                     ->visible(fn(): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }

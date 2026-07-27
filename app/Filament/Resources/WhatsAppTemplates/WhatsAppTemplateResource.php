@@ -15,11 +15,11 @@ class WhatsAppTemplateResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Others';
+    protected static string|\UnitEnum|null $navigationGroup = 'WhatsApp';
 
     protected static ?string $navigationLabel = 'WhatsApp Templates';
 
-    protected static ?int $navigationSort = 22;
+    protected static ?int $navigationSort = 28;
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {
@@ -44,6 +44,7 @@ class WhatsAppTemplateResource extends Resource
             'index' => Pages\ListWhatsAppTemplates::route('/'),
             'create' => Pages\CreateWhatsAppTemplate::route('/create'),
             'edit' => Pages\EditWhatsAppTemplate::route('/{record}/edit'),
+            'library' => Pages\WhatsAppTemplateLibrary::route('/library'),
         ];
     }
 }

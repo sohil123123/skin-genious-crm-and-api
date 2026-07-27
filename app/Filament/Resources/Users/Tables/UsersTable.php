@@ -76,15 +76,15 @@ class UsersTable
                     ->sortable(query: fn($query, $direction) => $query->orderBy('first_name', $direction))
                     ->searchable(['first_name', 'last_name'])
                     ->formatStateUsing(fn($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
-                TextColumn::make('state')
-                    ->label('State')
-                    ->state(fn(User $record) => $record->state ?? $record->clinic?->state)
-                    ->formatStateUsing(fn($state) => config('project.indian_states.' . $state, $state))
-                    ->searchable()
-                    ->sortable()
-                    ->badge()
-                    ->color('gray')
-                    ->placeholder('-'),
+                // TextColumn::make('state')
+                //     ->label('State')
+                //     ->state(fn(User $record) => $record->state ?? $record->clinic?->state)
+                //     ->formatStateUsing(fn($state) => config('project.indian_states.' . $state, $state))
+                //     ->searchable()
+                //     ->sortable()
+                //     ->badge()
+                //     ->color('gray')
+                //     ->placeholder('-'),
                 TextColumn::make('mobile')->searchable(),
                 TextColumn::make('gender')
                     ->label('Gender')
@@ -243,11 +243,11 @@ class UsersTable
                         })
                         ->requiresConfirmation(),
                 ])
-                ->label('Start Assessment')
-                ->icon('heroicon-o-document-plus')
-                ->color('info')
-                ->button()
-                ->visible(fn($record) => $record->hasRole('client')),
+                    ->label('Start Assessment')
+                    ->icon('heroicon-o-document-plus')
+                    ->color('info')
+                    ->button()
+                    ->visible(fn($record) => $record->hasRole('client')),
 
 
                 ActionGroup::make([
@@ -304,6 +304,13 @@ class UsersTable
                         ->color('success')
                         // ->tooltip('Manage Invoices')
                         ->url(fn($record) => route('filament.admin.resources.users.invoices', ['record' => $record])),
+
+                    Action::make('loyalty_points')
+                        ->label('Manage Loyalty Points')
+                        ->visible(fn($record) => $record->hasRole('client'))
+                        ->icon('heroicon-o-star')
+                        ->color('primary')
+                        ->url(fn($record) => route('filament.admin.resources.users.loyalty_points', ['record' => $record])),
 
                     Action::make('weekly_schedule')
                         ->label('Manage Weekly Schedule')

@@ -17,6 +17,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Tables\Enums\FiltersLayout;
 
 use UnitEnum;
 use BackedEnum;
@@ -30,7 +31,7 @@ class ActivityLog extends Page implements HasTable
     // protected static ?string $navigationLabel = 'Others';
     protected static ?string $title = 'Activity Logs';
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 25;
 
     protected string $view = 'filament.pages.activity-log';
 
@@ -81,9 +82,36 @@ class ActivityLog extends Page implements HasTable
                         'created' => 'Created',
                         'updated' => 'Updated',
                         'deleted' => 'Deleted',
+                        'login' => 'User Login',
+                        'logout' => 'User Logout',
                         'emergency_override' => 'Emergency Override',
-                    ]),
-            ])
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (empty($data['value'])) {
+                            return;
+                        }
+
+                        if ($data['value'] === 'login') {
+                            $query->where('description', 'User logged in');
+                        } elseif ($data['value'] === 'logout') {
+                            $query->where('description', 'User logged out');
+                        } else {
+                            $query->where('event', $data['value']);
+                        }
+                    }),
+
+                SelectFilter::make('subject_type')
+                    ->label('Model')
+                    ->options(function () {
+                        return Activity::query()
+                            ->whereNotNull('subject_type')
+                            ->distinct()
+                            ->pluck('subject_type')
+                            ->mapWithKeys(fn($type) => [$type => class_basename($type)])
+                            ->toArray();
+                    }),
+            ], layout: FiltersLayout::Modal)
+            ->filtersFormColumns(2)
             ->filtersTriggerAction(
                 fn(Action $action) => $action->button()->color('primary')->label('Filters')->icon('heroicon-o-funnel')
             )

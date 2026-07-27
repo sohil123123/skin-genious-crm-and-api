@@ -7,9 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use App\Traits\HasAuditColumns;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
 class Purchase extends Model
 {
-    use HasAuditColumns;
+    use HasAuditColumns, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('purchase');
+    }
 
     protected $fillable = [
         'clinic_id',

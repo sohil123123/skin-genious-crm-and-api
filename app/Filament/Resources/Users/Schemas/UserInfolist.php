@@ -164,13 +164,19 @@ class UserInfolist
 
                 Section::make('Account Settings')
                     ->schema([
-                        Grid::make(3)->schema([
+                        Grid::make(4)->schema([
                             TextEntry::make('how_did_you_hear')->placeholder('N/A')->visible(fn ($record) => $record->getRoleNames()->contains('client')),
                             IconEntry::make('opt_for_loyalty')
                                 ->label('Opted for Loyalty Program?')
                                 ->boolean()
                                 ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
                                 ->placeholder('N/A'),
+                            TextEntry::make('loyalty_points')
+                                ->label('Loyalty Points')
+                                ->badge()
+                                ->color('success')
+                                ->visible(fn ($record) => $record->getRoleNames()->contains('client'))
+                                ->placeholder('0'),
                             IconEntry::make('is_active')->boolean()->placeholder('N/A'),
                         ]),
                     ])

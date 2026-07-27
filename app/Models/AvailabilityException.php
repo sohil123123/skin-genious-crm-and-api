@@ -17,8 +17,21 @@ use App\Enums\AvailabilityExceptionStatus;
 
 use App\Models\Clinic;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
 class AvailabilityException extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->useLogName('availability_exception');
+    }
+
     protected $fillable = [
         'exceptionable_type',
         'exceptionable_id',
