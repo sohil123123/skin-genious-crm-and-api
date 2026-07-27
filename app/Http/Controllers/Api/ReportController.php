@@ -30,26 +30,10 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     public function skinAnalysis($assessment_id)
     {
+        $record = Assessment::findOrFail($assessment_id);
+        $pdfContent = \App\Services\ReportAssetHelper::getSkinAnalysisPdfContent($record);
 
-        $record = Assessment::find($assessment_id);
-
-        $data['patient'] = $record->user->toArray();
-        $data['patient']['name'] = $record->user->name;
-        $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
-        $data['data'] = $record;
-        $data['diagnosis'] = $record->diagnosis;
-        $data['key_parametrs'] = collect($record->parameters_with_abnormal_scores['parameters_with_abnormal_scores'] ?? []);
-        $data['assessmentImages'] = $record->images;
-
-        $html  = view('pdf.facial.skin_analysis', $data)->render();
-        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
-        $mpdf->SetDisplayMode('fullpage');
-        $mpdf->shrink_tables_to_fit = 1;
-        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
-        $mpdf->WriteHTML($html);
-
-        return response($mpdf->Output('skin_analysis.pdf', 'S'), 200, [
+        return response($pdfContent, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="skin_analysis.pdf"',
         ]);
@@ -93,136 +77,12 @@ class ReportController extends BaseApiController
     public function reassessment($assessment_id, $session_id = null)
     {
         $session_id = $session_id ?: request('session_id');
-        $compare_to = request('compare_to', 'previous');
-        $record = Assessment::find($assessment_id);
-        $data['patient'] = $record->user->toArray();
-        $data['patient']['name'] = $record->user->name;
-        $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
-        $data['assessment'] = $record;
+        $record = Assessment::findOrFail($assessment_id);
+        $session = $session_id ? \App\Models\TreatmentSession::findOrFail($session_id) : null;
 
-        if ($session_id) {
-            $session = \App\Models\TreatmentSession::findOrFail($session_id);
-            $data['report_date'] = $session->updated_at;
-            $reassessment = $session->post_diagnosis['reassessment'] ?? [];
+        $pdfContent = \App\Services\ReportAssetHelper::getReassessmentPdfContent($record, $session);
 
-            if ($compare_to === 'baseline') {
-                $baselineDiagnosis = $record->diagnosis['diagnosis_report'] ?? [];
-                foreach ($reassessment as $key => &$item) {
-                    $baselineScore = null;
-                    if (isset($baselineDiagnosis[$key])) {
-                        $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
-                    }
-                    if ($baselineScore !== null) {
-                        $item['before_treatment_score_or_label'] = $baselineScore;
-                        
-                        // Recalculate result
-                        $before = $baselineScore;
-                        $after = $item['post_treatment_score_or_label'] ?? '';
-                        $result = 'stable';
-                        if (strtolower(trim($before)) !== strtolower(trim($after))) {
-                            preg_match('/\d+/', $before, $mBefore);
-                            preg_match('/\d+/', $after, $mAfter);
-                            
-                            if (isset($mBefore[0]) && isset($mAfter[0])) {
-                                $valBefore = intval($mBefore[0]);
-                                $valAfter = intval($mAfter[0]);
-                                
-                                if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
-                                    $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
-                                } else {
-                                    $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
-                                }
-                            } else {
-                                if (strtolower($before) === 'present' && strtolower($after) === 'absent') {
-                                    $result = 'improved';
-                                } else if (strtolower($before) === 'absent' && strtolower($after) === 'present') {
-                                    $result = 'declined';
-                                }
-                            }
-                        }
-                        
-                        $item['result'] = $result;
-                    }
-                }
-                unset($item);
-            }
-
-            $data['reassessment'] = $reassessment;
-            $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
-            
-            $postAssessmentImages = $session->post_images;
-
-            if ($compare_to === 'baseline' || $session->session_number == 1) {
-                $assessmentImages = $record->images;
-            } else {
-                $prevSession = \App\Models\TreatmentSession::where('assessment_id', $assessment_id)
-                    ->where('session_number', $session->session_number - 1)
-                    ->first();
-                $assessmentImages = $prevSession ? $prevSession->post_images : $record->images;
-            }
-        } else {
-            $compare_to = request('compare_to', 'baseline');
-            $data['report_date'] = $record->created_at;
-            $reassessment = $record->post_diagnosis['reassessment'] ?? [];
-            if ($compare_to === 'baseline') {
-                $baselineDiagnosis = $record->diagnosis['diagnosis_report'] ?? [];
-                foreach ($reassessment as $key => &$item) {
-                    $baselineScore = null;
-                    if (isset($baselineDiagnosis[$key])) {
-                        $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
-                    }
-                    if ($baselineScore !== null) {
-                        $item['before_treatment_score_or_label'] = $baselineScore;
-
-                        // Recalculate result
-                        $before = $baselineScore;
-                        $after = $item['post_treatment_score_or_label'] ?? '';
-                        $result = 'stable';
-                        if (strtolower(trim($before)) !== strtolower(trim($after))) {
-                            preg_match('/\d+/', $before, $mBefore);
-                            preg_match('/\d+/', $after, $mAfter);
-
-                            if (isset($mBefore[0]) && isset($mAfter[0])) {
-                                $valBefore = intval($mBefore[0]);
-                                $valAfter = intval($mAfter[0]);
-
-                                if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
-                                    $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
-                                } else {
-                                    $result = $valAfter < $valBefore ? 'improved' : ($valAfter > $valBefore ? 'declined' : 'stable');
-                                }
-                            } else {
-                                if (strtolower($before) === 'present' && strtolower($after) === 'absent') {
-                                    $result = 'improved';
-                                } else if (strtolower($before) === 'absent' && strtolower($after) === 'present') {
-                                    $result = 'declined';
-                                }
-                            }
-                        }
-                        $item['result'] = $result;
-                    }
-                }
-                unset($item);
-            }
-            $data['reassessment'] = $reassessment;
-            $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
-            $assessmentImages = $record->images;
-            $postAssessmentImages = $record->post_images;
-        }
-
-        $data['assessmentImages'] = $assessmentImages;
-        $data['postAssessmentImages'] = $postAssessmentImages;
-        $data['compare_to'] = $compare_to;
-
-        $html = view('pdf.facial.reassessment', $data)->render();
-        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
-        $mpdf->SetDisplayMode('fullpage');
-        $mpdf->shrink_tables_to_fit = 1;
-        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
-        $mpdf->WriteHTML($html);
-
-        return response($mpdf->Output('reassessment.pdf', 'S'), 200, [
+        return response($pdfContent, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="reassessment.pdf"',
         ]);
