@@ -55,7 +55,7 @@ class ReportAssetHelper
         $baselineMapped = self::mapMediaToModes($baselineMedia);
         $postMapped = self::mapMediaToModes($postMedia);
 
-        $baseDir = storage_path('report_assets_v5');
+        $baseDir = storage_path('report_assets_v5/' . $record->id . ($session ? '_sess_' . $session->id : ''));
         if (!is_dir($baseDir)) {
             @mkdir($baseDir, 0777, true);
         }
