@@ -415,4 +415,23 @@ class ReportController extends BaseApiController
             'Content-Disposition' => 'inline; filename="post-treatment-comparison.pdf"',
         ]);
     }
+
+    // ─────────────────────────────────────────────
+    //  13. Download All Reassessment Reports as ZIP
+    // ─────────────────────────────────────────────
+    public function downloadAllReassessmentZip($assessment_id)
+    {
+        $record = Assessment::findOrFail($assessment_id);
+        $service = new \App\Services\ReassessmentReportService();
+        $zipFilePath = $service->generateZipOfReports($record);
+
+        if (!$zipFilePath) {
+            return response()->json(['message' => 'No completed reassessment sessions found for this client.'], 404);
+        }
+
+        $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
+        $zipName = $patientName . '_facial_reassessment_reports.zip';
+
+        return response()->download($zipFilePath, $zipName)->deleteFileAfterSend(true);
+    }
 }
