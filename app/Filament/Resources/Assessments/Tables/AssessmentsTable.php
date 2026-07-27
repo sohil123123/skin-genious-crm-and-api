@@ -655,6 +655,42 @@ class AssessmentsTable
                     RestoreBulkAction::make(),
                 ]),
             ])
+            ->headerActions([
+                Action::make('download_all_clients_reassessment_zip')
+                    ->label('Download Reassessment Reports (Facial)')
+                    ->icon('heroicon-o-archive-box')
+                    ->color('success')
+                    ->tooltip('Download all available facial reassessment reports for filtered clients as a ZIP file')
+                    ->action(function ($livewire) {
+                        $query = $livewire->getFilteredTableQuery();
+
+                        // We only want normal and instant-normal assessments with completed treatment sessions having post_diagnosis
+                        $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
+                            ->whereHas('treatmentSessions', function ($q) {
+                                $q->where('status', 'completed')
+                                  ->whereNotNull('post_diagnosis');
+                            })
+                            ->get();
+
+                        if ($assessments->isEmpty()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No completed reassessment sessions found for matching clients.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $assessmentIds = $assessments->pluck('id')->toArray();
+
+                        \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('ZIP Generation Started')
+                            ->body('Generating reports for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
             ->emptyStateDescription('Once you create your first assessment, it will appear here.');
     }
 }
