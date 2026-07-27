@@ -664,11 +664,14 @@ class AssessmentsTable
                     ->action(function ($livewire) {
                         $query = $livewire->getFilteredTableQuery();
 
-                        // We only want normal and instant-normal assessments with completed treatment sessions having post_diagnosis
+                        // We only want normal and instant-normal assessments with completed reassessments (either direct post_diagnosis or completed treatment sessions with post_diagnosis)
                         $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
-                            ->whereHas('treatmentSessions', function ($q) {
-                                $q->where('status', 'completed')
-                                  ->whereNotNull('post_diagnosis');
+                            ->where(function ($q) {
+                                $q->whereNotNull('post_diagnosis')
+                                  ->orWhereHas('treatmentSessions', function ($sq) {
+                                      $sq->where('status', 'completed')
+                                        ->whereNotNull('post_diagnosis');
+                                  });
                             })
                             ->get();
 
