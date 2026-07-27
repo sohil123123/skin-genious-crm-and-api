@@ -281,40 +281,24 @@ class ReassessmentReportService
         $hasFiles = false;
 
         foreach ($assessments as $record) {
-            $completedSessions = TreatmentSession::where('assessment_id', $record->id)
+            $hasSessionReassessment = TreatmentSession::where('assessment_id', $record->id)
                 ->where('status', 'completed')
                 ->whereNotNull('post_diagnosis')
-                ->orderBy('session_number', 'asc')
-                ->get();
+                ->exists();
 
-            if ($completedSessions->isEmpty()) {
+            if (!$hasSessionReassessment && !$record->post_diagnosis) {
                 continue;
             }
 
-            $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
-            $folderName = $patientName . '_assessment_' . $record->id;
+            $patientName = $record->user ? str_replace([' ', '/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', strtolower($record->user->name)) : 'patient';
+            $filename = $patientName . '_assessment_' . $record->id . '_reassessment_report.pdf';
 
-            // 1. Add overall "Facial Re-Assessment & Progress Report" (latest comparison) if available
-            $hasSessionReassessment = $completedSessions->isNotEmpty();
-            if ($record->assessment_type === 'normal' && ($record->post_diagnosis || $hasSessionReassessment) && $record->images) {
-                try {
-                    $overallPdf = $this->getVisualComparisonPdfContent($record);
-                    $zip->addFromString($folderName . '/' . $patientName . '_overall_facial_reassessment_progress_report.pdf', $overallPdf);
-                    $hasFiles = true;
-                } catch (\Exception $e) {
-                    \Log::error("Failed to generate overall reassessment PDF for assessment #{$record->id}: " . $e->getMessage());
-                }
-            }
-
-            // 2. Add each session reassessment report compared to baseline
-            foreach ($completedSessions as $session) {
-                try {
-                    $baselinePdf = $this->getReassessmentPdfContent($record, $session, 'baseline');
-                    $zip->addFromString($folderName . '/' . $patientName . '_facial_reassessment_session_' . $session->session_number . '_baseline_comparison.pdf', $baselinePdf);
-                    $hasFiles = true;
-                } catch (\Exception $e) {
-                    \Log::error("Failed to generate session reassessment PDF for session #{$session->id}: " . $e->getMessage());
-                }
+            try {
+                $overallPdf = $this->getVisualComparisonPdfContent($record);
+                $zip->addFromString($filename, $overallPdf);
+                $hasFiles = true;
+            } catch (\Exception $e) {
+                \Log::error("Failed to generate overall reassessment PDF for assessment #{$record->id}: " . $e->getMessage());
             }
         }
 

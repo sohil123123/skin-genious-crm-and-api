@@ -744,7 +744,7 @@ class AssessmentsTable
                             $viewData['post_diagnosis'] = $record->post_diagnosis;
                             $viewData['record'] = $record;
 
-                            $viewData['assessmentImages'] = $compareRecord 
+                            $viewData['assessmentImages'] = $compareRecord
                                 ? (count($compareRecord->post_images) > 0 ? $compareRecord->post_images : $compareRecord->images)
                                 : $record->images;
                             $viewData['postAssessmentImages'] = $record->post_images;
@@ -848,11 +848,11 @@ class AssessmentsTable
                 ]),
             ])
             ->headerActions([
-                \Filament\Tables\Actions\Action::make('download_all_clients_reassessment_zip')
-                    ->label('Download Reassessment Reports (ZIP)')
+                Action::make('download_all_clients_reassessment_zip')
+                    ->label('Download Reassessment Reports (Facial)')
                     ->icon('heroicon-o-archive-box')
                     ->color('success')
-                    ->tooltip('Download all available reassessment reports for filtered clients as a ZIP file')
+                    ->tooltip('Download all available facial reassessment reports for filtered clients as a ZIP file')
                     ->action(function ($livewire) {
                         $query = $livewire->getFilteredTableQuery();
 
@@ -873,7 +873,7 @@ class AssessmentsTable
                         }
 
                         $assessmentIds = $assessments->pluck('id')->toArray();
-                        
+
                         \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
 
                         \Filament\Notifications\Notification::make()
