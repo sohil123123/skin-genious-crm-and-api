@@ -64,7 +64,7 @@ class AssessmentController extends BaseApiController
 
         // Update therapist_id for the associated appointments if therapist_id is provided in the request
         if ($request->filled('therapist_id')) {
-            $treatmentSessions = $assessment->treatmentSessions['treatments'][0];
+            $treatmentSessions = isset($assessment->treatmentSessions['treatments'][0]) ? $assessment->treatmentSessions['treatments'][0] : null;
             if($treatmentSessions){
                 \App\Models\Appointment::where('assessment_id', $assessment->id)
                     ->where('treatment_session_id', $treatmentSessions['id'])
@@ -73,6 +73,17 @@ class AssessmentController extends BaseApiController
                     ->each(function ($appointment) use ($request) {
                         $appointment->update(['therapist_id' => $request->input('therapist_id')]);
                     });
+            } else {
+                $firstSession = $assessment->treatmentSessions()->orderBy('session_number', 'asc')->first();
+                if ($firstSession) {
+                    \App\Models\Appointment::where('assessment_id', $assessment->id)
+                        ->where('treatment_session_id', $firstSession->id)
+                        ->where('type', 'treatment')
+                        ->get()
+                        ->each(function ($appointment) use ($request) {
+                            $appointment->update(['therapist_id' => $request->input('therapist_id')]);
+                        });
+                }
             }
         }
 
@@ -352,6 +363,39 @@ class AssessmentController extends BaseApiController
                         }
                     }
                 }
+            }
+
+            // Create appointment for the first session
+            if ($index == 0) {
+                $durationMinutes = null;
+                if (isset($treatment['ui_summary']['estimated_total_duration_minutes'])) {
+                    $durationMinutes = (int) $treatment['ui_summary']['estimated_total_duration_minutes'];
+                } elseif (isset($treatment['bags']) && is_array($treatment['bags'])) {
+                    $minutes = 0;
+                    foreach ($treatment['bags'] as $bagItem) {
+                        $minutes += $bagItem['min_duration_minutes'] ?? 0;
+                    }
+                    if ($minutes > 0) {
+                        $durationMinutes = $minutes;
+                    }
+                }
+
+                \App\Models\Appointment::firstOrCreate(
+                    [
+                        'assessment_id' => $assessment->id,
+                        'treatment_session_id' => $treatmentSession->id,
+                    ],
+                    [
+                        'type' => 'treatment',
+                        'clinic_id' => $assessment->clinic_id,
+                        'user_id' => $assessment->user_id,
+                        'therapist_id' => request()->input('therapist_id') ?? $assessment->created_by,
+                        'status' => 'confirmed',
+                        'start_datetime' => now(),
+                        'end_datetime' => $durationMinutes ? now()->addMinutes($durationMinutes) : now()->addHour(),
+                        'duration_minutes' => $durationMinutes ?? 60,
+                    ]
+                );
             }
         }
     }
