@@ -872,20 +872,15 @@ class AssessmentsTable
                             return;
                         }
 
-                        $service = new \App\Services\ReassessmentReportService();
-                        $zipFilePath = $service->generateZipOfMultipleAssessments($assessments);
+                        $assessmentIds = $assessments->pluck('id')->toArray();
+                        
+                        \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
 
-                        if (!$zipFilePath) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('No completed reassessment reports generated for matching clients.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-
-                        $zipName = 'clients_facial_reassessment_reports.zip';
-
-                        return response()->download($zipFilePath, $zipName)->deleteFileAfterSend(true);
+                        \Filament\Notifications\Notification::make()
+                            ->title('ZIP Generation Started')
+                            ->body('Generating reports for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
+                            ->success()
+                            ->send();
                     }),
             ])
             ->emptyStateDescription('Once you create your first assessment, it will appear here.');
