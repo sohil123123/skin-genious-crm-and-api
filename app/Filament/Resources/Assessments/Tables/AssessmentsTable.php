@@ -285,7 +285,7 @@ class AssessmentsTable
                         ->label('Treatment Plan PDF')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->color('primary')
-                        ->visible(fn($record) => $record->assessment_type === 'normal')
+                        ->visible(fn($record) => in_array($record->assessment_type, ['normal', 'instant-normal']))
                         ->action(function (Assessment $record) {
                             $data['patient'] = $record->user->toArray();
                             $data['patient']['name'] = $record->user->name;
@@ -318,7 +318,7 @@ class AssessmentsTable
                         ->color('primary')
                         ->visible(
                             fn($record) =>
-                            $record->assessment_type === 'normal' &&
+                            in_array($record->assessment_type, ['normal', 'instant-normal']) &&
                             Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
                         )
                         ->action(function ($record) {
@@ -701,8 +701,8 @@ class AssessmentsTable
                     ->action(function ($livewire) {
                         $query = $livewire->getFilteredTableQuery();
 
-                        // Filter for normal assessments
-                        $assessments = $query->where('assessment_type', 'normal')->get();
+                        // Filter for normal and instant-normal assessments
+                        $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])->get();
 
                         // Filter in PHP to check which ones have the treatment plan JSON file in 'files' disk storage
                         $assessmentsWithPlans = $assessments->filter(function ($record) {
