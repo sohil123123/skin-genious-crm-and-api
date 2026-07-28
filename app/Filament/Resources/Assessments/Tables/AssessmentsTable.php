@@ -318,13 +318,36 @@ class AssessmentsTable
                         ->color('primary')
                         ->visible(
                             fn($record) =>
-                            in_array($record->assessment_type, ['normal', 'instant-normal']) &&
-                            Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json")
+                            in_array($record->assessment_type, ['normal', 'instant-normal'])
                         )
                         ->action(function ($record) {
                             $name = $record->user->name . '_treatment_plan.json';
                             $filePath = "treatment-plans/treatment_plans_#{$record->id}.json";
-                            return response()->download(Storage::disk('files')->path($filePath), $name);
+                            
+                            if (Storage::disk('files')->exists($filePath)) {
+                                return response()->download(Storage::disk('files')->path($filePath), $name);
+                            }
+
+                            $treatments = [];
+                            if (!empty($record->treatment_sessions['treatments'])) {
+                                $treatments = $record->treatment_sessions['treatments'];
+                            }
+
+                            $data = [
+                                'treatment_plans' => [
+                                    'total_time' => $record->total_time,
+                                ],
+                                'treatment_plan' => [
+                                    'treatments' => $treatments,
+                                ],
+                                'recommended_full_plan' => $record->recommended_full_plan,
+                            ];
+
+                            return response()->streamDownload(function () use ($data) {
+                                echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                            }, $name, [
+                                'Content-Type' => 'application/json',
+                            ]);
                         }),
 
                     Action::make('client_journey_pdf')
@@ -693,7 +716,7 @@ class AssessmentsTable
                 //             ->success()
                 //             ->send();
                 //     }),
-                Action::make('download_all_clients_treatment_plans_json_zip')
+                 Action::make('download_all_clients_treatment_plans_json_zip')
                     ->label('Download Facial Treatment Plans (JSON)')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('primary')
@@ -704,20 +727,15 @@ class AssessmentsTable
                         // Filter for normal and instant-normal assessments
                         $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])->get();
 
-                        // Filter in PHP to check which ones have the treatment plan JSON file in 'files' disk storage
-                        $assessmentsWithPlans = $assessments->filter(function ($record) {
-                            return \Illuminate\Support\Facades\Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json");
-                        });
-
-                        if ($assessmentsWithPlans->isEmpty()) {
+                        if ($assessments->isEmpty()) {
                             \Filament\Notifications\Notification::make()
-                                ->title('No treatment plan JSON files found for matching clients.')
+                                ->title('No facial assessments found for matching clients.')
                                 ->warning()
                                 ->send();
                             return;
                         }
 
-                        $assessmentIds = $assessmentsWithPlans->pluck('id')->toArray();
+                        $assessmentIds = $assessments->pluck('id')->toArray();
 
                         \App\Jobs\GenerateBulkTreatmentPlansJsonJob::dispatch($assessmentIds, auth()->id());
 

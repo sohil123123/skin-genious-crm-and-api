@@ -86,16 +86,39 @@ class GenerateBulkTreatmentPlansJsonJob implements ShouldQueue
 
         foreach ($assessments as $record) {
             $filePath = "treatment-plans/treatment_plans_#{$record->id}.json";
-            if ($filesDisk->exists($filePath)) {
-                $patientName = $record->user ? str_replace([' ', '/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', strtolower($record->user->name)) : 'patient';
-                $filename = $patientName . '_assessment_' . $record->id . '_treatment_plan.json';
+            $patientName = $record->user ? str_replace([' ', '/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', strtolower($record->user->name)) : 'patient';
+            $filename = $patientName . '_assessment_' . $record->id . '_treatment_plan.json';
 
+            if ($filesDisk->exists($filePath)) {
                 try {
                     $jsonContent = $filesDisk->get($filePath);
                     $zip->addFromString($filename, $jsonContent);
                     $hasFiles = true;
                 } catch (\Throwable $e) {
                     Log::error("Failed to read/add treatment plan JSON for assessment #{$record->id}: " . $e->getMessage());
+                }
+            } else {
+                try {
+                    $treatments = [];
+                    if (!empty($record->treatment_sessions['treatments'])) {
+                        $treatments = $record->treatment_sessions['treatments'];
+                    }
+
+                    $data = [
+                        'treatment_plans' => [
+                            'total_time' => $record->total_time,
+                        ],
+                        'treatment_plan' => [
+                            'treatments' => $treatments,
+                        ],
+                        'recommended_full_plan' => $record->recommended_full_plan,
+                    ];
+
+                    $jsonContent = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                    $zip->addFromString($filename, $jsonContent);
+                    $hasFiles = true;
+                } catch (\Throwable $e) {
+                    Log::error("Failed to dynamically generate treatment plan JSON for assessment #{$record->id}: " . $e->getMessage());
                 }
             }
         }
