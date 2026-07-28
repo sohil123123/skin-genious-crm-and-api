@@ -3,6 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Models\Product;
+use App\Models\InvoiceItem;
+use App\Models\InvoicePayment;
+use App\Models\UserPackageItem;
+use App\Exports\ProductSalesReportExport;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -20,7 +24,6 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\Action as HeaderAction;
-use App\Models\InvoiceItem;
 use Filament\Schemas\Components\Grid;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use App\Filament\Traits\HasReportDateFilters;
@@ -43,7 +46,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
-    protected static ?int $navigationSort = 18;
+    protected static ?int $navigationSort = 17;
 
     public function mount(): void
     {
@@ -103,7 +106,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
         $filename = 'product-sales-report-' . Carbon::parse($this->startDate ?? now())->format('d-m-Y') . '-to-' . Carbon::parse($this->endDate ?? now())->format('d-m-Y') . '.xlsx';
 
         return Excel::download(
-            new \App\Exports\ProductSalesReportExport($this->startDate, $this->endDate, $this->productType, $this->clinicId),
+            new ProductSalesReportExport($this->startDate, $this->endDate, $this->productType, $this->clinicId),
             $filename
         );
     }
@@ -114,18 +117,24 @@ class ProductSalesReport extends Page implements HasTable, HasForms
             $clinicId = auth()->user()->clinic_id;
         }
 
-        $invoiceQtySubquery = DB::table('invoice_items')
+        $invoicePaymentsQtySubquery = DB::table('invoice_items')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->join('invoice_payments', 'invoice_payments.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', '!=', 'cancelled')
+            ->where(function ($q) {
+                $q->whereNull('invoices.invoice_type')
+                  ->orWhere('invoices.invoice_type', '!=', 'package');
+            })
+            ->whereNull('invoices.package_id')
             ->where('invoice_items.product_id', '=', DB::raw('products.id'))
-            ->when($startDate, fn($q) => $q->whereDate('invoices.invoice_date', '>=', $startDate))
-            ->when($endDate, fn($q) => $q->whereDate('invoices.invoice_date', '<=', $endDate))
+            ->when($startDate, fn($q) => $q->whereDate('invoice_payments.payment_date', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('invoice_payments.payment_date', '<=', $endDate))
             ->when($clinicId, fn($q) => $q->where('invoices.clinic_id', $clinicId));
 
-        $invoiceRevenueSubquery = clone $invoiceQtySubquery;
+        $invoicePaymentsRevenueSubquery = clone $invoicePaymentsQtySubquery;
 
-        $invoiceQtySubquery->selectRaw('COALESCE(SUM(invoice_items.quantity), 0)');
-        $invoiceRevenueSubquery->selectRaw('COALESCE(SUM(invoice_items.line_total), 0)');
+        $invoicePaymentsQtySubquery->selectRaw('COALESCE(SUM(invoice_items.quantity * COALESCE(invoice_payments.amount / NULLIF(invoices.grand_total, 0), 1)), 0)');
+        $invoicePaymentsRevenueSubquery->selectRaw('COALESCE(SUM(invoice_items.line_total * COALESCE(invoice_payments.amount / NULLIF(invoices.grand_total, 0), 1)), 0)');
 
         $packageQtySubquery = DB::table('user_package_items')
             ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
@@ -142,22 +151,16 @@ class ProductSalesReport extends Page implements HasTable, HasForms
         $baseQuery = Product::query()
             ->select('products.*')
             ->selectRaw("
-                CASE
-                    WHEN products.type = 'service' THEN ({$packageQtySubquery->toSql()})
-                    ELSE ({$invoiceQtySubquery->toSql()})
-                END as sales_qty_sold
+                (({$packageQtySubquery->toSql()}) + ({$invoicePaymentsQtySubquery->toSql()})) as sales_qty_sold
             ", array_merge(
                 $packageQtySubquery->getBindings(),
-                $invoiceQtySubquery->getBindings()
+                $invoicePaymentsQtySubquery->getBindings()
             ))
             ->selectRaw("
-                CASE
-                    WHEN products.type = 'service' THEN ({$packageRevenueSubquery->toSql()})
-                    ELSE ({$invoiceRevenueSubquery->toSql()})
-                END as sales_revenue
+                (({$packageRevenueSubquery->toSql()}) + ({$invoicePaymentsRevenueSubquery->toSql()})) as sales_revenue
             ", array_merge(
                 $packageRevenueSubquery->getBindings(),
-                $invoiceRevenueSubquery->getBindings()
+                $invoicePaymentsRevenueSubquery->getBindings()
             ))
             ->when($productType, fn($q) => $q->where('products.type', $productType));
 
@@ -173,28 +176,29 @@ class ProductSalesReport extends Page implements HasTable, HasForms
             $clinicId = auth()->user()->clinic_id;
         }
 
-        // Product/IV Product revenue from invoices
-        $productRevenue = DB::table('invoice_items')
-            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
-            ->join('products', 'invoice_items.product_id', '=', 'products.id')
+        // Standard invoice payments revenue (excluding package invoices)
+        $invoiceRevenue = DB::table('invoice_payments')
+            ->join('invoices', 'invoice_payments.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', '!=', 'cancelled')
-            ->whereIn('products.type', ['product', 'iv_product'])
-            ->whereDate('invoices.invoice_date', '>=', $start)
-            ->whereDate('invoices.invoice_date', '<=', $end)
+            ->where(function ($q) {
+                $q->whereNull('invoices.invoice_type')
+                  ->orWhere('invoices.invoice_type', '!=', 'package');
+            })
+            ->whereNull('invoices.package_id')
+            ->whereDate('invoice_payments.payment_date', '>=', $start)
+            ->whereDate('invoice_payments.payment_date', '<=', $end)
             ->when($clinicId, fn($q) => $q->where('invoices.clinic_id', $clinicId))
-            ->sum('invoice_items.line_total');
+            ->sum('invoice_payments.amount');
 
-        // Service revenue from packages
-        $serviceRevenue = DB::table('user_package_items')
+        // Package revenue from packages created in date range
+        $packageRevenue = DB::table('user_package_items')
             ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
-            ->join('products', 'user_package_items.service_id', '=', 'products.id')
-            ->where('products.type', '=', 'service')
             ->whereDate('user_packages.created_at', '>=', $start)
             ->whereDate('user_packages.created_at', '<=', $end)
             ->when($clinicId, fn($q) => $q->where('user_packages.clinic_id', $clinicId))
             ->sum(DB::raw('user_package_items.total_amount * COALESCE(user_packages.final_amount / NULLIF(user_packages.subtotal, 0), 1)'));
 
-        return (float) $productRevenue + (float) $serviceRevenue;
+        return (float) $invoiceRevenue + (float) $packageRevenue;
     }
 
     public function getSummaryData(): array
@@ -244,7 +248,7 @@ class ProductSalesReport extends Page implements HasTable, HasForms
                     ->badge()
                     ->sortable()
                     ->placeholder('')
-                    ->summarize(Sum::make()->label('Total Quantity')->query(fn(QueryBuilder $query) => $query->where('type', 'product'))),
+                    ->summarize(Sum::make()->label('Total Quantity')),
                 TextColumn::make('sales_revenue')
                     ->label('Total Revenue')
                     ->money('INR')
@@ -263,84 +267,100 @@ class ProductSalesReport extends Page implements HasTable, HasForms
                     ->modalCancelActionLabel('Close')
                     ->modalWidth('4xl')
                     ->modalContent(function (Product $record) {
-                        if ($record->type === 'service') {
-                            $packageItems = \App\Models\UserPackageItem::query()
-                                ->with(['package.user'])
-                                ->where('service_id', $record->id)
-                                ->whereHas('package', function ($q) {
-                                    $clinicId = $this->clinicId;
-                                    if (!$clinicId && !check_role('super_admin') && auth()->check()) {
-                                        $clinicId = auth()->user()->clinic_id;
-                                    }
-                                    if ($clinicId) {
-                                        $q->where('clinic_id', $clinicId);
-                                    }
-                                    if ($this->startDate) {
-                                        $q->whereDate('created_at', '>=', $this->startDate);
-                                    }
-                                    if ($this->endDate) {
-                                        $q->whereDate('created_at', '<=', $this->endDate);
-                                    }
-                                })
-                                ->get();
-
-                            $clients = $packageItems->groupBy(fn($item) => $item->package?->user_id)
-                                ->map(function ($items) {
-                                    $firstItem = $items->first();
-                                    $client = $firstItem->package?->user;
-                                    $package = $firstItem->package;
-                                    $totalSpent = $items->sum(
-                                        fn($item) =>
-                                        (float) $item->total_amount * ($package->subtotal > 0 ? ((float) $package->final_amount / (float) $package->subtotal) : 1.0)
-                                    );
-
-                                    return [
-                                        'name' => $client?->name ?? 'N/A',
-                                        'mobile' => $client?->mobile ?? 'N/A',
-                                        'email' => $client?->email ?? 'N/A',
-                                        'total_qty' => $items->sum('quantity'),
-                                        'total_spent' => $totalSpent,
-                                    ];
-                                })
-                                ->sortByDesc('total_qty')
-                                ->values();
-                        } else {
-                            $invoiceItems = InvoiceItem::query()
-                                ->with(['invoice.client'])
-                                ->where('product_id', $record->id)
-                                ->whereHas('invoice', function ($q) {
-                                    $q->where('status', '!=', 'cancelled');
-                                    $clinicId = $this->clinicId;
-                                    if (!$clinicId && !check_role('super_admin') && auth()->check()) {
-                                        $clinicId = auth()->user()->clinic_id;
-                                    }
-                                    if ($clinicId) {
-                                        $q->where('clinic_id', $clinicId);
-                                    }
-                                    if ($this->startDate) {
-                                        $q->whereDate('invoice_date', '>=', $this->startDate);
-                                    }
-                                    if ($this->endDate) {
-                                        $q->whereDate('invoice_date', '<=', $this->endDate);
-                                    }
-                                })
-                                ->get();
-
-                            $clients = $invoiceItems->groupBy(fn($item) => $item->invoice?->user_id)
-                                ->map(function ($items) {
-                                    $firstItem = $items->first();
-                                    $client = $firstItem->invoice?->client;
-                                    return [
-                                        'name' => $client?->name ?? 'N/A',
-                                        'mobile' => $client?->mobile ?? 'N/A',
-                                        'email' => $client?->email ?? 'N/A',
-                                        'total_qty' => $items->sum('quantity'),
-                                        'total_spent' => $items->sum('line_total'),
-                                    ];
-                                })
-                                ->sortByDesc('total_qty')
-                                ->values();
+                        $clinicId = $this->clinicId;
+                        if (!$clinicId && !check_role('super_admin') && auth()->check()) {
+                            $clinicId = auth()->user()->clinic_id;
                         }
+
+                        $packageItems = UserPackageItem::query()
+                            ->with(['package.user'])
+                            ->where('service_id', $record->id)
+                            ->whereHas('package', function ($q) use ($clinicId) {
+                                if ($clinicId) {
+                                    $q->where('clinic_id', $clinicId);
+                                }
+                                if ($this->startDate) {
+                                    $q->whereDate('created_at', '>=', $this->startDate);
+                                }
+                                if ($this->endDate) {
+                                    $q->whereDate('created_at', '<=', $this->endDate);
+                                }
+                            })
+                            ->get();
+
+                        $invoicePayments = InvoicePayment::query()
+                            ->with(['invoice.client', 'invoice.items'])
+                            ->whereHas('invoice', function ($q) use ($clinicId, $record) {
+                                $q->where('status', '!=', 'cancelled');
+                                $q->where(function ($sub) {
+                                    $sub->whereNull('invoice_type')
+                                        ->orWhere('invoice_type', '!=', 'package');
+                                });
+                                $q->whereNull('package_id');
+                                if ($clinicId) {
+                                    $q->where('clinic_id', $clinicId);
+                                }
+                                $q->whereHas('items', fn($itemQ) => $itemQ->where('product_id', $record->id));
+                            })
+                            ->when($this->startDate, fn($q) => $q->whereDate('payment_date', '>=', $this->startDate))
+                            ->when($this->endDate, fn($q) => $q->whereDate('payment_date', '<=', $this->endDate))
+                            ->get();
+
+                        $clientData = [];
+
+                        foreach ($packageItems as $item) {
+                            $package = $item->package;
+                            $client = $package?->user;
+                            $userId = $package?->user_id;
+
+                            if (!$userId) continue;
+
+                            $spent = (float) $item->total_amount * ($package->subtotal > 0 ? ((float) $package->final_amount / (float) $package->subtotal) : 1.0);
+
+                            if (!isset($clientData[$userId])) {
+                                $clientData[$userId] = [
+                                    'name' => $client?->name ?? 'N/A',
+                                    'mobile' => $client?->mobile ?? 'N/A',
+                                    'email' => $client?->email ?? 'N/A',
+                                    'total_qty' => 0,
+                                    'total_spent' => 0.0,
+                                ];
+                            }
+                            $clientData[$userId]['total_qty'] += (int) $item->quantity;
+                            $clientData[$userId]['total_spent'] += $spent;
+                        }
+
+                        foreach ($invoicePayments as $payment) {
+                            $invoice = $payment->invoice;
+                            $client = $invoice?->client;
+                            $userId = $invoice?->user_id;
+
+                            if (!$userId || !$invoice) continue;
+
+                            $grandTotal = (float) ($invoice->grand_total > 0 ? $invoice->grand_total : 1.0);
+                            $paymentRatio = (float) $payment->amount / $grandTotal;
+
+                            foreach ($invoice->items as $item) {
+                                if ($item->product_id != $record->id) continue;
+
+                                $itemSpent = (float) $item->line_total * $paymentRatio;
+                                $itemQty = (float) $item->quantity * $paymentRatio;
+
+                                if (!isset($clientData[$userId])) {
+                                    $clientData[$userId] = [
+                                        'name' => $client?->name ?? 'N/A',
+                                        'mobile' => $client?->mobile ?? 'N/A',
+                                        'email' => $client?->email ?? 'N/A',
+                                        'total_qty' => 0,
+                                        'total_spent' => 0.0,
+                                    ];
+                                }
+                                $clientData[$userId]['total_qty'] += $itemQty;
+                                $clientData[$userId]['total_spent'] += $itemSpent;
+                            }
+                        }
+
+                        $clients = collect($clientData)->sortByDesc('total_spent')->values();
 
                         return view('filament.pages.actions.product-users', [
                             'clients' => $clients,
@@ -350,3 +370,5 @@ class ProductSalesReport extends Page implements HasTable, HasForms
             ->defaultSort('sales_revenue', 'desc');
     }
 }
+
+

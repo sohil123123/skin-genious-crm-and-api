@@ -5,6 +5,7 @@ namespace App\Filament\Resources\InvoicePayments\Tables;
 use App\Models\InvoicePayment;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -46,6 +47,15 @@ class InvoicePaymentsTable
                     ->sortable()
                     ->url(fn($record) => "/admin/invoices/{$record->invoice_id}/edit"),
 
+                TextColumn::make('invoice.invoice_type')
+                    ->label('Type')
+                    ->badge()
+                    ->color(fn(?string $state): string => match ($state) {
+                        'package' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(?string $state): string => ucfirst($state ?? 'standard')),
+
                 TextColumn::make('invoice.clinic.name')
                     ->label('Clinic')
                     ->badge()
@@ -56,8 +66,10 @@ class InvoicePaymentsTable
 
                 TextColumn::make('invoice.client.first_name')
                     ->label('Client')
+                    ->badge()
+                    ->icon('heroicon-o-user')
                     ->formatStateUsing(fn($record) => $record->invoice->client?->name ?? 'N/A')
-                    ->searchable(['first_name', 'last_name']),
+                    ->searchable(['first_name', 'last_name', 'mobile']),
 
                 TextColumn::make('payment_date')
                     ->date()
@@ -66,7 +78,7 @@ class InvoicePaymentsTable
                 TextColumn::make('amount')
                     ->money('INR')
                     ->sortable()
-                    ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()->label('Total Payments')->money('INR')),
+                    ->summarize(Sum::make()->label('Total Payments')->money('INR')),
 
                 TextColumn::make('payment_method')
                     ->badge()
@@ -189,6 +201,14 @@ class InvoicePaymentsTable
                                             ->placeholder('Select Invoice')
                                             ->hidden($isUserRelation),
 
+                                        Select::make('invoice_type')
+                                            ->label('Invoice Type')
+                                            ->options([
+                                                'standard' => 'Standard',
+                                                'package' => 'Package',
+                                            ])
+                                            ->placeholder('All Types'),
+
                                         DatePicker::make('from'),
                                         DatePicker::make('until'),
 
@@ -202,6 +222,7 @@ class InvoicePaymentsTable
                             ->when($data['clinic_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('clinic_id', $id)))
                             ->when($data['user_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('user_id', $id)))
                             ->when($data['invoice_id'] ?? null, fn($q, $id) => $q->whereHas('invoice', fn($inv) => $inv->where('id', $id)))
+                            ->when($data['invoice_type'] ?? null, fn($q, $type) => $q->whereHas('invoice', fn($inv) => $inv->where('invoice_type', $type)))
                             ->when($data['from'] ?? null, fn($q, $date) => $q->whereDate('payment_date', '>=', $date))
                             ->when($data['until'] ?? null, fn($q, $date) => $q->whereDate('payment_date', '<=', $date));
                     })
@@ -227,6 +248,10 @@ class InvoicePaymentsTable
                             if ($invoice) {
                                 $indicators[] = Indicator::make('Invoice #: ' . $invoice->invoice_number)->removeField('invoice_id');
                             }
+                        }
+
+                        if ($data['invoice_type'] ?? null) {
+                            $indicators[] = Indicator::make('Type: ' . ucfirst($data['invoice_type']))->removeField('invoice_type');
                         }
 
                         if ($data['from'] ?? null) {
