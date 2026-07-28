@@ -656,40 +656,74 @@ class AssessmentsTable
                 ]),
             ])
             ->headerActions([
-                Action::make('download_all_clients_reassessment_zip')
-                    ->label('Download Reassessment Reports (Facial)')
-                    ->icon('heroicon-o-archive-box')
-                    ->color('success')
-                    ->tooltip('Download all available facial reassessment reports for filtered clients as a ZIP file')
+                // Action::make('download_all_clients_reassessment_zip')
+                //     ->label('Download Reassessment Reports (Facial)')
+                //     ->icon('heroicon-o-archive-box')
+                //     ->color('success')
+                //     ->tooltip('Download all available facial reassessment reports for filtered clients as a ZIP file')
+                //     ->action(function ($livewire) {
+                //         $query = $livewire->getFilteredTableQuery();
+
+                //         // We only want normal and instant-normal assessments with completed reassessments (either direct post_diagnosis or completed treatment sessions with post_diagnosis)
+                //         $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
+                //             ->where(function ($q) {
+                //                 $q->whereNotNull('post_diagnosis')
+                //                   ->orWhereHas('treatmentSessions', function ($sq) {
+                //                       $sq->where('status', 'completed')
+                //                         ->whereNotNull('post_diagnosis');
+                //                   });
+                //             })
+                //             ->get();
+
+                //         if ($assessments->isEmpty()) {
+                //             \Filament\Notifications\Notification::make()
+                //                 ->title('No completed reassessment sessions found for matching clients.')
+                //                 ->warning()
+                //                 ->send();
+                //             return;
+                //         }
+
+                //         $assessmentIds = $assessments->pluck('id')->toArray();
+
+                //         \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
+
+                //         \Filament\Notifications\Notification::make()
+                //             ->title('ZIP Generation Started')
+                //             ->body('Generating reports for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
+                //             ->success()
+                //             ->send();
+                //     }),
+                Action::make('download_all_clients_treatment_plans_json_zip')
+                    ->label('Download Facial Treatment Plans (JSON)')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->tooltip('Download all available facial treatment plans for filtered clients as a ZIP of JSON files')
                     ->action(function ($livewire) {
                         $query = $livewire->getFilteredTableQuery();
 
-                        // We only want normal and instant-normal assessments with completed reassessments (either direct post_diagnosis or completed treatment sessions with post_diagnosis)
-                        $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
-                            ->where(function ($q) {
-                                $q->whereNotNull('post_diagnosis')
-                                  ->orWhereHas('treatmentSessions', function ($sq) {
-                                      $sq->where('status', 'completed')
-                                        ->whereNotNull('post_diagnosis');
-                                  });
-                            })
-                            ->get();
+                        // Filter for normal assessments
+                        $assessments = $query->where('assessment_type', 'normal')->get();
 
-                        if ($assessments->isEmpty()) {
+                        // Filter in PHP to check which ones have the treatment plan JSON file in 'files' disk storage
+                        $assessmentsWithPlans = $assessments->filter(function ($record) {
+                            return \Illuminate\Support\Facades\Storage::disk('files')->exists("treatment-plans/treatment_plans_#{$record->id}.json");
+                        });
+
+                        if ($assessmentsWithPlans->isEmpty()) {
                             \Filament\Notifications\Notification::make()
-                                ->title('No completed reassessment sessions found for matching clients.')
+                                ->title('No treatment plan JSON files found for matching clients.')
                                 ->warning()
                                 ->send();
                             return;
                         }
 
-                        $assessmentIds = $assessments->pluck('id')->toArray();
+                        $assessmentIds = $assessmentsWithPlans->pluck('id')->toArray();
 
-                        \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
+                        \App\Jobs\GenerateBulkTreatmentPlansJsonJob::dispatch($assessmentIds, auth()->id());
 
                         \Filament\Notifications\Notification::make()
                             ->title('ZIP Generation Started')
-                            ->body('Generating reports for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
+                            ->body('Generating ZIP of treatment plans for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
                             ->success()
                             ->send();
                     }),
