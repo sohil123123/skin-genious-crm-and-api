@@ -77,7 +77,24 @@ class AuthController extends BaseApiController
 
     public function checkUserExists(Request $request)
     {
-        $mobile = trim((string) $request->input('mobile'));
+        $data = $request->input('data');
+
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            }
+        }
+        $mobile = '';
+        if (is_array($data) && !empty($data['CallFrom'])) {
+            $mobile = $data['CallFrom'];
+        } elseif ($request->filled('CallFrom')) {
+            $mobile = $request->input('CallFrom');
+        } elseif ($request->filled('mobile')) {
+            $mobile = $request->input('mobile');
+        }
+
+        $mobile = trim((string) $mobile);
 
         if (empty($mobile)) {
             return response()->json(false);
@@ -89,6 +106,7 @@ class AuthController extends BaseApiController
         $exists = User::where(function ($query) use ($mobile, $last10) {
             $query->where('mobile', $mobile)
                 ->orWhere('mobile', $last10)
+                ->orWhere('mobile', '0' . $last10)
                 ->orWhere('mobile', '91' . $last10)
                 ->orWhere('mobile', '+91' . $last10);
 
