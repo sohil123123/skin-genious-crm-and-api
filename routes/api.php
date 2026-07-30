@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\WhatsAppTemplateController;
 Route::namespace('App\Http\Controllers\Api')->group(function () {
 
     Route::post('/login', [AuthController::class, 'login']);
+    Route::match(['get', 'post'], '/check-user-exists', [AuthController::class, 'checkUserExists']);
 
     // WhatsApp Webhooks
     Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
