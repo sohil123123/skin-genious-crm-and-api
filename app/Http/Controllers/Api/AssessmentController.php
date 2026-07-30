@@ -422,7 +422,15 @@ class AssessmentController extends BaseApiController
 
     public function deleteImage(Assessment $assessment, $mediaId, $assessment_type)
     {
-        $collection_name = $assessment_type == 'pre' ? 'assessment_images' : 'post_assessment_images';
+        if ($assessment_type === 'pre') {
+            $collection_name = 'assessment_images';
+        } elseif ($assessment_type === 'pigmentation-pre') {
+            $collection_name = 'pigmentation_pre_assessment_images';
+        } elseif ($assessment_type === 'pigmentation-post') {
+            $collection_name = 'pigmentation_post_assessment_images';
+        } else {
+            $collection_name = 'post_assessment_images';
+        }
 
         $mediaItem = $assessment->getMedia($collection_name)->where('id', $mediaId)->first();
 
@@ -437,7 +445,15 @@ class AssessmentController extends BaseApiController
 
     public function deleteAllImage(Assessment $assessment, $assessment_type)
     {
-        $collection_name = $assessment_type == 'pre' ? 'assessment_images' : 'post_assessment_images';
+        if ($assessment_type === 'pre') {
+            $collection_name = 'assessment_images';
+        } elseif ($assessment_type === 'pigmentation-pre') {
+            $collection_name = 'pigmentation_pre_assessment_images';
+        } elseif ($assessment_type === 'pigmentation-post') {
+            $collection_name = 'pigmentation_post_assessment_images';
+        } else {
+            $collection_name = 'post_assessment_images';
+        }
 
         $assessment->clearMediaCollection($collection_name);
 
