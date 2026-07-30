@@ -20,7 +20,8 @@ class AuthController extends BaseApiController
     {
         $request->validate([
             'email' => [
-                'required', 'string',
+                'required',
+                'string',
                 function ($attribute, $value, $fail) {
                     if (!filter_var($value, FILTER_VALIDATE_EMAIL) && !preg_match('/^[a-zA-Z0-9_]+$/', $value)) {
                         $fail('The value must be a valid email or mobile number.');
@@ -72,5 +73,30 @@ class AuthController extends BaseApiController
         $request->user()->currentAccessToken()->delete();
 
         return $this->success('User successfully logged out', []);
+    }
+
+    public function checkUserExists(Request $request)
+    {
+        $mobile = trim((string) $request->input('mobile'));
+
+        if (empty($mobile)) {
+            return response()->json(false);
+        }
+
+        $cleanDigits = preg_replace('/\D/', '', $mobile);
+        $last10 = strlen($cleanDigits) >= 10 ? substr($cleanDigits, -10) : $cleanDigits;
+
+        $exists = User::where(function ($query) use ($mobile, $last10) {
+            $query->where('mobile', $mobile)
+                ->orWhere('mobile', $last10)
+                ->orWhere('mobile', '91' . $last10)
+                ->orWhere('mobile', '+91' . $last10);
+
+            if (strlen($last10) === 10) {
+                $query->orWhere('mobile', 'LIKE', '%' . $last10);
+            }
+        })->exists();
+
+        return response()->json($exists);
     }
 }
