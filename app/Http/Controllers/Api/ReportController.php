@@ -871,34 +871,216 @@ class ReportController extends BaseApiController
     public function downloadPigmentationTreatmentPlan($id)
     {
         $record = Assessment::findOrFail($id);
+        $plan = $record->recommended_full_plan ?? [];
 
-        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
-        $mpdf->SetDisplayMode('fullpage');
-        $mpdf->shrink_tables_to_fit = 1;
-        $mpdf->SetTitle('Treatment Plan');
+        $summary = $plan['full_course_summary'] ?? $plan['initial_full_course_summary'] ?? [];
+        $course = $plan['course'] ?? [];
+        $components = $plan['component_treatment_map'] ?? [];
+        $outcomes = $plan['expected_outcomes']['component_specific'] ?? [];
 
-        $html = view('pdf.pigmentation.treatment-plan', [
-            'client' => [
+        $outcomesById = [];
+        foreach ($outcomes as $outcome) $outcomesById[(string)($outcome['diagnostic_component_id'] ?? '')] = $outcome;
+
+        $targets = [];
+        $notTargets = [];
+
+        foreach ($components as $component) {
+            $isTarget = ($component['treatment_eligibility'] ?? '') === 'eligible' 
+                     || ($component['treatment_eligibility'] ?? '') === 'medical_control_first'
+                     || !empty($component['selected_modality_id']);
+
+            $title = $component['working_diagnosis'] ?? 'Condition';
+            $location = $component['target_location_text'] ?? $component['clinical_location_text'] ?? '';
+            
+            $outcome = $outcomesById[(string)($component['diagnostic_component_id'] ?? '')] ?? [];
+            $expected = $outcome['expected_change'] ?? $component['expected_response'] ?? '';
+            
+            $modality = $component['selected_modality_id'] ?? '';
+            $protocol = $component['selected_protocol_id'] ?? '';
+            $approach = $modality ? $this->ptpTreatmentName($modality, $protocol) : 'Observe / Supportive';
+
+            $icon = 'icon_target';
+            $colour = 'cyan';
+            $titleLower = strtolower($title);
+            
+            if (str_contains($titleLower, 'tone') || str_contains($titleLower, 'melanosis')) {
+                $icon = 'icon_sun';
+                $colour = 'gold';
+            } elseif (str_contains($titleLower, 'spot') || str_contains($titleLower, 'macule')) {
+                $icon = 'icon_pores';
+                $colour = 'cyan';
+            } elseif (str_contains($titleLower, 'periocular') || str_contains($titleLower, 'eye')) {
+                $icon = 'icon_eye';
+                $colour = 'purple';
+            } elseif (str_contains($titleLower, 'erythema') || str_contains($titleLower, 'acne') || str_contains($titleLower, 'patch')) {
+                $icon = 'icon_stable';
+                $colour = 'coral';
+            } elseif (str_contains($titleLower, 'shadow') || str_contains($titleLower, 'texture') || str_contains($titleLower, 'dry') || str_contains($titleLower, 'xerosis') || str_contains($titleLower, 'chap')) {
+                $icon = 'icon_hydration';
+                $colour = 'cyan';
+            } elseif (str_contains($titleLower, 'hair') || str_contains($titleLower, 'occlusion') || str_contains($titleLower, 'moustache')) {
+                $icon = 'icon_camera';
+                $colour = 'gold';
+            }
+
+            if ($isTarget) {
+                $targets[] = [
+                    'title' => $title,
+                    'approach' => $approach,
+                    'location' => $location,
+                    'expected' => $this->ptpShorten((string)$expected, 180),
+                    'icon' => $icon,
+                    'colour' => $colour,
+                ];
+            } else {
+                $copy = $component['course_exclusion_or_hold_reason'] ?? $component['exclusion_instruction'] ?? $expected;
+                $notTargets[] = [
+                    'title' => $title,
+                    'copy' => $this->ptpShorten((string)$copy, 180),
+                    'icon' => $icon,
+                    'colour' => $colour,
+                ];
+            }
+        }
+
+        $currentSessionsRaw = $plan['current_treatment_block']['sessions'] ?? $plan['current_sessions'] ?? [];
+        $firstSessions = array_map([$this, 'ptpPatientFacingSession'], array_slice($currentSessionsRaw, 0, 2));
+
+        $gate = $plan['current_treatment_block']['reassessment_gate'] ?? $plan['reassessment_gate'] ?? [];
+        $reviewItems = [];
+        foreach (($gate['metrics_and_groups_to_repeat'] ?? []) as $item) {
+            $translated = $this->ptpTranslateReassessmentItem((string)$item);
+            if (!in_array($translated, $reviewItems, true)) $reviewItems[] = $translated;
+        }
+        $reviewItems = array_slice($reviewItems, 0, 5);
+
+        $decisionRules = $gate['decision_rules'] ?? [];
+
+        $homecare = $plan['homecare_plan'] ?? [];
+
+        $qCount = $this->ptpModalityCount($plan, 'q_switch_laser');
+        $mnCount = $this->ptpModalityCount($plan, 'microneedling_with_active');
+        $ledCount = (int)($summary['supportive_inclusions'][0]['planned_uses'] ?? 0);
+
+        $ui = [
+            'brand_icon' => public_path('images/pigmentation-report/brand_icon.jpg'),
+            'icon_glow' => public_path('images/pigmentation-report/icon_glow.jpg'),
+            'icon_calendar' => public_path('images/pigmentation-report/icon_calendar.jpg'),
+            'icon_stable' => public_path('images/pigmentation-report/icon_stable.jpg'),
+            'icon_pores' => public_path('images/pigmentation-report/icon_pores.jpg'),
+            'icon_barrier' => public_path('images/pigmentation-report/icon_barrier.jpg'),
+            'icon_sun' => public_path('images/pigmentation-report/icon_sun.jpg'),
+            'icon_renewal' => public_path('images/pigmentation-report/icon_renewal.jpg'),
+            'icon_camera' => public_path('images/pigmentation-report/icon_camera.jpg'),
+            'icon_user' => public_path('images/pigmentation-report/icon_user.jpg'),
+            'icon_eye' => public_path('images/pigmentation-report/icon_eye.jpg'),
+            'icon_check' => public_path('images/pigmentation-report/icon_check.jpg'),
+            'icon_target' => public_path('images/pigmentation-report/icon_target.jpg'),
+            'icon_hydration' => public_path('images/pigmentation-report/icon_hydration.jpg'),
+            'arrow_right' => public_path('images/pigmentation-report/arrow_right.jpg'),
+        ];
+
+        $milestones = [];
+        $blocks = $plan['master_treatment_roadmap']['blocks'] ?? [];
+        foreach ($blocks as $idx => $block) {
+            $num = $block['block_number'] ?? ($idx + 1);
+            $sessions = $block['session_numbers'] ?? [];
+            $title = 'Block ' . $num;
+            if (!empty($sessions)) {
+                $title .= ' (Sessions ' . implode('-', $sessions) . ')';
+            }
+            $milestones[] = [
+                'title' => $title,
+                'copy' => $this->ptpShorten((string)($block['purpose'] ?? ''), 150),
+                'colour' => $num === 1 ? 'gold' : ($num === 2 ? 'purple' : 'cyan'),
+            ];
+        }
+
+        $viewData = [
+            'patient' => [
                 'name' => $record->user->name,
                 'age' => $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A',
                 'gender' => $record->user->gender,
-                'clinic' => $record->clinic->name ?? 'Main Clinic',
             ],
-            'summary' => [
-                'duration' => $record->total_time,
-                'total_sessions' => count($record->treatmentSessions['treatments'] ?? []),
-            ],
-            'sessions' => $record->treatmentSessions,
-            'recommended_full_plan' => $record->recommended_full_plan,
-        ])->render();
+            'reportDate' => $record->created_at ? $record->created_at->format('d M Y') : date('d M Y'),
+            'ui' => $ui,
+            'courseDuration' => (string)($summary['course_duration'] ?? $plan['duration'] ?? '~5 months'),
+            'totalSessions' => (int)($summary['total_planned_sessions'] ?? $course['expected_total_sessions'] ?? 6),
+            'reassessAfter' => (int)($summary['first_reassessment_after_session'] ?? $course['next_formal_reassessment_after_session'] ?? 2),
+            'qCount' => $qCount,
+            'mnCount' => $mnCount,
+            'ledCount' => $ledCount,
+            'packageSummary' => (string)($plan['derived_package_summary_text'] ?? $summary['package_summary_text'] ?? ''),
+            'planName' => 'Sun-Related Pigment and Under-Eye Care Plan',
+            'clientExplanation' => 'This course targets overall sun-related background tone and cheek speckling with a conservative Q-Switch laser series plus staged microneedling. Under-eye pigment can improve, but fixed contour shadow and delicate dry skin mean results will be limited and treatment there must be introduced gradually. Consistent sunscreen reapplication and heat control are essential to reduce recurrence.',
+            'timeline' => $this->ptpBuildTimeline($plan),
+            'targets' => $targets,
+            'notTargets' => $notTargets,
+            'firstSessions' => $firstSessions,
+            'reviewImages' => array_map(fn ($key) => match ($key) {
+                'white' => 'White Light',
+                'surface_polarized' => 'Surface Polarized',
+                'subsurface_polarized' => 'Subsurface Polarized',
+                'red' => 'Red Mode',
+                'woods_uv' => 'Woods UV',
+                default => $this->ptpTitleize((string)$key),
+            }, $gate['required_images'] ?? ['white','surface_polarized','subsurface_polarized','red','woods_uv']),
+            'reviewItems' => $reviewItems,
+            'decisionRules' => $decisionRules,
+            'morning' => array_map([$this, 'ptpCleanText'], $homecare['morning'] ?? []),
+            'evening' => array_map([$this, 'ptpCleanText'], $homecare['evening'] ?? []),
+            'sunHeat' => array_map([$this, 'ptpCleanText'], $homecare['sun_and_heat_control'] ?? []),
+            'milestones' => $milestones,
+        ];
+
+        $html = view('pdf.pigmentation_treatment.report', $viewData)->render();
+
+        $config = config('project.mpdf_config');
+        
+        $config['margin_left'] = 7;
+        $config['margin_right'] = 7;
+        $config['margin_top'] = 6;
+        $config['margin_bottom'] = 16;
+        $config['margin_header'] = 0;
+        $config['margin_footer'] = 4;
+        $config['format'] = [215.9, 279.4];
+
+        $fontDirs = array_values(array_unique(array_merge($config['fontDir'] ?? [], [
+            resource_path('views/fonts')
+        ])));
+        $config['fontDir'] = $fontDirs;
+
+        $fontData = $config['fontdata'] ?? [];
+        $fontData['montserrattreatmentv1'] = [
+            'R' => 'Montserrat-Regular.ttf',
+            'B' => 'Montserrat-Bold.ttf',
+            'I' => 'Montserrat-Italic.ttf',
+            'BI' => 'Montserrat-BoldItalic.ttf'
+        ];
+        $fontData['playfairtreatmentv1'] = [
+            'R' => 'PlayfairDisplay-Regular.ttf',
+            'I' => 'PlayfairDisplay-Italic.ttf',
+            'B' => 'PlayfairDisplay-Bold.ttf',
+            'BI' => 'PlayfairDisplay-BoldItalic.ttf'
+        ];
+        $config['fontdata'] = $fontData;
+        $config['default_font'] = 'montserrattreatmentv1';
+
+        $mpdf = new \Mpdf\Mpdf($config);
+        $mpdf->SetDisplayMode('fullpage');
+        $mpdf->shrink_tables_to_fit = 1;
+        $mpdf->showImageErrors = true;
+        $mpdf->SetTitle('Your Pigmentation Treatment Roadmap');
 
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
-        $mpdf->WriteHTML($html);
+        $mpdf->WriteHTML($html, \Mpdf\HTMLParserMode::DEFAULT_MODE);
 
-        return response($mpdf->Output('treatment-plan.pdf', 'S'), 200, [
+        $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
+        $filename = $patientName . '_pigmentation_treatment_plan.pdf';
+
+        return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="treatment-plan.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 
@@ -996,5 +1178,145 @@ class ReportController extends BaseApiController
             $score <= 85 => 'High',
             default => 'Very High'
         };
+    }
+    private function ptpCleanText(string $text): string {
+        $text = preg_replace('/\b(?:DC|PG|PM|OP)_[0-9]+\b/u', '', $text) ?? $text;
+        $text = str_replace(['_', '  '], [' ', ' '], $text);
+        $text = preg_replace('/\(\s*\)/u', '', $text) ?? $text;
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        return trim($text, " \t\n\r\0\x0B,;-");
+    }
+
+    private function ptpShorten(string $text, int $limit): string {
+        $text = $this->ptpCleanText($text);
+        if (mb_strlen($text) <= $limit) return $text;
+        $cut = mb_substr($text, 0, $limit);
+        $space = mb_strrpos($cut, ' ');
+        if ($space !== false) $cut = mb_substr($cut, 0, $space);
+        return rtrim($cut, ',;: ') . '.';
+    }
+
+    private function ptpTitleize(string $value): string {
+        return ucwords(str_replace(['_', '-'], ' ', trim($value)));
+    }
+
+    private function ptpTreatmentName(string $modality, ?string $protocol = null): string {
+        $protocol = strtoupper((string)$protocol);
+        if ($modality === 'q_switch_laser') return 'Q-Switch Laser';
+        if ($modality === 'microneedling_with_active') {
+            if (str_contains($protocol, 'PERIOCULAR')) return 'Under-Eye Microneedling';
+            return 'Microneedling with Active';
+        }
+        if ($modality === 'led') return 'Red LED Recovery Support';
+        if ($modality === 'chemical_peel') return 'Clinical Peel';
+        return $this->ptpTitleize($modality);
+    }
+
+    private function ptpUniqueTreatments(array $uses): array {
+        $labels = [];
+        foreach ($uses as $use) {
+            $label = $this->ptpTreatmentName((string)($use['modality_id'] ?? ''), (string)($use['protocol_id'] ?? ''));
+            if ($label !== '' && !in_array($label, $labels, true)) $labels[] = $label;
+        }
+        return $labels;
+    }
+
+    private function ptpFindComponent(array $components, string $id): array {
+        foreach ($components as $component) {
+            if (($component['diagnostic_component_id'] ?? '') === $id) return $component;
+        }
+        return [];
+    }
+
+    private function ptpModalityCount(array $plan, string $modality): int {
+        foreach (($plan['package_modality_summary'] ?? []) as $item) {
+            if (($item['modality_id'] ?? '') === $modality) return (int)($item['planned_visits'] ?? 0);
+        }
+        foreach (($plan['full_course_summary']['planned_modality_allocation'] ?? []) as $item) {
+            if (($item['modality_id'] ?? '') === $modality) return (int)($item['planned_uses'] ?? 0);
+        }
+        return 0;
+    }
+
+    private function ptpBuildTimeline(array $plan): array {
+        $timeline = [];
+        $timingBySession = [];
+        foreach (($plan['current_treatment_block']['sessions'] ?? $plan['current_sessions'] ?? []) as $session) {
+            $timingBySession[(int)($session['session_number'] ?? 0)] = (string)($session['timing'] ?? '');
+        }
+        foreach (($plan['future_provisional_sessions'] ?? []) as $session) {
+            $timingBySession[(int)($session['session_number'] ?? 0)] = (string)($session['timing'] ?? '');
+        }
+
+        $definitions = [
+            1 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Begin conservative treatment for overall sun-related tone and cheek spots, followed by calming recovery support.', 'phase' => 'First treatment block', 'colour' => 'gold'],
+            2 => ['treatments' => ['Microneedling with Active', 'Red LED Recovery Support'], 'focus' => 'Support cheek pigment and skin quality on calm non-eye areas, then review readiness for later under-eye care.', 'phase' => 'First treatment block', 'colour' => 'purple'],
+            3 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Repeat the laser session if the first laser visit was well tolerated and no prolonged irritation developed.', 'phase' => 'Planned after reassessment', 'colour' => 'cyan'],
+            4 => ['treatments' => ['Microneedling with Active', 'Under-Eye Microneedling', 'Red LED Recovery Support'], 'focus' => 'Continue microneedling and add under-eye treatment only when dryness has settled and the skin is comfortable.', 'phase' => 'Planned after reassessment', 'colour' => 'coral'],
+            5 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Complete the planned laser series if improvement and tolerance remain good.', 'phase' => 'Planned after reassessment', 'colour' => 'cyan'],
+            6 => ['treatments' => ['Microneedling with Active', 'Under-Eye Microneedling', 'Red LED Recovery Support'], 'focus' => 'Complete the microneedling series, including under-eye treatment only if the barrier remains stable.', 'phase' => 'Planned after reassessment', 'colour' => 'coral'],
+        ];
+
+        foreach ($definitions as $number => $definition) {
+            $timeline[] = [
+                'number' => $number,
+                'timing' => $timingBySession[$number] ?? ('Session ' . $number),
+                'treatments' => $definition['treatments'],
+                'focus' => $definition['focus'],
+                'phase' => $definition['phase'],
+                'colour' => $definition['colour'],
+            ];
+        }
+        return $timeline;
+    }
+
+    private function ptpPatientFacingSession(array $session): array {
+        $number = (int)($session['session_number'] ?? 0);
+        $operations = $session['treatment_operations'] ?? [];
+        $treatments = $this->ptpUniqueTreatments($operations);
+        $primary = null;
+        $aftercare = [];
+        foreach ($operations as $operation) {
+            if (($operation['role'] ?? '') === 'primary' && $primary === null) $primary = $operation;
+            foreach (($operation['aftercare'] ?? []) as $item) {
+                $clean = $this->ptpCleanText((string)$item);
+                $clean = str_ireplace('photoprotection', 'sun protection', $clean);
+                if ($clean !== '' && !in_array($clean, $aftercare, true)) $aftercare[] = $clean;
+            }
+        }
+        if ($number === 1) {
+            $headline = 'Tone and cheek-spot laser session';
+            $what = 'A conservative Q-Switch laser session targets overall sun-related tone and cheek speckling on suitable, calm areas. Red LED is used afterward for recovery support.';
+            $target = 'Forehead, nose, temples and suitable cheek areas, while avoiding the under-eye skin if it remains dry.';
+            $avoid = 'The tiny chin spot, the active red patch on the left cheek and any irritated or dry skin are not treated directly.';
+        } else {
+            $headline = 'Field microneedling session';
+            $what = 'Microneedling with an active is used on suitable non-eye areas to support cheek pigment, tone uniformity and skin quality. Red LED follows as a calming step.';
+            $target = 'Forehead and calm cheek or jaw areas selected on the day of treatment.';
+            $avoid = 'The tiny chin spot, any persistent red patch and the under-eye region remain excluded until the skin is ready.';
+        }
+        return [
+            'number' => $number,
+            'timing' => (string)($session['timing'] ?? ''),
+            'headline' => $headline,
+            'treatments' => $treatments,
+            'goal' => $this->ptpShorten((string)($session['session_goal'] ?? ''), 190),
+            'what' => $what,
+            'target' => $target,
+            'avoid' => $avoid,
+            'aftercare' => array_slice($aftercare, 0, 3),
+            'colour' => $number === 1 ? 'gold' : 'purple',
+            'icon' => $number === 1 ? 'icon_glow' : 'icon_renewal',
+        ];
+    }
+
+    private function ptpTranslateReassessmentItem(string $item): string {
+        $lower = strtolower($item);
+        if (str_contains($lower, 'melanin')) return 'Overall tone and background pigment trend';
+        if (str_contains($lower, 'flat_focal') || str_contains($lower, 'speckling') || str_contains($lower, 'macule')) return 'Cheek brown-spot contrast and coverage';
+        if (str_contains($lower, 'pm_005') || str_contains($lower, 'erythema')) return 'Whether the left-cheek red patch has settled';
+        if (str_contains($lower, 'pm_002') || str_contains($lower, 'periocular')) return 'Whether under-eye dryness has improved enough for staged treatment';
+        if (str_contains($lower, 'pih')) return 'Any unwanted darkening, irritation or prolonged redness';
+        return $this->ptpShorten($item, 100);
     }
 }
