@@ -59,5 +59,26 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Gate::define('downloadLogFolder', function ($user) {
             return $user->hasRole('super_admin');
         });
+
+        \Illuminate\Support\Facades\View::composer('pdf.pigmentation.*', function ($view) {
+            $view->with('uiAssets', [
+                'brand_icon' => public_path('images/pigmentation-report/brand_icon.jpg'),
+                'ring_8' => public_path('images/pigmentation-report/ring_8.jpg'),
+                'icon_glow' => public_path('images/pigmentation-report/icon_glow.jpg'),
+                'icon_sun' => public_path('images/pigmentation-report/icon_sun.jpg'),
+                'icon_eye' => public_path('images/pigmentation-report/icon_eye.jpg'),
+                'icon_pores' => public_path('images/pigmentation-report/icon_pores.jpg'),
+                'icon_target' => public_path('images/pigmentation-report/icon_target.jpg'),
+                'icon_barrier' => public_path('images/pigmentation-report/icon_barrier.jpg'),
+                'icon_camera' => public_path('images/pigmentation-report/icon_camera.jpg'),
+                'icon_calendar' => public_path('images/pigmentation-report/icon_calendar.jpg'),
+                'icon_user' => public_path('images/pigmentation-report/icon_user.jpg'),
+                'icon_check' => public_path('images/pigmentation-report/icon_check.jpg'),
+                'icon_stable' => public_path('images/pigmentation-report/icon_stable.jpg'),
+                'icon_hydration' => public_path('images/pigmentation-report/icon_hydration.jpg'),
+                'icon_renewal' => public_path('images/pigmentation-report/icon_renewal.jpg'),
+                'arrow_right' => public_path('images/pigmentation-report/arrow_right.jpg')
+            ]);
+        });
     }
 }

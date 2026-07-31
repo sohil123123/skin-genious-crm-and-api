@@ -588,17 +588,9 @@ class AssessmentsTable
                         ->tooltip('Pigmentation Skin Analysis Report')
                         ->visible(fn($record) => $record->assessment_type === 'pigmentation')
                         ->action(function (Assessment $record) {
-                            $html = view('pdf.pigmentation.diagnosis', ['record' => $record])->render();
-                            $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-                            $mpdf->AddFontDirectory(__DIR__ . config('project.mpdf_font_dir'));
-                            $mpdf->SetDisplayMode('fullpage');
-                            $mpdf->shrink_tables_to_fit = 1;
-                            $mpdf->showImageErrors = true;
-                            $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
-                            $mpdf->WriteHTML($html);
-
-                            return response()->streamDownload(function () use ($mpdf) {
-                                echo $mpdf->Output('', 'S');
+                            $response = app(\App\Http\Controllers\Api\ReportController::class)->downloadPigmentationDiagnosis($record->id);
+                            return response()->streamDownload(function () use ($response) {
+                                echo $response->content();
                             }, $record->user->name . '_pigmentation_skin_analysis_report.pdf');
                         }),
 

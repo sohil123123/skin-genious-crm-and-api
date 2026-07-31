@@ -114,7 +114,7 @@ class ReportController extends BaseApiController
                     }
                     if ($baselineScore !== null) {
                         $item['before_treatment_score_or_label'] = $baselineScore;
-                        
+
                         // Recalculate result
                         $before = $baselineScore;
                         $after = $item['post_treatment_score_or_label'] ?? '';
@@ -122,11 +122,11 @@ class ReportController extends BaseApiController
                         if (strtolower(trim($before)) !== strtolower(trim($after))) {
                             preg_match('/\d+/', $before, $mBefore);
                             preg_match('/\d+/', $after, $mAfter);
-                            
+
                             if (isset($mBefore[0]) && isset($mAfter[0])) {
                                 $valBefore = intval($mBefore[0]);
                                 $valAfter = intval($mAfter[0]);
-                                
+
                                 if (strpos(strtolower($key), 'glow') !== false || strpos(strtolower($key), 'luminosity') !== false) {
                                     $result = $valAfter > $valBefore ? 'improved' : ($valAfter < $valBefore ? 'declined' : 'stable');
                                 } else {
@@ -140,7 +140,7 @@ class ReportController extends BaseApiController
                                 }
                             }
                         }
-                        
+
                         $item['result'] = $result;
                     }
                 }
@@ -149,7 +149,7 @@ class ReportController extends BaseApiController
 
             $data['reassessment'] = $reassessment;
             $data['counts'] = collect($data['reassessment'])->pluck('result')->countBy();
-            
+
             $postAssessmentImages = $session->post_images;
 
             if ($compare_to === 'baseline' || $session->session_number == 1) {
@@ -429,21 +429,438 @@ class ReportController extends BaseApiController
     // ─────────────────────────────────────────────
     public function downloadPigmentationDiagnosis($id)
     {
-        $record = Assessment::findOrFail($id);
+        $record = Assessment::with(['user', 'clinic'])->findOrFail($id);
+        $diagnosis = $record->diagnosis ?? [];
 
-        $html = view('pdf.pigmentation.diagnosis', ['record' => $record])->render();
 
-        $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
-        $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
+
+        // Resolve patient images by mode
+        $images = $record->images ?? collect();
+        $getImageByMode = function($mode) use ($images) {
+            $img = $images->first(function($item) use ($mode) {
+                return ($item['custom_properties']['mode'] ?? $item['custom_properties']['type'] ?? '') === $mode || ($item['name'] ?? '') === $mode;
+            });
+            return $img ? $img['url'] : public_path('images/no-image.jpg');
+        };
+
+        $whiteImg = $getImageByMode('white');
+
+        $mapUrl = $whiteImg;
+        $whiteMedia = $record->getMedia("pigmentation_pre_assessment_images")->filter(function($item) {
+            return ($item->custom_properties['mode'] ?? $item->custom_properties['type'] ?? '') === 'white' || $item->name === 'white';
+        })->first();
+
+        if ($whiteMedia && file_exists($whiteMedia->getPath())) {
+            $destPath = storage_path('app/public/report_maps/map_' . $record->id . '.jpg');
+            if (!is_dir(dirname($destPath))) {
+                @mkdir(dirname($destPath), 0777, true);
+            }
+            try {
+                $mapper = new \App\Services\ImageMappingService();
+                $mapper->generateMap($whiteMedia->getPath(), $destPath, $diagnosis['diagnostic_components'] ?? []);
+                $mapUrl = url('storage/report_maps/map_' . $record->id . '.jpg');
+            } catch (\Exception $e) {
+                \Log::error("Failed to generate dynamic map: " . $e->getMessage());
+            }
+        }
+
+        $assets = [
+            'cover_main' => $whiteImg,
+            'map' => $mapUrl,
+            'finding_full' => $whiteImg,
+            'finding_cheek' => $whiteImg,
+            'finding_eye' => $whiteImg,
+            'snapshots' => [
+                'white' => $getImageByMode('white'),
+                'surface_polarized' => $getImageByMode('surface_polarized'),
+                'subsurface_polarized' => $getImageByMode('subsurface_polarized'),
+                'red' => $getImageByMode('red'),
+                'woods_uv' => $getImageByMode('woods_uv')
+            ],
+            'modes' => [
+                'white' => $getImageByMode('white'),
+                'surface_polarized' => $getImageByMode('surface_polarized'),
+                'subsurface_polarized' => $getImageByMode('subsurface_polarized'),
+                'red' => $getImageByMode('red'),
+                'woods_uv' => $getImageByMode('woods_uv')
+            ]
+        ];
+
+        $components = $diagnosis['diagnostic_components'] ?? [];
+        $overall = $this->findPigmentComponent($components, 'DC_001');
+        $under = $this->findPigmentComponent($components, 'DC_002');
+        $cheek = $this->findPigmentComponent($components, 'DC_003');
+        $chin = $this->findPigmentComponent($components, 'DC_004');
+        $shadowComp = $this->findPigmentComponent($components, 'DC_005');
+        $dry = $this->findPigmentComponent($components, 'DC_006');
+        $red = $this->findPigmentComponent($components, 'DC_009');
+        $metrics = $diagnosis['immutable_image_metrics'] ?? [];
+        $risk = $diagnosis['risk_profile'] ?? [];
+        $summary = (string)($diagnosis['summaries']['patient_summary'] ?? '');
+        $short = (string)($diagnosis['summaries']['patient_summary_short'] ?? 'Main concerns today are cheek brown spots, under-eye darkness and an overall uneven background tone.');
+        $melanin = (int)($diagnosis['scores']['melanin_load_index'] ?? $metrics['global_background_melanin_load_index'] ?? 0);
+        $erythema = (int)($diagnosis['scores']['erythema_load_index'] ?? $metrics['global_background_erythema_load_index'] ?? 0);
+
+        $main = [
+            [
+                'title' => 'Overall Sun-Related Uneven Facial Tone', 'short_title' => 'Overall Uneven Tone',
+                'copy' => $this->patientPigmentCopy($overall, 'Diffuse uneven tone is visible across the face.', 185),
+                'short_copy' => 'Diffuse sun-related background pigmentation across the face.',
+                'where' => $this->shortenPigmentText((string)($overall['clinical_location_text'] ?? 'Forehead, cheeks, nose and around the mouth.'), 105),
+                'why' => 'This background tone can make focal spots appear more prominent.',
+                'image' => $assets['finding_full'], 'icon' => 'icon_sun', 'colour' => 'gold', 'border' => 'gold'
+            ],
+            [
+                'title' => 'Cheek Brown Spots / Photo-Induced Macules', 'short_title' => 'Cheek Brown Spots',
+                'copy' => $this->patientPigmentCopy($cheek, 'Multiple flat brown spots are visible on both cheeks.', 185),
+                'short_copy' => 'Multifocal flat tan-brown macules on both cheeks.',
+                'where' => $this->shortenPigmentText((string)($cheek['clinical_location_text'] ?? 'Both malar and lower-cheek regions.'), 105),
+                'why' => 'These persistent spots can darken over time without targeted care.',
+                'image' => $assets['finding_cheek'], 'icon' => 'icon_pores', 'colour' => 'gold', 'border' => 'gold'
+            ],
+            [
+                'title' => 'Under-Eye Pigmentation (Dark Circles with Mixed Causes)', 'short_title' => 'Under-Eye Darkness',
+                'copy' => $this->patientPigmentCopy($under, 'Under-eye darkness includes pigment plus contour shadow.', 185),
+                'short_copy' => 'Mixed dark circles with pigment plus contour shadow.',
+                'where' => $this->shortenPigmentText((string)($under['clinical_location_text'] ?? 'Both lower eyelids and upper malar areas.'), 105),
+                'why' => 'Pigment treatment may improve only the pigment component, not structural shadow.',
+                'image' => $assets['finding_eye'], 'icon' => 'icon_eye', 'colour' => 'purple', 'border' => 'purple'
+            ],
+        ];
+
+        $drivers = [];
+        $driverColours = ['gold', 'cyan', 'purple'];
+        foreach (array_slice($diagnosis['key_drivers'] ?? [], 0, 3) as $i => $driver) {
+            $name = (string)($driver['driver'] ?? '');
+            $title = match ($name) { 'sun' => 'Sun Exposure', 'structural' => 'Structural Shadowing', 'post_inflammatory' => 'Post-Inflammatory Tendency', default => ucwords(str_replace(['_', '-'], ' ', trim($name))) };
+            $drivers[] = [
+                'title' => $title,
+                'copy' => $this->shortenPigmentText(implode(' ', array_slice($driver['basis'] ?? [], 0, 2)), 130),
+                'colour' => $driverColours[$i] ?? 'cyan'
+            ];
+        }
+        while (count($drivers) < 3) {
+            $drivers[] = ['title' => 'Clinical Context', 'copy' => 'History and imaging together guide the final treatment sequence.', 'colour' => $driverColours[count($drivers)] ?? 'cyan'];
+        }
+
+        $modeMeta = [
+            'white' => ['title' => 'White Light', 'caption' => 'Overall visible pigment and tone', 'colour' => 'gold', 'body' => ['Shows overall tone, visible pigmentation and the balance of light and shadow.', 'Diffuse uneven tone, cheek spots and under-eye darkness are clearly visible.']],
+            'surface_polarized' => ['title' => 'Surface Polarized', 'caption' => 'Surface spots and texture', 'colour' => 'cyan', 'body' => ['Reduces surface reflection to highlight surface pigment and texture.', 'Cheek spots and surface irregularities are easier to compare.']],
+            'subsurface_polarized' => ['title' => 'Subsurface Polarized', 'caption' => 'Deeper-looking pigment patterns', 'colour' => 'purple', 'body' => ['Reveals deeper-looking pigment distribution beneath surface reflection.', 'Pigment around the cheeks and under-eye area remains visible.']],
+            'red' => ['title' => 'Red Mode', 'caption' => 'Visible redness and vascular activity', 'colour' => 'coral', 'body' => ['Enhances red tones to reveal visible irritation and vascular activity.', 'A focal red patch is visible on patient left, which is viewer right.']],
+            'woods_uv' => ['title' => 'Woods UV', 'caption' => 'Superficial pigment and fluorescence', 'colour' => 'blue', 'body' => ['Highlights superficial pigment and fluorescence patterns.', 'Under-eye interpretation is limited by dryness and surface speckling.']],
+        ];
+
+        $modes = [];
+        foreach ($modeMeta as $key => $meta) {
+            $modes[] = ['key' => $key, 'title' => $meta['title'], 'caption' => $meta['caption'], 'colour' => $meta['colour'], 'lines' => $meta['body'], 'image' => $assets['modes'][$key]];
+        }
+
+        $fitz = $this->fitzpatrickFromDiagnosis($diagnosis);
+        $depth = ucwords(str_replace(['_','-'], ' ', trim((string)($diagnosis['depth_assessment']['verdict'] ?? 'Mixed'))));
+        $recurrence = ucwords(str_replace(['_','-'], ' ', trim((string)($risk['recurrence_risk'] ?? 'Moderate'))));
+        $procedure = ucwords(str_replace(['_','-'], ' ', trim((string)($risk['procedure_risk'] ?? 'Moderate'))));
+        $sunConsistency = ucwords(str_replace(['_','-'], ' ', trim((string)($risk['sunscreen_compliance_risk'] ?? 'Moderate'))));
+
+        $profileRows = [
+            [
+                ['label' => 'Fitzpatrick Type', 'value' => $fitz, 'icon' => 'icon_user', 'colour' => 'gold', 'border' => 'gold'],
+                ['label' => 'Dominant Pattern', 'value' => 'Melanin-Dominant', 'icon' => 'icon_pores', 'colour' => 'gold', 'border' => 'gold']
+            ],
+            [
+                ['label' => 'Depth Pattern', 'value' => $depth, 'icon' => 'icon_renewal', 'colour' => 'purple', 'border' => 'purple'],
+                ['label' => 'Recurrence Tendency', 'value' => $recurrence, 'icon' => 'icon_stable', 'colour' => 'cyan', 'border' => 'cyan']
+            ],
+            [
+                ['label' => 'Procedure Sensitivity', 'value' => $procedure, 'icon' => 'icon_barrier', 'colour' => 'gold', 'border' => 'gold'],
+                ['label' => 'Sun Protection Consistency', 'value' => $sunConsistency, 'icon' => 'icon_sun', 'colour' => 'cyan', 'border' => 'cyan']
+            ]
+        ];
+
+        // Dynamic Cautions
+        $cautions = [];
+        $cautionNumber = 1;
+        foreach ($components as $c) {
+            if (($c['component_role'] ?? '') === 'treatment_modifier' || ($c['component_role'] ?? '') === 'pigmentation_contributor') {
+                $icon = 'icon_target';
+                $colour = 'cyan';
+                $border = 'cyan';
+
+                if (($c['family_code'] ?? '') === 'barrier_or_scale_modifier') {
+                    $icon = 'icon_hydration';
+                    $colour = 'cyan';
+                    $border = 'cyan';
+                }
+                if (($c['family_code'] ?? '') === 'active_inflammatory_process') {
+                    $icon = 'icon_stable';
+                    $colour = 'coral';
+                    $border = 'coral';
+                }
+                if (($c['subtype_code'] ?? '') === 'structural_shadow') {
+                    $icon = 'icon_eye';
+                    $colour = 'purple';
+                    $border = 'purple';
+                }
+
+                $title = $c['patient_title'] ?? ucwords(str_replace('_', ' ', $c['subtype_code'] ?? 'Modifier'));
+                $copy = $c['patient_explanation'] ?? $c['treatment_relevant_morphology'] ?? 'An important local finding that affects how treatment should be planned.';
+
+                $cautions[] = [
+                    'number' => (string)$cautionNumber++,
+                    'title' => $this->shortenPigmentText($title, 40),
+                    'copy' => $copy,
+                    'icon' => $icon,
+                    'colour' => $colour,
+                    'border' => $border
+                ];
+            }
+        }
+        if (empty($cautions)) {
+            $cautions[] = ['number' => '1', 'title' => 'Standard Care', 'copy' => 'No specific modifiers were flagged. Standard treatment pathways apply.', 'icon' => 'icon_target', 'colour' => 'cyan', 'border' => 'cyan'];
+        }
+        // Dynamic Care Cards
+        $careCards = [];
+        if (($risk['sunscreen_compliance_risk'] ?? '') === 'high') {
+            $careCards[] = ['title' => 'Protect from sun consistently', 'copy' => 'Sun exposure can worsen pigmentation.', 'icon' => 'icon_sun', 'colour' => 'gold'];
+        }
+        foreach ($components as $c) {
+            if (($c['family_code'] ?? '') === 'barrier_or_scale_modifier') {
+                $careCards[] = ['title' => 'Go gently on dry areas', 'copy' => 'Use barrier-supportive care.', 'icon' => 'icon_barrier', 'colour' => 'purple'];
+            }
+            if (($c['family_code'] ?? '') === 'active_inflammatory_process') {
+                $careCards[] = ['title' => 'Settle inflammation first', 'copy' => 'Active spots need to calm down before pigment treatment.', 'icon' => 'icon_stable', 'colour' => 'coral'];
+            }
+        }
+        if (count($careCards) < 3) $careCards[] = ['title' => 'Use different approaches', 'copy' => 'Pigment, shadow, and dryness need different care.', 'icon' => 'icon_target', 'colour' => 'cyan'];
+
+        // Dynamic Standouts
+        $standouts = [];
+        $standouts[] = ['title' => 'Spots are most visible in surface views', 'copy' => 'White and surface-polarized images show the focal macules most clearly.', 'colour' => 'gold'];
+        foreach ($components as $c) {
+            if (($c['subtype_code'] ?? '') === 'structural_shadow') {
+                $standouts[] = ['title' => 'Darkness has mixed contributors', 'copy' => 'The darkness persists across modes, supporting pigment plus shadow.', 'colour' => 'cyan'];
+            }
+            if (($c['family_code'] ?? '') === 'active_inflammatory_process') {
+                $standouts[] = ['title' => 'Red area needs a gentle approach', 'copy' => 'Inflammation is visible on red mode.', 'colour' => 'coral'];
+            }
+        }
+        if (count($standouts) < 3) $standouts[] = ['title' => 'Background tone is diffuse', 'copy' => 'Uneven tone is visible across multiple regions.', 'colour' => 'gold'];
+
+        // Dynamic Summary Columns
+        $foundPoints = [];
+        $focusPoints = [];
+        foreach ($components as $c) {
+            if (($c['component_role'] ?? '') === 'primary_pigment_target') {
+                $foundPoints[] = $c['subtype_label'] ?? 'Pigmentation finding';
+            } else if (($c['component_role'] ?? '') === 'treatment_modifier' || ($c['component_role'] ?? '') === 'pigmentation_contributor') {
+                $focusPoints[] = 'Address ' . ($c['subtype_label'] ?? 'modifier');
+            }
+        }
+        if (empty($foundPoints)) $foundPoints = ['Diffuse uneven tone.'];
+        if (empty($focusPoints)) $focusPoints = ['Follow standard care.'];
+
+        $summaryColumns = [
+            ['title' => 'What We Found', 'icon' => 'icon_target', 'colour' => 'gold', 'border' => 'gold', 'points' => array_slice($foundPoints, 0, 3)],
+            ['title' => 'What to Focus on First', 'icon' => 'icon_barrier', 'colour' => 'purple', 'border' => 'purple', 'points' => array_slice($focusPoints, 0, 3)],
+            ['title' => 'What Will Matter Most', 'icon' => 'icon_stable', 'colour' => 'cyan', 'border' => 'cyan', 'points' => ['Daily sun protection.', 'Consistency with the staged plan.', 'Reassessment as the skin responds.']]
+        ];
+
+        // Dynamic Cautions
+        $dynamicCautions = [];
+        $cautionIndex = 1;
+        foreach ($components as $c) {
+            if (($c['component_role'] ?? '') === 'treatment_modifier' || ($c['component_role'] ?? '') === 'pigmentation_contributor') {
+                $icon = 'icon_target';
+                $colour = 'cyan';
+                $border = 'cyan';
+
+                if (($c['family_code'] ?? '') === 'barrier_or_scale_modifier') {
+                    $icon = 'icon_hydration';
+                    $colour = 'cyan';
+                    $border = 'cyan';
+                }
+                if (($c['family_code'] ?? '') === 'active_inflammatory_process') {
+                    $icon = 'icon_stable';
+                    $colour = 'coral';
+                    $border = 'coral';
+                }
+                if (($c['subtype_code'] ?? '') === 'structural_shadow') {
+                    $icon = 'icon_eye';
+                    $colour = 'purple';
+                    $border = 'purple';
+                }
+
+                $dynamicCautions[] = [
+                    'number' => (string)$cautionIndex++,
+                    'title' => ucwords($c['subtype_label'] ?? 'Caution'),
+                    'copy' => $c['patient_explanation'],
+                    'icon' => $icon,
+                    'colour' => $colour,
+                    'border' => $border
+                ];
+            }
+        }
+        if (empty($dynamicCautions)) {
+            $dynamicCautions[] = ['number' => '1', 'title' => 'Sun Exposure', 'copy' => 'Consistent sun protection is required to maintain results.', 'icon' => 'icon_sun', 'colour' => 'gold', 'border' => 'gold'];
+        }
+
+        $viewData = [
+            'assets' => $assets,
+            'patient' => [
+                'name' => $record->user->name ?? 'Patient',
+                'age' => $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A',
+                'gender' => $record->user->gender ? strtoupper(substr($record->user->gender, 0, 1)) : 'N/A'
+            ],
+            'reportDate' => date('d M Y'),
+            'fitz' => $fitz,
+            'summary' => $this->shortenPigmentText($summary, 520),
+            'shortSummary' => $this->shortenPigmentText($short, 310),
+            'melanin' => $melanin, 'erythema' => $erythema,
+            'melaninBand' => $this->scorePigmentBand($melanin), 'erythemaBand' => $this->scorePigmentBand($erythema),
+            'profileRows' => $profileRows,
+            'main' => $main, 'drivers' => $drivers, 'modes' => $modes,
+            'cautions' => array_slice($dynamicCautions, 0, 4),
+            'snapshotOrder' => array_values(array_map(fn($key) => ['key' => $key, 'title' => $modeMeta[$key]['title'], 'colour' => $modeMeta[$key]['colour']], array_keys($modeMeta))),
+            'careCards' => array_slice($careCards, 0, 3),
+            'standouts' => array_slice($standouts, 0, 3),
+            'summaryColumns' => $summaryColumns,
+            'journey' => [
+                ['title' => 'Today’s Diagnosis', 'copy' => 'Comprehensive skin and pigment analysis completed.', 'icon' => 'icon_calendar', 'colour' => 'gold'],
+                ['title' => 'Personalised Treatment Plan', 'copy' => 'A staged plan tailored to the confirmed findings.', 'icon' => 'icon_target', 'colour' => 'purple'],
+                ['title' => 'Guided Sessions', 'copy' => 'In-clinic treatment plus home-care guidance.', 'icon' => 'icon_user', 'colour' => 'blue'],
+                ['title' => 'Reassessment', 'copy' => 'Progress review and plan refinement.', 'icon' => 'icon_stable', 'colour' => 'cyan'],
+            ]
+        ];
+
+        // Dynamic Map Generation
+        $mapLeft = [];
+        $mapRight = [];
+        $mapLegend = [];
+        $legendColors = [];
+
+        foreach ($components as $c) {
+            $side = 'Right'; // default
+            $regions = $c['regions'] ?? [];
+            $loc = $c['clinical_location_text'] ?? '';
+
+            $isLeft = in_array('left_malar_cheek', $regions) || in_array('left_periocular', $regions) || stripos($loc, 'left') !== false;
+            $isRight = in_array('right_malar_cheek', $regions) || in_array('right_periocular', $regions) || stripos($loc, 'right') !== false;
+
+            if ($isLeft && $isRight) $side = 'Both';
+            else if ($isLeft) $side = 'Left';
+
+            $colour = 'gold'; // default for primary_pigment_target
+            $legendTitle = 'Main Pigment Finding';
+            if (($c['component_role'] ?? '') === 'treatment_modifier') {
+                if (($c['family_code'] ?? '') === 'active_inflammatory_process') {
+                    $colour = 'coral';
+                    $legendTitle = 'Settle First';
+                } else if (($c['family_code'] ?? '') === 'barrier_or_scale_modifier') {
+                    $colour = 'purple';
+                    $legendTitle = 'Support Barrier First';
+                } else {
+                    $colour = 'cyan';
+                    $legendTitle = 'Do Not Treat Directly';
+                }
+            }
+            if (($c['component_role'] ?? '') === 'pigmentation_contributor') {
+                $colour = 'purple';
+                $legendTitle = 'Non-Pigment Contributor';
+            }
+
+            $item = [
+                'title' => ucwords($c['subtype_label'] ?? 'Finding'),
+                'copy' => $this->shortenPigmentText($c['treatment_relevant_morphology'] ?? $loc, 100),
+                'colour' => $colour
+            ];
+
+            if ($side === 'Left' || $side === 'Both') {
+                $mapLeft[] = $item;
+            }
+            if ($side === 'Right' || $side === 'Both') {
+                $mapRight[] = $item;
+            }
+
+            if (!isset($legendColors[$colour])) {
+                $legendColors[$colour] = true;
+                $mapLegend[] = [
+                    'title' => $legendTitle,
+                    'copy' => 'Highlighted based on diagnosis role.',
+                    'colour' => $colour
+                ];
+            }
+        }
+        $viewData['mapLeft'] = array_slice($mapLeft, 0, 4);
+        $viewData['mapRight'] = array_slice($mapRight, 0, 4);
+        $viewData['mapLegend'] = $mapLegend;
+
+        // "What This Means" cards for page 2
+        $whatThisMeans = [
+            ['title' => 'Gradual improvement is realistic', 'copy' => 'Pigment change should be assessed over a staged course.', 'colour' => 'cyan']
+        ];
+        if (($risk['sunscreen_compliance_risk'] ?? '') === 'high') {
+            $whatThisMeans[] = ['title' => 'Sun protection is essential', 'copy' => 'It helps prevent fresh pigment and rapid recurrence.', 'colour' => 'gold'];
+        }
+        foreach ($components as $c) {
+            if (($c['family_code'] ?? '') === 'barrier_or_scale_modifier') {
+                $whatThisMeans[] = ['title' => 'Care must be gentle', 'copy' => 'Barrier support comes before stronger treatment.', 'colour' => 'purple'];
+                break;
+            }
+        }
+        if (count($whatThisMeans) < 3) {
+            $whatThisMeans[] = ['title' => 'Consistency is key', 'copy' => 'Follow the staged plan carefully.', 'colour' => 'purple'];
+        }
+        $viewData['whatThisMeans'] = array_slice($whatThisMeans, 0, 3);
+
+        // Priorities for page 1
+        $viewData['priorities'] = array_slice($main, 0, 3);
+
+        $html = view('pdf.pigmentation.diagnosis', $viewData)->render();
+
+        $config = config('project.mpdf_config');
+        // Override margins and format for this specific report
+        $config['margin_left'] = 7;
+        $config['margin_right'] = 7;
+        $config['margin_top'] = 6;
+        $config['margin_bottom'] = 16;
+        $config['format'] = [215.9, 279.4];
+
+        // Register custom fonts
+        $fontDirs = array_values(array_unique(array_merge($config['fontDir'] ?? [], [
+            resource_path('views/fonts')
+        ])));
+        $config['fontDir'] = $fontDirs;
+
+        $fontData = $config['fontdata'] ?? [];
+        $fontData['montserratreportv36'] = [
+            'R' => 'Montserrat-Regular.ttf',
+            'B' => 'Montserrat-Bold.ttf',
+            'I' => 'Montserrat-Italic.ttf',
+            'BI' => 'Montserrat-BoldItalic.ttf'
+        ];
+        $fontData['playfairreportv36'] = [
+            'R' => 'PlayfairDisplay-Regular.ttf',
+            'I' => 'PlayfairDisplay-Italic.ttf',
+            'B' => 'PlayfairDisplay-Bold.ttf',
+            'BI' => 'PlayfairDisplay-BoldItalic.ttf'
+        ];
+        $config['fontdata'] = $fontData;
+        $config['default_font'] = 'montserratreportv36';
+
+        $mpdf = new \Mpdf\Mpdf($config);
         $mpdf->SetDisplayMode('fullpage');
         $mpdf->shrink_tables_to_fit = 1;
         $mpdf->showImageErrors = true;
+
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output('diagnosis-report.pdf', 'S'), 200, [
+        $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
+        $filename = $patientName . '_pigmentation_diagnosis_report.pdf';
+
+        return response($mpdf->Output($filename, 'S'), 200, [
             'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="diagnosis-report.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 
@@ -500,7 +917,7 @@ class ReportController extends BaseApiController
 
         $data['patient'] = $record->user;
         $data['record'] = $record;
-        
+
         if ($session) {
             $data['post_diagnosis'] = $session->post_diagnosis;
             $data['report_date'] = $session->updated_at;
@@ -527,7 +944,7 @@ class ReportController extends BaseApiController
         $data['compare_type'] = $compareTo;
 
         $html = view('pdf.pigmentation.post-treatment', $data)->render();
-        
+
         $mpdf = new \Mpdf\Mpdf(config('project.mpdf_config'));
         $mpdf->AddFontDirectory( __DIR__ . config('project.mpdf_font_dir'));
         $mpdf->SetDisplayMode('fullpage');
@@ -542,5 +959,41 @@ class ReportController extends BaseApiController
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
+    }
+
+    // --- Helper methods for Pigmentation Diagnosis ---
+    private function shortenPigmentText(string $text, int $limit): string {
+        $text = trim(preg_replace('/\s+/u', ' ', $text));
+        if (mb_strlen($text) <= $limit) return $text;
+        $cut = mb_substr($text, 0, $limit);
+        $p = mb_strrpos($cut, ' ');
+        if ($p !== false) $cut = mb_substr($cut, 0, $p);
+        return rtrim($cut, ',;: ') . '.';
+    }
+
+    private function fitzpatrickFromDiagnosis(array $d): string {
+        foreach ([($d['summaries']['clinical_summary_for_doctor'] ?? ''), ($d['validation_metadata']['reasoning'] ?? '')] as $text) {
+            if (preg_match('/Fitzpatrick\s+([IVX]+)/i', (string)$text, $m)) return strtoupper($m[1]);
+        }
+        return 'IV';
+    }
+
+    private function findPigmentComponent(array $components, string $id): array {
+        foreach ($components as $c) if (($c['diagnostic_component_id'] ?? '') === $id) return $c;
+        return [];
+    }
+
+    private function patientPigmentCopy(array $c, string $fallback, int $limit): string {
+        return $this->shortenPigmentText((string)($c['patient_explanation'] ?? $fallback), $limit);
+    }
+
+    private function scorePigmentBand(int $score): string {
+        return match (true) {
+            $score <= 10 => 'Minimal',
+            $score <= 35 => 'Mild',
+            $score <= 65 => 'Moderate',
+            $score <= 85 => 'High',
+            default => 'Very High'
+        };
     }
 }
