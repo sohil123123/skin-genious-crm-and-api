@@ -822,7 +822,8 @@ class ReportController extends BaseApiController
         $config['margin_left'] = 7;
         $config['margin_right'] = 7;
         $config['margin_top'] = 6;
-        $config['margin_bottom'] = 16;
+        $config['margin_bottom'] = 20;
+        $config['margin_footer'] = 8;
         $config['format'] = [215.9, 279.4];
 
         // Register custom fonts
