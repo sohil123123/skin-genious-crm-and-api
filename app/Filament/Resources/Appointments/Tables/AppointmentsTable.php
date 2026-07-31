@@ -27,6 +27,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 
@@ -49,6 +50,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
 use App\Enums\AppointmentStatus;
+use App\Enums\AssessmentStatus;
 use App\Enums\AppointmentType;
 
 class AppointmentsTable
@@ -141,7 +143,44 @@ class AppointmentsTable
                     ->formatStateUsing(fn(bool $state) => $state ? 'Yes' : 'No'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn($record) => $record->status?->getColor() ?? 'gray'),
+                    ->color(fn($record) => $record->status?->getColor() ?? 'gray')
+                    ->icon(fn($record) => $record->status?->getIcon() ?? 'heroicon-o-clock')
+                    ->tooltip('Click to update status and note')
+                    ->action(
+                        Action::make('updateStatusColumn')
+                            ->label('Update Status & Note')
+                            ->modalHeading(fn($record) => "Update Status & Note (Appointment #{$record->id})")
+                            ->modalIcon('heroicon-o-arrow-path')
+                            ->modalWidth('md')
+                            ->form([
+                                Select::make('status')
+                                    ->label('Status')
+                                    ->options(
+                                        collect(AppointmentStatus::cases())->mapWithKeys(fn ($case) => [
+                                            $case->value => $case->getLabel(),
+                                        ])->all()
+                                    )
+                                    ->default(fn ($record) => $record->status?->value ?? $record->status)
+                                    ->required(),
+                                Textarea::make('notes')
+                                    ->label('Note')
+                                    ->placeholder('Write note here...')
+                                    ->rows(3)
+                                    ->default(fn ($record) => $record->notes),
+                            ])
+                            ->action(function (Appointment $record, array $data): void {
+                                $record->update([
+                                    'status' => $data['status'],
+                                    'notes' => $data['notes'] ?? null,
+                                ]);
+
+                                Notification::make()
+                                    ->title('Status Updated Successfully 🎉')
+                                    ->body("Appointment status changed to " . (AppointmentStatus::tryFrom($data['status'])?->getLabel() ?? $data['status']) . ".")
+                                    ->success()
+                                    ->send();
+                            })
+                    ),
                 TextColumn::make('deleted_at')
                     ->dateTime('d M Y, h:i A')
                     ->sortable()
@@ -492,10 +531,10 @@ class AppointmentsTable
                         ->icon('heroicon-o-plus')
                         ->color('info')
                         ->action(function ($record) {
-                            $assessment = \App\Models\Assessment::create([
+                            $assessment = Assessment::create([
                                 'user_id' => $record->client->id,
                                 'assessment_type' => 'pigmentation',
-                                'status' => \App\Enums\AssessmentStatus::InProgress,
+                                'status' => AssessmentStatus::InProgress,
                             ]);
                             $record->update(['assessment_id' => $assessment->id]);
                             $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
@@ -503,6 +542,41 @@ class AppointmentsTable
                             return redirect($assessmentUrl);
                         })
                         ->requiresConfirmation(),
+                    Action::make('update_status')
+                        ->label('Update Status & Note')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('primary')
+                        ->modalHeading(fn($record) => "Update Status & Note (Appointment #{$record->id})")
+                        ->modalIcon('heroicon-o-arrow-path')
+                        ->modalWidth('md')
+                        ->form([
+                            Select::make('status')
+                                ->label('Status')
+                                ->options(
+                                    collect(AppointmentStatus::cases())->mapWithKeys(fn ($case) => [
+                                        $case->value => $case->getLabel(),
+                                    ])->all()
+                                )
+                                ->default(fn ($record) => $record->status?->value ?? $record->status)
+                                ->required(),
+                            Textarea::make('notes')
+                                ->label('Note')
+                                ->placeholder('Write note here...')
+                                ->rows(3)
+                                ->default(fn ($record) => $record->notes),
+                        ])
+                        ->action(function (Appointment $record, array $data): void {
+                            $record->update([
+                                'status' => $data['status'],
+                                'notes' => $data['notes'] ?? null,
+                            ]);
+
+                            Notification::make()
+                                ->title('Status Updated Successfully 🎉')
+                                ->body("Appointment status changed to " . (AppointmentStatus::tryFrom($data['status'])?->getLabel() ?? $data['status']) . ".")
+                                ->success()
+                                ->send();
+                        }),
                     Action::make('start_session')
                         ->label('Start Session')
                         ->visible(fn($record) => can_start_session($record))
