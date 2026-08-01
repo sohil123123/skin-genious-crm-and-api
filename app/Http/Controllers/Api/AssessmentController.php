@@ -125,7 +125,7 @@ class AssessmentController extends BaseApiController
                             'type' => 'treatment',
                             'clinic_id' => $assessment->clinic_id,
                             'user_id' => $assessment->user_id,
-                            'therapist_id' => $request->input('therapist_id'),
+                            'therapist_id' => $request->input('therapist_id') ?? $assessment->created_by,
                             'status' => 'confirmed',
                             'start_datetime' => now(),
                             'end_datetime' => now()->addMinutes(isset($treatment['treatment_time']) ? (int) filter_var($treatment['treatment_time'], FILTER_SANITIZE_NUMBER_INT) : null),
