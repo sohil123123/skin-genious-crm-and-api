@@ -406,8 +406,12 @@ class AssessmentController extends BaseApiController
                 ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
                 ->toMediaCollection('post_assessment_images', 'user_post_assessment_images');
         } elseif ($request->assessment_type === 'pigmentation-post') {
+            $customProps = ['openai_file_id' => $openaiFileId, 'mode' => $request->mode];
+            if ($request->has('is_panel')) {
+                $customProps['is_panel'] = filter_var($request->is_panel, FILTER_VALIDATE_BOOLEAN);
+            }
             $assessment->addMedia($image)
-                ->withCustomProperties(['openai_file_id' => $openaiFileId, 'mode' => $request->mode])
+                ->withCustomProperties($customProps)
                 ->toMediaCollection('pigmentation_post_assessment_images', 'user_pigmentation_post_assessment_images');
         }
 
