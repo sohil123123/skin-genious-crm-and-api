@@ -41,11 +41,15 @@
 
 <div class="eyebrow" style="text-align:center;margin-top:4mm;">Your planned treatment mix</div>
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:1.5mm;"><tr>
-<td width="32%" class="card card-gold pad-lg" style="height:49mm;text-align:center;"><img src="{{ $ui['icon_glow'] }}" class="icon-xl" alt="Laser"><div class="metric-number gold" style="font-size:25pt;margin-top:1mm;">{{ $qCount }}</div><div class="mini-value-lg gold">Q-Switch Laser Visits</div><div class="copy" style="margin-top:1.5mm;">Targets background sun-related tone and cheek speckling on suitable areas.</div></td>
-<td width="2%"></td>
-<td width="32%" class="card card-purple pad-lg" style="height:49mm;text-align:center;"><img src="{{ $ui['icon_renewal'] }}" class="icon-xl" alt="Microneedling"><div class="metric-number purple" style="font-size:25pt;margin-top:1mm;">{{ $mnCount }}</div><div class="mini-value-lg purple">Microneedling Visits</div><div class="copy" style="margin-top:1.5mm;">Supports cheek pigment, tone uniformity and selected under-eye care when ready.</div></td>
-<td width="2%"></td>
-<td width="32%" class="card card-cyan pad-lg" style="height:49mm;text-align:center;"><img src="{{ $ui['icon_barrier'] }}" class="icon-xl" alt="LED"><div class="metric-number cyan" style="font-size:25pt;margin-top:1mm;">{{ $ledCount }}</div><div class="mini-value-lg cyan">LED Support Uses</div><div class="copy" style="margin-top:1.5mm;">Calming and recovery support after treatment; not counted as a separate visit.</div></td>
+@foreach($treatmentMix as $mixItem)
+<td width="32%" class="card card-{{ $mixItem['colour'] }} pad-lg" style="height:49mm;text-align:center;">
+  <img src="{{ $ui[$mixItem['icon']] }}" class="icon-xl" alt="{{ $mixItem['label'] }}">
+  <div class="metric-number {{ $mixItem['colour'] }}" style="font-size:25pt;margin-top:1mm;">{{ $mixItem['count'] }}</div>
+  <div class="mini-value-lg {{ $mixItem['colour'] }}">{{ $mixItem['label'] }}</div>
+  <div class="copy" style="margin-top:1.5mm;">{{ $mixItem['copy'] }}</div>
+</td>
+@if(!$loop->last)<td width="2%"></td>@endif
+@endforeach
 </tr></table>
 
 <div class="card card-gold pad-lg" style="margin-top:4mm;height:31mm;"><table width="100%"><tr><td width="14%" style="text-align:center;"><img src="{{ $ui['icon_sun'] }}" class="icon-lg" alt="Sun protection"></td><td width="86%"><div class="panel-title-sm gold">The course depends on daily sun and heat control</div><div class="copy-lg" style="margin-top:1mm;">Visible improvement can be gradual. Consistent sunscreen reapplication, gentle skincare and avoiding unnecessary irritation are central parts of the plan.</div></td></tr></table></div>
