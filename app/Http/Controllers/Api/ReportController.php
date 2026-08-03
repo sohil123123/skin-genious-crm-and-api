@@ -885,16 +885,16 @@ class ReportController extends BaseApiController
         $notTargets = [];
 
         foreach ($components as $component) {
-            $isTarget = ($component['treatment_eligibility'] ?? '') === 'eligible' 
+            $isTarget = ($component['treatment_eligibility'] ?? '') === 'eligible'
                      || ($component['treatment_eligibility'] ?? '') === 'medical_control_first'
                      || !empty($component['selected_modality_id']);
 
             $title = $component['working_diagnosis'] ?? 'Condition';
             $location = $component['target_location_text'] ?? $component['clinical_location_text'] ?? '';
-            
+
             $outcome = $outcomesById[(string)($component['diagnostic_component_id'] ?? '')] ?? [];
             $expected = $outcome['expected_change'] ?? $component['expected_response'] ?? '';
-            
+
             $modality = $component['selected_modality_id'] ?? '';
             $protocol = $component['selected_protocol_id'] ?? '';
             $approach = $modality ? $this->ptpTreatmentName($modality, $protocol) : 'Observe / Supportive';
@@ -902,7 +902,7 @@ class ReportController extends BaseApiController
             $icon = 'icon_target';
             $colour = 'cyan';
             $titleLower = strtolower($title);
-            
+
             if (str_contains($titleLower, 'tone') || str_contains($titleLower, 'melanosis')) {
                 $icon = 'icon_sun';
                 $colour = 'gold';
@@ -1004,7 +1004,7 @@ class ReportController extends BaseApiController
             ],
             'reportDate' => $record->created_at ? $record->created_at->format('d M Y') : date('d M Y'),
             'ui' => $ui,
-            'courseDuration' => (string)($summary['course_duration'] ?? $plan['duration'] ?? '~5 months'),
+            'courseDuration' => $this->ptpFormatDuration((string)($summary['course_duration'] ?? $plan['duration'] ?? '~5 months')),
             'totalSessions' => (int)($summary['total_planned_sessions'] ?? $course['expected_total_sessions'] ?? 6),
             'reassessAfter' => (int)($summary['first_reassessment_after_session'] ?? $course['next_formal_reassessment_after_session'] ?? 2),
             'qCount' => $qCount,
@@ -1036,7 +1036,7 @@ class ReportController extends BaseApiController
         $html = view('pdf.pigmentation_treatment.report', $viewData)->render();
 
         $config = config('project.mpdf_config');
-        
+
         $config['margin_left'] = 7;
         $config['margin_right'] = 7;
         $config['margin_top'] = 6;
@@ -1239,35 +1239,167 @@ class ReportController extends BaseApiController
     }
 
     private function ptpBuildTimeline(array $plan): array {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
         $timeline = [];
-        $timingBySession = [];
-        foreach (($plan['current_treatment_block']['sessions'] ?? $plan['current_sessions'] ?? []) as $session) {
-            $timingBySession[(int)($session['session_number'] ?? 0)] = (string)($session['timing'] ?? '');
+
+        $currentSessions = $planData['current_treatment_block']['sessions']
+            ?? $planData['current_sessions']
+            ?? [];
+        $futureSessions = $planData['future_provisional_sessions'] ?? [];
+        $genericSessions = $planData['sessions'] ?? [];
+
+        $allSessions = [];
+        foreach ($currentSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0) {
+                $allSessions[$n] = $session;
+            }
         }
-        foreach (($plan['future_provisional_sessions'] ?? []) as $session) {
-            $timingBySession[(int)($session['session_number'] ?? 0)] = (string)($session['timing'] ?? '');
+        foreach ($futureSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0 && !isset($allSessions[$n])) {
+                $allSessions[$n] = $session;
+            }
+        }
+        foreach ($genericSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0 && !isset($allSessions[$n])) {
+                $allSessions[$n] = $session;
+            }
         }
 
-        $definitions = [
-            1 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Begin conservative treatment for overall sun-related tone and cheek spots, followed by calming recovery support.', 'phase' => 'First treatment block', 'colour' => 'gold'],
-            2 => ['treatments' => ['Microneedling with Active', 'Red LED Recovery Support'], 'focus' => 'Support cheek pigment and skin quality on calm non-eye areas, then review readiness for later under-eye care.', 'phase' => 'First treatment block', 'colour' => 'purple'],
-            3 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Repeat the laser session if the first laser visit was well tolerated and no prolonged irritation developed.', 'phase' => 'Planned after reassessment', 'colour' => 'cyan'],
-            4 => ['treatments' => ['Microneedling with Active', 'Under-Eye Microneedling', 'Red LED Recovery Support'], 'focus' => 'Continue microneedling and add under-eye treatment only when dryness has settled and the skin is comfortable.', 'phase' => 'Planned after reassessment', 'colour' => 'coral'],
-            5 => ['treatments' => ['Q-Switch Laser', 'Red LED Recovery Support'], 'focus' => 'Complete the planned laser series if improvement and tolerance remain good.', 'phase' => 'Planned after reassessment', 'colour' => 'cyan'],
-            6 => ['treatments' => ['Microneedling with Active', 'Under-Eye Microneedling', 'Red LED Recovery Support'], 'focus' => 'Complete the microneedling series, including under-eye treatment only if the barrier remains stable.', 'phase' => 'Planned after reassessment', 'colour' => 'coral'],
+        ksort($allSessions);
+
+        $blocks = $planData['master_treatment_roadmap']['blocks'] ?? [];
+        $blockBySession = [];
+        foreach ($blocks as $idx => $block) {
+            $bNum = (int)($block['block_number'] ?? ($idx + 1));
+            $bStatus = (string)($block['detail_status'] ?? '');
+            $bPurpose = (string)($block['purpose'] ?? '');
+            $bTitle = (string)($block['title'] ?? $block['name'] ?? $block['phase'] ?? '');
+            foreach (($block['session_numbers'] ?? []) as $sNum) {
+                $blockBySession[(int)$sNum] = [
+                    'block_number' => $bNum,
+                    'title' => $bTitle,
+                    'detail_status' => $bStatus,
+                    'purpose' => $bPurpose,
+                ];
+            }
+        }
+
+        $ordinals = [
+            1 => 'First treatment block',
+            2 => 'Second treatment block',
+            3 => 'Third treatment block',
+            4 => 'Fourth treatment block',
+            5 => 'Fifth treatment block',
+            6 => 'Sixth treatment block',
         ];
 
-        foreach ($definitions as $number => $definition) {
+        $blockColors = [
+            1 => 'gold',
+            2 => 'purple',
+            3 => 'cyan',
+            4 => 'coral',
+        ];
+        $palette = ['gold', 'purple', 'cyan', 'coral'];
+
+        foreach ($allSessions as $number => $session) {
+            $rawUses = array_merge(
+                $session['treatment_operations'] ?? [],
+                $session['planned_protocol_uses'] ?? [],
+                $session['supportive_protocol_uses'] ?? []
+            );
+
+            if (!empty($session['treatments']) && is_array($session['treatments'])) {
+                $treatments = $session['treatments'];
+            } else {
+                $treatments = $this->ptpUniqueTreatments($rawUses);
+            }
+
+            if (empty($treatments)) {
+                $treatments = ['Treatment Session'];
+            }
+
+            $rawFocus = $session['focus']
+                ?? $session['session_goal']
+                ?? $session['retain_if']
+                ?? ($blockBySession[$number]['purpose'] ?? null)
+                ?? ('Session ' . $number . ' treatment focus');
+
+            $focus = $this->ptpShorten((string)$rawFocus, 140);
+
+            $bInfo = $blockBySession[$number] ?? [];
+            $bNum = (int)($bInfo['block_number'] ?? (int)ceil($number / 2));
+
+            if (!empty($session['phase'])) {
+                $phase = (string)$session['phase'];
+            } elseif (!empty($bInfo['title'])) {
+                $phase = (string)$bInfo['title'];
+            } elseif (isset($ordinals[$bNum])) {
+                $phase = $ordinals[$bNum];
+            } else {
+                $phase = 'Block ' . $bNum;
+            }
+
+            if (!empty($session['colour'])) {
+                $colour = (string)$session['colour'];
+            } else {
+                $colour = $blockColors[$bNum] ?? $palette[($bNum - 1) % count($palette)];
+            }
+
+            $timingRaw = !empty($session['timing']) ? (string)$session['timing'] : ('Session ' . $number);
+            $timing = $this->ptpFormatTiming($timingRaw, $number);
+
             $timeline[] = [
                 'number' => $number,
-                'timing' => $timingBySession[$number] ?? ('Session ' . $number),
-                'treatments' => $definition['treatments'],
-                'focus' => $definition['focus'],
-                'phase' => $definition['phase'],
-                'colour' => $definition['colour'],
+                'timing' => $timing,
+                'treatments' => $treatments,
+                'focus' => $focus,
+                'phase' => $phase,
+                'colour' => $colour,
             ];
         }
+
         return $timeline;
+    }
+
+    private function ptpFormatTiming(string $timing, int $number): string {
+        $timing = trim($timing);
+        if ($timing === '') {
+            return 'Session ' . $number;
+        }
+        $timing = str_replace('_', ' ', $timing);
+        $timing = preg_replace('/\s+/u', ' ', $timing) ?? $timing;
+
+        if (mb_strlen($timing) > 35) {
+            if (preg_match('/^(Session\s+\d+)\s*\((.*?)\)$/i', $timing, $m)) {
+                $inner = $this->ptpCleanText($m[2]);
+                $inner = preg_replace('/\b(after|if|depending on|unless|only if)\b.*$/i', '', $inner);
+                $inner = trim($inner, " \t\n\r\0\x0B,;-");
+                if (mb_strlen($inner) > 22) {
+                    $inner = mb_substr($inner, 0, 20) . '...';
+                }
+                return $m[1] . ($inner !== '' ? ' (' . $inner . ')' : '');
+            }
+            return $this->ptpShorten($timing, 35);
+        }
+        return $timing;
+    }
+
+    private function ptpFormatDuration(string $duration): string {
+        $duration = trim($duration);
+        if ($duration === '') return '~5 months';
+
+        if (str_contains($duration, '(')) {
+            $parts = explode('(', $duration, 2);
+            $duration = trim($parts[0]);
+        }
+        $duration = preg_replace('/^approx\.?\s*/i', '~', $duration) ?? $duration;
+        if (mb_strlen($duration) > 22) {
+            $duration = $this->ptpShorten($duration, 20);
+        }
+        return $duration;
     }
 
     private function ptpPatientFacingSession(array $session): array {
