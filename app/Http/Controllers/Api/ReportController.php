@@ -912,7 +912,9 @@ class ReportController extends BaseApiController
             'qCount' => $qCount,
             'mnCount' => $mnCount,
             'ledCount' => $ledCount,
-            'treatmentMix' => $this->ptpBuildTreatmentMix($plan),
+            'treatmentMix' => $treatmentMix = $this->ptpBuildTreatmentMix($plan),
+            'sequenceRationale' => $this->ptpBuildSequenceRationale($plan, $treatmentMix),
+            'priorities' => $this->ptpBuildPriorities($plan),
             'packageSummary' => (string)($plan['derived_package_summary_text'] ?? $summary['package_summary_text'] ?? ''),
             'planName' => $this->ptpCleanText((string)($plan['plan_name'] ?? $plan['linear_treatment_plan']['plan_name'] ?? 'Sun-Related Pigment and Under-Eye Care Plan')),
             'clientExplanation' => $this->ptpCleanText((string)($plan['client_explanation'] ?? $plan['linear_treatment_plan']['client_explanation'] ?? $course['base_case_logic'] ?? $plan['derived_package_summary_text'] ?? $summary['package_summary_text'] ?? 'This course targets overall sun-related background tone and cheek speckling with a conservative Q-Switch laser series plus staged microneedling.')),
@@ -1470,6 +1472,114 @@ class ReportController extends BaseApiController
         unset($mItem);
 
         return array_slice($mix, 0, 3);
+    }
+
+    private function ptpBuildSequenceRationale(array $plan, array $treatmentMix): string {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+
+        $rawLogic = $planData['course']['base_case_logic']
+            ?? $planData['full_course_summary']['base_case_logic']
+            ?? $planData['master_treatment_roadmap']['roadmap_logic']
+            ?? $planData['sequence_rationale']
+            ?? null;
+
+        if (!empty($rawLogic)) {
+            $cleanLogic = $this->ptpCleanText((string)$rawLogic);
+            if (mb_strlen($cleanLogic) > 20) {
+                return $this->ptpShorten($cleanLogic, 260);
+            }
+        }
+
+        $modalities = array_column($treatmentMix, 'modality_id');
+        $parts = [];
+
+        if (in_array('q_switch_laser', $modalities, true)) {
+            $parts[] = 'Q-Switch laser sessions focus on overall sun-related background tone and cheek speckling.';
+        }
+        if (in_array('microneedling_with_active', $modalities, true)) {
+            $parts[] = 'Microneedling sessions support skin quality, tone uniformity and targeted active penetration.';
+        }
+        if (in_array('chemical_peel', $modalities, true)) {
+            $parts[] = 'Clinical peel sessions encourage gentle epidermal renewal and background melanin load reduction.';
+        }
+
+        $parts[] = 'Under-eye treatment is deliberately staged because the skin is delicate and requires barrier-first care.';
+
+        return implode(' ', $parts);
+    }
+
+    private function ptpBuildPriorities(array $plan): array {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+        $summary = $planData['full_course_summary']['current_full_course_summary']
+            ?? $planData['full_course_summary']['initial_full_course_summary']
+            ?? $planData['full_course_summary']
+            ?? [];
+
+        $assumptions = $summary['base_case_assumptions'] ?? $planData['base_case_assumptions'] ?? [];
+        $priorities = [];
+
+        $block1Goal = $planData['current_treatment_block']['block_goal']
+            ?? ($assumptions[1] ?? null);
+
+        if (!empty($block1Goal)) {
+            $clean1 = $this->ptpCleanText((string)$block1Goal);
+            $priorities[] = [
+                'label' => 'First priority',
+                'copy' => $this->ptpShorten($clean1, 120),
+                'colour' => 'gold',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'First priority',
+                'copy' => 'Begin conservative pigment treatment while preserving mapped safety exclusions.',
+                'colour' => 'gold',
+            ];
+        }
+
+        $gateRules = $planData['current_treatment_block']['reassessment_gate']['decision_rules']
+            ?? $planData['reassessment_gate']['decision_rules']
+            ?? [];
+
+        if (!empty($gateRules[0])) {
+            $clean2 = $this->ptpCleanText((string)$gateRules[0]);
+            $priorities[] = [
+                'label' => 'Second priority',
+                'copy' => $this->ptpShorten($clean2, 120),
+                'colour' => 'purple',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'Second priority',
+                'copy' => 'Review tolerance and visible response at reassessment before expanding the plan.',
+                'colour' => 'purple',
+            ];
+        }
+
+        $sunAssumption = null;
+        foreach ($assumptions as $item) {
+            $itemStr = (string)$item;
+            if (str_contains(strtolower($itemStr), 'sunscreen') || str_contains(strtolower($itemStr), 'barrier') || str_contains(strtolower($itemStr), 'photoprotection')) {
+                $sunAssumption = $itemStr;
+                break;
+            }
+        }
+
+        if (!empty($sunAssumption)) {
+            $clean3 = $this->ptpCleanText((string)$sunAssumption);
+            $priorities[] = [
+                'label' => 'Ongoing priority',
+                'copy' => $this->ptpShorten($clean3, 120),
+                'colour' => 'cyan',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'Ongoing priority',
+                'copy' => 'Maintain daily sun protection and preserve skin barrier comfort throughout the course.',
+                'colour' => 'cyan',
+            ];
+        }
+
+        return array_slice($priorities, 0, 3);
     }
 
     private function ptpPatientFacingSession(array $session): array {

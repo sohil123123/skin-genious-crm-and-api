@@ -95,12 +95,16 @@
 @endforeach
 </table>
 
-<div class="card card-purple pad-lg" style="margin-top:4mm;height:40mm;"><table width="100%"><tr><td width="12%" style="text-align:center;"><img src="{{ $ui['icon_target'] }}" class="icon-lg" alt="Sequence"></td><td width="88%"><div class="panel-title purple">Why the plan alternates treatment types</div><div class="copy-lg" style="margin-top:1.3mm;">Q-Switch sessions focus on overall sun-related tone and cheek speckling. Microneedling sessions support the mixed cheek pattern and skin quality. Under-eye treatment is deliberately staged because the area is dry and has a structural shadow component.</div></td></tr></table></div>
+<div class="card card-purple pad-lg" style="margin-top:4mm;height:40mm;"><table width="100%"><tr><td width="12%" style="text-align:center;"><img src="{{ $ui['icon_target'] }}" class="icon-lg" alt="Sequence"></td><td width="88%"><div class="panel-title purple">Why the plan alternates treatment types</div><div class="copy-lg" style="margin-top:1.3mm;">{{ $sequenceRationale }}</div></td></tr></table></div>
 
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4mm;"><tr>
-<td width="32%" class="card card-gold pad-sm"><div class="mini-value-lg gold">First priority</div><div class="copy" style="margin-top:1mm;">Begin conservative pigment treatment while preserving the mapped safety exclusions.</div></td><td width="2%"></td>
-<td width="32%" class="card card-purple pad-sm"><div class="mini-value-lg purple">Second priority</div><div class="copy" style="margin-top:1mm;">Review tolerance and visible response before expanding the plan.</div></td><td width="2%"></td>
-<td width="32%" class="card card-cyan pad-sm"><div class="mini-value-lg cyan">Ongoing priority</div><div class="copy" style="margin-top:1mm;">Maintain sun protection and support the under-eye barrier throughout the course.</div></td>
+@foreach($priorities as $priority)
+<td width="32%" class="card card-{{ $priority['colour'] }} pad-sm">
+  <div class="mini-value-lg {{ $priority['colour'] }}">{{ $priority['label'] }}</div>
+  <div class="copy" style="margin-top:1mm;">{{ $priority['copy'] }}</div>
+</td>
+@if(!$loop->last)<td width="2%"></td>@endif
+@endforeach
 </tr></table>
 <pagebreak />
 
