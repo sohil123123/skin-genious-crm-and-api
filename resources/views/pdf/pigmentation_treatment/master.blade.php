@@ -52,16 +52,16 @@ td { vertical-align: top; }
 .pad { padding: 3mm; }
 .pad-lg { padding: 3.7mm; }
 .pad-sm { padding: 2.2mm 2.5mm; }
-.panel-title { font-size: 11pt; line-height: 1.15; font-weight: bold; color: #ffffff; }
-.panel-title-sm { font-size: 9.2pt; line-height: 1.15; font-weight: bold; color: #ffffff; }
-.copy { font-size: 7.2pt; line-height: 1.38; color: #c2d0d8; }
-.copy-lg { font-size: 8.3pt; line-height: 1.43; color: #e0ebf1; }
-.micro { font-size: 6.1pt; line-height: 1.27; color: #9eb2bf; }
-.mini-label { font-size: 5.7pt; line-height: 1.2; color: #859baa; text-transform: uppercase; letter-spacing: 0.4px; }
-.mini-value { font-size: 8.2pt; line-height: 1.22; color: #ffffff; font-weight: bold; }
-.mini-value-lg { font-size: 10pt; line-height: 1.18; color: #ffffff; font-weight: bold; }
+.panel-title { font-size: 11.5pt; line-height: 1.15; font-weight: bold; color: #ffffff; }
+.panel-title-sm { font-size: 9.8pt; line-height: 1.18; font-weight: bold; color: #ffffff; }
+.copy { font-size: 7.8pt; line-height: 1.35; color: #d2e1eb; }
+.copy-lg { font-size: 8.6pt; line-height: 1.4; color: #e4eef4; }
+.micro { font-size: 6.8pt; line-height: 1.27; color: #acc0ce; }
+.mini-label { font-size: 6.5pt; line-height: 1.2; color: #92a7b6; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+.mini-value { font-size: 8.5pt; line-height: 1.22; color: #ffffff; font-weight: bold; }
+.mini-value-lg { font-size: 10.2pt; line-height: 1.18; color: #ffffff; font-weight: bold; }
 .metric-number { font-size: 30pt; line-height: 1; color: #ffffff; font-weight: bold; }
-.metric-caption { font-size: 6pt; color: #a7bac6; text-transform: uppercase; letter-spacing: 0.45px; }
+.metric-caption { font-size: 6.5pt; color: #a7bac6; text-transform: uppercase; letter-spacing: 0.45px; }
 .icon-sm { width: 8.5mm; height: 8.5mm; }
 .icon-md { width: 12mm; height: 12mm; }
 .icon-lg { width: 15mm; height: 15mm; }
@@ -74,9 +74,13 @@ td { vertical-align: top; }
 .footer-page { font-size: 6pt; color: #e4c477; font-weight: bold; text-align: right; }
 .check-table td { vertical-align: middle; }
 .check-icon { width: 5.3mm; height: 5.3mm; }
-.session-number { font-size: 22pt; line-height: 1; font-weight: bold; }
+.session-number { font-size: 24pt; line-height: 1; font-weight: bold; }
 .timeline-dot { width: 9mm; height: 9mm; }
-.timeline-card { height: 37mm; }
+.timeline-card { height: 38mm; }
+.phase-label { font-size: 6.8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.timing-label { font-size: 6.8pt; font-weight: 600; color: #9bb7ca; text-align: right; text-transform: uppercase; letter-spacing: 0.3px; }
+.treatment-title { font-size: 9.8pt; font-weight: bold; line-height: 1.2; color: #ffffff; }
+.focus-copy { font-size: 7.8pt; line-height: 1.35; color: #d2e1eb; }
 .course-metric { text-align: center; vertical-align: middle; height: 38mm; }
 .course-metric-number { font-size: 27pt; line-height: 1; font-weight: bold; }
 .course-metric-label { margin-top: 1.4mm; font-size: 6.2pt; text-transform: uppercase; letter-spacing: 0.5px; color: #a8bac6; }

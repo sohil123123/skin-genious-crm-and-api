@@ -12,13 +12,29 @@
 <div class="header-rule"></div>
 
 <table width="100%" cellpadding="0" cellspacing="0"><tr>
-<td width="24%" class="card card-gold course-metric"><img src="{{ $ui['icon_calendar'] }}" class="icon-md" alt="Duration"><div class="course-metric-number gold" style="margin-top:2mm;">{{ $courseDuration }}</div><div class="course-metric-label">Estimated course</div></td>
+<td width="24%" class="card card-gold course-metric pad-sm">
+  <img src="{{ $ui['icon_calendar'] }}" class="icon-md" alt="Duration">
+  <div class="course-metric-number gold" style="font-size:16pt;margin-top:1.5mm;line-height:1.1;">{{ $courseDuration }}</div>
+  <div class="course-metric-label" style="margin-top:1.5mm;">Estimated course</div>
+</td>
 <td width="1.33%"></td>
-<td width="24%" class="card card-purple course-metric"><img src="{{ $ui['icon_target'] }}" class="icon-md" alt="Sessions"><div class="course-metric-number purple" style="margin-top:2mm;">{{ $totalSessions }}</div><div class="course-metric-label">Planned sessions</div></td>
+<td width="24%" class="card card-purple course-metric pad-sm">
+  <img src="{{ $ui['icon_target'] }}" class="icon-md" alt="Sessions">
+  <div class="course-metric-number purple" style="font-size:26pt;margin-top:1.5mm;">{{ $totalSessions }}</div>
+  <div class="course-metric-label" style="margin-top:1.5mm;">Planned sessions</div>
+</td>
 <td width="1.33%"></td>
-<td width="24%" class="card card-cyan course-metric"><img src="{{ $ui['icon_camera'] }}" class="icon-md" alt="Reassessment"><div class="course-metric-number cyan" style="margin-top:2mm;">After {{ $reassessAfter }}</div><div class="course-metric-label">Formal reassessment</div></td>
+<td width="24%" class="card card-cyan course-metric pad-sm">
+  <img src="{{ $ui['icon_camera'] }}" class="icon-md" alt="Reassessment">
+  <div class="course-metric-number cyan" style="font-size:19pt;margin-top:2mm;">After {{ $reassessAfter }}</div>
+  <div class="course-metric-label" style="margin-top:1.5mm;">Formal reassessment</div>
+</td>
 <td width="1.33%"></td>
-<td width="24%" class="card card-coral course-metric"><img src="{{ $ui['icon_stable'] }}" class="icon-md" alt="Adaptive plan"><div class="course-metric-number coral" style="font-size:20pt;margin-top:3mm;">Adaptive</div><div class="course-metric-label">Plan changes with response</div></td>
+<td width="24%" class="card card-coral course-metric pad-sm">
+  <img src="{{ $ui['icon_stable'] }}" class="icon-md" alt="Adaptive plan">
+  <div class="course-metric-number coral" style="font-size:19pt;margin-top:2mm;">Adaptive</div>
+  <div class="course-metric-label" style="margin-top:1.5mm;">Plan changes with response</div>
+</td>
 </tr></table>
 
 <div class="card card-purple pad-lg" style="margin-top:4mm;height:42mm;"><table width="100%"><tr><td width="12%" style="text-align:center;"><img src="{{ $ui['icon_glow'] }}" class="icon-lg" alt="Plan"></td><td width="88%"><div class="panel-title purple">{{ $planName }}</div><div class="copy-lg" style="margin-top:1.5mm;">{{ $clientExplanation }}</div></td></tr></table></div>
@@ -38,14 +54,36 @@
 {{-- PAGE 2 --}}
 @include('pdf.pigmentation_treatment.partials.header',['kicker'=>'Plan at a glance','page'=>2])
 <div class="eyebrow">The full treatment sequence</div>
-<div class="section-title">Your <span class="gold">6-Session</span> Journey</div>
-<div class="page-subtitle">Sessions 1 and 2 form the first detailed block. Sessions 3 to 6 remain planned but can be adjusted after reassessment.</div>
+<div class="section-title">Your <span class="gold">{{ $totalSessions }}-Session</span> Journey</div>
+<div class="page-subtitle">Sessions 1 to {{ $reassessAfter }} form the first detailed block. Sessions {{ $reassessAfter + 1 }} to {{ $totalSessions }} remain planned but can be adjusted after reassessment.</div>
 
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:3mm;">
 @foreach(array_chunk($timeline,2) as $row)
 <tr>
 @foreach($row as $session)
-<td width="49%" class="card card-{{ $session['colour'] }} pad-lg timeline-card"><table width="100%"><tr><td width="15%"><div class="session-number {{ $session['colour'] }}">{{ $session['number'] }}</div><div class="mini-label" style="margin-top:1mm;">{{ $session['timing'] }}</div></td><td width="85%"><div class="mini-label {{ $session['colour'] }}">{{ $session['phase'] }}</div><div class="panel-title-sm" style="margin-top:0.8mm;">{{ implode(' + ', $session['treatments']) }}</div><div class="copy" style="margin-top:1.2mm;">{{ $session['focus'] }}</div></td></tr></table></td>
+<td width="49%" class="card card-{{ $session['colour'] }} pad-lg timeline-card">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td width="13%" style="text-align:center;vertical-align:top;">
+        <div class="session-number {{ $session['colour'] }}">{{ $session['number'] }}</div>
+      </td>
+      <td width="87%" style="vertical-align:top;padding-left:2mm;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="55%" style="vertical-align:middle;">
+              <div class="phase-label {{ $session['colour'] }}">{{ $session['phase'] }}</div>
+            </td>
+            <td width="45%" style="text-align:right;vertical-align:middle;">
+              <div class="timing-label">{{ $session['timing'] }}</div>
+            </td>
+          </tr>
+        </table>
+        <div class="treatment-title" style="margin-top:1.5mm;">{{ implode(' + ', $session['treatments']) }}</div>
+        <div class="focus-copy" style="margin-top:1.8mm;">{{ $session['focus'] }}</div>
+      </td>
+    </tr>
+  </table>
+</td>
 @if(!$loop->last)<td width="2%"></td>@endif
 @endforeach
 </tr>
@@ -83,9 +121,9 @@
 <pagebreak />
 
 {{-- PAGE 4 --}}
-@include('pdf.pigmentation_treatment.partials.header',['kicker'=>'First treatment block','page'=>4])
-<div class="eyebrow">What happens first</div>
-<div class="section-title">Your <span class="gold">First Two</span> Sessions</div>
+@include('pdf.pigmentation_treatment.partials.header',['kicker'=>'Current detailed block','page'=>4])
+<div class="eyebrow">Detailed session breakdown</div>
+<div class="section-title">Your <span class="gold">Current Detailed</span> Sessions</div>
 <div class="page-subtitle">These are the current detailed sessions. Technical settings and provider execution steps remain clinician-facing and are not shown in this patient report.</div>
 
 @foreach($firstSessions as $session)
