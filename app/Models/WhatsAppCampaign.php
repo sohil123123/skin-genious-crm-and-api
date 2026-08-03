@@ -17,8 +17,12 @@ class WhatsAppCampaign extends Model
     protected $fillable = [
         'name',
         'description',
+        'message_type',
         'template_id',
         'template_variables',
+        'media_library_id',
+        'media_caption',
+        'header_image_path',
         'audience_type',
         'audience_filter',
         'audience_user_ids',
@@ -72,6 +76,11 @@ class WhatsAppCampaign extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function mediaLibrary(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppMediaLibrary::class, 'media_library_id');
     }
 
     /*

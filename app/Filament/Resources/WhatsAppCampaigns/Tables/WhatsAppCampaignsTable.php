@@ -25,10 +25,26 @@ class WhatsAppCampaignsTable
                     ->sortable()
                     ->weight('bold'),
 
-                TextColumn::make('template.name')
-                    ->label('Template')
+                TextColumn::make('message_type')
+                    ->label('Type')
                     ->badge()
-                    ->color('info'),
+                    ->color(fn (?string $state): string => match ($state) {
+                        'media' => 'warning',
+                        default => 'info',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => ucfirst($state ?? 'template')),
+
+                TextColumn::make('template.name')
+                    ->label('Template / Media')
+                    ->badge()
+                    ->formatStateUsing(fn (WhatsAppCampaign $record): string => match ($record->message_type) {
+                        'media' => $record->mediaLibrary?->name ?? 'Media File',
+                        default => $record->template?->name ?? '-',
+                    })
+                    ->color(fn (WhatsAppCampaign $record): string => match ($record->message_type) {
+                        'media' => 'warning',
+                        default => 'info',
+                    }),
 
                 TextColumn::make('status')
                     ->badge(),
