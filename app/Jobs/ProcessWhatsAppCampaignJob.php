@@ -72,6 +72,10 @@ class ProcessWhatsAppCampaignJob implements ShouldQueue
 
         $variableMapping = $campaign->template_variables ?? [];
 
+        // Extract header variables (e.g. media_id for image templates) from audience_filter
+        $audienceFilter = $campaign->audience_filter ?? [];
+        $headerVariables = $audienceFilter['__header_variables'] ?? [];
+
         foreach ($recipients as $recipient) {
             // Rate limiting: 80 messages per second is Meta's limit, we'll be conservative
             usleep(100000); // 100ms delay between messages (10/sec)
@@ -93,11 +97,11 @@ class ProcessWhatsAppCampaignJob implements ShouldQueue
                     );
                 }
 
-                // Build components for sending
-                $components = [];
-                if (!empty($resolvedVariables)) {
-                    $components = $template->buildComponentsForSending($resolvedVariables);
-                }
+                // Build components for sending (with header variables for image/media templates)
+                $components = $template->buildComponentsForSending(
+                    $resolvedVariables,
+                    $headerVariables
+                );
 
                 // Send the message
                 $log = $whatsAppService->sendTemplateMessage(
