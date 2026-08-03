@@ -27,16 +27,20 @@ class Setting extends Model
         'description',
     ];
 
+    protected static array $runtimeCache = [];
+
     /**
      * The "booted" method of the model.
      */
     protected static function booted()
     {
         static::saved(function ($setting) {
+            unset(static::$runtimeCache[$setting->key]);
             Cache::forget("setting_{$setting->key}");
         });
 
         static::deleted(function ($setting) {
+            unset(static::$runtimeCache[$setting->key]);
             Cache::forget("setting_{$setting->key}");
         });
     }
@@ -46,11 +50,19 @@ class Setting extends Model
      */
     public static function getValue(string $key, mixed $default = null): mixed
     {
-        return Cache::rememberForever("setting_{$key}", function () use ($key, $default) {
+        if (array_key_exists($key, static::$runtimeCache)) {
+            return static::$runtimeCache[$key];
+        }
+
+        $value = Cache::rememberForever("setting_{$key}", function () use ($key, $default) {
             $setting = static::where('key', $key)->first();
 
             return $setting ? $setting->value : $default;
         });
+
+        static::$runtimeCache[$key] = $value;
+
+        return $value;
     }
 
     /**

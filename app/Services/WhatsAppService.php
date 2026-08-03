@@ -453,6 +453,12 @@ class WhatsAppService
             $conversationId = $conversation->id;
         }
 
+        // Lookup local template to ensure exact matching language code
+        $tpl = WhatsAppTemplate::where('name', $templateName)->first();
+        if ($tpl && !empty($tpl->language)) {
+            $languageCode = $tpl->language;
+        }
+
         $payload = [
             'messaging_product' => 'whatsapp',
             'to' => $to,
