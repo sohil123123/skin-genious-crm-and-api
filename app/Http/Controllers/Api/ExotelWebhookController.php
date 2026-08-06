@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use Log;
 // use App\Models\ExotelCallLog;
 
 class ExotelWebhookController extends Controller
 {
     public function saveExotelWebhookDataForPopup(Request $request)
     {
+        Log::info("Exotel Webhook request :", ['request' => $request->all()]);
         $data = $request->all();
         $exists = false;
 
@@ -48,6 +50,11 @@ class ExotelWebhookController extends Controller
             }
         }
 
-        return response()->json($exists);
+        $response = $exists ? 'existing' : 'new';
+        Log::info("response :" . $response);
+
+        return response()->json(['select' => $response]);
+
+        // return response()->json($exists);
     }
 }
