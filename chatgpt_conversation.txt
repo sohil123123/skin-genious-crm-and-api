@@ -1,0 +1,910 @@
+was thinking of starting a project with my texh team whereby we can link chatgpt with our CRM database to get daily marketing activities report... basically where you can tell us every morning what actions may be the most rewarding today that might get clients through the door. Some examples that I could think of were... 1) Calling clients with canceled appointments after an interval where your insights could guide us when to call them back to get them through the door most likely 2) Clients who came in, did a scan but did not get a facial 3) Clients who have existing packages that havent come for a facial in 3 weeks... I am sure there are more potential actions you could guide us to.. can you think about this and tell me how you think this would be most effectively designed? what actions do you think the AI can help point to us that will lead to higher number of clients through the door....
+
+Yes—this could become a genuinely valuable system for AI Aesthetics, provided it is designed as a Next Best Action Engine, not merely “ChatGPT summarising the CRM.”
+
+Every morning, it should answer:
+
+Which specific patients should we contact today, why today, through which channel, at what time, with what message—and how many additional kept appointments might these actions generate?
+
+1. What the system should optimise
+
+The objective should not be “make more calls” or even “book more appointments.”
+
+It should optimise for:
+
+Incremental kept appointments — appointments that probably would not have happened without today’s action.
+Clinic capacity utilisation — filling empty slots without overwhelming already-busy periods.
+Treatment-plan continuation — preventing patients from dropping out halfway.
+Patient lifetime value — encouraging appropriate repeat visits, packages and maintenance.
+Low contact fatigue — avoiding repeated, irritating follow-ups.
+
+That distinction is important. A patient who is almost certain to return anyway may have a high booking probability but a low need for intervention. The system should eventually estimate:
+
+Probability of booking if contacted − probability of booking without contact
+
+That is the real value of the action.
+
+2. The highest-value action categories
+
+I would organise the engine into four broad groups.
+
+A. Rescue actions: recover revenue already close to the clinic
+
+These will probably produce the quickest results.
+
+1. Cancelled appointments
+
+The system should distinguish between:
+
+Cancelled because of timing or travel
+Asked to reschedule but no new appointment was made
+Cancelled because of price
+Cancelled because they were unwell
+Cancelled without giving a reason
+Repeated cancellations
+
+The recommended follow-up interval should differ by reason.
+
+For example:
+
+“Call Priya today between 12:30 and 2:00. She cancelled her HydraFacial six days ago because of travel and has historically answered calls during lunchtime. Offer two available slots this week; do not offer a discount.”
+
+Over time, the system can learn whether someone is more likely to rebook after two days, seven days or fourteen days.
+
+2. No-shows
+
+No-shows should be treated differently from cancellations.
+
+The system could decide whether to:
+
+Call the same day
+Send a non-judgmental WhatsApp message
+Wait several days before retrying
+Require confirmation or a deposit next time
+Stop pursuing after repeated no-shows
+3. “Call me later” leads
+
+These often get lost because there is no disciplined callback system.
+
+The CRM should record:
+
+Exact requested callback date
+Approximate time
+Reason for delay
+Treatment of interest
+Objection raised
+
+These should appear prominently on the relevant morning—not mixed into a generic lead list.
+
+4. Unfinished bookings
+
+Patients who:
+
+Asked for available slots
+Shared their preferred date
+Started a WhatsApp conversation
+Asked for the location
+Asked whether a doctor would be present
+Reached the payment or appointment stage but stopped
+
+These are higher-value than old, cold enquiries and should be prioritised accordingly.
+
+B. Conversion actions: move interested people into treatment
+5. Scan completed, but no facial or treatment purchased
+
+This is one of your strongest categories because the patient has already visited, invested time and demonstrated concern about their skin.
+
+The engine should use more than “scan done, facial not done.” It should consider:
+
+Main concern identified
+Severity or visible opportunity
+Whether the doctor recommended treatment
+Whether price was discussed
+Reason treatment was not taken
+Time elapsed since the scan
+Whether an event or deadline was mentioned
+Whether the patient appeared satisfied with the consultation
+Whether a report was sent and opened
+
+Possible recommendation:
+
+“WhatsApp Mehak today. Scan completed nine days ago; dullness and tanning were her primary concerns. She said she wanted to check her work schedule, not that the treatment was too expensive. Send the two evening slots available this week and remind her that her facial would be customised from the scan findings.”
+
+6. Doctor consultation completed, but plan not started
+
+Separate these into:
+
+Interested but deciding
+Price objection
+Wanted family approval
+Wanted to begin after an event
+Asked to start next month
+Clinically deferred
+Comparing alternatives
+No stated reason
+
+The messaging should address the actual barrier rather than send the same “Would you like to book?” message to everyone.
+
+7. Treatment recommendation or quotation sent, but not accepted
+
+The AI can suggest whether to:
+
+Clarify the plan
+Offer a smaller starting treatment rather than discounting
+Arrange a short doctor callback
+Share an appropriate testimonial
+Explain what happens in the first session
+Leave the patient alone for now
+8. Enquiry handled inadequately
+
+The system should identify leads where:
+
+The first response was delayed
+No staff member attempted a call
+Only one message was sent
+The patient asked a question that was never answered
+The conversation ended after the price was shared
+The treatment category was incorrectly understood
+
+These are operational failures that can often be rescued.
+
+C. Retention actions: bring existing patients back at the right time
+9. Package patients overdue for their next session
+
+Your example of a package patient who has not returned in three weeks is excellent, but the threshold should depend on the treatment.
+
+The engine should compare:
+
+Recommended treatment interval
+Last treatment date
+Sessions remaining
+Previous visit pattern
+Doctor-directed timing
+Upcoming availability
+Patient’s preferred days
+
+It should not apply one fixed “three-week” rule to every service.
+
+10. Treatment-plan drop-off
+
+Identify patients who:
+
+Completed only session one
+Had good early results but did not continue
+Missed the recommended reassessment
+Delayed repeatedly between sessions
+Have an incomplete pigmentation, acne or facial plan
+Were supposed to transition into maintenance but disappeared
+
+These may be more valuable than people with unused packages because the treatment rationale already exists.
+
+11. Maintenance now due
+
+For patients who completed a treatment or facial series, the system should calculate when maintenance is clinically and commercially appropriate.
+
+Examples include:
+
+Facial maintenance
+Laser hair-reduction maintenance
+Pigmentation reassessment
+Skin-analysis reassessment
+Peel follow-up
+Home-care review
+
+The message should feel like continuity of care, not generic promotion.
+
+12. Package nearing exhaustion
+
+Patients with one session remaining can be flagged before the final session so that the staff has time to discuss what comes next.
+
+The AI could recommend:
+
+Renewal
+Maintenance plan
+Reassessment before renewal
+Transition to another clinically relevant treatment
+No sales action because further treatment is not currently indicated
+13. Post-treatment satisfaction opportunity
+
+Patients reporting visible improvement, good reassessment scores or positive feedback could be selected for:
+
+Rebooking
+Maintenance
+Google review request
+Testimonial request
+Referral request
+
+These actions should happen at the moment of greatest satisfaction, rather than through blanket review campaigns.
+
+D. Capacity and demand-management actions
+14. Fill unexpected gaps today
+
+The system should know:
+
+Today’s empty slots
+Treatment duration
+Therapist and doctor availability
+Machine availability
+Patient’s preferred timing
+Whether the patient lives or works nearby
+Whether they have previously accepted short-notice appointments
+
+It could then produce:
+
+“The 4:00–5:00 facial slot is vacant. Contact these three patients in order. All have asked for weekday afternoon appointments, are due for treatment, and live or work near C-Scheme.”
+
+This should be a separate same-day fill list, not buried in the general report.
+
+15. Waitlist activation
+
+Patients who could not get their preferred appointment should automatically enter a structured waitlist.
+
+When a relevant slot opens, the engine selects the best matches based on:
+
+Requested treatment
+Preferred day and time
+Recency of request
+Likelihood of accepting short notice
+Travel distance
+Staff and equipment requirements
+16. Tomorrow’s appointment-risk list
+
+Every evening or morning, identify tomorrow’s appointments most likely to cancel or not show.
+
+Signals may include:
+
+Previous no-shows
+Appointment booked long ago
+No response to confirmation
+Repeated rescheduling
+Weak initial intent
+No deposit where one is normally expected
+Unanswered calls
+
+The action might be a personal confirmation call rather than the normal automated reminder.
+
+17. Campaign-specific reactivation
+
+Rather than sending every offer to the entire database, the system can identify patients for whom a campaign is relevant.
+
+For example:
+
+Facial campaign → previous facial patients now due
+Pigmentation campaign → scanned pigmentation patients who never started
+LHR campaign → previous LHR enquiries, not unrelated facial patients
+Pre-event campaign → patients who explicitly mentioned weddings or events
+
+Sensitive clinical information should not be exported into advertising platforms or used indiscriminately.
+
+3. How the daily report should look
+
+I would avoid a long narrative report. Staff need an executable worklist.
+
+Morning summary
+
+Today’s opportunity
+
+2 empty facial slots
+1 doctor-consultation slot
+8 high-priority conversion opportunities
+6 package patients overdue
+4 cancelled appointments now at the ideal recall stage
+Estimated potential: 3–5 incremental kept appointments
+Prioritised action cards
+
+Each action should contain:
+
+Patient: Mehak S.
+Priority: 92/100
+Action: WhatsApp before 11:30 AM
+Reason: Skin scan completed nine days ago; facial recommended; patient asked to return after checking her schedule.
+Suggested message: Personalised draft
+Goal: Secure a facial appointment this week
+Slots to offer: Thursday 5:30 PM or Friday 12:00 PM
+Avoid: Discounting; she did not raise a price objection
+Owner: Mudita
+Expires: Today, because Friday’s slot is likely to fill
+
+Staff should be able to press:
+
+Called
+No answer
+WhatsApp sent
+Booked
+Not interested
+Call later
+Wrong recommendation
+Do not contact
+Other outcome
+
+Without this outcome capture, the system will never become intelligent.
+
+4. How priority should be calculated
+
+A useful starting formula would be:
+
+Priority = likely incremental booking uplift × likelihood of showing × expected clinic value × urgency × slot fit − contact-fatigue penalty
+
+The score should include:
+
+Strength of intent
+Recency
+Previous conversion behaviour
+Treatment fit
+Time since last visit
+Sessions remaining
+Response history
+Preferred communication channel
+Available clinic capacity
+Historical no-show risk
+Price sensitivity
+Number of recent contact attempts
+Clinical appropriateness
+Likelihood the patient would return without intervention
+
+Initially these can be weighted rules. After enough outcomes have accumulated, a statistical model can learn the weights.
+
+I would not ask the language model itself to calculate these probabilities from raw CRM text. Your application should calculate the underlying scores deterministically or through a trained prediction model. The language model should interpret them, prioritise within defined boundaries and produce usable explanations and scripts.
+
+5. Recommended system architecture
+CRM production database
+        ↓
+Read-only reporting database / data warehouse
+        ↓
+Eligibility and exclusion rules
+        ↓
+Candidate-action generator
+        ↓
+Priority scoring engine
+        ↓
+OpenAI API for reasoning, explanation and message drafting
+        ↓
+Morning dashboard / CRM task list
+        ↓
+Staff action and outcome capture
+        ↓
+Learning and reporting layer
+
+The OpenAI integration should be server-side through the API, not by giving a normal ChatGPT account unrestricted access to the CRM. Structured Outputs can force the model to return a predefined JSON schema, making each recommendation reliably usable by your CRM; function calling can connect the model only to specific, permitted application functions.
+
+For the morning production run, I would use normal API requests triggered by your server. OpenAI’s Batch API currently has a completion window of up to 24 hours, so it is better suited to back-analysis, bulk classification and evaluation than a time-sensitive morning report.
+
+6. Data your CRM must capture
+
+The quality of this system will depend more on CRM discipline than prompt quality.
+
+At minimum:
+
+Patient and consent
+Patient ID
+Preferred channel
+Preferred contact time
+WhatsApp/SMS/call consent
+Do-not-contact status
+Language preference
+Lead history
+Lead source and campaign
+Treatment of interest
+First enquiry time
+First response time
+Calls and messages attempted
+Objections
+Requested callback date
+Final lead disposition
+Appointment history
+Booked, completed, cancelled or no-show
+Cancellation reason
+Rescheduling history
+Booking-to-appointment interval
+Appointment confirmation response
+Clinical-commercial journey
+Consultation completed
+Scan completed
+Recommended treatment
+Treatment purchased or declined
+Reason not purchased
+Last treatment
+Recommended next interval
+Reassessment due
+Doctor restrictions or clearance requirements
+Package information
+Sessions purchased
+Sessions used
+Sessions remaining
+Expected cadence
+Expiry, where relevant
+Last attendance
+Outreach outcomes
+Contacted or not
+Reached or not
+Patient response
+Appointment booked
+Appointment kept
+Revenue or treatment generated
+Reason unsuccessful
+Staff feedback on recommendation quality
+
+Free-text notes are useful, but important outcomes should also be captured through standardised dropdowns. Otherwise the system will struggle to distinguish “travelling, call next week” from “not interested.”
+
+7. The learning system is more important than the morning report
+
+Every recommendation should create an experiment:
+
+“We believed this action would work. Did it?”
+
+Track performance by:
+
+Action category
+Time since event
+Contact channel
+Contact time
+Staff member
+Treatment
+Lead source
+Suggested wording
+Patient segment
+
+For marketing actions, maintain a small randomised holdout group that receives normal treatment rather than AI-prioritised outreach. Exclude medically necessary follow-ups. This will reveal whether the system actually causes more visits or merely takes credit for people who would have returned anyway.
+
+OpenAI’s evaluation tooling supports structured testing of model outputs, which would be useful for checking whether recommendations remain consistent, follow your rules and avoid prohibited actions when prompts or models change.
+
+8. Privacy and control
+
+Because your CRM may contain health and treatment information:
+
+Send only the minimum information needed for each recommendation.
+Replace names with internal patient IDs during model processing where possible.
+Keep clinical diagnosis fields separate from marketing fields.
+Do not allow the AI to override doctor-set treatment intervals or contraindications.
+Do not automatically send messages in the first version.
+Require staff approval before communication.
+Maintain an audit log showing why every patient was selected.
+Enforce contact-frequency limits.
+Honour opt-outs immediately.
+Restrict database access to read-only, pre-approved queries.
+
+OpenAI’s API data-control documentation states that API data is not used for model training by default and describes endpoint-specific retention periods and available controls. Your team should still review the exact endpoint configuration, contractual requirements and applicable Indian privacy obligations before transmitting patient information.
+
+9. How I would build the first version
+
+I would not begin with machine learning.
+
+Start with a rules-based MVP containing approximately 10 action triggers:
+
+Cancelled and not rebooked
+No-show and not rebooked
+Requested callback now due
+Scan completed, no treatment
+Consultation completed, no treatment
+Package patient overdue
+Treatment-plan session overdue
+Reassessment due
+High-intent lead not properly contacted
+Same-day slot-fill candidates
+
+The AI would then:
+
+Rank the eligible cases
+Explain the ranking
+Recommend the channel and timing
+Draft the message or call opening
+Match patients to available slots
+Summarise expected impact
+
+Once your staff has logged enough outcomes, add personalised timing, conversion probability, show probability and incremental-uplift modelling.
+
+My strongest recommendation
+
+Build this as an action queue inside the CRM, not merely an emailed PDF every morning.
+
+The morning summary is useful for management, but the real product should give each staff member a clear queue:
+
+Who do I contact next, what do I say, what appointment am I trying to secure, and what happened after I contacted them?
+
+That closed loop is what will turn it from an interesting AI report into a system that measurably gets more patients through the door.
+
+Sources
+We do have an existing CRM , we will connect you to it... some of these features are missing and you can recommend the build too... for example now, the dashboard does not capture cancelled and no show accurately, but it can be inferred from invoice data... this should be possible right?
+Worked for 30s
+
+Yes, this is possible. In fact, an AI layer can compensate for several missing CRM fields during the first version.
+
+The important caveat is:
+
+Invoice data can usually tell us that an appointment was not completed. It cannot, by itself, reliably tell us whether it was cancelled, rescheduled, missed, complimentary, covered by a package, or simply not invoiced correctly.
+
+So we should reconstruct the outcome using several signals and assign a confidence level, rather than pretend every inference is certain.
+
+How we could infer appointment outcomes
+
+Imagine the CRM shows that Priya had an appointment on 20 July at 4:00 PM.
+
+Completed appointment
+
+Classify as completed when one or more of these exist:
+
+Invoice generated
+Package session redeemed
+Treatment record created
+Before/after scan performed
+Therapist notes entered
+Patient checked in
+Payment recorded
+
+A package patient may have a zero-value invoice, so invoice amount alone should not determine attendance.
+
+Rescheduled
+
+Classify as rescheduled when:
+
+Original appointment disappears or changes
+Another appointment for the same patient is created
+The new appointment is for the same or similar treatment
+The change happened before or shortly after the original appointment
+Notes or communications mention rescheduling
+Likely cancelled
+
+Classify as likely cancelled when:
+
+Appointment was removed or marked inactive before its scheduled time
+No treatment, check-in, package redemption or invoice exists
+A later appointment may have been created
+Notes, call disposition or WhatsApp text contain phrases such as “cannot come,” “travelling,” “cancel,” or “will book later”
+Likely no-show
+
+Classify as likely no-show when:
+
+Appointment remained scheduled until the appointment time passed
+No check-in occurred
+No invoice, package redemption or treatment record exists
+No cancellation or rescheduling action occurred before the appointment
+Staff subsequently called or messaged the patient
+Notes contain “did not come,” “not answering,” or similar information
+Unknown non-completed appointment
+
+This category is essential.
+
+When the only evidence is:
+
+Appointment existed
+No invoice exists
+
+…the system should say:
+
+Non-completed appointment—reason uncertain
+
+It should not automatically call it a no-show.
+
+Use confidence-scored reconstruction
+
+For every historical appointment, the system could generate something like:
+
+{
+  "appointment_id": "APT-1937",
+  "inferred_outcome": "likely_no_show",
+  "confidence": 0.84,
+  "evidence": [
+    "Appointment remained active after scheduled time",
+    "No invoice or package redemption",
+    "No rescheduled appointment",
+    "Outbound call placed 25 minutes after appointment"
+  ]
+}
+
+I would use four confidence bands:
+
+Confirmed: Explicitly recorded or overwhelmingly supported
+High confidence: Multiple independent signals agree
+Medium confidence: Probable, but some ambiguity remains
+Unknown: Insufficient evidence
+
+For outreach recommendations, we can use confirmed and high-confidence records automatically. Medium-confidence cases can either receive gentler messaging or be placed in a staff-review queue.
+
+Where AI should and should not be used
+Deterministic CRM logic should determine:
+Whether an invoice exists
+Whether a package session was redeemed
+Whether another appointment was created
+Whether the appointment time passed
+Whether a scan or treatment record exists
+How many previous cancellations occurred
+How long it has been since the event
+AI can help determine:
+What probably happened from free-text notes
+Why the patient cancelled
+Whether the objection was price, timing, trust or uncertainty
+Whether the patient requested a future callback
+Whether the conversation remained commercially active
+Which follow-up message is appropriate
+Whether calling today is likely to be premature or well-timed
+
+Your application can expose tightly controlled CRM functions to the OpenAI API, rather than allowing unrestricted database access. OpenAI’s API supports custom tool/function calls for this type of external-data workflow.
+
+CRM changes I would recommend building
+
+The AI can reconstruct the past, but your team should improve future data capture.
+
+1. An immutable appointment-event history
+
+Do not retain only the appointment’s current status. Store every change:
+
+Appointment created
+Appointment confirmed
+Appointment rescheduled
+Appointment cancelled
+Patient checked in
+Treatment started
+Treatment completed
+Patient no-show
+
+Each event should contain:
+
+Timestamp
+Staff member or system responsible
+Previous status
+New status
+Reason
+Optional note
+
+This is important because if an appointment is moved, looking only at its final state can erase the fact that a cancellation or reschedule happened.
+
+2. Separate cancellation and no-show
+
+These must be different outcomes:
+
+Cancelled: Patient or clinic communicated before the visit
+No-show: Patient remained booked but did not attend
+Late cancellation: Cancelled within a defined period, such as six hours
+Rescheduled: Moved to a new appointment
+Clinic-cancelled: Clinic initiated the cancellation
+
+From a marketing perspective, these groups should be handled differently.
+
+3. Mandatory outcome reconciliation
+
+After an appointment time has passed, the CRM should not allow it to remain indefinitely as “scheduled.”
+
+It should request:
+
+What happened to this appointment?
+
+With options:
+
+Completed
+Cancelled by patient
+Cancelled by clinic
+Rescheduled
+No-show
+Still in progress
+Other
+
+This can be a small daily task for the front desk.
+
+4. Cancellation reason
+
+Use standard options:
+
+Travel or out of town
+Work or timing conflict
+Illness
+Family emergency
+Price concern
+Changed mind
+Wants to postpone
+Could not contact
+Booked elsewhere
+Dissatisfied or trust concern
+Clinic-related issue
+Other
+
+Allow an additional free-text note, but do not rely only on free text.
+
+5. Package redemption separate from invoices
+
+A session completed under an existing package may generate:
+
+No new payment
+A zero-value invoice
+Only a package-ledger entry
+
+Therefore, the source of truth for attendance should include a proper session redemption record, not merely invoice generation.
+
+6. Contact-attempt history
+
+Every call or message should record:
+
+Channel
+Date and time
+Staff member
+Reached or not reached
+Outcome
+Callback date
+Objection
+Next action
+Appointment generated
+
+Without this, the AI cannot learn which actions actually work.
+
+How this would affect the morning report
+
+Instead of simply saying:
+
+Call cancelled patients.
+
+The system would produce something like:
+
+High-priority recovery
+
+Patient: Priya S.
+Inferred event: Cancelled because of travel
+Confidence: High
+Original appointment: Facial, 24 July
+Why today: She said she would return the following week; seven days have elapsed
+Recommended action: Call between 1:00 and 2:00 PM
+Message objective: Offer two available facial appointments
+Do not do: Offer a discount
+Reason: No price objection was recorded
+
+And separately:
+
+Patient: Riya M.
+Inferred event: Possible no-show
+Confidence: Medium
+Recommended action: Staff review before contact
+Reason: No invoice exists, but package redemption data is incomplete
+
+That distinction makes the system safer and much more useful.
+
+Best implementation approach for your existing CRM
+
+I would divide the work into three layers.
+
+Layer 1: Understand the existing data
+
+Your team should document:
+
+Appointment tables
+Invoice tables
+Package tables
+Scan records
+Treatment records
+Lead records
+Call logs
+WhatsApp logs
+User/staff activity logs
+How appointment edits and deletions are stored
+
+A deleted appointment is especially important. If deletion permanently removes the record rather than creating an audit event, historical cancellation reconstruction becomes harder.
+
+Layer 2: Create a unified patient activity timeline
+
+For each patient:
+
+Enquiry received
+Call attempted
+Appointment booked
+Appointment moved
+Scan completed
+Recommendation made
+Invoice generated
+Treatment completed
+Package session redeemed
+Next visit recommended
+Follow-up message sent
+
+This unified timeline becomes the real foundation of the AI system.
+
+Layer 3: Build the recommendation engine
+
+The application first generates eligible actions through rules. It then provides the AI with only the relevant structured facts for each candidate.
+
+The AI returns:
+
+Priority
+Recommended action
+Reasoning summary
+Best channel
+Best timing
+Suggested message or call opening
+Available appointment to offer
+Confidence
+Information that needs staff verification
+
+Structured API outputs can make this reliably machine-readable rather than returning an unpredictable paragraph.
+
+Because this includes patient and potentially health-related information, I would use patient IDs wherever possible and transmit only the minimum fields required for each decision. OpenAI states that API data is not used for model training by default and documents retention and data-residency controls, including options applicable to India, but your team should configure the project deliberately rather than relying on defaults.
+
+The practical conclusion
+
+Your existing imperfect data is not a reason to delay the project.
+
+We can:
+
+Reconstruct historical appointment outcomes with confidence scores.
+Use those reconstructed outcomes to begin identifying opportunities.
+Tell your technology team exactly which missing CRM features to add.
+Start collecting reliable outcomes immediately.
+Gradually replace inferred data with confirmed data.
+
+The first technical exercise should be a CRM data audit: your team provides the database schema plus anonymised sample records for appointments, invoices, packages, scans and communications. From that, we can produce a precise field-mapping document and the inference rules for each appointment outcome.
+
+Sources
+I just realzed that we can correct the appointment state historically so that you can get accurate data from that as well... no need to use AI for that aspect
+
+Exactly—and that is much better.
+
+Historical appointment statuses should be corrected directly in the CRM and treated as the source of truth. There is no value in asking AI to infer something your team can accurately reconstruct and record.
+
+I would structure it like this:
+
+Correct historical appointment states
+
+Use a one-time reconciliation process to classify every past appointment as:
+
+Completed
+Cancelled by patient
+Cancelled by clinic
+Rescheduled
+No-show
+Appointment created in error
+Unknown
+
+Where possible, also enter:
+
+Cancellation/no-show reason
+Date and time the status changed
+Replacement appointment ID, if rescheduled
+Whether follow-up is permitted or appropriate
+
+For uncertain historical cases, retain Unknown rather than forcing an inaccurate classification.
+
+Improve the CRM going forward
+
+The CRM should prevent an appointment from remaining “scheduled” after its time has passed. Staff should be prompted to select the actual outcome.
+
+Also, do not overwrite the original appointment when it is rescheduled. Ideally:
+
+Original appointment: Rescheduled
+Replacement appointment: New scheduled appointment
+Linked using replacement_appointment_id
+
+That preserves the patient’s behavioural history. Otherwise, repeated rescheduling can become invisible.
+
+What AI should then do
+
+AI should not decide whether the patient cancelled or attended. It should use the verified data to answer higher-value questions:
+
+Which cancelled patients are most worth recalling today?
+How long after cancellation does each type of patient respond best?
+Which no-shows should receive a call versus a WhatsApp?
+Which patients have already been contacted too often?
+Which patients are likely to accept an available slot today?
+What objection or circumstance should the staff address?
+What message and appointment options should be offered?
+Which action is likely to generate an incremental kept appointment?
+
+So the revised division is:
+
+CRM and deterministic logic
+Appointment status
+Invoice and package redemption
+Days since visit or cancellation
+Sessions remaining
+Recommended treatment interval
+Available appointment slots
+Number and timing of contact attempts
+Consent and do-not-contact rules
+Predictive model
+Likelihood of booking
+Likelihood of actually attending
+Likelihood of accepting a particular slot
+Best contact day, time and channel
+Expected incremental benefit of contacting today
+Language model
+Explain why the patient was prioritised
+Interpret notes and objections
+Recommend the best action
+Draft personalised WhatsApp messages and call scripts
+Summarise the morning opportunity for management
+
+This correction actually makes the project simpler and more reliable. The first build requirement should now be a clean patient-event timeline, with appointment outcomes as verified fields—not inferred ones. Once that is available, the AI layer can focus entirely on deciding what action is most rewarding today.
