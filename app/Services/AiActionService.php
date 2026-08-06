@@ -1078,7 +1078,7 @@ class AiActionService
     /**
      * Get summary statistics for a clinic on a given date.
      */
-    public function getSummaryStats(int $clinicId = null, string $date = null): array
+    public function getSummaryStats(?int $clinicId = null, ?string $date = null): array
     {
         $date = $date ?? Carbon::today()->toDateString();
 
