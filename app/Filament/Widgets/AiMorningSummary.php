@@ -9,7 +9,7 @@ use App\Services\AiActionService;
 
 class AiMorningSummary extends BaseWidget
 {
-    protected ?string $heading = 'AI Morning Summary — Today\'s Opportunity';
+    protected ?string $heading = 'Morning Summary — Today\'s Opportunity';
 
     protected ?string $pollingInterval = '30s';
 

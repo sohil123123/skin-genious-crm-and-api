@@ -18,7 +18,7 @@ class AiDashboard extends Page
 
     protected static ?int $navigationSort = 0;
 
-    protected static ?string $title = 'AI Next Best Action';
+    protected static ?string $title = 'Next Best Action';
 
     protected static ?string $slug = 'ai-dashboard';
 
@@ -59,20 +59,20 @@ class AiDashboard extends Page
         return 1;
     }
 
-    public function getFooterWidgets(): array
-    {
-        return [
-            AiCapacityGaps::class,
-        ];
-    }
+    // public function getFooterWidgets(): array
+    // {
+    //     return [
+    //         AiCapacityGaps::class,
+    //     ];
+    // }
 
     public function getHeaderWidgetsColumns(): int|array
     {
         return 1;
     }
 
-    public function getFooterWidgetsColumns(): int|array
-    {
-        return 1;
-    }
+    // public function getFooterWidgetsColumns(): int|array
+    // {
+    //     return 1;
+    // }
 }

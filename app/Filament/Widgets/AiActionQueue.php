@@ -25,6 +25,8 @@ class AiActionQueue extends TableWidget
 {
     protected int|string|array $columnSpan = 'full';
 
+    protected static ?string $heading = 'Action Queue';
+
     protected static ?int $sort = 1;
 
     protected static bool $isLazy = false;
@@ -113,7 +115,7 @@ class AiActionQueue extends TableWidget
                         $count = $service->generateForToday($clinicIds);
 
                         Notification::make()
-                            ->title("Generated {$count} AI actions for today")
+                            ->title("Generated {$count} actions for today")
                             ->success()
                             ->send();
                     }),

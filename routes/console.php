@@ -26,4 +26,5 @@ Schedule::command('appointments:send-today-whatsapp --mode=previous_day_evening'
 // 2. Appointments after 11:30 -> Send same day morning at 08:00 (8:00 AM)
 Schedule::command('appointments:send-today-whatsapp --mode=same_day_morning')->dailyAt('08:00');
 
-
+// 3. AI Actions - 7:00 AM daily
+Schedule::command('ai:generate-actions')->dailyAt('07:00');
