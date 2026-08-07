@@ -147,4 +147,14 @@ class Clinic extends Model
     {
         return $this->hasMany(Expense::class);
     }
+
+    public function leads()
+    {
+        return $this->hasMany(Lead::class);
+    }
+
+    public function leadImports()
+    {
+        return $this->hasMany(LeadImport::class);
+    }
 }
