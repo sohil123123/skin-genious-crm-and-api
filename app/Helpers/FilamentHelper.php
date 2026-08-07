@@ -115,12 +115,30 @@ if (!function_exists('edit_assessment')) {
 if (!function_exists('can_start_session')) {
     function can_start_session($appointment)
     {
-        $start = Carbon::parse($appointment->start_datetime)->subMinutes(15);
-        $end   = $appointment->end_datetime;
-
         return in_array($appointment->status->value, ['confirmed'])
-        && !is_null($appointment->treatment_session_id)
-        && now()->between($start, $end);
+        && !is_null($appointment->treatment_session_id);
+    }
+}
+
+if (!function_exists('is_early_session_start')) {
+    function is_early_session_start($appointment)
+    {
+        return now()->lt(Carbon::parse($appointment->start_datetime));
+    }
+}
+
+if (!function_exists('start_session_confirmation_message')) {
+    function start_session_confirmation_message($appointment)
+    {
+        if (!is_early_session_start($appointment)) {
+            return 'Are you sure you want to start this treatment session?';
+        }
+
+        $start = Carbon::parse($appointment->start_datetime);
+
+        return 'This appointment is scheduled for ' . $start->format('d M Y, h:i A')
+            . ' (' . $start->diffForHumans(now(), ['syntax' => Carbon::DIFF_ABSOLUTE]) . ' from now).'
+            . ' Are you sure you want to start the session early?';
     }
 }
 
