@@ -156,17 +156,17 @@ class AppointmentsTable
                                 Select::make('status')
                                     ->label('Status')
                                     ->options(
-                                        collect(AppointmentStatus::cases())->mapWithKeys(fn ($case) => [
+                                        collect(AppointmentStatus::cases())->mapWithKeys(fn($case) => [
                                             $case->value => $case->getLabel(),
                                         ])->all()
                                     )
-                                    ->default(fn ($record) => $record->status?->value ?? $record->status)
+                                    ->default(fn($record) => $record->status?->value ?? $record->status)
                                     ->required(),
                                 Textarea::make('notes')
                                     ->label('Note')
                                     ->placeholder('Write note here...')
                                     ->rows(3)
-                                    ->default(fn ($record) => $record->notes),
+                                    ->default(fn($record) => $record->notes),
                             ])
                             ->action(function (Appointment $record, array $data): void {
                                 $record->update([
@@ -553,17 +553,17 @@ class AppointmentsTable
                             Select::make('status')
                                 ->label('Status')
                                 ->options(
-                                    collect(AppointmentStatus::cases())->mapWithKeys(fn ($case) => [
+                                    collect(AppointmentStatus::cases())->mapWithKeys(fn($case) => [
                                         $case->value => $case->getLabel(),
                                     ])->all()
                                 )
-                                ->default(fn ($record) => $record->status?->value ?? $record->status)
+                                ->default(fn($record) => $record->status?->value ?? $record->status)
                                 ->required(),
                             Textarea::make('notes')
                                 ->label('Note')
                                 ->placeholder('Write note here...')
                                 ->rows(3)
-                                ->default(fn ($record) => $record->notes),
+                                ->default(fn($record) => $record->notes),
                         ])
                         ->action(function (Appointment $record, array $data): void {
                             $record->update([
@@ -579,14 +579,19 @@ class AppointmentsTable
                         }),
                     Action::make('start_session')
                         ->label('Start Session')
-                        ->visible(fn($record) => can_start_session($record))
+                        // ->visible(fn($record) => can_start_session($record))
                         ->icon('heroicon-o-plus')
                         ->color('warning')
                         ->action(function ($record) {
                             $startSessionUrl = start_session($record);
                             return redirect($startSessionUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Start Session Early?' : 'Start Session')
+                        ->modalDescription(fn($record) => start_session_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, start early' : 'Yes, start session'),
                     ViewAction::make(),
                     EditAction::make(),
                     DeleteAction::make()
