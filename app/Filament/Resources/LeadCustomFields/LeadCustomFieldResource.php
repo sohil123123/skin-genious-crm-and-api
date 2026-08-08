@@ -37,7 +37,7 @@ class LeadCustomFieldResource extends Resource
 
     protected static ?string $modelLabel = 'lead question';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 33;
 
     public static function form(Schema $schema): Schema
     {

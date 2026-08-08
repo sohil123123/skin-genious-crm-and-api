@@ -31,7 +31,7 @@ class LeadImportResource extends Resource
 
     protected static ?string $modelLabel = 'lead import';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 32;
 
     public static function table(Table $table): Table
     {

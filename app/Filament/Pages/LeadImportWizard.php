@@ -70,7 +70,7 @@ class LeadImportWizard extends Page
 
     protected static ?string $navigationLabel = 'Import Leads';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 31;
 
     protected string $view = 'filament.pages.lead-import-wizard';
 

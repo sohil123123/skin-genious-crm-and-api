@@ -32,7 +32,7 @@ class LeadResource extends Resource
 
     protected static ?string $navigationLabel = 'Leads';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 30;
 
     public static function form(Schema $schema): Schema
     {

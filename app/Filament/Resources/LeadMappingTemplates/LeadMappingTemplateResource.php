@@ -41,7 +41,7 @@ class LeadMappingTemplateResource extends Resource
 
     protected static ?string $modelLabel = 'mapping template';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 34;
 
     public static function form(Schema $schema): Schema
     {
