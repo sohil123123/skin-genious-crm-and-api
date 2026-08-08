@@ -14,6 +14,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use UnitEnum;
 
 class LeadImportResource extends Resource
@@ -56,6 +57,10 @@ class LeadImportResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            // The soft-delete scope is dropped so the table's trashed filter has
+            // something to reveal. The filter itself hides deleted records until
+            // it is switched, so the default listing is unchanged.
+            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with(['clinic', 'uploader', 'template'])
             ->withCount(['failures as unresolved_failures_count' => fn (Builder $query) => $query->where('is_resolved', false)])
             ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic());
@@ -66,7 +71,9 @@ class LeadImportResource extends Resource
      */
     public static function getNavigationBadge(): ?string
     {
-        $running = static::getEloquentQuery()->running()->count();
+        // getEloquentQuery() no longer excludes deleted records, and a deleted
+        // import must not keep a badge lit in the sidebar.
+        $running = static::getEloquentQuery()->whereNull('deleted_at')->running()->count();
 
         return $running > 0 ? (string) $running : null;
     }

@@ -18,6 +18,10 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -27,9 +31,13 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\DeleteAction;
 
 class LeadsTable
 {
@@ -38,9 +46,16 @@ class LeadsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
+                TextColumn::make('clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->color('info')
+                    ->toggleable()
+                    ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
+
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->description(fn (Lead $record): ?string => $record->city)
+                    ->description(fn(Lead $record): ?string => $record->city)
                     ->searchable(['full_name', 'first_name', 'last_name'])
                     ->sortable()
                     ->weight('medium'),
@@ -49,14 +64,14 @@ class LeadsTable
                     ->label('Phone')
                     ->searchable()
                     ->copyable()
-                    ->icon(fn (Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
+                    ->icon(fn(Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
                         ? 'heroicon-o-exclamation-triangle'
                         : null)
                     ->iconColor('warning')
                     // The tooltip carries the original value so a salvaged
                     // number can be checked against what Facebook actually sent
                     // without opening the record.
-                    ->tooltip(fn (Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
+                    ->tooltip(fn(Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
                         ? 'Repaired from: ' . $record->phone_raw
                         : null),
 
@@ -69,26 +84,26 @@ class LeadsTable
                     ->badge()
                     ->color('warning')
                     ->icon('heroicon-o-identification')
-                    ->formatStateUsing(fn (): string => 'Existing')
+                    ->formatStateUsing(fn(): string => 'Existing')
                     ->placeholder('—')
-                    ->tooltip(fn (Lead $record): ?string => $record->matchedUser
+                    ->tooltip(fn(Lead $record): ?string => $record->matchedUser
                         ? 'Matches patient: ' . $record->matchedUser->name
                         : null)
-                    ->url(fn (Lead $record): ?string => $record->matched_user_id
+                    ->url(fn(Lead $record): ?string => $record->matched_user_id
                         ? \App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $record->matched_user_id])
                         : null),
 
                 TextColumn::make('campaign_name')
                     ->label('Campaign')
                     ->limit(30)
-                    ->tooltip(fn (Lead $record): ?string => $record->campaign_name)
+                    ->tooltip(fn(Lead $record): ?string => $record->campaign_name)
                     ->searchable()
                     ->toggleable(),
 
                 TextColumn::make('form_name')
                     ->label('Form')
                     ->limit(30)
-                    ->tooltip(fn (Lead $record): ?string => $record->form_name)
+                    ->tooltip(fn(Lead $record): ?string => $record->form_name)
                     ->searchable()
                     ->toggleable(),
 
@@ -108,10 +123,10 @@ class LeadsTable
                     ->badge()
                     ->toggleable(),
 
-                TextColumn::make('assignedStaff.name')
-                    ->label('Assigned to')
-                    ->placeholder('Unassigned')
-                    ->toggleable(),
+                // TextColumn::make('assignedStaff.name')
+                //     ->label('Assigned to')
+                //     ->placeholder('Unassigned')
+                //     ->toggleable(),
 
                 TextColumn::make('fb_created_time')
                     ->label('Submitted')
@@ -127,40 +142,51 @@ class LeadsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('clinic.name')
-                    ->label('Clinic')
-                    ->badge()
-                    ->color('info')
-                    ->toggleable()
-                    ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),
+
             ])
-            ->filters(static::filters(), layout: FiltersLayout::AboveContentCollapsible)
-            ->filtersFormColumns(['default' => 1, 'md' => 2, 'xl' => 3])
+            ->filters(static::filters(), layout: FiltersLayout::Modal)
+            // ->filtersFormColumns(['default' => 1, 'md' => 3, 'xl' => 4])
+            ->filtersFormColumns(4)
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+
+                    DeleteAction::make()
+                        ->modalDescription('The lead is moved to the trash and stops appearing in this list. It can be restored afterwards.'),
+
+                    RestoreAction::make(),
+
+                    ForceDeleteAction::make()
+                        ->label('Delete permanently')
+                        ->modalHeading('Permanently delete this lead')
+                        // Answers to the imported questions hang off the lead
+                        // with a cascading key, so they go with it.
+                        ->modalDescription('The lead and its answers to every lead-form question are destroyed. This cannot be undone.'),
+                ])
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    BulkAction::make('assign')
-                        ->label('Assign to staff')
-                        ->icon('heroicon-o-user-plus')
-                        ->schema([
-                            Select::make('assigned_to')
-                                ->label('Assign to')
-                                ->options(fn (): array => static::staffOptions())
-                                ->searchable()
-                                ->placeholder('Unassign'),
-                        ])
-                        ->action(function (Collection $records, array $data): void {
-                            $count = app(AssignLeadsAction::class)->assign($records, $data['assigned_to'] ?: null);
+                    // BulkAction::make('assign')
+                    //     ->label('Assign to staff')
+                    //     ->icon('heroicon-o-user-plus')
+                    //     ->schema([
+                    //         Select::make('assigned_to')
+                    //             ->label('Assign to')
+                    //             ->options(fn(): array => static::staffOptions())
+                    //             ->searchable()
+                    //             ->placeholder('Unassign'),
+                    //     ])
+                    //     ->action(function (Collection $records, array $data): void {
+                    //         $count = app(AssignLeadsAction::class)->assign($records, $data['assigned_to'] ?: null);
 
-                            Notification::make()
-                                ->title("{$count} leads reassigned")
-                                ->success()
-                                ->send();
-                        })
-                        ->deselectRecordsAfterCompletion(),
+                    //         Notification::make()
+                    //             ->title("{$count} leads reassigned")
+                    //             ->success()
+                    //             ->send();
+                    //     })
+                    //     ->deselectRecordsAfterCompletion(),
 
                     BulkAction::make('changeStatus')
                         ->label('Change status')
@@ -185,6 +211,12 @@ class LeadsTable
                         ->exporter(LeadExporter::class),
 
                     DeleteBulkAction::make(),
+
+                    RestoreBulkAction::make(),
+
+                    ForceDeleteBulkAction::make()
+                        ->label('Delete permanently')
+                        ->modalDescription('The selected leads and their answers to every lead-form question are destroyed. This cannot be undone.'),
                 ]),
             ])
             ->emptyStateHeading('No leads yet')
@@ -198,6 +230,10 @@ class LeadsTable
     protected static function filters(): array
     {
         $filters = [
+            // Deleted leads are hidden by default, so without this there is no
+            // way to reach one to restore or permanently remove it.
+            TrashedFilter::make(),
+
             SelectFilter::make('status')
                 ->options(LeadStatus::options())
                 ->multiple(),
@@ -211,12 +247,12 @@ class LeadsTable
                 ->relationship('clinic', 'name')
                 ->searchable()
                 ->preload()
-                ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),
+                ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
 
-            SelectFilter::make('assigned_to')
-                ->label('Assigned to')
-                ->options(fn (): array => static::staffOptions())
-                ->searchable(),
+            // SelectFilter::make('assigned_to')
+            //     ->label('Assigned to')
+            //     ->options(fn(): array => static::staffOptions())
+            //     ->searchable(),
 
             // Campaign, ad set, ad and form are free-text columns rather than
             // relationships, so their options are collected from the data that
@@ -228,12 +264,12 @@ class LeadsTable
 
             SelectFilter::make('lead_import_id')
                 ->label('Import batch')
-                ->options(fn (): array => LeadImport::query()
-                    ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic())
+                ->options(fn(): array => LeadImport::query()
+                    ->when(!check_role(config('project.roles.super_admin')), fn(Builder $query) => $query->forCurrentClinic())
                     ->latest('id')
                     ->limit(50)
                     ->get()
-                    ->mapWithKeys(fn (LeadImport $import): array => [
+                    ->mapWithKeys(fn(LeadImport $import): array => [
                         $import->getKey() => $import->label ?: $import->original_filename,
                     ])
                     ->all())
@@ -245,9 +281,9 @@ class LeadsTable
                 ->trueLabel('Matches an existing patient')
                 ->falseLabel('New contacts only')
                 ->queries(
-                    true: fn (Builder $query): Builder => $query->whereNotNull('matched_user_id'),
-                    false: fn (Builder $query): Builder => $query->whereNull('matched_user_id'),
-                    blank: fn (Builder $query): Builder => $query,
+                    true: fn(Builder $query): Builder => $query->whereNotNull('matched_user_id'),
+                    false: fn(Builder $query): Builder => $query->whereNull('matched_user_id'),
+                    blank: fn(Builder $query): Builder => $query,
                 ),
 
             SelectFilter::make('phone_status')
@@ -259,13 +295,13 @@ class LeadsTable
                     DatePicker::make('from')->label('Submitted from'),
                     DatePicker::make('until')->label('Submitted until'),
                 ])
-                ->query(fn (Builder $query, array $data): Builder => $query
-                    ->when($data['from'] ?? null, fn (Builder $q, $date): Builder => $q->whereDate('fb_created_time', '>=', $date))
-                    ->when($data['until'] ?? null, fn (Builder $q, $date): Builder => $q->whereDate('fb_created_time', '<=', $date))),
+                ->query(fn(Builder $query, array $data): Builder => $query
+                    ->when($data['from'] ?? null, fn(Builder $q, $date): Builder => $q->whereDate('fb_created_time', '>=', $date))
+                    ->when($data['until'] ?? null, fn(Builder $q, $date): Builder => $q->whereDate('fb_created_time', '<=', $date))),
 
             Filter::make('unassigned')
                 ->label('Unassigned only')
-                ->query(fn (Builder $query): Builder => $query->whereNull('assigned_to'))
+                ->query(fn(Builder $query): Builder => $query->whereNull('assigned_to'))
                 ->toggle(),
         ];
 
@@ -286,7 +322,7 @@ class LeadsTable
         $fields = LeadCustomField::query()
             ->where('is_active', true)
             ->whereIn('type', ['select', 'multiselect'])
-            ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic())
+            ->when(!check_role(config('project.roles.super_admin')), fn(Builder $query) => $query->forCurrentClinic())
             ->orderByDesc('usage_count')
             // Every question becoming a filter would overwhelm the panel, so
             // only the most-answered ones are surfaced.
@@ -338,8 +374,8 @@ class LeadsTable
     {
         return SelectFilter::make($column)
             ->label($label)
-            ->options(fn (): array => Lead::query()
-                ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic())
+            ->options(fn(): array => Lead::query()
+                ->when(!check_role(config('project.roles.super_admin')), fn(Builder $query) => $query->forCurrentClinic())
                 ->whereNotNull($column)
                 ->distinct()
                 ->orderBy($column)
@@ -358,18 +394,18 @@ class LeadsTable
         return User::query()
             ->withoutGlobalScopes()
             ->when(
-                ! check_role(config('project.roles.super_admin')),
-                fn (Builder $query) => $query->where('clinic_id', auth()->user()?->clinic_id)
+                !check_role(config('project.roles.super_admin')),
+                fn(Builder $query) => $query->where('clinic_id', auth()->user()?->clinic_id)
             )
-            ->whereHas('roles', fn (Builder $query) => $query->whereIn('name', [
+            ->whereHas('roles', fn(Builder $query) => $query->whereIn('name', [
                 config('project.roles.clinic_manager'),
                 config('project.roles.clinic_head'),
-                config('project.roles.therapist'),
+                // config('project.roles.therapist'),
                 config('project.roles.super_admin'),
             ]))
             ->orderBy('first_name')
             ->get()
-            ->mapWithKeys(fn (User $user): array => [$user->getKey() => $user->name])
+            ->mapWithKeys(fn(User $user): array => [$user->getKey() => $user->name])
             ->all();
     }
 }

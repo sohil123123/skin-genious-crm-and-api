@@ -46,25 +46,25 @@ class LeadStatsOverview extends BaseWidget
                 ->icon('heroicon-m-sparkles')
                 ->color($new > 0 ? 'info' : 'gray'),
 
-            Stat::make('Unassigned', number_format($unassigned))
-                ->description('No staff member is following these up')
-                ->icon('heroicon-m-user-minus')
-                ->color($unassigned > 0 ? 'warning' : 'success'),
+            // Stat::make('Unassigned', number_format($unassigned))
+            //     ->description('No staff member is following these up')
+            //     ->icon('heroicon-m-user-minus')
+            //     ->color($unassigned > 0 ? 'warning' : 'success'),
 
-            Stat::make('Phone needs review', number_format($needsReview))
-                ->description('Repaired from a malformed number during import')
-                ->icon('heroicon-m-exclamation-triangle')
-                ->color($needsReview > 0 ? 'warning' : 'success'),
+            // Stat::make('Phone needs review', number_format($needsReview))
+            //     ->description('Repaired from a malformed number during import')
+            //     ->icon('heroicon-m-exclamation-triangle')
+            //     ->color($needsReview > 0 ? 'warning' : 'success'),
 
             Stat::make('Already patients', number_format($existingPatients))
                 ->description('Lead matches an existing patient record')
                 ->icon('heroicon-m-identification')
                 ->color($existingPatients > 0 ? 'warning' : 'gray'),
 
-            Stat::make('Won', number_format($base()->ofStatus(LeadStatus::Won)->count()))
-                ->description('Converted from an ad enquiry')
-                ->icon('heroicon-m-check-badge')
-                ->color('success'),
+            // Stat::make('Won', number_format($base()->ofStatus(LeadStatus::Won)->count()))
+            //     ->description('Converted from an ad enquiry')
+            //     ->icon('heroicon-m-check-badge')
+            //     ->color('success'),
         ];
     }
 

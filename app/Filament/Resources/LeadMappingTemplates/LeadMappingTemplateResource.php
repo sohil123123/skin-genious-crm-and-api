@@ -47,7 +47,9 @@ class LeadMappingTemplateResource extends Resource
     {
         return $schema->components([
             Section::make()
-                ->columns(['default' => 1, 'md' => 2])
+                // ->columns(['default' => 1, 'md' => 2])
+                ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('name')
                         ->label('Template name')
@@ -68,6 +70,7 @@ class LeadMappingTemplateResource extends Resource
             Section::make('Saved mapping')
                 ->description('Recorded when the template was created. Re-save from the import wizard to change it.')
                 ->collapsible()
+                ->columnSpanFull()
                 ->schema([
                     View::make('filament.lead.template-mapping-summary')
                         ->viewData(fn (LeadMappingTemplate $record): array => ['record' => $record]),
@@ -87,12 +90,21 @@ class LeadMappingTemplateResource extends Resource
                     ->wrap()
                     ->weight('medium'),
 
+                // Counted off the record rather than the column state: badging
+                // an array state renders one badge per element and formats each
+                // element in turn, so a formatter that counted the array never
+                // saw it — every template showed a row of pills reading "0",
+                // one per header. The full list belongs in the tooltip, since
+                // seventeen column names do not fit a table cell.
                 TextColumn::make('header_columns')
                     ->label('Columns')
-                    ->formatStateUsing(fn ($state): string => is_array($state) ? (string) count($state) : '0')
+                    ->state(fn (LeadMappingTemplate $record): int => count($record->header_columns ?? []))
                     ->badge()
                     ->color('gray')
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->tooltip(fn (LeadMappingTemplate $record): ?string => filled($record->header_columns)
+                        ? implode(', ', $record->header_columns)
+                        : null),
 
                 TextColumn::make('duplicate_strategy')
                     ->label('Duplicates')

@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -60,6 +61,11 @@ class LeadResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            // The soft-delete scope is dropped so the table's trashed filter has
+            // something to reveal. The filter hides deleted leads until it is
+            // switched, so the default listing is unchanged — but anything else
+            // reading this query has to exclude them itself.
+            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with(['clinic', 'assignedStaff', 'matchedUser', 'import'])
             ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic());
     }
@@ -93,7 +99,8 @@ class LeadResource extends Resource
 
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return static::getEloquentQuery();
+        // A deleted lead must not be findable from the search bar.
+        return static::getEloquentQuery()->whereNull('deleted_at');
     }
 
     /**
@@ -101,7 +108,9 @@ class LeadResource extends Resource
      */
     public static function getNavigationBadge(): ?string
     {
-        $new = static::getEloquentQuery()->ofStatus(\App\Enums\LeadStatus::New)->count();
+        // getEloquentQuery() no longer excludes deleted leads, and a deleted
+        // lead must not keep a badge lit in the sidebar.
+        $new = static::getEloquentQuery()->whereNull('deleted_at')->ofStatus(\App\Enums\LeadStatus::New)->count();
 
         return $new > 0 ? (string) $new : null;
     }

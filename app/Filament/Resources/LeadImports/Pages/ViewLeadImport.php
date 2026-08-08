@@ -23,15 +23,35 @@ class ViewLeadImport extends ViewRecord
     protected static string $resource = LeadImportResource::class;
 
     /**
-     * Poll only while the import is moving. A finished import is static, so
-     * continuing to poll would refresh the page forever for no reason.
+     * Re-read the import for the polling progress panel.
+     *
+     * The page hydrates its record once on mount and then holds it, so a poll
+     * that re-rendered the held instance would keep showing the counters as
+     * they stood at page load while the job increments them underneath — the
+     * bar would only ever move on a manual refresh. Refreshing in place also
+     * lets the poll interval below see that the import has finished, which is
+     * what eventually stops the polling.
      */
-    public function getPollingInterval(): ?string
+    protected function progressRecord(): LeadImport
     {
         /** @var LeadImport $record */
         $record = $this->getRecord();
 
-        return $record->status->isRunning() ? '3s' : null;
+        if (! $record->status->isRunning()) {
+            return $record;
+        }
+
+        $record->refresh();
+
+        // Finishing changes which header actions apply — "Cancel" gives way to
+        // "View imported leads" and the download links — and those live outside
+        // the polled component, so the whole page is re-rendered once, on the
+        // single poll that observes the transition.
+        if (! $record->status->isRunning()) {
+            $this->dispatch('$refresh');
+        }
+
+        return $record;
     }
 
     public function infolist(Schema $schema): Schema
@@ -41,7 +61,16 @@ class ViewLeadImport extends ViewRecord
             // progress panel is squeezed into a half-width column beside the
             // File card, which is the one thing on this page that wants room.
             View::make('filament.lead.import-progress-panel')
-                ->viewData(fn (): array => ['record' => $this->getRecord()])
+                // Polling re-renders this component alone, and Filament
+                // addresses it by key, so it needs one of its own — a View has
+                // no state path to derive it from.
+                ->key('import-progress')
+                ->viewData(fn (): array => ['record' => $this->progressRecord()])
+                // Only this component polls, so a running import updates its
+                // counters and bar without re-rendering the whole page. A
+                // finished import is static, so polling stops rather than
+                // refreshing forever for no reason.
+                ->poll(fn (): ?string => $this->getRecord()->status->isRunning() ? '2s' : null)
                 ->columnSpanFull(),
 
             Section::make('File')

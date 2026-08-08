@@ -17,7 +17,10 @@ use App\Models\LeadImport;
 use App\Models\LeadImportFailure;
 use App\Models\LeadImportLog;
 use App\Models\User;
-use Filament\Notifications\Actions\Action as NotificationAction;
+// Notification actions are built from the same unified Action class as every
+// other action in the panel; Filament\Notifications\Actions\Action no longer
+// exists, and referencing it silently cost the uploader their notification.
+use Filament\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;

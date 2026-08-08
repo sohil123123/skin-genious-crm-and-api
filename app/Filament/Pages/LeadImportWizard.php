@@ -38,12 +38,15 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Throwable;
 use UnitEnum;
 
@@ -162,14 +165,14 @@ class LeadImportWizard extends Page
             ->schema([
                 Select::make('clinic_id')
                     ->label('Clinic')
-                    ->options(fn (): array => Clinic::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn(): array => Clinic::query()->active()->orderBy('name')->pluck('name', 'id')->all())
                     ->default(auth()->user()?->clinic_id)
                     ->required()
-                    ->searchable()
+                    // ->searchable()
                     ->helperText('Imported leads belong to this clinic and duplicates are matched within it.')
                     // A clinic user has exactly one clinic, so the choice is
                     // theirs only when they can see more than one.
-                    ->visible(fn (): bool => check_role(config('project.roles.super_admin')))
+                    ->visible(fn(): bool => check_role(config('project.roles.super_admin')))
                     ->dehydrated(),
 
                 FileUpload::make('file')
@@ -183,27 +186,99 @@ class LeadImportWizard extends Page
                     ->storeFiles(false)
                     ->helperText(
                         'Facebook exports are UTF-16 tab-separated files with a .csv extension. '
-                        . 'The encoding and delimiter are detected automatically and shown before anything is imported.'
+                        . 'The encoding and delimiter are detected automatically and shown below.'
                     )
-                    ->columnSpan(fn (): int => check_role(config('project.roles.super_admin')) ? 1 : 2),
+                    // Live so the finished upload is sent to the server, which
+                    // is what lets updated() below analyse it. The component's
+                    // own afterStateUpdated hook is no use here: BaseFileUpload
+                    // only calls it from saveUploadedFiles(), which returns
+                    // early when storeFiles(false) is set, so it never fires on
+                    // upload — only on remove and reorder.
+                    ->live()
+                    ->columnSpan(fn(): int => check_role(config('project.roles.super_admin')) ? 1 : 2),
 
                 View::make('filament.lead.upload-summary')
-                    ->viewData(fn (): array => ['import' => $this->currentImport()])
-                    ->visible(fn (): bool => $this->currentImport() !== null)
+                    // Addressed by key so choosing a file can re-render it: a
+                    // state update only re-renders the field that changed, and
+                    // this panel is a sibling of the upload field.
+                    ->key('upload-summary')
+                    ->viewData(fn(): array => ['import' => $this->currentImport()])
+                    // Deliberately not ->visible(): a component hidden at page
+                    // load has no node in the DOM, and partial rendering
+                    // replaces a node rather than creating one — so the panel
+                    // would stay invisible until the whole page re-rendered,
+                    // which is what going forward and back used to do. The
+                    // template already renders nothing without an analysis.
                     ->columnSpanFull(),
             ])
             ->afterValidation(function (Get $get): void {
-                $this->handleUpload($get);
+                // Still runs on Next, for the case where the file was already
+                // in state before this hook existed (a restored session) or the
+                // analysis failed and is worth retrying. handleUpload() returns
+                // early when the same file has already been analysed.
+                $this->handleUpload($get('file'), (int) $get('clinic_id'));
             });
     }
 
     /**
-     * Store the upload, detect its format and analyse it.
+     * Analyse the export as soon as Livewire reports the upload has landed.
+     *
+     * This is Livewire's own updated hook rather than the file field's
+     * afterStateUpdated: BaseFileUpload only calls that from
+     * saveUploadedFiles(), which returns early under storeFiles(false), so it
+     * never fires when a file is chosen. The wizard's afterValidation hook
+     * still calls handleUpload() on Next, and it returns early once the same
+     * file has been analysed, so the two do not collide.
      */
-    protected function handleUpload(Get $get): void
+    public function updated(string $property): void
     {
+        if (! str_starts_with($property, 'data.file')) {
+            return;
+        }
+
+        $upload = collect($this->data['file'] ?? [])->first();
+
+        // Also fires while the upload is still being negotiated and when the
+        // file is cleared; in both cases the state holds a placeholder rather
+        // than a file, and there is nothing to analyse yet.
+        if (! $upload instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        // Halt is how this page refuses a file, and the wizard's own hooks
+        // catch it to stop a step advancing. Nothing catches it here, so an
+        // unreadable file would surface as a 500 instead of the notification
+        // haltWith() has already sent.
+        try {
+            $this->handleUpload($this->data['file'], (int) ($this->data['clinic_id'] ?? 0));
+        } catch (Halt) {
+            //
+        }
+    }
+
+    /**
+     * Store the upload, detect its format and analyse it.
+     *
+     * Takes the two values it needs rather than a Get, so it can be driven from
+     * the file field's afterStateUpdated hook, from the step's afterValidation
+     * hook, and from a test, without each caller having to produce a schema
+     * component to read state through.
+     */
+    public function handleUpload(mixed $file, ?int $clinicId = null): void
+    {
+        $upload = collect($file)->first();
+
         // Re-entering the step after going back should not re-upload the file.
-        if ($this->importId !== null && $this->currentImport()?->analysis !== null) {
+        // The filename is part of the test because the file can now be swapped
+        // on this step: without it, choosing a second file would be ignored and
+        // the summary would go on describing the first one.
+        $current = $this->currentImport();
+
+        if (
+            $current?->analysis !== null
+            && $upload !== null
+            && $current->original_filename === $upload->getClientOriginalName()
+        ) {
             return;
         }
 
@@ -217,13 +292,11 @@ class LeadImportWizard extends Page
             );
         }
 
-        $clinicId = (int) ($get('clinic_id') ?: auth()->user()?->clinic_id);
+        $clinicId = (int) ($clinicId ?: auth()->user()?->clinic_id);
 
         if ($clinicId === 0) {
             $this->haltWith('No clinic selected', 'Choose the clinic these leads belong to.');
         }
-
-        $upload = collect($get('file'))->first();
 
         if ($upload === null) {
             $this->haltWith('No file selected', 'Choose a lead export to import.');
@@ -302,6 +375,31 @@ class LeadImportWizard extends Page
     }
 
     /**
+     * Delete the browser's temporary upload once it has been copied.
+     *
+     * Only Livewire's own temporary files are touched: a plain UploadedFile
+     * arrives from a test or a console caller and is not ours to remove.
+     */
+    public function discardTemporaryUpload(mixed $upload): void
+    {
+        if (! $upload instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        try {
+            $upload->delete();
+        } catch (Throwable $exception) {
+            // The export is already stored and the import is queued, so failing
+            // to tidy up must not fail the upload. The file is left for
+            // Livewire's own daily sweep and the leak is recorded instead.
+            Log::channel('lead_imports')->warning('Could not delete the temporary upload.', [
+                'file' => $upload->getFilename(),
+                'exception' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Seed the mapping step from the auto-mapper and any matching template.
      */
     protected function applyProposedMapping(LeadImport $import, CsvAnalysisResult $analysis): void
@@ -356,7 +454,7 @@ class LeadImportWizard extends Page
         return Step::make('Mapping')
             ->description('Match columns to CRM fields')
             ->icon('heroicon-o-arrows-right-left')
-            ->schema(fn (): array => $this->mappingComponents())
+            ->schema(fn(): array => $this->mappingComponents())
             ->afterValidation(function (Get $get): void {
                 $missing = StoreLeadMappingRequest::findUnmappedRequiredFields($get('mapping') ?? []);
 
@@ -392,20 +490,29 @@ class LeadImportWizard extends Page
 
         $existingCustom = LeadCustomField::query()
             ->where('is_active', true)
-            ->when($this->currentImport()?->clinic_id, fn ($query, $clinicId) => $query
-                ->where(fn ($inner) => $inner->where('clinic_id', $clinicId)->orWhereNull('clinic_id')))
+            ->when($this->currentImport()?->clinic_id, fn($query, $clinicId) => $query
+                ->where(fn($inner) => $inner->where('clinic_id', $clinicId)->orWhereNull('clinic_id')))
             ->get();
+
+        $mappingRows = [];
+
+        foreach ($rows as $index => $row) {
+            $mappingRows[] = $this->mappingRow($index, $row, $coreOptions, $existingCustom);
+        }
 
         $components = [
             Text::make(
                 'Every column below will be imported unless you set it to Ignore. '
                 . 'Columns marked "auto" were matched automatically — change any that are wrong.'
-            )->color('gray'),
-        ];
+            )->color('gray')->columnSpanFull(),
 
-        foreach ($rows as $index => $row) {
-            $components[] = $this->mappingRow($index, $row, $coreOptions, $existingCustom);
-        }
+            // Plainly mapped columns are one short control each, so they pair up
+            // two to a line; a row that opens custom-question controls still
+            // takes the full width so those controls keep their own layout.
+            Grid::make(['default' => 1, 'md' => 2, 'lg' => 2])
+                ->schema($mappingRows)
+                ->columnSpanFull(),
+        ];
 
         return [
             TextInput::make('template_name')
@@ -440,56 +547,69 @@ class LeadImportWizard extends Page
 
         $options['Skip'] = [ColumnMappingDto::TARGET_IGNORE => '🚫 Ignore this column'];
 
-        $isCustom = fn (Get $get): bool => str_starts_with(
+        $isCustom = fn(Get $get): bool => str_starts_with(
             (string) $get("mapping.{$index}.target"),
             ColumnMappingDto::PREFIX_CUSTOM
         );
 
         return Grid::make(['default' => 1, 'lg' => 12])
             ->schema([
-                // Text renders a single content value, so the column name and
-                // its hint are composed into one escaped fragment rather than
-                // being set as a separate description.
-                Text::make(fn (): HtmlString => $this->mappingRowLabel($header, $row, $suggestions))
-                    ->columnSpan(['default' => 1, 'lg' => 5]),
+                // The column name and its sample values occupy their own full
+                // width row, so the controls beneath line up across all
+                // eighteen rows instead of each one starting at a different
+                // horizontal position.
+                //
+                // Text renders a single content value, so the name and hint are
+                // composed into one escaped fragment rather than being set as a
+                // separate description.
+                Text::make(fn(): HtmlString => $this->mappingRowLabel($header, $row, $suggestions))
+                    ->columnSpanFull(),
 
                 Select::make("mapping.{$index}.target")
                     ->label('Import as')
-                    ->hiddenLabel()
+                    // A core mapping is a single control, so its label would be
+                    // eighteen repetitions of the same word down the page. It
+                    // only earns its place once there are neighbours to align
+                    // and distinguish it from.
+                    ->hiddenLabel(fn(Get $get): bool => ! $isCustom($get))
                     ->options($options)
                     ->searchable()
                     ->native(false)
                     ->required()
                     ->live()
-                    ->columnSpan(['default' => 1, 'lg' => 7]),
+                    // Widens to the full row when it is the only control, so a
+                    // plainly mapped column does not leave two thirds of the
+                    // row empty.
+                    ->columnSpan(fn(Get $get): array => $isCustom($get)
+                        ? ['default' => 1, 'lg' => 4]
+                        : ['default' => 1, 'lg' => 12]),
 
-                // The label and type controls sit on their own row rather than
-                // being squeezed into the first one. Sharing a single 12-column
-                // row left the type select about sixty pixels wide, which broke
-                // "Single Choice" across four lines.
-                Grid::make(['default' => 1, 'lg' => 12])
-                    ->schema([
-                        TextInput::make("mapping.{$index}.custom_label")
-                            ->label('Question label')
-                            ->placeholder($header)
-                            ->helperText('Shown throughout the CRM. Leave as-is to keep the wording from the file.')
-                            ->maxLength(1000)
-                            ->columnSpan(['default' => 1, 'lg' => 8]),
-
-                        Select::make("mapping.{$index}.custom_type")
-                            ->label('Answer type')
-                            ->options(LeadFieldType::options())
-                            ->native(false)
-                            ->helperText('Single or multiple choice makes the answers filterable.')
-                            ->columnSpan(['default' => 1, 'lg' => 4]),
-                    ])
+                TextInput::make("mapping.{$index}.custom_label")
+                    ->label('Question label')
+                    ->placeholder($header)
+                    ->helperText('Shown throughout the CRM.')
+                    ->maxLength(1000)
                     ->visible($isCustom)
-                    ->columnSpanFull(),
+                    ->columnSpan(['default' => 1, 'lg' => 5]),
+
+                Select::make("mapping.{$index}.custom_type")
+                    ->label('Answer type')
+                    ->options(LeadFieldType::options())
+                    ->native(false)
+                    ->helperText('Choice types become filters.')
+                    ->visible($isCustom)
+                    ->columnSpan(['default' => 1, 'lg' => 3]),
 
                 Hidden::make("mapping.{$index}.csv_column"),
                 Hidden::make("mapping.{$index}.auto_mapped"),
                 Hidden::make("mapping.{$index}.confidence"),
             ])
+            // One of the two columns of the mapping list, unless custom-question
+            // controls are open — those get a row to themselves so their three
+            // controls lay out side by side instead of stacking in half a page.
+            ->columnSpan(fn(Get $get): array => $isCustom($get)
+                ? ['default' => 1, 'md' => 2, 'lg' => 2]
+                : ['default' => 1, 'md' => 1, 'lg' => 1])
             // A hairline between rows keeps eighteen columns readable as a
             // list. Styled inline for the same reason as the Blade views: the
             // panel serves a pre-built theme that has no class for this.
@@ -546,7 +666,7 @@ class LeadImportWizard extends Page
             $parts[] = sprintf('Similar to existing question "%s" (%s%% match)', Str::limit($best['label'], 45), $best['score']);
         }
 
-        if (! empty($row['auto_mapped']) && ($row['confidence'] ?? 0) >= 100) {
+        if (!empty($row['auto_mapped']) && ($row['confidence'] ?? 0) >= 100) {
             array_unshift($parts, 'auto-mapped');
         }
 
@@ -591,8 +711,8 @@ class LeadImportWizard extends Page
                     ->schema([
                         CheckboxList::make('duplicate_match_fields')
                             ->label('Treat rows as duplicates when these match')
-                            ->options(fn (): array => collect(CrmLeadField::duplicateMatchFields())
-                                ->mapWithKeys(fn (CrmLeadField $field): array => [$field->value => $field->getLabel()])
+                            ->options(fn(): array => collect(CrmLeadField::duplicateMatchFields())
+                                ->mapWithKeys(fn(CrmLeadField $field): array => [$field->value => $field->getLabel()])
                                 ->all())
                             ->descriptions([
                                 CrmLeadField::FbLeadId->value => "Facebook's own lead ID is unique per submission and is the most reliable match.",
@@ -626,7 +746,7 @@ class LeadImportWizard extends Page
             ->icon('heroicon-o-eye')
             ->schema([
                 View::make('filament.lead.import-preview')
-                    ->viewData(fn (): array => $this->previewData()),
+                    ->viewData(fn(): array => $this->previewData()),
 
                 Checkbox::make('confirmed')
                     ->label('I have checked the preview above and want to import these leads')
@@ -659,8 +779,8 @@ class LeadImportWizard extends Page
         foreach (array_slice($analysis->sampleRows, 0, (int) config('leads.csv.preview_rows', 20)) as $index => $rawRow) {
             $mapped = $importer->mapRow(
                 ImportSettingsDto::fromArray($import->settings ?? [])->stripMetaPrefixes
-                    ? app(\App\Services\Lead\MetaPrefixStripper::class)->stripRow($rawRow)
-                    : $rawRow
+                ? app(\App\Services\Lead\MetaPrefixStripper::class)->stripRow($rawRow)
+                : $rawRow
             );
 
             $rows[] = [
@@ -750,6 +870,14 @@ class LeadImportWizard extends Page
 
         app(LeadImportService::class)->dispatchImport($import->refresh());
 
+        // The export was copied into permanent storage during the upload step,
+        // and the wizard is about to redirect away, so the browser's temporary
+        // copy has no further use. It is discarded here rather than at upload
+        // time because the file stays in form state for the whole wizard: the
+        // field is required, and Filament re-validates that state — including a
+        // max: rule that reads the file's size — every time a step advances.
+        $this->discardTemporaryUpload(collect($this->data['file'] ?? [])->first());
+
         Notification::make()
             ->title('Import started')
             ->body(sprintf('%s is being imported in the background. Progress is shown on the import history.', $import->original_filename))
@@ -821,6 +949,6 @@ class LeadImportWizard extends Page
             ->persistent()
             ->send();
 
-        throw new \Filament\Support\Exceptions\Halt();
+        throw new Halt();
     }
 }

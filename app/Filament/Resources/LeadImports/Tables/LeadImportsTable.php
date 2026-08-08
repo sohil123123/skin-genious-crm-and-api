@@ -11,7 +11,12 @@ use App\Services\Lead\LeadImportService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
@@ -20,8 +25,10 @@ use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class LeadImportsTable
@@ -155,7 +162,13 @@ class LeadImportsTable
                     ->label('Has unresolved failures')
                     ->query(fn (Builder $query): Builder => $query->whereHas('failures', fn (Builder $inner): Builder => $inner->where('is_resolved', false)))
                     ->toggle(),
-            ], layout: FiltersLayout::AboveContentCollapsible)
+
+                // Deleted records are hidden by default, so without this there
+                // is no way to reach one to restore or permanently remove it.
+                TrashedFilter::make(),
+            ], layout: FiltersLayout::Modal)
+            ->filtersFormColumns(4)
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
@@ -212,15 +225,88 @@ class LeadImportsTable
 
                             Notification::make()->title('Import cancelled')->warning()->send();
                         }),
+
+                    // Removing the history entry, not the leads: the foreign key
+                    // is nullOnDelete, so imported leads survive and simply stop
+                    // pointing at a batch.
+                    DeleteAction::make()
+                        ->label('Delete record')
+                        ->modalHeading('Delete this import record')
+                        ->modalDescription(fn (LeadImport $record): string => static::deleteDescription($record)
+                            . ' The record can be restored afterwards.')
+                        // A running import would keep writing rows against a
+                        // record that no longer appears in the history.
+                        ->visible(fn (LeadImport $record): bool => ! $record->status->isRunning()),
+
+                    RestoreAction::make(),
+
+                    ForceDeleteAction::make()
+                        ->label('Delete permanently')
+                        ->modalHeading('Permanently delete this import record')
+                        ->modalDescription(fn (LeadImport $record): string => static::deleteDescription($record)
+                            . ' Its failure rows and logs are destroyed with it, and this cannot be undone.')
+                        ->visible(fn (LeadImport $record): bool => ! $record->status->isRunning())
+                        // The uploaded export and the failed-rows CSV live on
+                        // disk, outside the cascade, so they are removed here or
+                        // not at all.
+                        ->before(fn (LeadImport $record) => static::deleteStoredFiles($record)),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+
+                    RestoreBulkAction::make(),
+
+                    ForceDeleteBulkAction::make()
+                        ->label('Delete permanently')
+                        ->modalDescription('Imported leads are kept and lose their link to the import. Failure rows, logs and the stored files are destroyed. This cannot be undone.')
+                        ->before(fn (Collection $records) => $records->each(
+                            fn (LeadImport $record) => static::deleteStoredFiles($record)
+                        )),
                 ]),
             ])
             ->emptyStateHeading('No imports yet')
             ->emptyStateDescription('Upload a Facebook lead export to get started.')
             ->emptyStateIcon('heroicon-o-inbox-arrow-down');
+    }
+
+    /**
+     * Say what deleting this record does to the leads that came from it.
+     *
+     * The question anyone hesitates over here is whether the patients go too,
+     * so the count is stated rather than described in the abstract.
+     */
+    protected static function deleteDescription(LeadImport $record): string
+    {
+        $leads = $record->leads()->count();
+
+        if ($leads === 0) {
+            return 'No leads came from this import.';
+        }
+
+        return sprintf(
+            'The %s imported from this file %s kept, and will no longer be linked to an import batch.',
+            $leads === 1 ? '1 lead' : number_format($leads) . ' leads',
+            $leads === 1 ? 'is' : 'are',
+        );
+    }
+
+    /**
+     * Remove the uploaded export and the failed-rows CSV.
+     *
+     * Both sit on a disk rather than in the database, so the foreign key
+     * cascade does not reach them: a permanent delete that skipped this would
+     * leave raw personal data behind with nothing left pointing at it.
+     */
+    protected static function deleteStoredFiles(LeadImport $record): void
+    {
+        $disk = Storage::disk($record->disk);
+
+        foreach ([$record->stored_path, $record->failed_export_path] as $path) {
+            if (filled($path) && $disk->exists($path)) {
+                $disk->delete($path);
+            }
+        }
     }
 }

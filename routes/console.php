@@ -28,3 +28,8 @@ Schedule::command('appointments:send-today-whatsapp --mode=same_day_morning')->d
 
 // 3. AI Actions - 7:00 AM daily
 Schedule::command('ai:generate-actions')->dailyAt('07:00');
+
+// Lead imports: the wizard deletes each temporary upload once it has copied the
+// export, so this only sweeps up files abandoned before that point — someone
+// choosing a file and then closing the tab.
+Schedule::command('leads:cleanup-temp-uploads')->dailyAt('03:00');

@@ -22,6 +22,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Filament\Tables\Enums\FiltersLayout;
 
 class LeadCustomFieldsTable
 {
@@ -30,6 +32,13 @@ class LeadCustomFieldsTable
         return $table
             ->defaultSort('usage_count', 'desc')
             ->columns([
+                TextColumn::make('clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('All clinics')
+                    ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),
+
                 TextColumn::make('display_label')
                     ->label('Question')
                     ->wrap()
@@ -42,12 +51,25 @@ class LeadCustomFieldsTable
                     ->badge()
                     ->sortable(),
 
+                // Badging an array state renders one badge per element and
+                // formats each element in turn, so a formatter that counted the
+                // array never ran against the array — it produced a row of
+                // blank pills, one per option. The values are listed instead,
+                // which is what the column claims to show anyway.
                 TextColumn::make('options')
                     ->label('Options')
-                    ->formatStateUsing(fn ($state): string => is_array($state) ? (string) count($state) : '—')
                     ->badge()
                     ->color('gray')
-                    ->alignCenter(),
+                    ->limitList(3)
+                    ->expandableLimitedList()
+                    // Meta snake_cases its answers, so the same humanising the
+                    // rest of the module applies is used here rather than a
+                    // second, subtly different version of it.
+                    ->formatStateUsing(fn ($state): string => Str::limit(
+                        LeadCustomField::humanizeValue((string) $state),
+                        40
+                    ))
+                    ->placeholder('—'),
 
                 TextColumn::make('usage_count')
                     ->label('Answers')
@@ -59,13 +81,6 @@ class LeadCustomFieldsTable
                     ->label('Active')
                     ->boolean()
                     ->sortable(),
-
-                TextColumn::make('clinic.name')
-                    ->label('Clinic')
-                    ->badge()
-                    ->color('info')
-                    ->placeholder('All clinics')
-                    ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),
 
                 TextColumn::make('created_at')
                     ->label('First seen')
@@ -84,12 +99,24 @@ class LeadCustomFieldsTable
 
                 SelectFilter::make('clinic_id')
                     ->label('Clinic')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn (Builder $query) => $query->active()->orderBy('name'))
                     ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),
-            ])
+            ], layout: FiltersLayout::Modal)
+            ->filtersFormColumns(3)
+            ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 ActionGroup::make([
-                    EditAction::make(),
+                    EditAction::make()
+                        // The record title attribute is the raw imported label,
+                        // so the default heading reads
+                        // "Edit which_session_are_you_interested_in?".
+                        ->modalHeading(fn (LeadCustomField $record): string => 'Edit “' . $record->display_label . '”')
+                        ->modalDescription('Imported from a lead form. Wording and options can be tidied up; the key answers are stored against cannot.')
+                        // Three sections of two columns need more room than the
+                        // default modal gives them, which is what forced every
+                        // field to stack.
+                        ->modalWidth('2xl')
+                        ->slideOver(),
 
                     Action::make('merge')
                         ->label('Merge into another question')

@@ -15,6 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
+
 /**
  * Manages the registry of dynamic lead-form questions.
  *
