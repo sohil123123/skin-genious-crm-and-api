@@ -21,11 +21,12 @@ use Illuminate\Support\Facades\Log;
 
 class AiActionService
 {
+    // The scoring formula and fatigue calculation live in the trait so the lead
+    // engine scores identically. $maxContactAttempts comes from there too.
+    use \App\Services\Concerns\CalculatesActionPriority;
+
     /** Default number of days to look back for recent events */
     protected int $lookbackDays = 60;
-
-    /** Maximum contact attempts in a 7-day window before fatigue penalty */
-    protected int $maxContactAttempts = 3;
 
     /** Default package session overdue threshold in days */
     protected int $packageOverdueDays = 21;
@@ -1008,42 +1009,15 @@ class AiActionService
     // ──────────────────────────────────────────────────────────────
 
     /**
-     * Calculate a priority score (0-100) from weighted factors.
-     *
-     * Formula: (intent × recency × treatment_fit × urgency × slot_availability) − fatigue_penalty
-     * Then scaled to 0-100.
-     */
-    protected function calculatePriority(array $factors): int
-    {
-        $base = ($factors['intent'] ?? 0.5)
-            * ($factors['recency'] ?? 0.5)
-            * ($factors['treatment_fit'] ?? 0.5)
-            * ($factors['urgency'] ?? 0.5)
-            * ($factors['slot_availability'] ?? 0.5);
-
-        $penalty = $factors['fatigue_penalty'] ?? 0;
-
-        $score = max(0, ($base * 100) - ($penalty * 30));
-
-        return (int) min(100, round($score));
-    }
-
-    /**
      * Calculate contact fatigue penalty (0.0 to 1.0).
      * Based on number of AI action logs created for this user in the last 7 days.
+     *
+     * The implementation now lives in CalculatesActionPriority; this signature
+     * is kept so the ten existing call sites are untouched.
      */
     protected function getContactFatiguePenalty(int $userId): float
     {
-        $recentAttempts = AiActionLog::where('user_id', $userId)
-            ->where('generated_date', '>=', Carbon::today()->subDays(7))
-            ->whereNotNull('staff_outcome')
-            ->count();
-
-        if ($recentAttempts >= $this->maxContactAttempts) {
-            return 1.0;
-        }
-
-        return $recentAttempts / $this->maxContactAttempts;
+        return $this->contactFatiguePenaltyFor(AiActionLog::class, 'user_id', $userId);
     }
 
     // ──────────────────────────────────────────────────────────────

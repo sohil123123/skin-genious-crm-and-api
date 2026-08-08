@@ -136,15 +136,30 @@
 
         {{-- ── Completed outcome banner ── --}}
         @if ($record->staff_outcome)
-            <div style="display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.5rem; border-radius: 0.375rem; background: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 0.25rem;">
-                <x-filament::icon icon="heroicon-m-check-circle" class="h-3.5 w-3.5 text-green-600 dark:text-green-400" style="flex-shrink: 0;" />
-                <span style="font-size: 0.6875rem; font-weight: 700; color: #16a34a;" class="dark:!text-green-400">
-                    {{ \App\Models\AiActionLog::outcomeOptions()[$record->staff_outcome] ?? $record->staff_outcome }}
-                </span>
-                @if ($record->outcome_at)
-                    <span style="font-size: 0.625rem; color: #9ca3af;">
-                        {{ $record->outcome_at->format('g:i A') }}
+            <div style="padding: 0.4375rem 0.5rem; border-radius: 0.375rem; background: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 0.25rem;">
+                <div style="display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap;">
+                    <x-filament::icon icon="heroicon-m-check-circle" class="h-3.5 w-3.5 text-green-600 dark:text-green-400" style="flex-shrink: 0;" />
+                    <span style="font-size: 0.6875rem; font-weight: 700; color: #16a34a;" class="dark:!text-green-400">
+                        {{ \App\Models\AiActionLog::outcomeOptions()[$record->staff_outcome] ?? $record->staff_outcome }}
                     </span>
+                    @if ($record->outcome_at)
+                        {{-- Time alone is ambiguous once a card is more than a day
+                             old, so the date shows unless it was logged today. --}}
+                        <span style="font-size: 0.625rem; color: #9ca3af;" title="{{ $record->outcome_at->format('D, j M Y g:i A') }}">
+                            {{ $record->outcome_at->isToday()
+                                ? $record->outcome_at->format('g:i A')
+                                : $record->outcome_at->format('j M, g:i A') }}
+                        </span>
+                    @endif
+                </div>
+
+                @if (filled($record->outcome_notes))
+                    {{-- The note staff typed is the most useful part of a completed
+                         card (a callback time, an objection), so show it in full. --}}
+                    <div style="display: flex; gap: 0.375rem; margin-top: 0.375rem; padding-top: 0.375rem; border-top: 1px solid #bbf7d0;">
+                        <x-filament::icon icon="heroicon-m-chat-bubble-bottom-center-text" class="h-3 w-3" style="flex-shrink: 0; margin-top: 0.0625rem; color: #6b7280;" />
+                        <p style="font-size: 0.6875rem; line-height: 1.45; margin: 0; color: #374151; white-space: pre-line; overflow-wrap: anywhere;" class="dark:!text-gray-300">{{ $record->outcome_notes }}</p>
+                    </div>
                 @endif
             </div>
         @endif

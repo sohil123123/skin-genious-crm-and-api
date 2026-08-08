@@ -7,7 +7,6 @@ use App\Services\AiActionService;
 
 use Filament\Widgets\TableWidget;
 use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\Layout\View;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Notifications\Notification;
@@ -53,19 +52,23 @@ class AiActionQueue extends TableWidget
                 return $query;
             })
             ->columns([
-                View::make('filament.tables.ai-action-card')
-                    ->components([
-                        // Hidden searchable columns for table search functionality
-                        TextColumn::make('client.first_name')
-                            ->searchable()
-                            ->hidden(),
-                        TextColumn::make('client.last_name')
-                            ->searchable()
-                            ->hidden(),
-                        TextColumn::make('client.mobile')
-                            ->searchable()
-                            ->hidden(),
-                    ]),
+                View::make('filament.tables.ai-action-card'),
+            ])
+            // Declared on the table rather than as hidden columns: Filament skips
+            // hidden columns when building the search constraint, so the previous
+            // approach rendered a search box that could never match.
+            ->searchable([
+                fn(Builder $query, string $search): Builder => $query->whereHas(
+                    'client',
+                    fn(Builder $client): Builder => $client->where(
+                        fn(Builder $match): Builder => $match
+                            ->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhereRaw("CONCAT_WS(' ', first_name, last_name) LIKE ?", ["%{$search}%"])
+                            ->orWhere('mobile', 'like', '%' . static::phoneNeedle($search) . '%')
+                            ->orWhere('email', 'like', "%{$search}%")
+                    )
+                ),
             ])
             ->contentGrid([
                 'md' => 2,
@@ -194,6 +197,24 @@ class AiActionQueue extends TableWidget
             ->emptyStateDescription('Click "Regenerate" to analyse CRM data and build today\'s action queue.')
             ->emptyStateIcon('heroicon-o-sparkles')
             ->poll('30s');
+    }
+
+    /**
+     * Reduce a typed phone number to the digits actually stored.
+     *
+     * Staff type numbers inconsistently (08696299993, +91 86962 99993); matching
+     * on the trailing national digits finds the record either way. Text searches
+     * pass through untouched so names still match.
+     */
+    protected static function phoneNeedle(string $search): string
+    {
+        $digits = preg_replace('/\D+/', '', $search) ?? '';
+
+        if ($digits === '' || strlen($digits) < 4) {
+            return $search;
+        }
+
+        return strlen($digits) > 10 ? substr($digits, -10) : $digits;
     }
 
     /**

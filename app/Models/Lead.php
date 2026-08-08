@@ -118,6 +118,14 @@ class Lead extends Model
         return $this->hasMany(LeadFieldValue::class);
     }
 
+    /**
+     * Next Best Action entries generated for this lead.
+     */
+    public function actionLogs(): HasMany
+    {
+        return $this->hasMany(LeadActionLog::class);
+    }
+
     // ──────────────── Scopes ────────────────
 
     /**
