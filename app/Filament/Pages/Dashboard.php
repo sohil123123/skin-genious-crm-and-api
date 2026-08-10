@@ -40,6 +40,8 @@ class Dashboard extends BaseDashboard
         \App\Filament\Widgets\LeadsByConcernChart::class,            // Leads by Answer
         \App\Filament\Widgets\ExpenseCategoryBreakdownChart::class,  // Expenses by Category
         \App\Filament\Widgets\ExpenseTrendChart::class,              // Daily Expense Trend
+        \App\Filament\Widgets\LeadMorningSummary::class,             // Morning Summary — Today's Opportunity
+        \App\Filament\Widgets\LeadActionQueue::class,                // Lead Action Queue
     ];
 
     public function getWidgets(): array

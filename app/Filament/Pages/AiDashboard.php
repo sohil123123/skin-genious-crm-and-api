@@ -15,7 +15,7 @@ use Livewire\Attributes\Url;
 
 class AiDashboard extends Page
 {
-    public const TAB_PATIENTS = 'patients';
+    public const TAB_PATIENTS = 'clients';
 
     public const TAB_LEADS = 'leads';
 

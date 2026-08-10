@@ -28,7 +28,12 @@
 
     // The lead's own form answers are what make the script specific, so they
     // are surfaced on the card rather than buried behind the detail toggle.
-    $answers = collect($lead?->custom_answers ?? [])->take(3);
+    //
+    // Shown with their questions: an answer like "Just enquiring" or "Not sure,
+    // please recommend" means nothing on its own, and two different questions
+    // here can share similar-looking answers.
+    $answers = collect($lead?->custom_answers ?? [])
+        ->filter(fn (array $answer): bool => filled($answer['values'] ?? []));
 @endphp
 
 <div style="position:relative; border:1px solid {{ $hairline }}; border-radius:.75rem; overflow:hidden; height:100%;">
@@ -94,14 +99,34 @@
 
         {{-- What they told the form --}}
         @if ($answers->isNotEmpty())
-            <div style="display:flex; flex-wrap:wrap; gap:.25rem;">
-                @foreach ($answers as $answer)
-                    @foreach (($answer['values'] ?? []) as $value)
-                        <x-filament::badge color="gray" size="xs">
-                            {{ Str::limit($value, 26) }}
-                        </x-filament::badge>
+            <div style="border:1px solid {{ $hairline }}; border-radius:.5rem; overflow:hidden;">
+                <div style="display:flex; align-items:center; gap:.3rem; padding:.3rem .5rem; border-bottom:1px solid {{ $hairline }}; background:{{ $tint }};">
+                    <x-filament::icon icon="heroicon-m-clipboard-document-list" style="width:.75rem; height:.75rem; {{ $muted }}" />
+                    <span style="font-size:.5625rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; {{ $muted }}">
+                        They told the form
+                    </span>
+                </div>
+
+                {{-- Question above, answer below. In a three-across card an
+                     inline "Question: Answer" wraps into an unreadable ribbon,
+                     so the pair is stacked and the answer given the weight. --}}
+                <div style="display:flex; flex-direction:column;">
+                    @foreach ($answers as $answer)
+                        <div style="padding:.375rem .5rem; {{ ! $loop->last ? 'border-bottom:1px solid ' . $hairline . ';' : '' }}">
+                            <div style="font-size:.625rem; line-height:1.35; {{ $muted }}">
+                                {{ $answer['label'] }}
+                            </div>
+
+                            <div style="display:flex; flex-wrap:wrap; gap:.25rem; margin-top:.1875rem;">
+                                @foreach (($answer['values'] ?? []) as $value)
+                                    <span style="font-size:.6875rem; font-weight:600; line-height:1.3;">
+                                        {{ $value }}@if (! $loop->last)<span style="{{ $muted }}">,</span>@endif
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
                     @endforeach
-                @endforeach
+                </div>
             </div>
         @endif
 

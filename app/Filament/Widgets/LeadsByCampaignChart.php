@@ -45,8 +45,15 @@ class LeadsByCampaignChart extends ChartWidget
     {
         $rows = Lead::query()
             ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic())
+            // Filtered on the enquiry date, not created_at: created_at is when
+            // the CSV was imported, which for a backfilled export is the same
+            // day for every row — "Last 7 days" would return the whole file.
+            // Non-Meta leads have no fb_created_time, so they fall back to it.
             ->when($this->filter !== 'all', fn (Builder $query) => $query
-                ->where('created_at', '>=', now()->subDays((int) $this->filter)))
+                ->whereRaw(
+                    'COALESCE(fb_created_time, created_at) >= ?',
+                    [now()->subDays((int) $this->filter)]
+                ))
             ->whereNotNull('campaign_name')
             ->select('campaign_name', DB::raw('COUNT(*) as lead_count'))
             ->groupBy('campaign_name')
