@@ -123,9 +123,14 @@ class MetaLeadSettings extends Page
                         Grid::make(2)->schema([
                             Select::make('meta_default_clinic_id')
                                 ->label('Default clinic')
+                                // A clinic with no name would otherwise yield a
+                                // null label, which Filament cannot render.
                                 ->options(fn (): array => Clinic::query()
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
+                                    ->map(fn (?string $name, $id): string => filled($name)
+                                        ? $name
+                                        : 'Clinic #' . $id)
                                     ->all())
                                 ->searchable()
                                 ->placeholder('First active clinic')
