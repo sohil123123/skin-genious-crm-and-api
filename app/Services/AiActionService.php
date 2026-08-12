@@ -9,6 +9,7 @@ use App\Models\AiActionLog;
 use App\Models\Appointment;
 use App\Models\Assessment;
 use App\Models\Clinic;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Models\UserPackage;
 use App\Models\UserPackageUsage;
@@ -34,6 +35,54 @@ class AiActionService
     /** Maintenance due window: completed treatment X days ago */
     protected int $maintenanceDueMinDays = 28;
     protected int $maintenanceDueMaxDays = 56;
+
+    /**
+     * Invoice statuses that do not represent real commercial activity.
+     *
+     * A cancelled invoice is not a conversion; a draft is not yet one. Every
+     * other status — paid, unpaid, partial — means the clinic committed to a
+     * treatment, so it must count as evidence that the patient converted.
+     */
+    protected const VOID_INVOICE_STATUSES = ['draft', 'cancelled'];
+
+    /**
+     * Score at or above which an action counts as high priority.
+     *
+     * The shared formula multiplies five sub-1.0 factors, so its raw output
+     * lives in roughly the 0-35 band on real data — the old 70 threshold could
+     * never be met by anything, which is why the dashboard permanently reported
+     * zero high-priority actions. Triggers are weighted below to restore the
+     * spread, and 55 is where the weighted scores separate genuine "do this
+     * first" work from routine follow-up.
+     */
+    public const HIGH_PRIORITY_THRESHOLD = 55;
+
+    /**
+     * Trigger weighting applied after the shared formula.
+     *
+     * Mirrors the lead engine, which already had to solve this: the raw formula
+     * ranks correctly within one trigger but cannot express that a package
+     * patient who has paid and stopped attending is worth more attention than a
+     * cold maintenance nudge. Weighting is applied per trigger so the ordering
+     * across categories reflects how close the money already is.
+     */
+    protected const TRIGGER_WEIGHT = [
+        'package_overdue' => 2.20,
+        'treatment_plan_dropoff' => 2.10,
+        'scan_no_treatment' => 2.00,
+        'consultation_no_treatment' => 1.90,
+        'cancelled_not_rebooked' => 1.80,
+        'package_nearing_exhaustion' => 1.60,
+        'no_show_not_rebooked' => 1.50,
+        'same_day_slot_fill' => 1.50,
+        'maintenance_due' => 1.40,
+        // Deliberately unweighted: its score is already a 0-100 risk figure,
+        // not an output of the multiplicative formula.
+        'tomorrows_risk_list' => 1.00,
+    ];
+
+    /** Ceiling for a weighted score, held below 100 so the top band cannot saturate. */
+    protected const MAX_SCORE = 97;
 
     /**
      * Generate all AI actions for today across specified clinics.
@@ -96,12 +145,27 @@ class AiActionService
             return $group->sortByDesc('priority_score')->first();
         })->values();
 
-        // Bulk insert
+        // Actions a staff member has already worked survive regeneration (they
+        // are not deleted above), so re-inserting those patients would put the
+        // same person in the queue twice — once done, once outstanding.
+        $alreadyWorked = AiActionLog::where('clinic_id', $clinic->id)
+            ->where('generated_date', Carbon::today())
+            ->whereNotNull('staff_outcome')
+            ->pluck('user_id')
+            ->all();
+
+        $created = 0;
+
         foreach ($deduplicated as $action) {
+            if (in_array($action['user_id'], $alreadyWorked, true)) {
+                continue;
+            }
+
             AiActionLog::create($action);
+            $created++;
         }
 
-        return $deduplicated->count();
+        return $created;
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -127,16 +191,18 @@ class AiActionService
                 continue;
             }
 
-            // Check if client has a future appointment already
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
+            if ($this->hasFutureAppointment($client->id)) {
+                continue;
+            }
 
-            if ($hasFutureAppointment) {
+            // "Not rebooked" previously meant only "has nothing booked ahead",
+            // so a patient who cancelled and then walked in a week later was
+            // still chased about the cancellation. Recovery is only outstanding
+            // if nothing has happened since. The window opens on the day of the
+            // cancellation, not the day after: dropping a morning slot and
+            // coming in that same afternoon is an ordinary way for a clinic to
+            // recover a cancellation, and it should not read as a lost patient.
+            if ($this->hasConvertedSince($client->id, $appointment->start_datetime)) {
                 continue;
             }
 
@@ -147,14 +213,14 @@ class AiActionService
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.7,
                 'recency' => max(0, 1 - ($daysSinceCancellation / 30)),
                 'treatment_fit' => 0.8,
                 'urgency' => $daysSinceCancellation <= 7 ? 0.9 : 0.6,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'cancelled_not_rebooked');
 
             $typeLabel = $appointment->type instanceof AppointmentType
                 ? $appointment->type->getLabel()
@@ -211,15 +277,14 @@ class AiActionService
                 continue;
             }
 
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
+            if ($this->hasFutureAppointment($client->id)) {
+                continue;
+            }
 
-            if ($hasFutureAppointment) {
+            // Same correction as the cancellation trigger: a patient who missed
+            // one appointment and then attended — including later the same day —
+            // has already been recovered.
+            if ($this->hasConvertedSince($client->id, $appointment->start_datetime)) {
                 continue;
             }
 
@@ -236,14 +301,14 @@ class AiActionService
 
             $intentPenalty = min(0.3, $previousNoShows * 0.1);
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => max(0.3, 0.6 - $intentPenalty),
                 'recency' => max(0, 1 - ($daysSinceNoShow / 21)),
                 'treatment_fit' => 0.7,
                 'urgency' => $daysSinceNoShow <= 5 ? 0.8 : 0.5,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'no_show_not_rebooked');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -313,12 +378,19 @@ class AiActionService
                         AppointmentStatus::NoShow,
                     ]);
             })
-            ->limit(5)
+            // No limit here: the "last visit ≥ 14 days ago" test below is what
+            // decides eligibility, and capping the query first meant the five
+            // rows the database happened to return were often all rejected,
+            // producing an empty slot-fill list on a day with real candidates.
             ->get();
 
         $actions = collect();
 
         foreach ($candidates as $client) {
+            if ($actions->count() >= 5) {
+                break;
+            }
+
             $lastVisit = Appointment::where('user_id', $client->id)
                 ->where('status', AppointmentStatus::Completed)
                 ->orderByDesc('start_datetime')
@@ -334,14 +406,14 @@ class AiActionService
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.5,
                 'recency' => max(0, 1 - ($daysSinceVisit / 60)),
                 'treatment_fit' => 0.6,
                 'urgency' => 0.9, // Same-day is always urgent
                 'slot_availability' => 1.0,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'same_day_slot_fill');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -377,11 +449,20 @@ class AiActionService
     {
         $cutoffDate = Carbon::today()->subDays($this->lookbackDays);
 
+        // Only the patient's most recent scan is a candidate. Every scan used to
+        // be evaluated independently, so a patient who scanned, was treated, and
+        // was re-scanned afterwards generated an action against that second scan
+        // — the follow-up scan has no treatment of its own yet, so it looked
+        // like an unconverted enquiry. That re-scan is evidence of a *completed*
+        // conversion, not a missed one.
         $assessments = Assessment::where('clinic_id', $clinic->id)
             ->where('status', AssessmentStatus::Completed)
             ->where('created_at', '>=', $cutoffDate)
             ->with(['user', 'user.roles', 'treatmentSessions'])
-            ->get();
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn (Collection $group) => $group->sortByDesc('created_at')->first())
+            ->values();
 
         $actions = collect();
 
@@ -392,35 +473,25 @@ class AiActionService
                 continue;
             }
 
-            // Check if treatment sessions were completed
-            $hasCompletedTreatment = $assessment->treatmentSessions()
-                ->where('status', 'completed')
-                ->exists();
-
-            if ($hasCompletedTreatment) {
+            // Anything at all happening on or after the scan day — payment,
+            // package purchase, session redemption, completed treatment, or a
+            // visit — means the scan converted.
+            if ($this->hasConvertedSince($client->id, $assessment->created_at)) {
                 continue;
             }
 
-            // Check if there's a treatment invoice after the scan
-            $hasInvoiceAfterScan = $client->invoices()
-                ->where('invoice_date', '>=', $assessment->created_at)
-                ->where('invoice_type', '!=', 'package')
+            // A later scan of any status, including one still in progress, is
+            // itself proof the patient came back: the images cannot be captured
+            // without them in the chair.
+            $hasLaterScan = Assessment::where('user_id', $client->id)
+                ->where('created_at', '>', $assessment->created_at)
                 ->exists();
 
-            if ($hasInvoiceAfterScan) {
+            if ($hasLaterScan) {
                 continue;
             }
 
-            // Check no future appointment exists
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
-
-            if ($hasFutureAppointment) {
+            if ($this->hasFutureAppointment($client->id)) {
                 continue;
             }
 
@@ -430,14 +501,14 @@ class AiActionService
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.85, // High — they came in and did a scan
                 'recency' => max(0, 1 - ($daysSinceScan / $this->lookbackDays)),
                 'treatment_fit' => 0.9,
                 'urgency' => $daysSinceScan <= 14 ? 0.9 : 0.6,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'scan_no_treatment');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -509,16 +580,15 @@ class AiActionService
                 continue;
             }
 
-            // No future appointment of any kind
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
+            // A booked treatment appointment is not the only way a consult
+            // converts. Paying, buying a package or redeeming a session all
+            // mean the plan started — the appointment may simply not be in the
+            // diary yet.
+            if ($this->hasConvertedSince($client->id, $appointment->start_datetime)) {
+                continue;
+            }
 
-            if ($hasFutureAppointment) {
+            if ($this->hasFutureAppointment($client->id)) {
                 continue;
             }
 
@@ -528,14 +598,14 @@ class AiActionService
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.75,
                 'recency' => max(0, 1 - ($daysSinceConsult / $this->lookbackDays)),
                 'treatment_fit' => 0.85,
                 'urgency' => $daysSinceConsult <= 10 ? 0.85 : 0.55,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'consultation_no_treatment');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -594,33 +664,36 @@ class AiActionService
             // Find last usage date
             $lastUsage = $package->usages()->latest()->first();
             $lastUsageDate = $lastUsage ? Carbon::parse($lastUsage->created_at) : Carbon::parse($package->created_at);
+
+            // A redemption may be logged late or not at all, so the package
+            // ledger on its own overstates how long a patient has been away.
+            // The real question is when they were last in the clinic — take the
+            // later of the two, otherwise a patient treated last week is
+            // reported as a month overdue.
+            $lastActivity = $this->lastActivityAt($client->id);
+
+            if ($lastActivity !== null && $lastActivity->greaterThan($lastUsageDate)) {
+                $lastUsageDate = $lastActivity;
+            }
+
             $daysSinceLastUsage = (int) round($lastUsageDate->diffInDays(Carbon::today()));
 
             if ($daysSinceLastUsage < $this->packageOverdueDays) {
                 continue;
             }
 
-            // No future appointment
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
-
-            if ($hasFutureAppointment) {
+            if ($this->hasFutureAppointment($client->id)) {
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.8, // They bought a package — strong intent
                 'recency' => max(0, 1 - ($daysSinceLastUsage / 90)),
                 'treatment_fit' => 1.0,
                 'urgency' => $daysSinceLastUsage >= 42 ? 0.95 : 0.7,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'package_overdue');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -631,7 +704,8 @@ class AiActionService
                 'recommended_channel' => 'whatsapp',
                 'recommended_time' => '10:00 AM - 12:00 PM',
                 'reason' => "Package '{$package->package_name}' has {$remainingSessions} sessions remaining. " .
-                    "Last session was {$daysSinceLastUsage} days ago. Overdue for next session.",
+                    "Last activity was {$daysSinceLastUsage} days ago on " .
+                    $lastUsageDate->format('d M Y') . ". Overdue for next session.",
                 'suggested_message' => "Hi {$client->first_name}, you have {$remainingSessions} sessions remaining in your {$package->package_name} package. It's been a while since your last visit — shall we book your next session?",
                 'goal' => 'Book next package session',
                 'slots_to_offer' => null,
@@ -691,33 +765,36 @@ class AiActionService
                 continue;
             }
 
-            $daysSinceLastSession = (int) round(Carbon::parse($lastCompletedSession->updated_at)->diffInDays(Carbon::today()));
+            $lastSessionDate = Carbon::parse($lastCompletedSession->updated_at);
+
+            // The plan row only knows about its own sessions. A patient can look
+            // abandoned here while having been invoiced or treated last week
+            // under a different plan or package — measure the gap from whatever
+            // they actually did most recently.
+            $lastActivity = $this->lastActivityAt($client->id);
+
+            if ($lastActivity !== null && $lastActivity->greaterThan($lastSessionDate)) {
+                $lastSessionDate = $lastActivity;
+            }
+
+            $daysSinceLastSession = (int) round($lastSessionDate->diffInDays(Carbon::today()));
 
             if ($daysSinceLastSession < 14) {
                 continue;
             }
 
-            // No future appointment
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
-
-            if ($hasFutureAppointment) {
+            if ($this->hasFutureAppointment($client->id)) {
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.75,
                 'recency' => max(0, 1 - ($daysSinceLastSession / 90)),
                 'treatment_fit' => 0.95,
                 'urgency' => $daysSinceLastSession >= 30 ? 0.85 : 0.65,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'treatment_plan_dropoff');
 
             $remaining = $totalSessions - $completedSessions;
 
@@ -730,7 +807,8 @@ class AiActionService
                 'recommended_channel' => 'call',
                 'recommended_time' => '11:00 AM - 1:00 PM',
                 'reason' => "Completed {$completedSessions}/{$totalSessions} treatment sessions. " .
-                    "Last session was {$daysSinceLastSession} days ago. {$remaining} sessions remaining in plan.",
+                    "Last activity was {$daysSinceLastSession} days ago on " .
+                    $lastSessionDate->format('d M Y') . ". {$remaining} sessions remaining in plan.",
                 'suggested_message' => "Hi {$client->first_name}, you've made great progress with {$completedSessions} sessions completed! You have {$remaining} more sessions in your plan. Shall we schedule your next one?",
                 'goal' => 'Resume treatment plan',
                 'slots_to_offer' => null,
@@ -776,14 +854,14 @@ class AiActionService
                 continue;
             }
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.6,
                 'recency' => 0.8,
                 'treatment_fit' => 0.85,
                 'urgency' => 0.7,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'package_nearing_exhaustion');
 
             $actions->push([
                 'clinic_id' => $clinic->id,
@@ -916,8 +994,11 @@ class AiActionService
 
     protected function findMaintenanceDue(Clinic $clinic): Collection
     {
-        $minDate = Carbon::today()->subDays($this->maintenanceDueMaxDays);
-        $maxDate = Carbon::today()->subDays($this->maintenanceDueMinDays);
+        // Both bounds are taken at day boundaries. Comparing a datetime column
+        // against a midnight Carbon excluded any visit later in the day on the
+        // window's edge, so patients silently fell out of the window.
+        $minDate = Carbon::today()->subDays($this->maintenanceDueMaxDays)->startOfDay();
+        $maxDate = Carbon::today()->subDays($this->maintenanceDueMinDays)->endOfDay();
 
         // Clients whose last completed appointment was 28-56 days ago
         $clientIds = Appointment::where('clinic_id', $clinic->id)
@@ -939,16 +1020,26 @@ class AiActionService
         $actions = collect();
 
         foreach ($clients as $client) {
-            // No future appointment
-            $hasFutureAppointment = Appointment::where('user_id', $client->id)
-                ->where('start_datetime', '>=', Carbon::now())
-                ->whereNotIn('status', [
-                    AppointmentStatus::Cancelled,
-                    AppointmentStatus::NoShow,
-                ])
-                ->exists();
+            if ($this->hasFutureAppointment($client->id)) {
+                continue;
+            }
 
-            if ($hasFutureAppointment) {
+            // A maintenance nudge only makes sense if the patient really has
+            // gone quiet. The window is derived from appointments alone, so a
+            // patient invoiced or treated since their last booked visit would
+            // otherwise be told it has been two months.
+            if ($this->hasConvertedSince($client->id, Carbon::today()->subDays($this->maintenanceDueMinDays))) {
+                continue;
+            }
+
+            // Patients with an unfinished package belong to the package trigger,
+            // which carries the sessions they have already paid for.
+            $hasUnusedPackage = UserPackage::where('user_id', $client->id)
+                ->where('is_active', true)
+                ->get()
+                ->contains(fn (UserPackage $package) => $package->getTotalRemainingSessions() > 0);
+
+            if ($hasUnusedPackage) {
                 continue;
             }
 
@@ -963,14 +1054,14 @@ class AiActionService
 
             $daysSinceVisit = (int) round(Carbon::parse($lastAppointment->start_datetime)->diffInDays(Carbon::today()));
 
-            $priority = $this->calculatePriority([
+            $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.5,
                 'recency' => max(0, 1 - ($daysSinceVisit / $this->maintenanceDueMaxDays)),
                 'treatment_fit' => 0.7,
                 'urgency' => 0.5,
                 'slot_availability' => 0.7,
                 'fatigue_penalty' => $this->getContactFatiguePenalty($client->id),
-            ]);
+            ]), 'maintenance_due');
 
             $typeLabel = $lastAppointment->type instanceof AppointmentType
                 ? $lastAppointment->type->getLabel()
@@ -1032,6 +1123,182 @@ class AiActionService
         return $user->roles->contains('name', 'client');
     }
 
+    // ──────────────────────────────────────────────────────────────
+    //  Patient activity evidence
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Normalise a moment to the start of its calendar day.
+     *
+     * Every "did anything happen after X?" question in this service compares a
+     * staff-entered business date against a system timestamp. `invoice_date` is
+     * chosen by whoever raised the invoice and is routinely earlier in the day
+     * than the record that triggered it — a scan uploaded at 13:30 against an
+     * invoice dated 09:19 the same morning. Comparing those two at second
+     * precision reports "no invoice found" for a patient who paid that day,
+     * which is exactly the false positive this fixes. The clinic's unit of
+     * truth is the day, so comparisons are made at day boundaries.
+     */
+    protected function dayFloor(Carbon|string $moment): Carbon
+    {
+        return Carbon::parse($moment)->startOfDay();
+    }
+
+    /**
+     * Any invoice that represents real commercial activity on or after $since.
+     *
+     * Package purchases are included. They were previously excluded, which
+     * inverted the intent: a patient who scanned and then bought a package is
+     * the single strongest conversion in the CRM, and was being reported every
+     * morning as someone who never converted.
+     */
+    protected function hasInvoiceSince(int $userId, Carbon|string $since): bool
+    {
+        return Invoice::where('user_id', $userId)
+            ->whereNotIn('status', self::VOID_INVOICE_STATUSES)
+            ->where('invoice_date', '>=', $this->dayFloor($since))
+            ->exists();
+    }
+
+    /**
+     * A package bought on or after $since.
+     */
+    protected function hasPackagePurchaseSince(int $userId, Carbon|string $since): bool
+    {
+        return UserPackage::where('user_id', $userId)
+            ->where('created_at', '>=', $this->dayFloor($since))
+            ->exists();
+    }
+
+    /**
+     * A package session redeemed on or after $since.
+     *
+     * Redemption is the attendance signal for package patients: the session may
+     * generate a zero-value invoice or no invoice at all, so invoice presence
+     * alone would miss it.
+     */
+    protected function hasPackageRedemptionSince(int $userId, Carbon|string $since): bool
+    {
+        return UserPackageUsage::whereIn(
+            'user_package_id',
+            UserPackage::where('user_id', $userId)->select('id')
+        )
+            ->where('created_at', '>=', $this->dayFloor($since))
+            ->exists();
+    }
+
+    /**
+     * A treatment session marked completed on or after $since.
+     */
+    protected function hasCompletedTreatmentSince(int $userId, Carbon|string $since): bool
+    {
+        return TreatmentSession::where('user_id', $userId)
+            ->where('status', 'completed')
+            ->where('updated_at', '>=', $this->dayFloor($since))
+            ->exists();
+    }
+
+    /**
+     * An appointment actually attended on or after $since.
+     */
+    protected function hasAttendedVisitSince(int $userId, Carbon|string $since): bool
+    {
+        return Appointment::where('user_id', $userId)
+            ->whereIn('status', [
+                AppointmentStatus::Completed,
+                AppointmentStatus::InProgress,
+            ])
+            ->where('start_datetime', '>=', $this->dayFloor($since))
+            ->exists();
+    }
+
+    /**
+     * Did the patient convert — in any form — on or after $since?
+     *
+     * This is the single gate every conversion and rescue trigger must pass. A
+     * patient counts as converted if they paid, bought a package, redeemed a
+     * session, completed a treatment, or simply turned up. Each trigger
+     * previously tested one of these in isolation, which is why a patient could
+     * satisfy four of the five and still be chased.
+     */
+    protected function hasConvertedSince(int $userId, Carbon|string $since): bool
+    {
+        return $this->hasInvoiceSince($userId, $since)
+            || $this->hasPackagePurchaseSince($userId, $since)
+            || $this->hasPackageRedemptionSince($userId, $since)
+            || $this->hasCompletedTreatmentSince($userId, $since)
+            || $this->hasAttendedVisitSince($userId, $since);
+    }
+
+    /**
+     * Is there an appointment still ahead of this patient?
+     */
+    protected function hasFutureAppointment(int $userId): bool
+    {
+        return Appointment::where('user_id', $userId)
+            ->where('start_datetime', '>=', Carbon::now())
+            ->whereNotIn('status', [
+                AppointmentStatus::Cancelled,
+                AppointmentStatus::NoShow,
+            ])
+            ->exists();
+    }
+
+    /**
+     * The most recent date on which this patient did anything at all.
+     *
+     * Used by the retention triggers, where "days since last session" read from
+     * a single table is misleading: a treatment-plan row can look abandoned
+     * while the patient was invoiced yesterday under a different plan.
+     */
+    protected function lastActivityAt(int $userId): ?Carbon
+    {
+        $candidates = [];
+
+        $lastVisit = Appointment::where('user_id', $userId)
+            ->whereIn('status', [AppointmentStatus::Completed, AppointmentStatus::InProgress])
+            ->max('start_datetime');
+
+        $lastInvoice = Invoice::where('user_id', $userId)
+            ->whereNotIn('status', self::VOID_INVOICE_STATUSES)
+            ->max('invoice_date');
+
+        $lastSession = TreatmentSession::where('user_id', $userId)
+            ->where('status', 'completed')
+            ->max('updated_at');
+
+        $lastRedemption = UserPackageUsage::whereIn(
+            'user_package_id',
+            UserPackage::where('user_id', $userId)->select('id')
+        )->max('created_at');
+
+        foreach ([$lastVisit, $lastInvoice, $lastSession, $lastRedemption] as $moment) {
+            if ($moment !== null) {
+                $candidates[] = Carbon::parse($moment);
+            }
+        }
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        return collect($candidates)->sortDesc()->first();
+    }
+
+    /**
+     * Apply the trigger weighting to a raw score from the shared formula.
+     *
+     * Kept out of calculatePriority() so the shared trait stays byte-identical
+     * for the lead engine, which applies its own weights.
+     */
+    protected function weighted(int $rawScore, string $trigger): int
+    {
+        return (int) min(
+            self::MAX_SCORE,
+            round($rawScore * (self::TRIGGER_WEIGHT[$trigger] ?? 1.0))
+        );
+    }
+
     /**
      * Estimate daily appointment slots for a clinic based on operating hours.
      * Each slot = 90 minutes. Returns approximate slot count.
@@ -1064,7 +1331,7 @@ class AiActionService
         }
 
         $totalActions = (clone $query)->count();
-        $highPriority = (clone $query)->where('priority_score', '>=', 70)->count();
+        $highPriority = (clone $query)->where('priority_score', '>=', self::HIGH_PRIORITY_THRESHOLD)->count();
         $rescueCount = (clone $query)->where('action_category', AiActionLog::CATEGORY_RESCUE)->count();
         $conversionCount = (clone $query)->where('action_category', AiActionLog::CATEGORY_CONVERSION)->count();
         $retentionCount = (clone $query)->where('action_category', AiActionLog::CATEGORY_RETENTION)->count();

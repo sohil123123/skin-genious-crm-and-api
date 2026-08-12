@@ -40,7 +40,7 @@ class AiMorningSummary extends BaseWidget
         return [
             Stat::make('High Priority', $stats['high_priority'])
                 ->icon('heroicon-o-fire')
-                ->description('Actions scoring 70+')
+                ->description('Actions scoring ' . \App\Services\AiActionService::HIGH_PRIORITY_THRESHOLD . '+')
                 ->color('danger')
                 ->descriptionIcon('heroicon-m-arrow-trending-up'),
 
