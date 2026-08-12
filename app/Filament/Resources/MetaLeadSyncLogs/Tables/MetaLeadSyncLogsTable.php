@@ -9,6 +9,7 @@ use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MetaLeadSyncLogs\MetaLeadSyncLogResource;
 use App\Jobs\Lead\ProcessMetaLeadJob;
 use App\Models\MetaLeadSyncLog;
+use App\Models\MetaPage;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -92,7 +93,10 @@ class MetaLeadSyncLogsTable
 
                 SelectFilter::make('meta_page_id')
                     ->label('Page')
-                    ->relationship('metaPage', 'page_name')
+                    // A just-discovered Page has no name yet, and a null label
+                    // is not something Filament can render.
+                    ->relationship('metaPage', 'page_id')
+                    ->getOptionLabelFromRecordUsing(fn (MetaPage $record): string => $record->displayName())
                     ->searchable()
                     ->preload(),
 

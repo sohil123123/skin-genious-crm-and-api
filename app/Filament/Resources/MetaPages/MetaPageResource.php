@@ -12,7 +12,9 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
@@ -38,6 +40,17 @@ class MetaPageResource extends Resource
     protected static ?string $modelLabel = 'Meta Page';
 
     protected static ?int $navigationSort = 34;
+
+    /**
+     * page_name is null until Meta resolves it, and a null title is not
+     * something Filament can render, so fall back to the id.
+     */
+    public static function getRecordTitle(?Model $record): string | Htmlable | null
+    {
+        return $record instanceof MetaPage
+            ? $record->displayName()
+            : parent::getRecordTitle($record);
+    }
 
     public static function form(Schema $schema): Schema
     {

@@ -243,6 +243,44 @@ it('shows an auto-discovered Page as using the default clinic', function (): voi
         ->assertSee('Default clinic');
 });
 
+it('lists sync records when a Page has not been named yet', function (): void {
+    // A Page registers itself from the webhook with only its id, so page_name
+    // is null until Meta resolves it. Using that as a select label crashed the
+    // whole screen, and the Pages most in need of troubleshooting are exactly
+    // the new ones.
+    $unnamed = MetaPage::create([
+        'page_id' => '9999999999',
+        'clinic_id' => null,
+        'is_active' => true,
+    ]);
+
+    $log = MetaLeadSyncLog::create([
+        'leadgen_id' => '2002',
+        'meta_page_id' => $unnamed->getKey(),
+        'status' => MetaSyncStatus::Failed,
+        'error_message' => 'Access token has expired',
+        'attempts' => 1,
+    ]);
+
+    Livewire::test(ListMetaLeadSyncLogs::class)
+        ->assertOk()
+        ->assertCanSeeTableRecords([$log])
+        ->filterTable('meta_page_id', $unnamed->getKey())
+        ->assertCanSeeTableRecords([$log]);
+});
+
+it('falls back to the page id when a Page has no name', function (): void {
+    $unnamed = MetaPage::create([
+        'page_id' => '9999999999',
+        'clinic_id' => null,
+        'is_active' => true,
+    ]);
+
+    expect($unnamed->displayName())->toBe('Page 9999999999')
+        ->and(MetaPageResource::getRecordTitle($unnamed))->toBe('Page 9999999999')
+        ->and($this->page->displayName())->toBe('Skin Genious');
+});
+
 it('denies the sync log to a user without the permission', function (): void {
     // The Meta screens go through the existing Shield permissions rather than
     // introducing an authorisation system of their own.

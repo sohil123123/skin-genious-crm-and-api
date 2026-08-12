@@ -187,6 +187,20 @@ class MetaPage extends Model
     }
 
     /**
+     * A label that is always safe to display.
+     *
+     * A Page registers itself from the webhook with only its id — the name needs
+     * a Graph call — so page_name is null until then. Anything rendering a Page
+     * to a human should use this rather than page_name directly.
+     */
+    public function displayName(): string
+    {
+        return filled($this->page_name)
+            ? (string) $this->page_name
+            : 'Page ' . $this->page_id;
+    }
+
+    /**
      * Whether this Page arrived on its own and has never been reviewed.
      */
     public function wasAutoDiscovered(): bool
