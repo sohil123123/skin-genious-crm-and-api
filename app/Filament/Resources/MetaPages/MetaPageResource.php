@@ -16,11 +16,12 @@ use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
- * Connects Facebook Pages to clinics.
+ * The Pages the CRM has seen leads from.
  *
- * A leadgen webhook arrives with no authentication and no clinic — the only
- * identifying value in the payload is page_id. This registry is what turns that
- * into a clinic, so a Page missing from here means its leads cannot be filed.
+ * This is a record of what Meta is actually sending, not a configuration step:
+ * a Page adds itself the first time one of its leads arrives. Editing exists
+ * only for the two optional overrides — pinning a Page to a specific clinic,
+ * and switching it off — so nothing here has to be filled in before leads work.
  */
 class MetaPageResource extends Resource
 {
@@ -55,10 +56,27 @@ class MetaPageResource extends Resource
         ];
     }
 
+    /**
+     * Pages are never created by hand — they arrive from webhooks.
+     */
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->with('clinic')
-            ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic());
+        $query = parent::getEloquentQuery()->with('clinic');
+
+        if (check_role(config('project.roles.super_admin'))) {
+            return $query;
+        }
+
+        // A self-registered Page has no clinic yet. Scoping it away entirely
+        // would hide the very Pages that need a clinic assigned, so they stay
+        // visible alongside the current clinic's own.
+        return $query->where(fn (Builder $inner) => $inner
+            ->whereNull('clinic_id')
+            ->orWhere('clinic_id', auth()->user()?->clinic_id));
     }
 }

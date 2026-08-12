@@ -54,8 +54,16 @@ class MetaLeadService
 
         $page = $syncLog->metaPage;
 
-        if ($page === null || ! $page->hasUsableToken()) {
-            $syncLog->markFailed('No connected Meta Page with a usable access token for this lead.');
+        if ($page === null) {
+            $syncLog->markFailed('This sync record is not linked to a Meta Page.');
+
+            return null;
+        }
+
+        if (! $page->hasUsableToken()) {
+            $syncLog->markFailed(
+                'No Meta access token is configured. Add one on the Meta Lead Settings screen, then retry this lead.'
+            );
 
             return null;
         }
@@ -87,12 +95,20 @@ class MetaLeadService
     {
         $leadgenId = (string) $syncLog->leadgen_id;
 
+        $clinicId = $page->resolveClinicId();
+
+        if ($clinicId === null) {
+            $syncLog->markFailed('No clinic exists to file this lead against.');
+
+            return null;
+        }
+
         // Layer two, continued: the CRM may already hold this lead from a CSV
         // import of the same campaign. Matching is on fb_lead_id alone — never
         // phone, because one person may legitimately submit several forms.
         $existing = $this->duplicateDetector->findDuplicate(
             ['fb_lead_id' => $leadgenId],
-            $page->clinic_id,
+            $clinicId,
             ['fb_lead_id'],
         );
 
@@ -102,14 +118,21 @@ class MetaLeadService
             return $existing;
         }
 
-        $graphLead = $this->api->getLead($leadgenId, $page->access_token);
+        $token = $this->tokenFor($page);
+
+        $graphLead = $this->api->getLead($leadgenId, $token);
+
+        // Fill in the Page's name now that a Graph call is affordable. This is
+        // what completes a Page that registered itself from a webhook holding
+        // nothing but an id.
+        $this->refreshPageName($page, $token);
 
         $formId = $graphLead['form_id'] ?? null;
         $formName = $formId !== null
-            ? $this->api->getFormName((string) $formId, $page->access_token)
+            ? $this->api->getFormName((string) $formId, $token)
             : null;
 
-        $normalized = $this->normalizer->normalize($graphLead, $page, $formName);
+        $normalized = $this->normalizer->normalize($graphLead, $page, $clinicId, $formName);
         $attributes = $normalized['attributes'];
 
         // A lead with no reachable phone number is still worth keeping — it
@@ -120,7 +143,7 @@ class MetaLeadService
         }
 
         $attributes['matched_user_id'] = $this->duplicateDetector
-            ->findMatchingPatient($attributes, $page->clinic_id)
+            ->findMatchingPatient($attributes, $clinicId)
             ?->getKey();
 
         try {
@@ -140,7 +163,7 @@ class MetaLeadService
 
             $winner = $this->duplicateDetector->findDuplicate(
                 ['fb_lead_id' => $leadgenId],
-                $page->clinic_id,
+                $clinicId,
                 ['fb_lead_id'],
             );
 
@@ -159,12 +182,49 @@ class MetaLeadService
         Log::channel('meta_leads')->info('Meta lead imported.', [
             'leadgen_id' => $leadgenId,
             'lead_id' => $lead->getKey(),
-            'clinic_id' => $page->clinic_id,
+            'clinic_id' => $clinicId,
             'page_id' => $page->page_id,
             'answers' => count($normalized['custom']),
         ]);
 
         return $lead;
+    }
+
+    /**
+     * The token to call Graph with for this Page.
+     *
+     * A Page token is derived from the system token where Meta allows it, so
+     * that one credential in settings serves every Page. When it cannot be
+     * derived — the system token is already a Page token, or lacks
+     * pages_show_list — the system token is used directly, which is correct in
+     * both of those cases.
+     */
+    protected function tokenFor(MetaPage $page): string
+    {
+        // process() has already refused the lead if no token exists at all, so
+        // by here this cannot be null.
+        return (string) $this->api->tokenForPage($page);
+    }
+
+    /**
+     * Give a self-registered Page its human-readable name.
+     *
+     * Best-effort by design: a Page whose name cannot be read still works
+     * perfectly well for filing leads, and losing the lead over a cosmetic
+     * lookup would be absurd.
+     */
+    protected function refreshPageName(MetaPage $page, string $token): void
+    {
+        if (filled($page->page_name) && $page->last_synced_at !== null) {
+            return;
+        }
+
+        $name = $this->api->getPageName($page->page_id, $token);
+
+        $page->forceFill([
+            'page_name' => $name ?: $page->page_name,
+            'last_synced_at' => now(),
+        ])->save();
     }
 
     /**

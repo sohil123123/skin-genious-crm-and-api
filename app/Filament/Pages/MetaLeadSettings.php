@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Models\Clinic;
 use App\Models\MetaPage;
 use App\Models\Setting;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -52,6 +54,9 @@ class MetaLeadSettings extends Page
         'meta_app_id',
         'meta_app_secret',
         'meta_verify_token',
+        'meta_access_token',
+        'meta_api_version',
+        'meta_default_clinic_id',
     ];
 
     public function mount(): void
@@ -96,6 +101,44 @@ class MetaLeadSettings extends Page
                                 ->placeholder('Any hard-to-guess string')
                                 ->columnSpanFull()
                                 ->helperText('Invent a value here, then enter the same one in the Meta App Dashboard when saving the callback URL.'),
+
+                            TextInput::make('meta_access_token')
+                                ->label('Access Token')
+                                ->password()
+                                ->revealable()
+                                ->autocomplete(false)
+                                ->placeholder('Long-lived User or Page access token')
+                                ->columnSpanFull()
+                                // This single token is what removes the
+                                // per-Page setup: Page tokens are derived from
+                                // it automatically when Meta allows.
+                                ->helperText('The one token the integration runs on. A long-lived User token with leads_retrieval and pages_show_list covers every Page you administer — no per-Page token needed.'),
+                        ]),
+                    ]),
+
+                Section::make('Behaviour')
+                    ->description('Sensible defaults are already in place; change these only if you need to.')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->schema([
+                        Grid::make(2)->schema([
+                            Select::make('meta_default_clinic_id')
+                                ->label('Default clinic')
+                                ->options(fn (): array => Clinic::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->placeholder('First active clinic')
+                                // Pages discover themselves with no clinic, and
+                                // leads.clinic_id is required, so this is what
+                                // stops a lead being lost over missing setup.
+                                ->helperText('Where leads land when their Meta Page has no clinic of its own. A Page can override this individually.'),
+
+                            TextInput::make('meta_api_version')
+                                ->label('Graph API version')
+                                ->placeholder(config('meta.api.version'))
+                                ->rule('regex:/^v\d+\.\d+$/')
+                                ->helperText('Leave empty to use ' . config('meta.api.version') . '.'),
                         ]),
                     ]),
 
@@ -119,7 +162,6 @@ class MetaLeadSettings extends Page
     protected static function connectionSummary(): HtmlString
     {
         $pages = MetaPage::query()->active()->count();
-        $subscribed = MetaPage::query()->active()->whereNotNull('subscribed_at')->count();
 
         $lines = [];
 
@@ -131,14 +173,15 @@ class MetaLeadSettings extends Page
             ? '✅ Verify token saved.'
             : '⚠️ No verify token saved — Meta cannot complete the subscription handshake.';
 
+        $lines[] = filled(MetaPage::systemAccessToken())
+            ? '✅ Access token saved — leads can be retrieved from Meta.'
+            : '⚠️ No access token saved — leads will be received and queued, but cannot be retrieved until one is added.';
+
+        // Deliberately not a warning when zero: no Pages simply means none has
+        // sent a lead yet. There is nothing for anyone to go and configure.
         $lines[] = $pages > 0
-            ? sprintf(
-                '✅ %d active %s connected, %d subscribed to leadgen.',
-                $pages,
-                Str::plural('Page', $pages),
-                $subscribed,
-            )
-            : '⚠️ No active Meta Pages connected — leads have no clinic to be filed against.';
+            ? sprintf('✅ %d %s discovered automatically.', $pages, Str::plural('Page', $pages))
+            : 'ℹ️ No Pages seen yet. They register themselves as soon as their first lead arrives.';
 
         return new HtmlString(
             '<div style="font-size:.8125rem; line-height:1.7;">' . implode('<br>', $lines) . '</div>'

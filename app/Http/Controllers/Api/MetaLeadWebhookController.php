@@ -118,30 +118,40 @@ class MetaLeadWebhookController extends Controller
             return false;
         }
 
-        $page = MetaPage::findActiveByPageId(isset($value['page_id']) ? (string) $value['page_id'] : null);
+        // A Page the CRM has never seen registers itself here rather than
+        // having its lead rejected. Only the id is stored — resolving the name
+        // needs a Graph call, which belongs on the queue.
+        $page = MetaPage::resolveFromWebhook(isset($value['page_id']) ? (string) $value['page_id'] : null);
 
         if ($page === null) {
-            // Recorded rather than dropped: without a row here there would be
-            // no trace that leads are arriving from an unconfigured Page.
+            // Reached only when the Page was deliberately deactivated, or the
+            // payload carried no page_id at all. Recorded either way, so there
+            // is a trace rather than silence.
             MetaLeadSyncLog::firstOrCreate(
                 ['leadgen_id' => $leadgenId],
                 [
                     'status' => MetaSyncStatus::Failed,
                     'payload' => $value,
                     'error_message' => sprintf(
-                        'No active Meta Page is configured for page_id %s.',
+                        'Meta Page %s is not accepting leads.',
                         $value['page_id'] ?? 'unknown',
                     ),
                     'processed_at' => now(),
                 ],
             );
 
-            Log::channel('meta_leads')->warning('Meta lead from an unconfigured Page.', [
+            Log::channel('meta_leads')->warning('Meta lead from an inactive or unidentified Page.', [
                 'page_id' => $value['page_id'] ?? null,
                 'leadgen_id' => $leadgenId,
             ]);
 
             return false;
+        }
+
+        if ($page->wasRecentlyCreated) {
+            Log::channel('meta_leads')->info('Registered a new Meta Page from its first lead.', [
+                'page_id' => $page->page_id,
+            ]);
         }
 
         $syncLog = MetaLeadSyncLog::firstOrCreate(

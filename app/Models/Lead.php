@@ -51,6 +51,7 @@ class Lead extends Model
         'form_name',
         'form_id',
         'page_name',
+        'page_id',
         'platform',
         'is_organic',
         'fb_lead_status',

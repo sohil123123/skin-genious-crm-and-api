@@ -31,6 +31,7 @@ class MetaPage extends Model
         'is_active',
         'subscribed_at',
         'last_lead_at',
+        'last_synced_at',
     ];
 
     protected function casts(): array
@@ -42,6 +43,7 @@ class MetaPage extends Model
             'is_active' => 'boolean',
             'subscribed_at' => 'datetime',
             'last_lead_at' => 'datetime',
+            'last_synced_at' => 'datetime',
         ];
     }
 
@@ -96,26 +98,99 @@ class MetaPage extends Model
     // ──────────────── Lookups ────────────────
 
     /**
-     * Resolve the Page a webhook came from.
+     * Resolve the Page a webhook came from, registering it on first sight.
      *
-     * Returns null rather than throwing for an unknown or deactivated Page: a
-     * Meta app can be subscribed to Pages this CRM was never told about, and
-     * that is a configuration gap to report, not an exception to retry.
+     * An administrator should never have to create a Page before its leads can
+     * arrive, so an unrecognised page_id is treated as a new Page rather than a
+     * configuration error. Only the id is written here — the name needs a Graph
+     * call, which belongs on the queue, not in the webhook request.
+     *
+     * A Page that was explicitly deactivated is returned as null: switching it
+     * off is a deliberate instruction to stop accepting its leads, and
+     * recreating it automatically would quietly override that.
      */
-    public static function findActiveByPageId(?string $pageId): ?self
+    public static function resolveFromWebhook(?string $pageId): ?self
     {
-        if ($pageId === null || $pageId === '') {
+        $pageId = trim((string) $pageId);
+
+        if ($pageId === '') {
             return null;
         }
 
-        return static::query()
-            ->active()
-            ->where('page_id', $pageId)
-            ->first();
+        $page = static::query()->where('page_id', $pageId)->first();
+
+        if ($page !== null) {
+            return $page->is_active ? $page : null;
+        }
+
+        return static::create([
+            'page_id' => $pageId,
+            'clinic_id' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * The clinic this Page's leads belong to.
+     *
+     * An auto-discovered Page has no clinic of its own, but leads.clinic_id is
+     * required — so rather than lose the lead, it falls back to the configured
+     * default and finally to the first active clinic.
+     */
+    public function resolveClinicId(): ?int
+    {
+        if ($this->clinic_id !== null) {
+            return (int) $this->clinic_id;
+        }
+
+        $configured = Setting::getValue('meta_default_clinic_id', config('meta.defaults.clinic_id'));
+
+        if (filled($configured) && Clinic::query()->whereKey($configured)->exists()) {
+            return (int) $configured;
+        }
+
+        return Clinic::query()->where('is_active', true)->min('id')
+            ?? Clinic::query()->min('id');
+    }
+
+    /**
+     * The token to use when calling Graph for this Page.
+     *
+     * Preference order, most specific first:
+     *   1. a token saved against this Page, if someone deliberately set one
+     *   2. a Page token derived from the system token, cached briefly
+     *   3. the system token itself, which is enough when it is already a Page
+     *      token or a User token carrying leads_retrieval
+     *
+     * Step 2 is what removes the per-Page setup: one User token in settings
+     * yields a working token for every Page it administers.
+     */
+    public function resolveAccessToken(): ?string
+    {
+        if (filled($this->access_token)) {
+            return $this->access_token;
+        }
+
+        return static::systemAccessToken();
+    }
+
+    public static function systemAccessToken(): ?string
+    {
+        $token = Setting::getValue('meta_access_token', config('meta.credentials.access_token'));
+
+        return filled($token) ? (string) $token : null;
     }
 
     public function hasUsableToken(): bool
     {
-        return filled($this->access_token);
+        return filled($this->resolveAccessToken());
+    }
+
+    /**
+     * Whether this Page arrived on its own and has never been reviewed.
+     */
+    public function wasAutoDiscovered(): bool
+    {
+        return $this->clinic_id === null;
     }
 }

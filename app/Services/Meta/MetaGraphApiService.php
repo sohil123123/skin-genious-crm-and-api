@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Meta;
 
 use App\Models\MetaPage;
+use App\Models\Setting;
 use App\Services\Meta\Exceptions\MetaApiException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -101,6 +102,79 @@ class MetaGraphApiService
     }
 
     /**
+     * Derive a Page access token from the system token.
+     *
+     * Meta wants a Page token to read a Page's leads. Asking an administrator
+     * to paste one in per Page is exactly the manual step this integration is
+     * meant to remove, so it is fetched instead: a User token with
+     * pages_show_list can read `access_token` off any Page it administers.
+     *
+     * Returns null when the system token is already a Page token, or lacks the
+     * permission — the caller then falls back to using it directly, which is
+     * the correct behaviour in both cases.
+     */
+    public function getDerivedPageToken(string $pageId, string $systemToken): ?string
+    {
+        $key = config('meta.cache.prefix') . ':page_token:' . $pageId;
+
+        $cached = Cache::get($key);
+
+        if ($cached !== null) {
+            return $cached === '' ? null : $cached;
+        }
+
+        try {
+            $token = $this->get($pageId, $systemToken, ['fields' => 'access_token'])['access_token'] ?? null;
+        } catch (MetaApiException $exception) {
+            Log::channel('meta_leads')->info('Could not derive a Page token; falling back to the system token.', [
+                'page_id' => $pageId,
+                'reason' => $exception->getMessage(),
+            ]);
+
+            $token = null;
+        }
+
+        // A short TTL rather than a long one: a revoked token should stop being
+        // served within the hour without anyone clearing a cache.
+        Cache::put($key, $token ?? '', (int) config('meta.cache.page_token_ttl', 3600));
+
+        return $token;
+    }
+
+    /**
+     * Forget a derived Page token, so the next call fetches a fresh one.
+     */
+    public function forgetDerivedPageToken(string $pageId): void
+    {
+        Cache::forget(config('meta.cache.prefix') . ':page_token:' . $pageId);
+    }
+
+    /**
+     * The token every Page-scoped call should use.
+     *
+     * One place decides this so the settings screen, the connection test and
+     * the lead importer can never disagree about which credential is in play.
+     *
+     * Order: a token saved on the Page, then one derived from the system token,
+     * then the system token itself — which is already correct when it is a Page
+     * token, or a User token carrying leads_retrieval.
+     */
+    public function tokenForPage(MetaPage $page): ?string
+    {
+        if (filled($page->access_token)) {
+            return (string) $page->access_token;
+        }
+
+        $systemToken = MetaPage::systemAccessToken();
+
+        if ($systemToken === null) {
+            return null;
+        }
+
+        return $this->getDerivedPageToken($page->page_id, $systemToken) ?? $systemToken;
+    }
+
+    /**
      * Subscribe a Page to leadgen notifications.
      *
      * Without this the app receives nothing, no matter how the webhook is
@@ -110,7 +184,7 @@ class MetaGraphApiService
      */
     public function subscribePageToLeadgen(MetaPage $page): bool
     {
-        $response = $this->post($page->page_id . '/subscribed_apps', $page->access_token, [
+        $response = $this->post($page->page_id . '/subscribed_apps', $this->tokenForPage($page), [
             'subscribed_fields' => config('meta.webhook.field', 'leadgen'),
         ]);
 
@@ -126,7 +200,7 @@ class MetaGraphApiService
      */
     public function getSubscribedFields(MetaPage $page): array
     {
-        $response = $this->get($page->page_id . '/subscribed_apps', $page->access_token, [
+        $response = $this->get($page->page_id . '/subscribed_apps', $this->tokenForPage($page), [
             'fields' => 'subscribed_fields',
         ]);
 
@@ -143,17 +217,19 @@ class MetaGraphApiService
      */
     public function testConnection(MetaPage $page): array
     {
-        if (! $page->hasUsableToken()) {
+        $token = $this->tokenForPage($page);
+
+        if ($token === null) {
             return [
                 'ok' => false,
                 'page_name' => null,
                 'subscribed' => false,
-                'message' => 'No access token is saved for this Page.',
+                'message' => 'No Meta access token is configured. Add one on the Meta Lead Settings screen.',
             ];
         }
 
         try {
-            $name = $this->getPageName($page->page_id, $page->access_token);
+            $name = $this->getPageName($page->page_id, $token);
 
             if ($name === null) {
                 return [
@@ -259,8 +335,22 @@ class MetaGraphApiService
     protected function url(string $path): string
     {
         return rtrim((string) config('meta.api.base_url'), '/')
-            . '/' . trim((string) config('meta.api.version'), '/')
+            . '/' . trim($this->apiVersion(), '/')
             . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * The Graph version to call.
+     *
+     * Overridable from settings so a version bump does not need a deploy, but
+     * pinned by config otherwise — an unpinned version would start failing on
+     * Meta's release schedule rather than ours.
+     */
+    public function apiVersion(): string
+    {
+        $configured = Setting::getValue('meta_api_version');
+
+        return filled($configured) ? (string) $configured : (string) config('meta.api.version');
     }
 
     /**

@@ -69,39 +69,50 @@ class LeadInfolist
                 ->collapsible()
                 ->columns(['default' => 1, 'md' => 3])
                 ->schema([
-                    // Names depend on the access token carrying ads
-                    // permissions, so each falls back to its id rather than
-                    // showing nothing — the question "which campaign was this?"
-                    // stays answerable either way.
+                    // Each entry shows the name with its id beneath. Names
+                    // depend on the token carrying ads permissions, so when one
+                    // is missing the id stands in as the value — the question
+                    // "which campaign was this?" stays answerable either way.
+                    TextEntry::make('page_name')
+                        ->label('Page')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->page_id)
+                        ->helperText(fn (Lead $record): ?string => $record->page_name && $record->page_id
+                            ? 'ID ' . $record->page_id
+                            : null),
+
+                    TextEntry::make('form_name')
+                        ->label('Form')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->form_id)
+                        ->helperText(fn (Lead $record): ?string => $record->form_name && $record->form_id
+                            ? 'ID ' . $record->form_id
+                            : null),
+
                     TextEntry::make('campaign_name')
                         ->label('Campaign')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->campaign_id
+                        ->default(fn (Lead $record): ?string => $record->campaign_id)
+                        ->helperText(fn (Lead $record): ?string => $record->campaign_name && $record->campaign_id
                             ? 'ID ' . $record->campaign_id
                             : null),
 
                     TextEntry::make('adset_name')
                         ->label('Ad set')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->adset_id
+                        ->default(fn (Lead $record): ?string => $record->adset_id)
+                        ->helperText(fn (Lead $record): ?string => $record->adset_name && $record->adset_id
                             ? 'ID ' . $record->adset_id
                             : null),
 
                     TextEntry::make('ad_name')
                         ->label('Ad')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->ad_id
+                        ->default(fn (Lead $record): ?string => $record->ad_id)
+                        ->helperText(fn (Lead $record): ?string => $record->ad_name && $record->ad_id
                             ? 'ID ' . $record->ad_id
                             : null),
 
-                    TextEntry::make('form_name')
-                        ->label('Form')
-                        ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->form_id
-                            ? 'ID ' . $record->form_id
-                            : null),
-
-                    TextEntry::make('page_name')->label('Page')->placeholder('—'),
                     TextEntry::make('platform')
                         ->label('Platform')
                         ->badge()

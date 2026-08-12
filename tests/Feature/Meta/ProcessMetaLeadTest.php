@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\LeadCustomField;
 use App\Models\MetaLeadSyncLog;
 use App\Models\MetaPage;
+use App\Models\Setting;
 use App\Services\Meta\MetaLeadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -27,6 +28,13 @@ use Illuminate\Support\Facades\Http;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    // Without this a stub we forgot to register becomes a real call to
+    // graph.facebook.com that hangs through three retries. Failing loudly is
+    // far more useful than a two-minute timeout.
+    Http::preventStrayRequests();
+
+    Setting::setValue('meta_access_token', 'system-token');
+
     $this->clinic = Clinic::create([
         'name' => 'Test Clinic',
         'address_line1' => '1 Test Street',
@@ -87,6 +95,13 @@ function fakeGraph(array $fieldData, array $overrides = [], ?string $formName = 
         '*/' . $formId . '?*' => Http::response(
             $formName === null ? ['id' => $formId] : ['id' => $formId, 'name' => $formName]
         ),
+        // The Page node serves two purposes: deriving a Page access token from
+        // the system token, and resolving the Page's name.
+        '*/' . test()->page->page_id . '?*' => Http::response([
+            'id' => test()->page->page_id,
+            'name' => 'Skin Genious',
+            'access_token' => 'derived-page-token',
+        ]),
     ]);
 }
 
@@ -361,15 +376,16 @@ it('does not retry an expired access token', function (): void {
         ->and(Lead::count())->toBe(0);
 });
 
-it('fails cleanly when the Page has no access token', function (): void {
+it('fails cleanly when no access token is configured anywhere', function (): void {
     Http::fake();
     $this->page->forceFill(['access_token' => null])->save();
+    Setting::setValue('meta_access_token', '');
 
     $log = syncLog();
     app(MetaLeadService::class)->process($log->refresh());
 
     expect($log->refresh()->status)->toBe(MetaSyncStatus::Failed)
-        ->and($log->error_message)->toContain('access token');
+        ->and($log->error_message)->toContain('Meta Lead Settings');
 
     Http::assertNothingSent();
 });
@@ -389,6 +405,85 @@ it('keeps a lead whose phone number is unusable, flagged for review', function (
         ->and($lead->phone)->toBeNull()
         ->and($lead->phone_status)->toBe(PhoneStatus::Invalid)
         ->and($lead->email)->toBe('someone@example.com');
+});
+
+// ─────────────── Automatic Page discovery ───────────────
+
+it('files a lead from a self-registered Page using the default clinic', function (): void {
+    // The Page arrived from a webhook knowing only its own id — no clinic, no
+    // name, no token. It must still produce a normal CRM lead.
+    $this->page->forceFill([
+        'clinic_id' => null,
+        'page_name' => null,
+        'access_token' => null,
+        'last_synced_at' => null,
+    ])->save();
+
+    Setting::setValue('meta_default_clinic_id', (string) $this->clinic->getKey());
+
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    $lead = Lead::first();
+
+    expect($lead)->not->toBeNull()
+        ->and($lead->clinic_id)->toBe($this->clinic->getKey())
+        ->and($lead->page_id)->toBe('1122334455');
+});
+
+it('fills in the Page name from Meta on first use', function (): void {
+    $this->page->forceFill(['page_name' => null, 'last_synced_at' => null])->save();
+
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    $this->page->refresh();
+
+    expect($this->page->page_name)->toBe('Skin Genious')
+        ->and($this->page->last_synced_at)->not->toBeNull()
+        ->and(Lead::first()->page_name)->toBe('Skin Genious');
+});
+
+it('falls back to the first clinic when no default is configured', function (): void {
+    $this->page->forceFill(['clinic_id' => null])->save();
+    Setting::setValue('meta_default_clinic_id', '');
+
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    expect(Lead::first()->clinic_id)->toBe($this->clinic->getKey());
+});
+
+it('uses the system token when the Page has none of its own', function (): void {
+    $this->page->forceFill(['access_token' => null])->save();
+
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    // The Page token is derived from the system token rather than typed in.
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '1122334455')
+        && str_contains((string) $request->header('Authorization')[0], 'system-token'));
+
+    // ...and the lead itself is then fetched with the derived Page token.
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/1001')
+        && str_contains((string) $request->header('Authorization')[0], 'derived-page-token'));
+
+    expect(Lead::count())->toBe(1);
+});
+
+it('prefers a token saved on the Page over the system token', function (): void {
+    $this->page->forceFill(['access_token' => 'page-specific-token'])->save();
+
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/1001')
+        && str_contains((string) $request->header('Authorization')[0], 'page-specific-token'));
 });
 
 // ─────────────── The job wrapper ───────────────

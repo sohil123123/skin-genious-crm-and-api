@@ -199,27 +199,64 @@ it('still answers 200 to a redelivery so Meta stops retrying', function (): void
 
 // ─────────────── Payloads it cannot use ───────────────
 
-it('records a lead from an unconfigured Page without queueing it', function (): void {
+it('registers an unknown Page automatically and queues its lead', function (): void {
+    // The whole point of the automated flow: nobody had to create Page
+    // 9999999999 in the CRM before its first lead could arrive.
     Queue::fake();
 
     signedPost(leadgenPayload('2002', pageId: '9999999999'))->assertOk();
 
+    $page = MetaPage::where('page_id', '9999999999')->first();
+
+    expect($page)->not->toBeNull()
+        ->and($page->is_active)->toBeTrue()
+        // No clinic and no name yet: both are resolved on the queue, where a
+        // Graph call is affordable.
+        ->and($page->clinic_id)->toBeNull()
+        ->and($page->page_name)->toBeNull();
+
     $log = MetaLeadSyncLog::where('leadgen_id', '2002')->first();
 
-    expect($log->status)->toBe(MetaSyncStatus::Failed)
-        ->and($log->meta_page_id)->toBeNull()
-        ->and($log->error_message)->toContain('9999999999');
+    expect($log->status)->toBe(MetaSyncStatus::Pending)
+        ->and($log->meta_page_id)->toBe($page->getKey());
 
-    Queue::assertNothingPushed();
+    Queue::assertPushed(ProcessMetaLeadJob::class, 1);
 });
 
-it('ignores a Page that has been deactivated', function (): void {
+it('registers each new Page only once', function (): void {
+    Queue::fake();
+
+    signedPost(leadgenPayload('2002', pageId: '9999999999'))->assertOk();
+    signedPost(leadgenPayload('2003', pageId: '9999999999'))->assertOk();
+
+    expect(MetaPage::where('page_id', '9999999999')->count())->toBe(1)
+        ->and(MetaLeadSyncLog::count())->toBe(2);
+});
+
+it('does not resurrect a Page that was deliberately deactivated', function (): void {
+    // Switching a Page off is an instruction to stop accepting its leads.
+    // Auto-registration must not quietly override that.
     Queue::fake();
     $this->page->update(['is_active' => false]);
 
     signedPost(leadgenPayload('3003'))->assertOk();
 
+    expect($this->page->refresh()->is_active)->toBeFalse()
+        ->and(MetaLeadSyncLog::where('leadgen_id', '3003')->first()->status)
+        ->toBe(MetaSyncStatus::Failed);
+
     Queue::assertNothingPushed();
+});
+
+it('does not call the Graph API while registering a Page', function (): void {
+    // Page registration happens in the request cycle, so it must stay free of
+    // network calls — Meta resends anything it considers slow.
+    Queue::fake();
+    Http::fake();
+
+    signedPost(leadgenPayload('2002', pageId: '9999999999'))->assertOk();
+
+    Http::assertNothingSent();
 });
 
 it('ignores changes that are not leadgen events', function (): void {

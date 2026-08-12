@@ -20,9 +20,10 @@ return new class extends Migration
                 ->comment('Human-readable Page name, resolved from the Graph API and refreshed on connect');
 
             $table->foreignId('clinic_id')
+                ->nullable()
                 ->constrained('clinics')
                 ->cascadeOnDelete()
-                ->comment('Clinic that owns leads from this Page; webhooks carry no auth context so this mapping is the only source of clinic_id');
+                ->comment('Clinic that owns leads from this Page; NULL on an auto-discovered Page, which then falls back to the default clinic setting');
 
             $table->text('access_token')
                 ->nullable()
@@ -39,6 +40,10 @@ return new class extends Migration
             $table->timestamp('last_lead_at')
                 ->nullable()
                 ->comment('Last time a lead arrived from this Page; a stale value is the first sign a subscription has lapsed');
+
+            $table->timestamp('last_synced_at')
+                ->nullable()
+                ->comment('When this Page\'s name was last refreshed from the Graph API');
 
             $table->timestamps();
 

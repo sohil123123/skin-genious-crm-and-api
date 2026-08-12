@@ -10,7 +10,6 @@ use App\Services\Meta\Exceptions\MetaApiException;
 use App\Services\Meta\MetaGraphApiService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -19,61 +18,60 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 /**
- * The connected Pages list.
+ * The Pages Meta has actually sent leads from.
  *
- * Note there is no column for the access token, and there never should be: it
- * grants read access to every lead the Page has collected.
+ * There is no access-token column and never should be: a Page token grants read
+ * access to every lead that Page has collected.
  */
 class MetaPagesTable
 {
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('page_name')
+            ->defaultSort('last_lead_at', 'desc')
             ->columns([
                 TextColumn::make('page_name')
                     ->label('Page')
                     ->description(fn (MetaPage $record): string => 'ID ' . $record->page_id)
                     ->searchable(['page_name', 'page_id'])
                     ->sortable()
-                    ->placeholder('Not yet resolved')
+                    ->placeholder('Awaiting first sync')
                     ->weight('medium'),
 
+                // An auto-discovered Page has no clinic of its own and uses the
+                // default. Saying so is more useful than an empty cell, because
+                // it is the one thing an administrator may want to override.
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
-                    ->color('info')
-                    ->sortable(),
+                    ->color(fn (MetaPage $record): string => $record->wasAutoDiscovered() ? 'gray' : 'info')
+                    ->placeholder('Default clinic')
+                    ->tooltip(fn (MetaPage $record): ?string => $record->wasAutoDiscovered()
+                        ? 'Discovered automatically. Leads go to the default clinic until one is chosen here.'
+                        : null),
 
                 IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean(),
 
-                // Whether a token exists is operationally important; its value
-                // is not shown anywhere.
-                IconColumn::make('access_token')
-                    ->label('Token')
-                    ->boolean()
-                    ->getStateUsing(fn (MetaPage $record): bool => $record->hasUsableToken())
-                    ->tooltip(fn (MetaPage $record): string => $record->hasUsableToken()
-                        ? 'A token is saved for this Page.'
-                        : 'No token saved — leads from this Page cannot be fetched.'),
-
-                TextColumn::make('subscribed_at')
-                    ->label('Subscribed')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
-                    ->placeholder('Not subscribed')
-                    ->toggleable(),
-
-                // A Page that has stopped delivering is the first symptom of a
-                // lapsed subscription or an expired token.
                 TextColumn::make('last_lead_at')
                     ->label('Last lead')
                     ->since()
                     ->placeholder('None yet')
-                    ->sortable()
+                    ->sortable(),
+
+                TextColumn::make('last_synced_at')
+                    ->label('Last sync')
+                    ->since()
+                    ->placeholder('Never')
                     ->toggleable(),
+
+                TextColumn::make('created_at')
+                    ->label('Discovered')
+                    ->dateTime(config('leads.display.datetime_format'))
+                    ->timezone(config('leads.display.timezone'))
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TernaryFilter::make('is_active')
@@ -82,39 +80,38 @@ class MetaPagesTable
             ])
             ->recordActions([
                 ActionGroup::make([
-                    Action::make('testConnection')
-                        ->label('Test connection')
-                        ->icon('heroicon-o-signal')
+                    Action::make('refresh')
+                        ->label('Refresh from Meta')
+                        ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        // Defers to whatever policy Shield generated for this
-                        // resource, rather than naming a permission string that
-                        // would silently drift if the model were renamed.
                         ->visible(fn (MetaPage $record): bool => MetaPageResource::canEdit($record))
                         ->action(function (MetaPage $record): void {
                             $result = app(MetaGraphApiService::class)->testConnection($record);
 
-                            // A resolved name is worth keeping — it saves typing
-                            // it by hand and is shown on every lead.
                             if ($result['ok'] && filled($result['page_name'])) {
-                                $record->forceFill(['page_name' => $result['page_name']])->save();
+                                $record->forceFill([
+                                    'page_name' => $result['page_name'],
+                                    'last_synced_at' => now(),
+                                ])->save();
                             }
 
                             Notification::make()
-                                ->title($result['ok'] ? 'Connection successful' : 'Connection failed')
+                                ->title($result['ok'] ? 'Page refreshed' : 'Could not reach Meta')
                                 ->body($result['message'])
-                                ->status($result['ok'] ? ($result['subscribed'] ? 'success' : 'warning') : 'danger')
+                                ->status($result['ok'] ? 'success' : 'danger')
                                 ->send();
                         }),
 
+                    // Optional, not part of setup: subscription is normally
+                    // handled once when the app is connected to the Page in
+                    // Business Manager. Kept because it is the fastest way to
+                    // repair a Page that has silently stopped delivering.
                     Action::make('subscribe')
                         ->label('Subscribe to leadgen')
                         ->icon('heroicon-o-bell-alert')
                         ->color('warning')
                         ->requiresConfirmation()
-                        ->modalDescription('Subscribes this Page to leadgen notifications so new leads reach the CRM in real time.')
-                        // Defers to whatever policy Shield generated for this
-                        // resource, rather than naming a permission string that
-                        // would silently drift if the model were renamed.
+                        ->modalDescription('Asks Meta to send this Page\'s new leads to the CRM. Safe to run more than once.')
                         ->visible(fn (MetaPage $record): bool => MetaPageResource::canEdit($record))
                         ->action(function (MetaPage $record): void {
                             try {
@@ -139,14 +136,11 @@ class MetaPagesTable
                                 ->send();
                         }),
 
-                    EditAction::make(),
-
-                    DeleteAction::make()
-                        ->modalDescription('Leads already imported from this Page are kept. New leads from it will stop being accepted.'),
+                    EditAction::make()->label('Clinic & status'),
                 ]),
             ])
-            ->emptyStateHeading('No Meta Pages connected')
-            ->emptyStateDescription('Connect a Page so its lead forms can reach the CRM in real time.')
+            ->emptyStateHeading('No Meta Pages yet')
+            ->emptyStateDescription('Pages appear here on their own, the first time a lead arrives from one. Nothing needs creating.')
             ->emptyStateIcon('heroicon-o-flag');
     }
 }

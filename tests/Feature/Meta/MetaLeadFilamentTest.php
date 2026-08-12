@@ -101,6 +101,7 @@ function metaLead(array $overrides = []): Lead
         'campaign_name' => 'August Facials',
         'form_id' => '9988776655',
         'page_name' => 'Skin Genious',
+        'page_id' => '1122334455',
         'platform' => 'ig',
     ], $overrides));
 }
@@ -132,10 +133,20 @@ it('says a webhook lead arrived in real time rather than manually', function ():
 });
 
 it('falls back to the campaign id when the name was never resolved', function (): void {
+    // Names need a token with ads permissions. Without one the id stands in as
+    // the value, so "which campaign was this?" is still answerable.
     $lead = metaLead(['campaign_name' => null]);
 
     Livewire::test(ViewLead::class, ['record' => $lead->getKey()])
-        ->assertSee('ID 3322110099');
+        ->assertSee('3322110099');
+});
+
+it('shows the page id alongside the page name', function (): void {
+    $lead = metaLead();
+
+    Livewire::test(ViewLead::class, ['record' => $lead->getKey()])
+        ->assertSee('Skin Genious')
+        ->assertSee('ID 1122334455');
 });
 
 it('filters the lead list down to real-time arrivals', function (): void {
@@ -187,14 +198,49 @@ it('renders the settings page with the callback URL and readiness summary', func
         ->assertDontSee('a-secret');
 });
 
-it('warns on the settings page when nothing is configured yet', function (): void {
+it('warns on the settings page when credentials are missing', function (): void {
     Setting::setValue('meta_app_secret', '');
     Setting::setValue('meta_verify_token', '');
-    $this->page->delete();
+    Setting::setValue('meta_access_token', '');
 
     Livewire::test(MetaLeadSettings::class)
         ->assertSee('incoming webhooks are being rejected')
-        ->assertSee('No active Meta Pages connected');
+        ->assertSee('No access token saved');
+});
+
+it('does not treat having no Pages as a problem', function (): void {
+    // Zero Pages is the normal starting state, not misconfiguration — there is
+    // nothing for anyone to go and create.
+    $this->page->delete();
+
+    Livewire::test(MetaLeadSettings::class)
+        ->assertSee('register themselves')
+        ->assertDontSee('No active Meta Pages connected');
+});
+
+it('offers no way to create a Meta Page by hand', function (): void {
+    // Pages register themselves. A create form would invite a hand-typed page
+    // id that does not match what Meta sends — configured-looking, but silently
+    // receiving nothing.
+    expect(MetaPageResource::canCreate())->toBeFalse();
+
+    $this->page->delete();
+
+    Livewire::test(ListMetaPages::class)
+        ->assertOk()
+        ->assertSee('Pages appear here on their own');
+});
+
+it('shows an auto-discovered Page as using the default clinic', function (): void {
+    $discovered = MetaPage::create([
+        'page_id' => '9999999999',
+        'clinic_id' => null,
+        'is_active' => true,
+    ]);
+
+    Livewire::test(ListMetaPages::class)
+        ->assertCanSeeTableRecords([$discovered])
+        ->assertSee('Default clinic');
 });
 
 it('denies the sync log to a user without the permission', function (): void {

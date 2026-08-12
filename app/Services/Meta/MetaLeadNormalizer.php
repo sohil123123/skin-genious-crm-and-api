@@ -61,6 +61,8 @@ class MetaLeadNormalizer
 
     /**
      * @param  array<string, mixed>  $graphLead  The lead node exactly as Graph returned it.
+     * @param  int  $clinicId  Already resolved by the caller: a self-registered Page has no
+     *                         clinic of its own and falls back to the configured default.
      * @param  string|null  $formName  Resolved separately; the lead node does not carry it.
      * @return array{
      *     attributes: array<string, mixed>,
@@ -68,14 +70,17 @@ class MetaLeadNormalizer
      *     phone_status: string
      * }
      */
-    public function normalize(array $graphLead, MetaPage $page, ?string $formName = null): array
+    public function normalize(array $graphLead, MetaPage $page, int $clinicId, ?string $formName = null): array
     {
         $answers = $this->collectAnswers($graphLead['field_data'] ?? []);
 
-        ['attributes' => $attributes, 'custom' => $custom] = $this->mapAnswers($answers, $page->clinic_id);
+        // The resolved clinic rather than the Page's own is what scopes custom
+        // field lookup, so a webhook lead lands on the same questions as every
+        // other lead in that clinic instead of creating global duplicates.
+        ['attributes' => $attributes, 'custom' => $custom] = $this->mapAnswers($answers, $clinicId);
 
         $attributes = $this->applyAttribution($attributes, $graphLead, $page, $formName);
-        $attributes = $this->decorate($attributes, $graphLead, $page);
+        $attributes = $this->decorate($attributes, $graphLead, $page, $clinicId);
 
         return [
             'attributes' => $attributes,
@@ -248,6 +253,7 @@ class MetaLeadNormalizer
         $attributes['form_name'] = $this->text($formName);
 
         $attributes['page_name'] = $page->page_name;
+        $attributes['page_id'] = $page->page_id;
 
         // The column is varchar(20); Meta sends "ig" or "fb" but the value is
         // clamped rather than trusted.
@@ -272,11 +278,12 @@ class MetaLeadNormalizer
      *
      * @param  array<string, mixed>  $attributes
      * @param  array<string, mixed>  $graphLead
+     * @param  int  $clinicId  Resolved by the caller, since the Page may not carry one.
      * @return array<string, mixed>
      */
-    protected function decorate(array $attributes, array $graphLead, MetaPage $page): array
+    protected function decorate(array $attributes, array $graphLead, MetaPage $page, int $clinicId): array
     {
-        $attributes['clinic_id'] = $page->clinic_id;
+        $attributes['clinic_id'] = $clinicId;
 
         // Null rather than a synthetic batch: this lead did not come from a
         // file, and the Filament UI already treats a null import correctly.

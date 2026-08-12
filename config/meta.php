@@ -48,6 +48,27 @@ return [
         'app_id' => env('META_APP_ID'),
         'app_secret' => env('META_APP_SECRET'),
         'verify_token' => env('META_VERIFY_TOKEN'),
+        // The one token the whole integration runs on. A long-lived User token
+        // with leads_retrieval and pages_show_list is enough: the Page-specific
+        // tokens Meta wants for lead retrieval are derived from it on demand,
+        // so no Page token is ever typed in by hand.
+        'access_token' => env('META_ACCESS_TOKEN'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Defaults for auto-discovered Pages
+    |--------------------------------------------------------------------------
+    |
+    | A Page that introduces itself through a webhook arrives with no clinic
+    | attached, but leads.clinic_id is required. Rather than lose the lead, it
+    | is filed against the configured default clinic — setting key
+    | meta_default_clinic_id — falling back to the first active clinic.
+    |
+    */
+
+    'defaults' => [
+        'clinic_id' => env('META_DEFAULT_CLINIC_ID'),
     ],
 
     /*
@@ -130,6 +151,10 @@ return [
 
     'cache' => [
         'form_ttl' => (int) env('META_FORM_CACHE_TTL', 86400),
+        // Derived Page tokens are cached briefly rather than for a day: if a
+        // token is revoked, the integration should recover on its own within
+        // the hour instead of waiting for someone to clear the cache.
+        'page_token_ttl' => (int) env('META_PAGE_TOKEN_CACHE_TTL', 3600),
         'prefix' => 'meta_lead',
     ],
 
