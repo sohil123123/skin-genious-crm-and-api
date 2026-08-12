@@ -303,6 +303,23 @@ class LeadsTable
                 ->label('Unassigned only')
                 ->query(fn(Builder $query): Builder => $query->whereNull('assigned_to'))
                 ->toggle(),
+
+            // Leads now reach the CRM two ways. A lead with a Meta id but no
+            // import batch came in over the webhook, which is the quickest way
+            // to confirm the real-time integration is actually delivering.
+            SelectFilter::make('arrival')
+                ->label('Arrived via')
+                ->options([
+                    'realtime' => 'Meta webhook (real time)',
+                    'import' => 'CSV import',
+                    'manual' => 'Created manually',
+                ])
+                ->query(fn(Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                    'realtime' => $query->whereNull('lead_import_id')->whereNotNull('fb_lead_id'),
+                    'import' => $query->whereNotNull('lead_import_id'),
+                    'manual' => $query->whereNull('lead_import_id')->whereNull('fb_lead_id'),
+                    default => $query,
+                }),
         ];
 
         return array_merge($filters, static::customFieldFilters());

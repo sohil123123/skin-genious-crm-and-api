@@ -64,14 +64,44 @@ class LeadInfolist
                         ->viewData(fn (Lead $record): array => ['record' => $record]),
                 ]),
 
-            Section::make('Facebook attribution')
+            Section::make('Meta attribution')
+                ->description('Where on Facebook or Instagram this lead came from.')
                 ->collapsible()
                 ->columns(['default' => 1, 'md' => 3])
                 ->schema([
-                    TextEntry::make('campaign_name')->label('Campaign')->placeholder('—'),
-                    TextEntry::make('adset_name')->label('Ad set')->placeholder('—'),
-                    TextEntry::make('ad_name')->label('Ad')->placeholder('—'),
-                    TextEntry::make('form_name')->label('Form')->placeholder('—'),
+                    // Names depend on the access token carrying ads
+                    // permissions, so each falls back to its id rather than
+                    // showing nothing — the question "which campaign was this?"
+                    // stays answerable either way.
+                    TextEntry::make('campaign_name')
+                        ->label('Campaign')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->campaign_id
+                            ? 'ID ' . $record->campaign_id
+                            : null),
+
+                    TextEntry::make('adset_name')
+                        ->label('Ad set')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->adset_id
+                            ? 'ID ' . $record->adset_id
+                            : null),
+
+                    TextEntry::make('ad_name')
+                        ->label('Ad')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->ad_id
+                            ? 'ID ' . $record->ad_id
+                            : null),
+
+                    TextEntry::make('form_name')
+                        ->label('Form')
+                        ->placeholder('—')
+                        ->default(fn (Lead $record): ?string => $record->form_id
+                            ? 'ID ' . $record->form_id
+                            : null),
+
+                    TextEntry::make('page_name')->label('Page')->placeholder('—'),
                     TextEntry::make('platform')
                         ->label('Platform')
                         ->badge()
@@ -89,12 +119,20 @@ class LeadInfolist
                         ->dateTime(config('leads.display.datetime_format'))
                         ->timezone(config('leads.display.timezone'))
                         ->placeholder('—'),
-                    TextEntry::make('import.original_filename')
-                        ->label('Imported from')
+                    // A lead with no import batch used to mean "typed in by
+                    // hand". Since Meta leads can now arrive over the webhook,
+                    // that is no longer true and the distinction has to be
+                    // drawn from whether Meta gave it a lead id.
+                    TextEntry::make('arrived_via')
+                        ->label('Arrived via')
+                        ->state(fn (Lead $record): string => match (true) {
+                            $record->lead_import_id !== null => (string) ($record->import?->original_filename ?: 'CSV import'),
+                            $record->fb_lead_id !== null => 'Meta webhook (real time)',
+                            default => 'Created manually',
+                        })
                         ->url(fn (Lead $record): ?string => $record->lead_import_id
                             ? \App\Filament\Resources\LeadImports\LeadImportResource::getUrl('view', ['record' => $record->lead_import_id])
-                            : null)
-                        ->placeholder('Created manually'),
+                            : null),
                 ]),
         ]);
     }

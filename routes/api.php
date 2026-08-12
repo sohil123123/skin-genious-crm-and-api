@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\VisionQuantifierController;
 use App\Http\Controllers\Api\FeaturePacketCvController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
+use App\Http\Controllers\Api\MetaLeadWebhookController;
 use App\Http\Controllers\Api\ExotelWebhookController;
 
 // Route::get('/user', function (Request $request) {
@@ -34,6 +35,12 @@ Route::
             // WhatsApp Webhooks
             Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
             Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
+
+            // Meta Lead Ads Webhooks
+            // Public by design: Meta authenticates with the verify token on GET
+            // and an HMAC signature on POST, both checked in the controller.
+            Route::get('/webhooks/meta', [MetaLeadWebhookController::class, 'verify']);
+            Route::post('/webhooks/meta', [MetaLeadWebhookController::class, 'handle']);
 
             // Protected API routes with sanctum middleware
             Route::middleware(['auth:sanctum'])->group(function () {
