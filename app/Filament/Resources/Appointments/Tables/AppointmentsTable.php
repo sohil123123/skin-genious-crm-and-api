@@ -514,7 +514,12 @@ class AppointmentsTable
                             $assessmentUrl = new_assessment($record->client, 'iv', $record);
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create IV Assessment Early?' : 'Create IV Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
                     Action::make('new_assessment')
                         ->label('Create Assessment')
                         ->visible(fn($record) => can_create_assessment($record))
@@ -524,7 +529,12 @@ class AppointmentsTable
                             $assessmentUrl = new_assessment($record->client, 'assessment', $record);
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Assessment Early?' : 'Create Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
                     Action::make('new_pigmentation_assessment')
                         ->label('Create Pigmentation Assessment')
                         ->visible(fn($record) => can_create_assessment($record))
@@ -541,7 +551,12 @@ class AppointmentsTable
                             $assessmentUrl .= '&assessment_id=' . $assessment->id;
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Pigmentation Assessment Early?' : 'Create Pigmentation Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
                     Action::make('update_status')
                         ->label('Update Status & Note')
                         ->icon('heroicon-o-arrow-path')
@@ -579,7 +594,7 @@ class AppointmentsTable
                         }),
                     Action::make('start_session')
                         ->label('Start Session')
-                        // ->visible(fn($record) => can_start_session($record))
+                        ->visible(fn(?Appointment $record) => can_start_session($record))
                         ->icon('heroicon-o-plus')
                         ->color('warning')
                         ->action(function ($record) {

@@ -59,14 +59,28 @@ if (!function_exists('get_treatment_session_duration')) {
 if (!function_exists('can_create_assessment')) {
     function can_create_assessment($appointment)
     {
-        $start = Carbon::parse($appointment->start_datetime)->subMinutes(15);
-        $end   = $appointment->end_datetime;
+        if (is_null($appointment)) {
+            return false;
+        }
 
-        return $appointment->type->value === 'consult'
-        && in_array($appointment->status->value, ['confirmed'])
-        && is_null($appointment->assessment_id)
-        // && $appointment->appointment_datetime->isBetween(now(), now()->addMinutes(20)); //not used
-        && now()->between($start, $end);
+        return $appointment->type?->value === 'consult'
+        && in_array($appointment->status?->value, ['confirmed'])
+        && is_null($appointment->assessment_id);
+    }
+}
+
+if (!function_exists('create_assessment_confirmation_message')) {
+    function create_assessment_confirmation_message($appointment)
+    {
+        if (!is_early_session_start($appointment)) {
+            return 'Are you sure you want to create this assessment?';
+        }
+
+        $start = Carbon::parse($appointment->start_datetime);
+
+        return 'This appointment is scheduled for ' . $start->format('d M Y, h:i A')
+            . ' (' . $start->diffForHumans(now(), ['syntax' => Carbon::DIFF_ABSOLUTE]) . ' from now).'
+            . ' Are you sure you want to create the assessment early?';
     }
 }
 
@@ -115,7 +129,11 @@ if (!function_exists('edit_assessment')) {
 if (!function_exists('can_start_session')) {
     function can_start_session($appointment)
     {
-        return in_array($appointment->status->value, ['confirmed'])
+        if (is_null($appointment)) {
+            return false;
+        }
+
+        return in_array($appointment->status?->value, ['confirmed'])
         && !is_null($appointment->treatment_session_id);
     }
 }
@@ -123,6 +141,10 @@ if (!function_exists('can_start_session')) {
 if (!function_exists('is_early_session_start')) {
     function is_early_session_start($appointment)
     {
+        if (is_null($appointment)) {
+            return false;
+        }
+
         return now()->lt(Carbon::parse($appointment->start_datetime));
     }
 }
