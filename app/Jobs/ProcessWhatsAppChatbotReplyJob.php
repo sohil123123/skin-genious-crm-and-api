@@ -53,6 +53,13 @@ class ProcessWhatsAppChatbotReplyJob implements ShouldQueue
             return;
         }
 
+        // Skip emoji-only / bare acknowledgement replies ("👍", "🙏", "ok", "thank you")
+        // — answering those reopens a finished conversation and confuses the client.
+        if (!$aiService->shouldReplyTo($message->text_body)) {
+            Log::info("Chatbot: Skipped acknowledgement-only message #{$this->messageId}");
+            return;
+        }
+
         // Verify if window is still open
         if (!$conversation->isWindowOpen()) {
             return;
