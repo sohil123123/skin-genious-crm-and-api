@@ -90,7 +90,6 @@ class ProcessWhatsAppCampaignJob implements ShouldQueue
 
         $variableMapping = $campaign->template_variables ?? [];
 
-<<<<<<< Updated upstream
         // Upload header image to Meta if template has IMAGE header and image path is stored
         $headerVariables = [];
         if (strtolower($template->header_type ?? '') === 'image' && !empty($campaign->header_image_path)) {
@@ -110,11 +109,6 @@ class ProcessWhatsAppCampaignJob implements ShouldQueue
                 Log::warning("Campaign #{$this->campaignId}: Header image file not found at {$fullPath}");
             }
         }
-=======
-        // Extract header variables (e.g. media_id for image templates) from audience_filter
-        $audienceFilter = $campaign->audience_filter ?? [];
-        $headerVariables = $audienceFilter['__header_variables'] ?? [];
->>>>>>> Stashed changes
 
         foreach ($recipients as $recipient) {
             // Rate limiting: 80 messages per second is Meta's limit, we'll be conservative
