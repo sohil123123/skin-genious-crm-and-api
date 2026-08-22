@@ -130,15 +130,15 @@ class LeadsTable
 
                 TextColumn::make('fb_created_time')
                     ->label('Submitted')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Imported')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
@@ -244,7 +244,7 @@ class LeadsTable
 
             SelectFilter::make('clinic_id')
                 ->label('Clinic')
-                ->relationship('clinic', 'name')
+                ->relationship('clinic', 'name', modifyQueryUsing: fn(Builder $query) => $query->where('is_active', true))
                 ->searchable()
                 ->preload()
                 ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),

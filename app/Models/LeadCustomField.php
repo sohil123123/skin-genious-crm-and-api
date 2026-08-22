@@ -24,6 +24,7 @@ class LeadCustomField extends Model
         'clinic_id',
         'key',
         'label',
+        'source_label',
         'type',
         'options',
         'description',
@@ -90,6 +91,31 @@ class LeadCustomField extends Model
     public function getDisplayLabelAttribute(): string
     {
         return static::humanizeLabel($this->label);
+    }
+
+    /**
+     * The question as the lead form actually asked it.
+     *
+     * Falls back to the label for rows that predate source_label being stored.
+     */
+    public function getSourceQuestionAttribute(): string
+    {
+        return (string) ($this->source_label ?: $this->label);
+    }
+
+    /**
+     * Whether the displayed wording has been rewritten away from the original.
+     *
+     * Comparison is on the humanised forms, so merely tidying underscores and
+     * capitalisation does not count as a rewrite worth flagging.
+     */
+    public function labelWasRewritten(): bool
+    {
+        if (blank($this->source_label)) {
+            return false;
+        }
+
+        return static::humanizeLabel($this->source_label) !== static::humanizeLabel($this->label);
     }
 
     /**

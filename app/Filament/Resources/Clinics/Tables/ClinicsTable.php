@@ -137,8 +137,8 @@ class ClinicsTable
                 //     //     }
                 //     //     return $state;
                 //     // }),
-                TextColumn::make('start_time')->time('h:i A')->sortable(),
-                TextColumn::make('end_time')->time('h:i A')->sortable(),
+                TextColumn::make('start_time')->time(app_time_format())->sortable(),
+                TextColumn::make('end_time')->time(app_time_format())->sortable(),
                 BadgeColumn::make('number_of_beds')->color('info')->searchable()->sortable(),
                 TextColumn::make('face_scan_machine')->label('Machine')->placeholder('Not specified')->toggleable(),
                 TextColumn::make('google_map_link')->searchable()->toggleable(isToggledHiddenByDefault: true),

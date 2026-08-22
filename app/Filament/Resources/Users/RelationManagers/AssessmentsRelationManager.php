@@ -60,7 +60,7 @@ class AssessmentsRelationManager extends RelationManager
                 TextColumn::make('total_time')->searchable()->placeholder('-'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('createdBy.name')->label('Created By')->searchable(['first_name', 'last_name']),
-                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
+                TextColumn::make('created_at')->dateTime(app_datetime_format())->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

@@ -73,18 +73,18 @@ class WhatsAppTemplatesTable
 
                 TextColumn::make('last_synced_at')
                     ->label('Last Synced')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->placeholder('Never')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('updated_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

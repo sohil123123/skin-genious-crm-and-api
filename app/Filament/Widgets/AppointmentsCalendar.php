@@ -159,8 +159,8 @@ class AppointmentsCalendar extends FullCalendarWidget
                     TextEntry::make('client.first_name')->label('Client Name'),
                     TextEntry::make('therapist.first_name')->label('therapist Name'),
 
-                    TextEntry::make('start_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
-                    TextEntry::make('end_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
+                    TextEntry::make('start_datetime')->dateTime(app_datetime_format())->badge()->color('warning'),
+                    TextEntry::make('end_datetime')->dateTime(app_datetime_format())->badge()->color('warning'),
                     TextEntry::make('status')->placeholder('N/A'),
                     IconEntry::make('createdBy.first_name')->label('Created By')->placeholder('N/A'),
                     IconEntry::make('updatedBy.first_name')->label('Updated By')->placeholder('N/A'),
@@ -201,9 +201,9 @@ class AppointmentsCalendar extends FullCalendarWidget
                 ->description('Timestamps for creation, update, deletion and billed.')
                 ->icon('heroicon-o-clock')
                 ->schema([
-                    TextEntry::make('created_at')->label('Created At')->dateTime('d M Y, h:i A'),
-                    TextEntry::make('updated_at')->label('Updated At')->dateTime('d M Y, h:i A'),
-                    TextEntry::make('deleted_at')->label('Deleted At')->dateTime('d M Y, h:i A')->placeholder('Not deleted'),
+                    TextEntry::make('created_at')->label('Created At')->dateTime(app_datetime_format()),
+                    TextEntry::make('updated_at')->label('Updated At')->dateTime(app_datetime_format()),
+                    TextEntry::make('deleted_at')->label('Deleted At')->dateTime(app_datetime_format())->placeholder('Not deleted'),
                 ])
                 ->columns(3)
                 ->collapsed()

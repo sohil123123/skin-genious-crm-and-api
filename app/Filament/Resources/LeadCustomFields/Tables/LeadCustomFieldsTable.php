@@ -84,7 +84,7 @@ class LeadCustomFieldsTable
 
                 TextColumn::make('created_at')
                     ->label('First seen')
-                    ->date('d M Y')
+                    ->date(app_date_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

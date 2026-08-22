@@ -124,7 +124,7 @@ class LatestClients extends TableWidget
                             ->send();
                     }),
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
             ])
             ->filters([

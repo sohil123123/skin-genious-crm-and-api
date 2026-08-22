@@ -363,7 +363,7 @@ class LeadImportWizard extends Page
                 ->title('This exact file was uploaded before')
                 ->body(sprintf(
                     'Imported on %s as "%s". Continuing is safe — duplicate handling decides what happens to repeated rows.',
-                    $previous->created_at?->timezone(config('leads.display.timezone'))->format('d M Y, h:i A'),
+                    $previous->created_at?->timezone(app_timezone())->format('d M Y, h:i A'),
                     $previous->original_filename,
                 ))
                 ->warning()

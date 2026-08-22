@@ -210,15 +210,68 @@ it('registers an unknown Page automatically and queues its lead', function (): v
 
     expect($page)->not->toBeNull()
         ->and($page->is_active)->toBeTrue()
-        // No clinic and no name yet: both are resolved on the queue, where a
-        // Graph call is affordable.
-        ->and($page->clinic_id)->toBeNull()
+        // The clinic is stamped from the Meta default setting at creation, so
+        // the Page is immediately usable and visibly routed.
+        ->and($page->clinic_id)->toBe(test()->clinic->getKey())
+        // The name still needs a Graph call, which belongs on the queue.
         ->and($page->page_name)->toBeNull();
 
     $log = MetaLeadSyncLog::where('leadgen_id', '2002')->first();
 
     expect($log->status)->toBe(MetaSyncStatus::Pending)
         ->and($log->meta_page_id)->toBe($page->getKey());
+
+    Queue::assertPushed(ProcessMetaLeadJob::class, 1);
+});
+
+it('stamps a new Page with the clinic chosen in settings', function (): void {
+    Queue::fake();
+
+    $other = Clinic::create([
+        'name' => 'Second Clinic',
+        'address_line1' => '2 Test Street',
+        'city' => 'Pune',
+        'pincode' => '411001',
+    ]);
+
+    Setting::setValue('meta_default_clinic_id', (string) $other->getKey());
+
+    signedPost(leadgenPayload('2002', pageId: '9999999999'))->assertOk();
+
+    expect(MetaPage::where('page_id', '9999999999')->first()->clinic_id)
+        ->toBe($other->getKey());
+});
+
+it('changing the default clinic affects only Pages discovered afterwards', function (): void {
+    // The setting is read live, so it applies from the next webhook onwards —
+    // it must not retroactively move Pages that are already routed.
+    Queue::fake();
+
+    signedPost(leadgenPayload('2002', pageId: '1111111111'))->assertOk();
+
+    $other = Clinic::create([
+        'name' => 'Second Clinic',
+        'address_line1' => '2 Test Street',
+        'city' => 'Pune',
+        'pincode' => '411001',
+    ]);
+    Setting::setValue('meta_default_clinic_id', (string) $other->getKey());
+
+    signedPost(leadgenPayload('2003', pageId: '2222222222'))->assertOk();
+
+    expect(MetaPage::where('page_id', '1111111111')->first()->clinic_id)->toBe(test()->clinic->getKey())
+        ->and(MetaPage::where('page_id', '2222222222')->first()->clinic_id)->toBe($other->getKey());
+});
+
+it('still registers a Page when no default clinic is configured', function (): void {
+    // Falls back to the first clinic rather than refusing the Page.
+    Queue::fake();
+    Setting::setValue('meta_default_clinic_id', '');
+
+    signedPost(leadgenPayload('2002', pageId: '9999999999'))->assertOk();
+
+    expect(MetaPage::where('page_id', '9999999999')->first()->clinic_id)
+        ->toBe(test()->clinic->getKey());
 
     Queue::assertPushed(ProcessMetaLeadJob::class, 1);
 });

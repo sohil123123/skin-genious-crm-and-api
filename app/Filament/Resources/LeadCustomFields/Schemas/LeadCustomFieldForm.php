@@ -47,12 +47,14 @@ class LeadCustomFieldForm
                         ->columnSpanFull()
                         ->helperText('Shown on lead detail screens, filters and reports. Tidying up the wording here is safe — answers are linked by key, not by this text.'),
 
-                    // The raw import value is worth seeing once, because it is
-                    // what the person is deciding whether to rewrite, but it is
-                    // reference material rather than a field to fill in.
+                    // Previously this printed label — the very field being
+                    // edited — so once someone reworded a question it claimed
+                    // the new wording had come from Facebook. It now shows the
+                    // untouched original, which is the whole point of offering
+                    // it as reference material.
                     Text::make(fn (?LeadCustomField $record): HtmlString => new HtmlString(
-                        '<span style="opacity:.62;">As imported from Facebook:</span> '
-                        . '<code style="word-break:break-word;">' . e((string) $record?->label) . '</code>'
+                        '<span style="opacity:.62;">As asked on the lead form:</span> '
+                        . '<code style="word-break:break-word;">' . e((string) $record?->source_question) . '</code>'
                     ))
                         ->columnSpanFull()
                         ->visible(fn (?LeadCustomField $record): bool => $record !== null),

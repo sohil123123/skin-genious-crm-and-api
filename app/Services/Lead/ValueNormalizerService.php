@@ -169,7 +169,7 @@ class ValueNormalizerService
         // that offset. A value without one is interpreted in the clinic's
         // timezone rather than the server's php.ini default, so the same file
         // imports identically on a developer machine and in production.
-        $fallbackZone = new DateTimeZone((string) config('leads.display.timezone', 'Asia/Kolkata'));
+        $fallbackZone = new DateTimeZone((string) app_timezone());
 
         foreach (self::DATE_FORMATS as $format) {
             // DateTimeImmutable rather than Carbon: Carbon runs in strict mode

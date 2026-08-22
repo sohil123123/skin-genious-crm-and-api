@@ -125,24 +125,41 @@ class MetaPage extends Model
 
         return static::create([
             'page_id' => $pageId,
-            'clinic_id' => null,
+            // Stamped at creation from the Meta default-clinic setting, so the
+            // Page shows a real clinic in the UI straight away and an
+            // administrator can see — and override — where its leads are going
+            // before the first one is even processed.
+            'clinic_id' => static::defaultClinicId(),
             'is_active' => true,
         ]);
     }
 
     /**
-     * The clinic this Page's leads belong to.
+     * The clinic to file this Page's leads against.
      *
-     * An auto-discovered Page has no clinic of its own, but leads.clinic_id is
-     * required — so rather than lose the lead, it falls back to the configured
-     * default and finally to the first active clinic.
+     * Normally the Page's own clinic. The fallback covers Pages created before
+     * a default was configured, and any row whose clinic was later deleted —
+     * leads.clinic_id is required, and losing a lead over missing setup would
+     * be the worst possible outcome.
      */
     public function resolveClinicId(): ?int
     {
-        if ($this->clinic_id !== null) {
-            return (int) $this->clinic_id;
-        }
+        return $this->clinic_id !== null
+            ? (int) $this->clinic_id
+            : static::defaultClinicId();
+    }
 
+    /**
+     * The clinic new Meta Pages are assigned to.
+     *
+     * Read live from the settings table, whose cache is cleared whenever a
+     * setting is saved — so changing it on the Meta Lead Settings screen
+     * takes effect on the very next webhook. Falls through to config, then
+     * to the first active clinic, so a lead is never dropped for want of
+     * configuration.
+     */
+    public static function defaultClinicId(): ?int
+    {
         $configured = Setting::getValue('meta_default_clinic_id', config('meta.defaults.clinic_id'));
 
         if (filled($configured) && Clinic::query()->whereKey($configured)->exists()) {
@@ -201,9 +218,12 @@ class MetaPage extends Model
     }
 
     /**
-     * Whether this Page arrived on its own and has never been reviewed.
+     * Whether this Page has no clinic of its own and relies on the default.
+     *
+     * Only reachable now for Pages created before a default clinic existed, or
+     * whose clinic was later deleted — new Pages are stamped at creation.
      */
-    public function wasAutoDiscovered(): bool
+    public function usesDefaultClinic(): bool
     {
         return $this->clinic_id === null;
     }

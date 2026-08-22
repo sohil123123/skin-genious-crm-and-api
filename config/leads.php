@@ -127,9 +127,12 @@ return [
     |
     */
 
+    // Presentation now lives in config/display.php and the settings table, so
+    // the whole CRM reads a date the same way. These remain only so anything
+    // still reaching for them cannot drift away from the shared values.
     'display' => [
-        'timezone' => env('LEAD_DISPLAY_TIMEZONE', 'Asia/Kolkata'),
-        'datetime_format' => 'd M Y, h:i A',
+        'timezone' => env('LEAD_DISPLAY_TIMEZONE', env('DISPLAY_TIMEZONE', 'Asia/Kolkata')),
+        'datetime_format' => env('DISPLAY_DATETIME_FORMAT', 'd M Y, h:i A'),
     ],
 
     /*

@@ -26,8 +26,8 @@ class LeadInfolist
                         ->label('Phone')
                         ->copyable()
                         ->badge()
-                        ->color(fn (Lead $record): string => $record->phone_status->getColor())
-                        ->helperText(fn (Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
+                        ->color(fn(Lead $record): string => $record->phone_status->getColor())
+                        ->helperText(fn(Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
                             ? 'Repaired during import from "' . $record->phone_raw . '" — confirm before calling.'
                             : null),
 
@@ -50,7 +50,7 @@ class LeadInfolist
                         ->color('warning')
                         ->icon('heroicon-o-identification')
                         ->placeholder('No match')
-                        ->helperText(fn (Lead $record): ?string => $record->matched_user_id
+                        ->helperText(fn(Lead $record): ?string => $record->matched_user_id
                             ? 'This phone or email already belongs to a patient record. The lead was imported anyway and not merged.'
                             : null),
 
@@ -61,7 +61,7 @@ class LeadInfolist
                 ->description('Questions vary by form, so these are stored dynamically rather than as fixed fields.')
                 ->schema([
                     View::make('filament.lead.custom-answers')
-                        ->viewData(fn (Lead $record): array => ['record' => $record]),
+                        ->viewData(fn(Lead $record): array => ['record' => $record]),
                 ]),
 
             Section::make('Meta attribution')
@@ -75,48 +75,58 @@ class LeadInfolist
                     // "which campaign was this?" stays answerable either way.
                     TextEntry::make('page_name')
                         ->label('Page')
+                        ->badge()
+                        ->color('info')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->page_id)
-                        ->helperText(fn (Lead $record): ?string => $record->page_name && $record->page_id
+                        ->default(fn(Lead $record): ?string => $record->page_id)
+                        ->helperText(fn(Lead $record): ?string => $record->page_name && $record->page_id
                             ? 'ID ' . $record->page_id
                             : null),
 
                     TextEntry::make('form_name')
                         ->label('Form')
+                        ->badge()
+                        ->color('info')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->form_id)
-                        ->helperText(fn (Lead $record): ?string => $record->form_name && $record->form_id
+                        ->default(fn(Lead $record): ?string => $record->form_id)
+                        ->helperText(fn(Lead $record): ?string => $record->form_name && $record->form_id
                             ? 'ID ' . $record->form_id
                             : null),
 
                     TextEntry::make('campaign_name')
                         ->label('Campaign')
+                        ->badge()
+                        ->color('info')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->campaign_id)
-                        ->helperText(fn (Lead $record): ?string => $record->campaign_name && $record->campaign_id
+                        ->default(fn(Lead $record): ?string => $record->campaign_id)
+                        ->helperText(fn(Lead $record): ?string => $record->campaign_name && $record->campaign_id
                             ? 'ID ' . $record->campaign_id
                             : null),
 
                     TextEntry::make('adset_name')
                         ->label('Ad set')
+                        ->badge()
+                        ->color('info')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->adset_id)
-                        ->helperText(fn (Lead $record): ?string => $record->adset_name && $record->adset_id
+                        ->default(fn(Lead $record): ?string => $record->adset_id)
+                        ->helperText(fn(Lead $record): ?string => $record->adset_name && $record->adset_id
                             ? 'ID ' . $record->adset_id
                             : null),
 
                     TextEntry::make('ad_name')
                         ->label('Ad')
+                        ->badge()
+                        ->color('info')
                         ->placeholder('—')
-                        ->default(fn (Lead $record): ?string => $record->ad_id)
-                        ->helperText(fn (Lead $record): ?string => $record->ad_name && $record->ad_id
+                        ->default(fn(Lead $record): ?string => $record->ad_id)
+                        ->helperText(fn(Lead $record): ?string => $record->ad_name && $record->ad_id
                             ? 'ID ' . $record->ad_id
                             : null),
 
                     TextEntry::make('platform')
                         ->label('Platform')
                         ->badge()
-                        ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        ->formatStateUsing(fn(?string $state): string => match ($state) {
                             'ig' => 'Instagram',
                             'fb' => 'Facebook',
                             default => (string) ($state ?: '—'),
@@ -127,8 +137,8 @@ class LeadInfolist
                     TextEntry::make('fb_lead_id')->label('Facebook lead ID')->copyable()->placeholder('—'),
                     TextEntry::make('fb_created_time')
                         ->label('Submitted at')
-                        ->dateTime(config('leads.display.datetime_format'))
-                        ->timezone(config('leads.display.timezone'))
+                        ->dateTime(app_datetime_format())
+                        ->timezone(app_timezone())
                         ->placeholder('—'),
                     // A lead with no import batch used to mean "typed in by
                     // hand". Since Meta leads can now arrive over the webhook,
@@ -136,12 +146,12 @@ class LeadInfolist
                     // drawn from whether Meta gave it a lead id.
                     TextEntry::make('arrived_via')
                         ->label('Arrived via')
-                        ->state(fn (Lead $record): string => match (true) {
+                        ->state(fn(Lead $record): string => match (true) {
                             $record->lead_import_id !== null => (string) ($record->import?->original_filename ?: 'CSV import'),
                             $record->fb_lead_id !== null => 'Meta webhook (real time)',
                             default => 'Created manually',
                         })
-                        ->url(fn (Lead $record): ?string => $record->lead_import_id
+                        ->url(fn(Lead $record): ?string => $record->lead_import_id
                             ? \App\Filament\Resources\LeadImports\LeadImportResource::getUrl('view', ['record' => $record->lead_import_id])
                             : null),
                 ]),

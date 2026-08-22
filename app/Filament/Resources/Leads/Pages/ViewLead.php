@@ -16,8 +16,8 @@ class ViewLead extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
-            DeleteAction::make(),
+            EditAction::make()->icon('heroicon-o-pencil'),
+            DeleteAction::make()->icon('heroicon-o-trash'),
         ];
     }
 }

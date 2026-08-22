@@ -38,16 +38,17 @@ class MetaPagesTable
                     ->placeholder('Awaiting first sync')
                     ->weight('medium'),
 
-                // An auto-discovered Page has no clinic of its own and uses the
-                // default. Saying so is more useful than an empty cell, because
-                // it is the one thing an administrator may want to override.
+                // A discovered Page is stamped with the default clinic on
+                // creation, so this normally shows a real clinic. The
+                // placeholder only appears for a Page whose clinic was deleted,
+                // or one created before a default was configured.
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
                     ->badge()
-                    ->color(fn (MetaPage $record): string => $record->wasAutoDiscovered() ? 'gray' : 'info')
+                    ->color(fn (MetaPage $record): string => $record->usesDefaultClinic() ? 'gray' : 'info')
                     ->placeholder('Default clinic')
-                    ->tooltip(fn (MetaPage $record): ?string => $record->wasAutoDiscovered()
-                        ? 'Discovered automatically. Leads go to the default clinic until one is chosen here.'
+                    ->tooltip(fn (MetaPage $record): ?string => $record->usesDefaultClinic()
+                        ? 'No clinic set. Leads fall back to the default on Meta Lead Settings.'
                         : null),
 
                 IconColumn::make('is_active')
@@ -68,8 +69,8 @@ class MetaPagesTable
 
                 TextColumn::make('created_at')
                     ->label('Discovered')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

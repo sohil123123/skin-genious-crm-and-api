@@ -119,3 +119,59 @@ if (!function_exists('create_directory_if_not_exist')){
         }
     }
 }
+
+/*
+|--------------------------------------------------------------------------
+| Date and time presentation
+|--------------------------------------------------------------------------
+|
+| The house format for dates, resolved from the settings table so it can be
+| changed without a deploy, falling back to config/display.php.
+|
+| Setting::getValue() caches and clears that cache whenever a setting is saved,
+| so calling these per table cell is cheap and picks up an edit immediately.
+|
+*/
+
+if (!function_exists('display_setting')) {
+    function display_setting(string $key, string $fallback): string
+    {
+        // Settings live in the database, which is not available during early
+        // console commands such as migrate or config:cache.
+        try {
+            $value = \App\Models\Setting::getValue($key);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+
+        return filled($value) ? (string) $value : $fallback;
+    }
+}
+
+if (!function_exists('app_date_format')) {
+    function app_date_format(): string
+    {
+        return display_setting('display_date_format', (string) config('display.date_format', 'd M Y'));
+    }
+}
+
+if (!function_exists('app_datetime_format')) {
+    function app_datetime_format(): string
+    {
+        return display_setting('display_datetime_format', (string) config('display.datetime_format', 'd M Y, h:i A'));
+    }
+}
+
+if (!function_exists('app_time_format')) {
+    function app_time_format(): string
+    {
+        return display_setting('display_time_format', (string) config('display.time_format', 'h:i A'));
+    }
+}
+
+if (!function_exists('app_timezone')) {
+    function app_timezone(): string
+    {
+        return display_setting('display_timezone', (string) config('display.timezone', 'Asia/Kolkata'));
+    }
+}

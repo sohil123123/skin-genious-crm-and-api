@@ -82,8 +82,8 @@ class ViewLeadImport extends ViewRecord
                     TextEntry::make('uploader.name')->label('Uploaded by')->placeholder('—'),
                     TextEntry::make('created_at')
                         ->label('Uploaded at')
-                        ->dateTime(config('leads.display.datetime_format'))
-                        ->timezone(config('leads.display.timezone')),
+                        ->dateTime(app_datetime_format())
+                        ->timezone(app_timezone()),
                     TextEntry::make('file_size')
                         ->label('Size')
                         ->formatStateUsing(fn (?int $state): string => $state === null ? '—' : number_format($state / 1024, 1) . ' KB'),

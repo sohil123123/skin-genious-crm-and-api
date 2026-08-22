@@ -85,8 +85,8 @@ class FailuresRelationManager extends RelationManager
 
                 TextColumn::make('retried_at')
                     ->label('Last retried')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->placeholder('Never')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

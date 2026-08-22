@@ -11,8 +11,8 @@ use App\Models\Lead;
 use App\Models\User;
 use App\Services\Lead\PhoneNormalizerService;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,10 +27,12 @@ class LeadForm
                 ->schema([
                     TextInput::make('full_name')
                         ->label('Full name')
+                        ->placeholder('Enter full name')
                         ->maxLength(255),
 
                     TextInput::make('phone')
                         ->label('Phone')
+                        ->placeholder('Enter phone number')
                         ->required()
                         ->maxLength(20)
                         ->tel()
@@ -53,56 +55,80 @@ class LeadForm
 
                     TextInput::make('email')
                         ->label('Email')
+                        ->placeholder('Enter email address')
                         ->email()
                         ->maxLength(255),
 
-                    TextInput::make('city')->maxLength(255),
-                    TextInput::make('state')->maxLength(255),
-                    TextInput::make('pincode')->label('Pincode')->maxLength(20),
+                    TextInput::make('city')
+                        ->label('City')
+                        ->placeholder('Enter city')
+                        ->maxLength(255),
+
+                    TextInput::make('state')
+                        ->label('State')
+                        ->placeholder('Enter state')
+                        ->maxLength(255),
+
+                    TextInput::make('pincode')
+                        ->label('Pincode')
+                        ->placeholder('Enter pincode')
+                        ->maxLength(20),
                 ]),
 
             Section::make('Pipeline')
                 ->columns(['default' => 1, 'md' => 3])
                 ->schema([
+                    Select::make('clinic_id')
+                        ->label('Clinic')
+                        ->relationship('clinic', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true))
+                        ->required()
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('Select clinic')
+                        ->default(fn (): ?int => auth()->user()?->clinic_id)
+                        ->visible(fn (): bool => check_role(config('project.roles.super_admin')))
+                        ->live()
+                        ->afterStateUpdated(fn (callable $set) => $set('assigned_to', null))
+                        ->columnSpanFull(),
+
                     Select::make('status')
                         ->options(LeadStatus::options())
                         ->default(LeadStatus::New->value)
                         ->required()
+                        ->placeholder('Select status')
                         ->native(false),
 
                     Select::make('source')
                         ->options(LeadSource::options())
                         ->default(LeadSource::Manual->value)
                         ->required()
+                        ->placeholder('Select source')
                         ->native(false),
 
                     Select::make('assigned_to')
                         ->label('Assigned to')
-                        ->options(fn (): array => User::query()
-                            ->withoutGlobalScopes()
-                            ->when(
-                                ! check_role(config('project.roles.super_admin')),
-                                fn (Builder $query) => $query->where('clinic_id', auth()->user()?->clinic_id)
-                            )
-                            ->orderBy('first_name')
-                            ->get()
-                            ->mapWithKeys(fn (User $user): array => [$user->getKey() => $user->name])
-                            ->all())
-                        ->searchable()
-                        ->placeholder('Unassigned'),
+                        ->options(function (callable $get): array {
+                            $clinicId = $get('clinic_id') ?: auth()->user()?->clinic_id;
 
-                    Select::make('clinic_id')
-                        ->label('Clinic')
-                        ->relationship('clinic', 'name')
-                        ->required()
+                            if (! $clinicId) {
+                                return [];
+                            }
+
+                            return User::query()
+                                ->withoutGlobalScopes()
+                                ->role(config('project.roles.clinic_head'))
+                                ->where('clinic_id', $clinicId)
+                                ->orderBy('first_name')
+                                ->get()
+                                ->mapWithKeys(fn (User $user): array => [$user->getKey() => $user->name])
+                                ->all();
+                        })
                         ->searchable()
-                        ->preload()
-                        ->default(fn (): ?int => auth()->user()?->clinic_id)
-                        ->visible(fn (): bool => check_role(config('project.roles.super_admin')))
-                        ->columnSpanFull(),
+                        ->placeholder('Select assigned staff'),
 
                     Textarea::make('notes')
                         ->label('Notes')
+                        ->placeholder('Enter notes...')
                         ->rows(4)
                         ->maxLength(5000)
                         ->columnSpanFull(),
@@ -114,13 +140,34 @@ class LeadForm
                 ->collapsed()
                 ->columns(['default' => 1, 'md' => 3])
                 ->schema([
-                    TextInput::make('campaign_name')->label('Campaign')->maxLength(255),
-                    TextInput::make('adset_name')->label('Ad set')->maxLength(255),
-                    TextInput::make('ad_name')->label('Ad')->maxLength(255),
-                    TextInput::make('form_name')->label('Form')->maxLength(255),
-                    TextInput::make('platform')->label('Platform')->maxLength(20),
+                    TextInput::make('campaign_name')
+                        ->label('Campaign')
+                        ->placeholder('Enter campaign name')
+                        ->maxLength(255),
+
+                    TextInput::make('adset_name')
+                        ->label('Ad set')
+                        ->placeholder('Enter ad set name')
+                        ->maxLength(255),
+
+                    TextInput::make('ad_name')
+                        ->label('Ad')
+                        ->placeholder('Enter ad name')
+                        ->maxLength(255),
+
+                    TextInput::make('form_name')
+                        ->label('Form')
+                        ->placeholder('Enter form name')
+                        ->maxLength(255),
+
+                    TextInput::make('platform')
+                        ->label('Platform')
+                        ->placeholder('Enter platform (e.g. Facebook, Instagram)')
+                        ->maxLength(20),
+
                     TextInput::make('fb_lead_id')
                         ->label('Facebook lead ID')
+                        ->placeholder('Enter Facebook lead ID')
                         ->maxLength(64)
                         ->helperText('Used to recognise this lead if the same export is imported again.'),
                 ]),

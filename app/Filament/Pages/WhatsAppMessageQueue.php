@@ -71,11 +71,11 @@ class WhatsAppMessageQueue extends Page implements HasTable
                     ->numeric(),
                 TextColumn::make('next_retry_at')
                     ->label('Next Retry')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Queued At')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
             ])
             ->filters([
@@ -141,10 +141,10 @@ class WhatsAppMessageQueue extends Page implements HasTable
                             ->compact()
                             ->schema([
                                 Grid::make(4)->schema([
-                                    TextEntry::make('created_at')->label('Queued At')->dateTime('d M Y, h:i A'),
-                                    TextEntry::make('sent_at')->label('Sent At')->dateTime('d M Y, h:i A')->placeholder('-'),
-                                    TextEntry::make('delivered_at')->label('Delivered At')->dateTime('d M Y, h:i A')->placeholder('-'),
-                                    TextEntry::make('read_at')->label('Read At')->dateTime('d M Y, h:i A')->placeholder('-'),
+                                    TextEntry::make('created_at')->label('Queued At')->dateTime(app_datetime_format()),
+                                    TextEntry::make('sent_at')->label('Sent At')->dateTime(app_datetime_format())->placeholder('-'),
+                                    TextEntry::make('delivered_at')->label('Delivered At')->dateTime(app_datetime_format())->placeholder('-'),
+                                    TextEntry::make('read_at')->label('Read At')->dateTime(app_datetime_format())->placeholder('-'),
                                 ]),
                             ]),
                         Section::make('Errors & Retries')
@@ -154,7 +154,7 @@ class WhatsAppMessageQueue extends Page implements HasTable
                                 Grid::make(3)->schema([
                                     TextEntry::make('retry_count')->label('Retries'),
                                     TextEntry::make('max_retries')->label('Max Retries'),
-                                    TextEntry::make('next_retry_at')->label('Next Retry At')->dateTime('d M Y, h:i A')->placeholder('-'),
+                                    TextEntry::make('next_retry_at')->label('Next Retry At')->dateTime(app_datetime_format())->placeholder('-'),
                                 ]),
                                 TextEntry::make('failed_reason')
                                     ->label('Failed Reason')

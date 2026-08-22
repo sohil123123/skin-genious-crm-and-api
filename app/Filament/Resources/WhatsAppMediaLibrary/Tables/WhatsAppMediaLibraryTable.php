@@ -70,7 +70,7 @@ class WhatsAppMediaLibraryTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y')
+                    ->dateTime(app_date_format())
                     ->sortable(),
             ])
             ->filters([

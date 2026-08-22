@@ -613,11 +613,11 @@ class AssessmentInfolist
                         Grid::make(2)->schema([
                             TextEntry::make('created_at')
                                 ->label('Created At')
-                                ->dateTime('d M Y, h:i A'),
+                                ->dateTime(app_datetime_format()),
 
                             TextEntry::make('updated_at')
                                 ->label('Last Updated')
-                                ->dateTime('d M Y, h:i A'),
+                                ->dateTime(app_datetime_format()),
                         ]),
                     ]),
             ])->columns(1);

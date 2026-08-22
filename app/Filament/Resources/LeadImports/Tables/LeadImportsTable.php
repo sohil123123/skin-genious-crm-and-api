@@ -67,8 +67,8 @@ class LeadImportsTable
 
                 TextColumn::make('created_at')
                     ->label('Uploaded')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable(),
 
                 TextColumn::make('status')
