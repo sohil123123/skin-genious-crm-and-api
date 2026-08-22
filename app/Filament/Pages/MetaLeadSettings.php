@@ -40,7 +40,7 @@ class MetaLeadSettings extends Page
 
     protected static ?string $navigationLabel = 'Meta Lead Settings';
 
-    protected static ?int $navigationSort = 36;
+    protected static ?int $navigationSort = 37;
 
     protected string $view = 'filament.pages.meta-lead-settings';
 
@@ -125,11 +125,11 @@ class MetaLeadSettings extends Page
                                 ->label('Default clinic')
                                 // A clinic with no name would otherwise yield a
                                 // null label, which Filament cannot render.
-                                ->options(fn (): array => Clinic::query()
+                                ->options(fn(): array => Clinic::query()
                                     ->where('is_active', true)
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
-                                    ->map(fn (?string $name, $id): string => filled($name)
+                                    ->map(fn(?string $name, $id): string => filled($name)
                                         ? $name
                                         : 'Clinic #' . $id)
                                     ->all())
@@ -156,7 +156,7 @@ class MetaLeadSettings extends Page
                             '<code style="word-break:break-all;">' . e(url('/api/webhooks/meta')) . '</code>'
                         )),
 
-                        Text::make(fn (): HtmlString => static::connectionSummary()),
+                        Text::make(fn(): HtmlString => static::connectionSummary()),
                     ]),
             ]);
     }
@@ -208,7 +208,7 @@ class MetaLeadSettings extends Page
                     $data = $this->form->getState();
 
                     foreach (self::KEYS as $key) {
-                        if (! array_key_exists($key, $data)) {
+                        if (!array_key_exists($key, $data)) {
                             continue;
                         }
 

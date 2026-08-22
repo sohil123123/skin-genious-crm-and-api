@@ -38,7 +38,7 @@ class MetaLeadSyncLogResource extends Resource
 
     protected static ?string $modelLabel = 'Meta sync record';
 
-    protected static ?int $navigationSort = 35;
+    protected static ?int $navigationSort = 36;
 
     public static function infolist(Schema $schema): Schema
     {
@@ -83,6 +83,6 @@ class MetaLeadSyncLogResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['metaPage.clinic', 'lead'])
-            ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic());
+            ->when(!check_role(config('project.roles.super_admin')), fn(Builder $query) => $query->forCurrentClinic());
     }
 }

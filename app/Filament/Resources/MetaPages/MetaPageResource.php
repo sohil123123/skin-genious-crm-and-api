@@ -39,13 +39,13 @@ class MetaPageResource extends Resource
 
     protected static ?string $modelLabel = 'Meta Page';
 
-    protected static ?int $navigationSort = 34;
+    protected static ?int $navigationSort = 35;
 
     /**
      * page_name is null until Meta resolves it, and a null title is not
      * something Filament can render, so fall back to the id.
      */
-    public static function getRecordTitle(?Model $record): string | Htmlable | null
+    public static function getRecordTitle(?Model $record): string|Htmlable|null
     {
         return $record instanceof MetaPage
             ? $record->displayName()
@@ -88,7 +88,7 @@ class MetaPageResource extends Resource
         // A self-registered Page has no clinic yet. Scoping it away entirely
         // would hide the very Pages that need a clinic assigned, so they stay
         // visible alongside the current clinic's own.
-        return $query->where(fn (Builder $inner) => $inner
+        return $query->where(fn(Builder $inner) => $inner
             ->whereNull('clinic_id')
             ->orWhere('clinic_id', auth()->user()?->clinic_id));
     }

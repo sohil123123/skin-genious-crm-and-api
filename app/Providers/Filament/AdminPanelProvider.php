@@ -151,7 +151,7 @@ class AdminPanelProvider extends PanelProvider
                     // ->simpleResourcePermissionView()  // Simplify permission UI
                     ->navigationLabel('Roles')  // Change nav label
                     ->navigationIcon('heroicon-o-shield-check')  // Custom icon
-                    ->navigationSort(2)  // Position in nav
+                    ->navigationSort(41)  // Position in nav
                     ->navigationGroup('Security'),  // Group under a label
                 // ->showGlobalSearch(false)  // Disable search
                 // ->showInTenancy(false),  // Hide in multi-tenant setups
@@ -318,21 +318,21 @@ class AdminPanelProvider extends PanelProvider
                 HTML)
             )
             ->navigationGroups([
-                // NavigationGroup::make()
-                //     ->label('Auth Management')
-                //     ->icon('heroicon-o-academic-cap'),
-                //     // ->collapsed(),
-
-                // NavigationGroup::make()
-                //     ->label('Therapist Management'),
-                //     // ->icon('heroicon-o-hand-raised'),
+                NavigationGroup::make('Inventory'),
+                NavigationGroup::make('Finance'),
+                NavigationGroup::make('Reports'),
+                NavigationGroup::make('WhatsApp'),
+                NavigationGroup::make('Leads'),
+                NavigationGroup::make('User Scheduling & Holidays'),
+                NavigationGroup::make('Others'),
+                NavigationGroup::make('Security'),
             ])
             ->navigationItems([
                 NavigationItem::make('Logs')
                     ->url(fn(): string => route('log-viewer.index'))
                     ->icon('heroicon-o-document-text')
                     ->group('Others')
-                    ->sort(26)
+                    ->sort(39)
                     ->visible(fn(): bool => auth()->check() && auth()->user()->hasRole('super_admin'))
             ]);
     }
