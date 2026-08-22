@@ -137,8 +137,8 @@ class LeadInfolist
                     TextEntry::make('fb_lead_id')->label('Facebook lead ID')->copyable()->placeholder('—'),
                     TextEntry::make('fb_created_time')
                         ->label('Submitted at')
-                        ->dateTime(config('leads.display.datetime_format'))
-                        ->timezone(config('leads.display.timezone'))
+                        ->dateTime(app_datetime_format())
+                        ->timezone(app_timezone())
                         ->placeholder('—'),
                     // A lead with no import batch used to mean "typed in by
                     // hand". Since Meta leads can now arrive over the webhook,

@@ -24,8 +24,8 @@ class MetaLeadSyncLogInfolist
                         Grid::make(['default' => 1, 'md' => 4])->schema([
                             TextEntry::make('created_at')
                                 ->label('Received')
-                                ->dateTime(config('leads.display.datetime_format'))
-                                ->timezone(config('leads.display.timezone')),
+                                ->dateTime(app_datetime_format())
+                                ->timezone(app_timezone()),
 
                             TextEntry::make('status')
                                 ->badge(),
@@ -37,8 +37,8 @@ class MetaLeadSyncLogInfolist
 
                             TextEntry::make('processed_at')
                                 ->label('Processed At')
-                                ->dateTime(config('leads.display.datetime_format'))
-                                ->timezone(config('leads.display.timezone'))
+                                ->dateTime(app_datetime_format())
+                                ->timezone(app_timezone())
                                 ->placeholder('Not completed yet'),
                         ]),
                     ]),

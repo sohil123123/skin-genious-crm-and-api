@@ -233,10 +233,10 @@ class Profile extends Page implements HasSchemas
                                     ->schema([
                                         TextEntry::make('created_at')
                                             ->label('Created At')
-                                            ->dateTime('d M Y, h:i A'),
+                                            ->dateTime(app_datetime_format()),
                                         TextEntry::make('updated_at')
                                             ->label('Updated At')
-                                            ->dateTime('d M Y, h:i A'),
+                                            ->dateTime(app_datetime_format()),
                                     ])
                                     ->columns(3)
                                     ->collapsible(),

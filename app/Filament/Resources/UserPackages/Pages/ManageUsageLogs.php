@@ -74,7 +74,7 @@ class ManageUsageLogs extends Page implements HasTable
 
                 TextColumn::make('appointment.start_datetime')
                     ->label('Appointment')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime(app_datetime_format())
                     ->placeholder('Not linked')
                     ->toggleable(),
 

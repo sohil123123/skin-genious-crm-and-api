@@ -73,7 +73,7 @@ class ActivityLog extends Page implements HasTable
 
                 TextColumn::make('created_at')
                     ->label('Date')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
             ])
             ->filters([
@@ -130,7 +130,7 @@ class ActivityLog extends Page implements HasTable
                                         }),
                                     TextEntry::make('description'),
                                     TextEntry::make('causer.name')->label('User'),
-                                    TextEntry::make('created_at')->label('Date')->dateTime('d M Y, h:i A'),
+                                    TextEntry::make('created_at')->label('Date')->dateTime(app_datetime_format()),
                                 ]),
                             ]),
 

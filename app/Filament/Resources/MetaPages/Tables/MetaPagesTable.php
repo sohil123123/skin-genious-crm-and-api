@@ -69,8 +69,8 @@ class MetaPagesTable
 
                 TextColumn::make('created_at')
                     ->label('Discovered')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

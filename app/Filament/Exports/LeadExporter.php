@@ -57,12 +57,12 @@ class LeadExporter extends Exporter
             ExportColumn::make('fb_created_time')
                 ->label('Submitted At')
                 ->formatStateUsing(fn ($state): string => $state
-                    ? Carbon::parse($state)->timezone(config('leads.display.timezone'))->format('d-m-Y H:i')
+                    ? Carbon::parse($state)->timezone(app_timezone())->format('d-m-Y H:i')
                     : ''),
             ExportColumn::make('created_at')
                 ->label('Imported At')
                 ->formatStateUsing(fn ($state): string => $state
-                    ? Carbon::parse($state)->timezone(config('leads.display.timezone'))->format('d-m-Y H:i')
+                    ? Carbon::parse($state)->timezone(app_timezone())->format('d-m-Y H:i')
                     : ''),
             ExportColumn::make('notes')->label('Notes')->formatStateUsing(self::safe()),
         ];

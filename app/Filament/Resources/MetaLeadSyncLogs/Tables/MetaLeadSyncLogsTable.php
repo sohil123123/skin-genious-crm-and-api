@@ -39,8 +39,8 @@ class MetaLeadSyncLogsTable
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Received')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable(),
 
                 TextColumn::make('metaPage.page_name')

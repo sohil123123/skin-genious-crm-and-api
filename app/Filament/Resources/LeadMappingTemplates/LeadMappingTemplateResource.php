@@ -119,8 +119,8 @@ class LeadMappingTemplateResource extends Resource
 
                 TextColumn::make('last_used_at')
                     ->label('Last used')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->placeholder('Never')
                     ->sortable(),
 

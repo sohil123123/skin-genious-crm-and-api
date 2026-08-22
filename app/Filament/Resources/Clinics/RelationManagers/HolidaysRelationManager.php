@@ -202,7 +202,7 @@ class HolidaysRelationManager extends RelationManager
                         $query->orderBy('end_date', $direction)->orderBy('end_time', $direction);
                     }),
                 TextColumn::make('notes')->limit(50)->searchable()->toggleable()->placeholder('Note for holiday'),
-                TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
+                TextColumn::make('created_at')->dateTime(app_datetime_format())->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

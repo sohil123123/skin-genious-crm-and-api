@@ -320,11 +320,11 @@ class TreatmentSessionsRelationManager extends RelationManager
                         Grid::make(2)->schema([
                             TextEntry::make('created_at')
                                 ->label('Created At')
-                                ->dateTime('d M Y, h:i A'),
+                                ->dateTime(app_datetime_format()),
 
                             TextEntry::make('updated_at')
                                 ->label('Last Updated')
-                                ->dateTime('d M Y, h:i A'),
+                                ->dateTime(app_datetime_format()),
                         ]),
                     ]),
             ])->columns(1);
@@ -379,7 +379,7 @@ class TreatmentSessionsRelationManager extends RelationManager
                         'in_progress' => 'warning',
                         default => 'gray',
                     }),
-                // TextColumn::make('created_at')->dateTime('d M Y, h:i A')->sortable(),
+                // TextColumn::make('created_at')->dateTime(app_datetime_format())->sortable(),
             ])
             ->recordActions([
                 ViewAction::make(),

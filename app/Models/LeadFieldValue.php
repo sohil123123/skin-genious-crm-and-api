@@ -106,7 +106,7 @@ class LeadFieldValue extends Model
             return null;
         }
 
-        $timezone = (string) config('leads.display.timezone', 'Asia/Kolkata');
+        $timezone = (string) app_timezone();
 
         // A date with no time of day must not gain a misleading "12:00 AM", and
         // shifting it between timezones could move it a day either way.
@@ -116,6 +116,6 @@ class LeadFieldValue extends Model
 
         return $parsed
             ->timezone($timezone)
-            ->format((string) config('leads.display.datetime_format', 'd M Y, h:i A'));
+            ->format((string) app_datetime_format());
     }
 }

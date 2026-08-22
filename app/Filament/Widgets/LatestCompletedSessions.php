@@ -66,7 +66,7 @@ class LatestCompletedSessions extends TableWidget
                     }),
                 TextColumn::make('updated_at')
                     ->label('Completed At')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
             ])
             ->recordActions([

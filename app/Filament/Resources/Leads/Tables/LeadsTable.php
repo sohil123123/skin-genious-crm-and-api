@@ -130,15 +130,15 @@ class LeadsTable
 
                 TextColumn::make('fb_created_time')
                     ->label('Submitted')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Imported')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

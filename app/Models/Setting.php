@@ -46,6 +46,19 @@ class Setting extends Model
     }
 
     /**
+     * Drop the in-process memo of every setting.
+     *
+     * The runtime cache is static, so it outlives a single request: a queue
+     * worker that never saves a setting would otherwise serve the value it read
+     * when it booted, hours after someone changed it. Tests need the same
+     * escape hatch to stop one case leaking into the next.
+     */
+    public static function flushRuntimeCache(): void
+    {
+        static::$runtimeCache = [];
+    }
+
+    /**
      * Get a setting value by key, with optional default.
      */
     public static function getValue(string $key, mixed $default = null): mixed

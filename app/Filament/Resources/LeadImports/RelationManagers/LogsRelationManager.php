@@ -26,8 +26,8 @@ class LogsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('created_at')
                     ->label('When')
-                    ->dateTime(config('leads.display.datetime_format'))
-                    ->timezone(config('leads.display.timezone'))
+                    ->dateTime(app_datetime_format())
+                    ->timezone(app_timezone())
                     ->sortable(),
 
                 TextColumn::make('event')

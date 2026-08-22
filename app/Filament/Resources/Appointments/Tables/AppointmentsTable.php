@@ -115,13 +115,13 @@ class AppointmentsTable
                     ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('start_datetime')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->badge()
                     ->icon('heroicon-o-clock')
                     ->color(fn($record) => $record->status?->getColor() ?? 'gray')
                     ->sortable(),
                 TextColumn::make('end_datetime')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->badge()
                     ->icon('heroicon-o-clock')
                     ->color(fn($record) => $record->status?->getColor() ?? 'gray')
@@ -182,15 +182,15 @@ class AppointmentsTable
                             })
                     ),
                 TextColumn::make('deleted_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
