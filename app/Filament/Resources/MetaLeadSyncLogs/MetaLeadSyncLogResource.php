@@ -6,10 +6,12 @@ namespace App\Filament\Resources\MetaLeadSyncLogs;
 
 use App\Enums\MetaSyncStatus;
 use App\Filament\Resources\MetaLeadSyncLogs\Pages\ListMetaLeadSyncLogs;
+use App\Filament\Resources\MetaLeadSyncLogs\Schemas\MetaLeadSyncLogInfolist;
 use App\Filament\Resources\MetaLeadSyncLogs\Tables\MetaLeadSyncLogsTable;
 use App\Models\MetaLeadSyncLog;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
@@ -37,6 +39,11 @@ class MetaLeadSyncLogResource extends Resource
     protected static ?string $modelLabel = 'Meta sync record';
 
     protected static ?int $navigationSort = 35;
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return MetaLeadSyncLogInfolist::configure($schema);
+    }
 
     public static function table(Table $table): Table
     {

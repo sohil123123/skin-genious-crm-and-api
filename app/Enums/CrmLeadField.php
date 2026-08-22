@@ -121,9 +121,32 @@ enum CrmLeadField: string implements HasLabel
                 'email', 'email address', 'e mail', 'mail', 'email id', 'emailid',
                 'your email', 'work email',
             ],
-            self::City => ['city', 'location', 'town', 'your city', 'which city', 'city name'],
-            self::State => ['state', 'province', 'region'],
-            self::Pincode => ['pincode', 'pin code', 'postal code', 'zip', 'zip code', 'postcode'],
+            // Meta lead forms name a field after the question that was asked,
+            // so conversational phrasings matter as much as terse ones: a form
+            // asking "Which city do you live in?" arrives as
+            // which_city_do_you_live_in, which scores too low against "city"
+            // alone to clear the fuzzy threshold.
+            //
+            // Every phrasing here keeps a distinctive word. "What is your ..."
+            // is deliberately absent: it is pure scaffolding, and as a fuzzy
+            // target it captured "what is your skin type" as the city and
+            // "what is your age" as the state.
+            self::City => [
+                'city', 'location', 'town', 'your city', 'which city', 'city name',
+                'which city do you live in', 'city you live in',
+                'in which city are you located', 'select your city', 'current city',
+            ],
+            self::State => [
+                'state', 'province', 'region', 'your state', 'which state', 'state name',
+                'which state do you live in',
+            ],
+            self::Pincode => [
+                'pincode', 'pin code', 'postal code', 'zip', 'zip code', 'postcode',
+                // Meta's own standard field is post_code, which only matched
+                // fuzzily before; listing it makes the match exact.
+                'post code', 'your pincode', 'your pin code', 'your zip code',
+                'enter your pin code', 'area pin code',
+            ],
             self::Status => ['status', 'lead stage', 'stage', 'pipeline status'],
             self::Source => ['source', 'lead source', 'channel'],
             self::Notes => ['notes', 'note', 'remarks', 'comment', 'comments', 'message'],

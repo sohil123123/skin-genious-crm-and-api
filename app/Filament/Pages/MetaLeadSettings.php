@@ -126,6 +126,7 @@ class MetaLeadSettings extends Page
                                 // A clinic with no name would otherwise yield a
                                 // null label, which Filament cannot render.
                                 ->options(fn (): array => Clinic::query()
+                                    ->where('is_active', true)
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                                     ->map(fn (?string $name, $id): string => filled($name)

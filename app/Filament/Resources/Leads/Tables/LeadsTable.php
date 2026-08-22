@@ -244,7 +244,7 @@ class LeadsTable
 
             SelectFilter::make('clinic_id')
                 ->label('Clinic')
-                ->relationship('clinic', 'name')
+                ->relationship('clinic', 'name', modifyQueryUsing: fn(Builder $query) => $query->where('is_active', true))
                 ->searchable()
                 ->preload()
                 ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),

@@ -187,6 +187,119 @@ it('marks the sync log as imported and links the lead', function (): void {
         ->and($log->processed_at)->not->toBeNull();
 });
 
+// ─────────────── Address fields ───────────────
+
+it('captures city, state and pincode from the lead form', function (): void {
+    fakeGraph([
+        ['name' => 'full_name', 'values' => ['priya meena']],
+        ['name' => 'phone_number', 'values' => ['+919887127755']],
+        ['name' => 'city', 'values' => ['Mumbai']],
+        ['name' => 'state', 'values' => ['Maharashtra']],
+        ['name' => 'post_code', 'values' => ['400001']],
+    ]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    $lead = Lead::first();
+
+    expect($lead->city)->toBe('Mumbai')
+        ->and($lead->state)->toBe('Maharashtra')
+        ->and($lead->pincode)->toBe('400001')
+        // They belong in the lead's own columns, not as dynamic answers.
+        ->and($lead->custom_answers)->toBe([]);
+});
+
+it('recognises the postcode question however the form words it', function (
+    string $question,
+) {
+    fakeGraph([
+        ['name' => 'phone_number', 'values' => ['+919887127755']],
+        ['name' => $question, 'values' => ['400001']],
+    ]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    expect(Lead::first()->pincode)->toBe('400001');
+})->with(['post_code', 'zip_code', 'postal_code', 'pin_code', 'pincode', 'zip']);
+
+it('accepts province as a spelling of state', function (): void {
+    fakeGraph([
+        ['name' => 'phone_number', 'values' => ['+919887127755']],
+        ['name' => 'province', 'values' => ['Maharashtra']],
+    ]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    expect(Lead::first()->state)->toBe('Maharashtra');
+});
+
+it('accepts a conversationally worded address question', function (
+    string $question,
+    string $column,
+) {
+    // Meta names a field after the question asked, so a real form sends
+    // which_city_do_you_live_in rather than a tidy "city".
+    fakeGraph([
+        ['name' => 'phone_number', 'values' => ['+919887127755']],
+        ['name' => $question, 'values' => ['Pune']],
+    ]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    expect(Lead::first()->{$column})->toBe('Pune');
+})->with([
+    ['which_city', 'city'],
+    ['which_city_do_you_live_in', 'city'],
+    ['in_which_city_are_you_located', 'city'],
+    ['your_city', 'city'],
+    ['your_state', 'state'],
+    ['which_state_do_you_live_in', 'state'],
+    ['your_pincode', 'pincode'],
+    ['enter_your_pin_code', 'pincode'],
+    ['area_pin_code', 'pincode'],
+]);
+
+it('does not mistake a clinic question for an address field', function (string $question) {
+    // The address aliases are fuzzy-matched, so they must not be generic enough
+    // to swallow the questions this clinic actually asks. "What is your skin
+    // type?" landing in the city column would be silent data corruption.
+    fakeGraph([
+        ['name' => 'phone_number', 'values' => ['+919887127755']],
+        ['name' => $question, 'values' => ['Oily']],
+    ]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    $lead = Lead::first();
+
+    expect($lead->city)->toBeNull()
+        ->and($lead->state)->toBeNull()
+        ->and($lead->pincode)->toBeNull()
+        // It is kept — just as a dynamic answer, where it belongs.
+        ->and($lead->custom_answers)->toHaveCount(1);
+})->with([
+    'what_is_your_skin_type',
+    'what_is_your_age',
+    'which_session_are_you_interested_in',
+    'what_is_your_main_skin_concern',
+    'which_treatment_are_you_looking_for',
+    'preferred_time',
+    'your_budget',
+]);
+
+it('leaves address fields empty when the form does not ask for them', function (): void {
+    // The common case today: nothing is invented, and nothing breaks.
+    fakeGraph([['name' => 'phone_number', 'values' => ['+919887127755']]]);
+
+    app(MetaLeadService::class)->process(syncLog());
+
+    $lead = Lead::first();
+
+    expect($lead->city)->toBeNull()
+        ->and($lead->state)->toBeNull()
+        ->and($lead->pincode)->toBeNull();
+});
+
 // ─────────────── Dynamic form questions ───────────────
 
 it('stores answers to questions it has never seen before', function (): void {

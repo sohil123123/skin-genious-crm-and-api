@@ -18,10 +18,19 @@
                     {{ $answer['label'] }}
                 </div>
 
+                {{-- The question text can be reworded for readability, so where
+                     it no longer matches what this person was actually asked,
+                     the original is shown rather than quietly replaced. --}}
+                @if (! empty($answer['asked']))
+                    <div style="margin-top:.25rem; font-size:.6875rem; {{ $muted }}">
+                        Asked as: &ldquo;{{ $answer['asked'] }}&rdquo;
+                    </div>
+                @endif
+
                 <div style="margin-top:.5rem; display:flex; flex-wrap:wrap; gap:.3rem;">
                     @forelse ($answer['values'] as $value)
                         {{-- Multiple-choice answers render one badge each, so a
-                             six-answer selection stays readable. --}}
+                        six-answer selection stays readable. --}}
                         <x-filament::badge color="primary" size="sm">{{ $value }}</x-filament::badge>
                     @empty
                         <span style="font-size:.875rem; opacity:.35;">—</span>

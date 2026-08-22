@@ -46,12 +46,20 @@ class LeadFieldResolverService
                 'clinic_id' => $clinicId,
                 'key' => $key,
                 'label' => $label,
+                // Written once and never touched again, so the question the
+                // customer was actually asked survives any later rewording of
+                // the display label.
+                'source_label' => $label,
                 'type' => $type->value,
                 'options' => $type->hasOptions() ? [] : null,
                 'is_active' => true,
                 'usage_count' => 0,
                 'sort_order' => $this->nextSortOrder($clinicId),
             ]);
+        } elseif (blank($field->source_label)) {
+            // A question first seen before source_label existed. The incoming
+            // wording is the original, so record it now.
+            $field->forceFill(['source_label' => $label])->save();
         }
 
         return $this->cache[$cacheKey] = $field;

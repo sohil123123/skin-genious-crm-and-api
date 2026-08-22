@@ -196,7 +196,7 @@ class Lead extends Model
     /**
      * Answers keyed by custom field label, for the lead detail screen.
      *
-     * @return array<string, array{label: string, value: string, values: array<int, string>, type: string}>
+     * @return array<string, array{label: string, asked: ?string, value: string, values: array<int, string>, type: string}>
      */
     public function getCustomAnswersAttribute(): array
     {
@@ -206,6 +206,12 @@ class Lead extends Model
             ->mapWithKeys(fn (LeadFieldValue $fieldValue): array => [
                 $fieldValue->customField->key => [
                     'label' => $fieldValue->customField->display_label,
+                    // What the lead form actually asked. Shown when it differs
+                    // from the label, so a question reworded for readability
+                    // can never misrepresent what this person was asked.
+                    'asked' => $fieldValue->customField->labelWasRewritten()
+                        ? LeadCustomField::humanizeLabel($fieldValue->customField->source_question)
+                        : null,
                     'value' => (string) $fieldValue->value_normalized,
                     'values' => $fieldValue->display_values,
                     'type' => $fieldValue->customField->type->value,
