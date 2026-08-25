@@ -95,6 +95,8 @@ class LeadsTable
 
                 TextColumn::make('campaign_name')
                     ->label('Campaign')
+                    ->badge()
+                    ->color('info')
                     ->limit(30)
                     ->tooltip(fn(Lead $record): ?string => $record->campaign_name)
                     ->searchable()
