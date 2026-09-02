@@ -82,6 +82,7 @@ Route::namespace('App\Http\Controllers\Api')->group(function () {
         Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');
         Route::get('download-homecare-routine/{assessment_id}/{session_id}', [ReportController::class, 'downloadHomeCareRoutine'])->name('download-homecare-routine');
         Route::get('download-client-journey/{assessment_id}', [ReportController::class, 'downloadClientJourney'])->name('download-client-journey');
+        Route::get('download-reassessment-zip/{assessment_id}', [ReportController::class, 'downloadAllReassessmentZip'])->name('download-all-reassessment-zip');
 
         Route::get('download-iv-report/{type}/{assessment_id}', [ReportController::class, 'downloadIvReport'])->name('download-iv-report');
 
