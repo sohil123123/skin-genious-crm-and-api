@@ -297,6 +297,13 @@ class AdminPanelProvider extends PanelProvider
                     HTML;
                 }
             )
+            // The live incoming-call popup, on every panel page — a ringing
+            // phone has to reach whichever screen the receptionist is actually
+            // looking at, not just the calls list.
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => view('filament.incoming-call-popup')->render(),
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn(): string => \Illuminate\Support\Facades\Blade::render(<<<'HTML'
@@ -314,7 +321,413 @@ class AdminPanelProvider extends PanelProvider
                         .dark .invoice-status-partial, .dark .invoice-status-unpaid {
                             background-color: rgba(127, 29, 29, 0.2) !important;
                         }
+
+                        /*
+                         * Calls table: the two card cells.
+                         *
+                         * The panel registers no viteTheme, so no compiled
+                         * Tailwind reaches it — these are the classes the call
+                         * view columns are written against
+                         * (resources/views/filament/tables/columns/call-card
+                         * and call-agent). Colours come from the panel's own
+                         * palette variables so they follow the theme and dark
+                         * mode without a second set of rules.
+                         */
+                        .sgc {
+                            display: flex;
+                            align-items: flex-start;
+                            gap: 0.75rem;
+                            padding: 0.5rem 0.25rem;
+                            width: 30rem;
+                            max-width: 100%;
+                        }
+
+                        /* Direction and outcome in one glyph: an arrow in is a
+                           call we received, and its colour says whether anyone
+                           actually spoke to them. */
+                        .sgc-glyph {
+                            flex: 0 0 auto;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2.25rem;
+                            height: 2.25rem;
+                            border-radius: 9999px;
+                            margin-top: 0.125rem;
+                        }
+
+                        .sgc-glyph svg { width: 1.125rem; height: 1.125rem; }
+
+                        .sgc-glyph--ok { background: var(--success-50); color: var(--success-600); }
+                        .sgc-glyph--bad { background: var(--danger-50); color: var(--danger-600); }
+                        .sgc-glyph--idle { background: var(--gray-100); color: var(--gray-500); }
+
+                        .dark .sgc-glyph--ok { background: color-mix(in srgb, var(--success-500) 16%, transparent); color: var(--success-400); }
+                        .dark .sgc-glyph--bad { background: color-mix(in srgb, var(--danger-500) 16%, transparent); color: var(--danger-400); }
+                        .dark .sgc-glyph--idle { background: color-mix(in srgb, var(--gray-500) 16%, transparent); color: var(--gray-400); }
+
+                        .sgc-body { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+
+                        .sgc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; }
+
+                        .sgc-name {
+                            font-weight: 600;
+                            font-size: 0.875rem;
+                            color: var(--gray-950);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 18rem;
+                        }
+
+                        .dark .sgc-name { color: var(--gray-50); }
+
+                        .sgc-meta {
+                            display: flex;
+                            align-items: center;
+                            flex-wrap: wrap;
+                            gap: 0.4375rem;
+                            font-size: 0.75rem;
+                            color: var(--gray-600);
+                        }
+
+                        .dark .sgc-meta { color: var(--gray-400); }
+
+                        .sgc-meta-item { display: inline-flex; align-items: center; gap: 0.25rem; }
+                        .sgc-meta-item svg { width: 0.875rem; height: 0.875rem; opacity: 0.7; }
+
+                        .sgc-sep { color: var(--gray-300); }
+                        .dark .sgc-sep { color: var(--gray-600); }
+
+                        .sgc-muted { color: var(--gray-500); }
+                        .dark .sgc-muted { color: var(--gray-500); }
+
+                        .sgc-warn { color: var(--warning-600); }
+                        .dark .sgc-warn { color: var(--warning-400); }
+
+                        /* Phone numbers line up down the column. */
+                        .sgc-num { font-variant-numeric: tabular-nums; }
+
+                        /* Roomier than the meta rows: these hold full-size
+                           Filament badges, which carry their own padding. */
+                        .sgc-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.25rem; }
+
+                        /* Handled by */
+                        .sgc-own { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem 0.25rem; }
+
+                        .sgc-own-avatar {
+                            flex: 0 0 auto;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2rem;
+                            height: 2rem;
+                            border-radius: 9999px;
+                            font-size: 0.6875rem;
+                            font-weight: 700;
+                            letter-spacing: 0.02em;
+                        }
+
+                        .sgc-own-avatar-primary { background: var(--primary-50); color: var(--primary-600); }
+                        .sgc-own-avatar-success { background: var(--success-50); color: var(--success-600); }
+                        .sgc-own-avatar-warning { background: var(--warning-50); color: var(--warning-600); }
+                        .sgc-own-avatar-danger { background: var(--danger-50); color: var(--danger-600); }
+                        .sgc-own-avatar-info { background: var(--info-50); color: var(--info-600); }
+                        .sgc-own-avatar-gray { background: var(--gray-100); color: var(--gray-500); }
+
+                        .dark .sgc-own-avatar-primary { background: color-mix(in srgb, var(--primary-500) 16%, transparent); color: var(--primary-400); }
+                        .dark .sgc-own-avatar-success { background: color-mix(in srgb, var(--success-500) 16%, transparent); color: var(--success-400); }
+                        .dark .sgc-own-avatar-warning { background: color-mix(in srgb, var(--warning-500) 16%, transparent); color: var(--warning-400); }
+                        .dark .sgc-own-avatar-danger  { background: color-mix(in srgb, var(--danger-500) 16%, transparent);  color: var(--danger-400); }
+                        .dark .sgc-own-avatar-info    { background: color-mix(in srgb, var(--info-500) 16%, transparent);    color: var(--info-400); }
+                        .dark .sgc-own-avatar-gray    { background: color-mix(in srgb, var(--gray-500) 16%, transparent);    color: var(--gray-400); }
+
+                        .sgc-own-body { min-width: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+
+                        .sgc-own-name {
+                            font-weight: 600;
+                            font-size: 0.8125rem;
+                            color: var(--gray-950);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 12rem;
+                        }
+
+                        .dark .sgc-own-name { color: var(--gray-50); }
+
+                        .sgc-own-row {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 0.25rem;
+                            font-size: 0.6875rem;
+                            color: var(--gray-600);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 12rem;
+                        }
+
+                        .dark .sgc-own-row { color: var(--gray-400); }
+                        .sgc-own-row svg { width: 0.75rem; height: 0.75rem; opacity: 0.7; flex: 0 0 auto; }
+
+                        /* A call nobody could attribute is tinted, so the rows
+                           that need a human are visible without reading a
+                           column. */
+                        .fi-row-call-unmatched { background-color: rgba(251, 191, 36, 0.07) !important; }
+                        .dark .fi-row-call-unmatched { background-color: rgba(180, 83, 9, 0.12) !important; }
+
+                        /* Recording column: one button, one shared player. */
+                        .sgc-rec { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+                        .sgc-rec-btn {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2rem;
+                            height: 2rem;
+                            border-radius: 9999px;
+                            background: var(--primary-50);
+                            color: var(--primary-600);
+                            cursor: pointer;
+                            flex: 0 0 auto;
+                            transition: background-color .15s, transform .1s;
+                        }
+
+                        .sgc-rec-btn:hover { background: var(--primary-100); }
+                        .sgc-rec-btn:active { transform: scale(0.94); }
+
+                        .dark .sgc-rec-btn { background: color-mix(in srgb, var(--primary-500) 18%, transparent); color: var(--primary-400); }
+                        .dark .sgc-rec-btn:hover { background: color-mix(in srgb, var(--primary-500) 28%, transparent); }
+
+                        /* Playing reads as a different control, not the same one
+                           with a swapped glyph. */
+                        .sgc-rec-btn.is-playing { background: var(--success-50); color: var(--success-600); }
+                        .dark .sgc-rec-btn.is-playing { background: color-mix(in srgb, var(--success-500) 18%, transparent); color: var(--success-400); }
+
+                        .sgc-rec-icon { display: inline-flex; }
+                        .sgc-rec-icon svg { width: 1rem; height: 1rem; }
+                        .sgc-rec-icon[data-sgc-icon="wait"] svg { animation: sgc-spin 1s linear infinite; }
+
+                        @keyframes sgc-spin { to { transform: rotate(360deg); } }
+
+                        .sgc-rec-body { display: flex; flex-direction: column; line-height: 1.25; }
+
+                        .sgc-rec-time {
+                            font-size: 0.75rem;
+                            font-variant-numeric: tabular-nums;
+                            color: var(--gray-700);
+                        }
+
+                        .dark .sgc-rec-time { color: var(--gray-300); }
+
+                        .sgc-rec-note { font-size: 0.6875rem; color: var(--gray-500); }
+
+                        .sgc-rec-empty {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 0.25rem;
+                            font-size: 0.75rem;
+                            color: var(--gray-500);
+                        }
+
+                        .sgc-rec-empty svg { width: 0.875rem; height: 0.875rem; opacity: 0.7; }
+
+                        /* Detail page: one native player per recording. */
+                        .sgc-rec-item { margin-bottom: 1rem; }
+                        .sgc-rec-item:last-child { margin-bottom: 0; }
+
+                        .sgc-rec-audio { width: 100%; display: block; }
+
+                        .sgc-rec-meta {
+                            margin: 0.375rem 0 0;
+                            font-size: 0.75rem;
+                            color: var(--gray-500);
+                        }
+
+                        .sgc-rec-msg { margin: 0; font-size: 0.8125rem; color: var(--gray-500); }
+
+                        .sgc-rec-err {
+                            margin: 0.25rem 0 0;
+                            font-size: 0.75rem;
+                            color: var(--danger-600);
+                            word-break: break-word;
+                        }
+
+                        .dark .sgc-rec-err { color: var(--danger-400); }
+
+                        @media (max-width: 1024px) {
+                            .sgc { width: 100%; }
+                            .sgc-name { max-width: 100%; white-space: normal; }
+                        }
                     </style>
+
+                    <script>
+                        /*
+                         * One audio element for the whole panel.
+                         *
+                         * A player per table row would hold fifty media elements
+                         * on a fifty-row page, and starting a second recording
+                         * would leave the first one talking over it. A single
+                         * shared element makes "only one plays at a time" the
+                         * default rather than something to enforce.
+                         *
+                         * Registered on window rather than in a module so the
+                         * inline handlers in the table cell can reach it, and
+                         * guarded so SPA navigation cannot build a second one.
+                         */
+                        window.sgCallAudio = window.sgCallAudio || (() => {
+                            const el = new Audio();
+                            el.preload = 'none';
+
+                            let button = null;
+
+                            const icon = (name, show) => {
+                                const node = button?.querySelector(`[data-sgc-icon="${name}"]`);
+
+                                if (node) {
+                                    node.hidden = ! show;
+                                }
+                            };
+
+                            const clock = (seconds) => {
+                                if (! Number.isFinite(seconds)) {
+                                    return null;
+                                }
+
+                                const whole = Math.floor(seconds);
+
+                                return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+                            };
+
+                            const paint = (state) => {
+                                if (! button) {
+                                    return;
+                                }
+
+                                icon('play', state === 'idle');
+                                icon('pause', state === 'playing');
+                                icon('wait', state === 'loading');
+
+                                button.classList.toggle('is-playing', state === 'playing');
+                                button.setAttribute('title', state === 'playing' ? 'Pause' : 'Play this recording');
+                            };
+
+                            // The row keeps its own total length, so restoring it
+                            // on stop is just remembering what was there.
+                            const time = (text) => {
+                                const node = button?.parentElement?.querySelector('[data-sgc-time]');
+
+                                if (node && text !== null) {
+                                    node.textContent = text;
+                                }
+                            };
+
+                            const release = () => {
+                                if (! button) {
+                                    return;
+                                }
+
+                                paint('idle');
+                                time(button.dataset.sgcTotal ?? null);
+                                button = null;
+                            };
+
+                            el.addEventListener('playing', () => paint('playing'));
+                            el.addEventListener('waiting', () => paint('loading'));
+                            el.addEventListener('pause', () => paint('idle'));
+                            el.addEventListener('ended', release);
+
+                            el.addEventListener('error', () => {
+                                // A 404 from the stream route means the file is
+                                // gone from disk. Say so on the row rather than
+                                // leaving a button that silently does nothing.
+                                time('Unavailable');
+                                paint('idle');
+                                button = null;
+                            });
+
+                            el.addEventListener('timeupdate', () => {
+                                if (button) {
+                                    time(clock(el.currentTime));
+                                }
+                            });
+
+                            const stop = () => {
+                                el.pause();
+                                el.removeAttribute('src');
+                                release();
+                            };
+
+                            return {
+                                stop,
+
+                                toggle(trigger) {
+                                    const src = trigger.dataset.sgcAudio;
+
+                                    if (! src) {
+                                        return;
+                                    }
+
+                                    // Same row, already playing: pause in place
+                                    // rather than restarting from zero.
+                                    if (button === trigger && ! el.paused) {
+                                        el.pause();
+                                        paint('idle');
+
+                                        return;
+                                    }
+
+                                    if (button === trigger && el.paused && el.currentSrc) {
+                                        el.play();
+
+                                        return;
+                                    }
+
+                                    // A different row: whatever was playing stops.
+                                    if (button && button !== trigger) {
+                                        stop();
+                                    }
+
+                                    button = trigger;
+                                    button.dataset.sgcTotal = button.parentElement
+                                        ?.querySelector('[data-sgc-time]')?.textContent ?? '';
+
+                                    paint('loading');
+                                    el.src = src;
+                                    el.play().catch(() => {
+                                        time('Unavailable');
+                                        paint('idle');
+                                        button = null;
+                                    });
+                                },
+                            };
+                        })();
+
+                        /*
+                         * The detail page uses native <audio> elements rather
+                         * than the shared one, because reviewing a call means
+                         * scrubbing and a play/pause button cannot seek. A call
+                         * can carry several recordings, so this keeps them from
+                         * talking over each other — the same guarantee the
+                         * table's single shared element gets for free.
+                         */
+                        window.sgCallAudioSolo = window.sgCallAudioSolo || function (playing) {
+                            document.querySelectorAll('audio.sgc-rec-audio').forEach((other) => {
+                                if (other !== playing) {
+                                    other.pause();
+                                }
+                            });
+                        };
+
+                        // Filament runs in SPA mode, so leaving the list does not
+                        // reload the page — without this the audio would keep
+                        // playing over whatever screen you moved to.
+                        document.addEventListener('livewire:navigating', () => {
+                            window.sgCallAudio?.stop();
+                            document.querySelectorAll('audio.sgc-rec-audio').forEach((el) => el.pause());
+                        });
+                    </script>
                 HTML)
             )
             ->navigationGroups([
@@ -323,6 +736,7 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Reports'),
                 NavigationGroup::make('WhatsApp'),
                 NavigationGroup::make('Leads'),
+                NavigationGroup::make('Calls'),
                 NavigationGroup::make('User Scheduling & Holidays'),
                 NavigationGroup::make('Others'),
                 NavigationGroup::make('Security'),

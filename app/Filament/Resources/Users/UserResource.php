@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Filament\Resources\Users\RelationManagers\CallsRelationManager;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Filament\Resources\Users\Pages\EditUser;
@@ -84,6 +85,7 @@ class UserResource extends Resource
         return [
             // HolidaysRelationManager::class,
             // InvoicesRelationManager::class,
+            CallsRelationManager::class,
         ];
     }
 

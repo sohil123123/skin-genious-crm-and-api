@@ -79,6 +79,26 @@ class Setting extends Model
     }
 
     /**
+     * Get a setting, treating a blank stored value as "not configured".
+     *
+     * getValue() only reaches its default when no row exists at all. Settings
+     * screens save every field on every submit, so an optional field left empty
+     * stores an empty string — and from then on the configured default is
+     * unreachable. For a credential that merely means "no credential", which is
+     * harmless; for a value with a real default, like an API host, it silently
+     * substitutes an empty string into a URL.
+     *
+     * Use this wherever a blank field is meant to fall back to config rather
+     * than to nothing.
+     */
+    public static function getConfigured(string $key, mixed $default = null): mixed
+    {
+        $value = static::getValue($key);
+
+        return filled($value) ? $value : $default;
+    }
+
+    /**
      * Set a setting value by key.
      */
     public static function setValue(string $key, mixed $value): void

@@ -28,6 +28,9 @@ use App\Filament\ReportWidgets\ProductPurchaseDistributionChart;
 use App\Filament\ReportWidgets\ProductSalesDistributionChart;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Builder;
+use App\Services\Call\Contracts\CallTranscriptionServiceInterface;
+use App\Services\Call\Transcription\NullTranscriptionService;
+use App\Services\Call\Transcription\OpenAiTranscriptionService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,7 +39,60 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The call pipeline always resolves transcription through the
+        // interface, so it works end to end before any speech provider is
+        // signed up. Binding a null driver rather than leaving the interface
+        // unbound matters: an unbound interface fails at the point of use,
+        // months later, inside a queue worker.
+        $this->app->bind(
+            CallTranscriptionServiceInterface::class,
+            function ($app) {
+                // The setting first, config as the fallback. Without this the
+                // driver could only be changed by editing .env, so switching
+                // transcription on from the Call Settings screen left the null
+                // driver bound and the whole pipeline silently did nothing —
+                // recordings settled as "not available" and nobody was told why.
+                //
+                // Read defensively: this resolves inside queue workers and
+                // console commands, including ones that run before the settings
+                // table exists.
+                try {
+                    $driver = \App\Models\Setting::getConfigured(
+                        'call_transcription_driver',
+                        config('calls.transcription.driver', 'null'),
+                    );
+                } catch (\Throwable) {
+                    $driver = config('calls.transcription.driver', 'null');
+                }
+
+                return match ($driver) {
+                    'openai' => $app->make(OpenAiTranscriptionService::class),
+                    default => $app->make(NullTranscriptionService::class),
+                };
+            }
+        );
+
+        // Analysis, resolved the same way and for the same reason: the driver
+        // has to be switchable from the Call Settings screen, or turning the
+        // toggle on leaves the null driver bound and nothing happens.
+        $this->app->bind(
+            \App\Services\Call\Contracts\CallAnalysisServiceInterface::class,
+            function ($app) {
+                try {
+                    $driver = \App\Models\Setting::getConfigured(
+                        'call_analysis_driver',
+                        config('calls.analysis.driver', 'null'),
+                    );
+                } catch (\Throwable) {
+                    $driver = config('calls.analysis.driver', 'null');
+                }
+
+                return match ($driver) {
+                    'openai' => $app->make(\App\Services\Call\Analysis\OpenAiCallAnalysisService::class),
+                    default => $app->make(\App\Services\Call\Analysis\NullCallAnalysisService::class),
+                };
+            }
+        );
     }
 
     /**

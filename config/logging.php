@@ -89,6 +89,20 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Call integrations write here rather than to the shared log. Two
+        // providers, a webhook path, a sync path and a recording pipeline
+        // produce enough traffic to bury everything else in laravel.log, and
+        // the first question when a call is missing is always "what did the
+        // provider send" — which is far easier to answer in a file that
+        // contains nothing else.
+        'calls' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/calls.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_CALL_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
