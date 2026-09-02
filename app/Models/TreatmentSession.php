@@ -44,6 +44,19 @@ class TreatmentSession extends Model implements HasMedia
         'post_diagnosis' => 'array',
     ];
 
+    protected static function booted() {
+        static::saved(function ($session) {
+            // Update summary when session attributes change
+            if ($session->wasChanged(['status', 'post_diagnosis', 'iv_prep_data', 'title'])) {
+                $assessment = $session->assessment;
+                if ($assessment) {
+                    $assessment->updateAiSummary();
+                    $assessment->saveQuietly();
+                }
+            }
+        });
+    }
+
     protected $appends = ['post_images'];
 
     public function getPostImagesAttribute()

@@ -20,7 +20,7 @@ class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['parent_id', 'conversation_id', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'pigmentation_inputs', 'assessment_type', 'feature_packet', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'nurse_run_sheet', 'status', 'therapist_notes', 'created_by'];
+    protected $fillable = ['parent_id', 'conversation_id', 'ai_summary', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'pigmentation_inputs', 'assessment_type', 'feature_packet', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'nurse_run_sheet', 'status', 'therapist_notes', 'created_by'];
 
     protected $casts = [
         'medical_history' => 'array',
@@ -57,6 +57,13 @@ class Assessment extends Model implements HasMedia
                 if ($firstAssessment) {
                     $assessment->parent_id = $firstAssessment->id;
                 }
+            }
+        });
+
+        static::saving(function ($assessment) {
+            // Update summary dynamically on changes
+            if ($assessment->isDirty(['diagnosis', 'pigmentation_inputs', 'iv_inputs', 'recommended_full_plan', 'iv_treatment_plan', 'parameters_with_abnormal_scores'])) {
+                $assessment->updateAiSummary();
             }
         });
     }
@@ -177,4 +184,108 @@ class Assessment extends Model implements HasMedia
         return $this->hasMany(TreatmentSession::class);
     }
 
+    /**
+     * Generates and saves the latest text-only clinical summary.
+     */
+    public function updateAiSummary()
+    {
+        $patient = $this->user;
+        $lines = [
+            "[SYSTEM INITIALIZATION: CLINICAL HISTORICAL RECORD SEED]",
+            "Patient Name: " . ($patient->name ?? 'N/A') . " (Age: {$this->age}, Gender: " . ($this->gender ?? 'N/A') . ")",
+            "Assessment Category: " . strtoupper($this->assessment_type),
+            "",
+            "## 1. BASELINE CLINICAL VALUES",
+        ];
+
+        // Dynamic inputs to scan and serialize
+        $dynamicInputs = [
+            'diagnosis' => 'Diagnosis Analysis',
+            'parameters_with_abnormal_scores' => 'Concerns & Abnormal Scores',
+            'pigmentation_inputs' => 'Pigmentation Baseline Inputs',
+            'iv_inputs' => 'IV Intake Inputs',
+        ];
+
+        foreach ($dynamicInputs as $column => $label) {
+            if (!empty($this->$column)) {
+                $lines[] = "### {$label}:";
+                $lines[] = $this->formatArrayToMarkdownSummary($this->$column);
+                $lines[] = "";
+            }
+        }
+
+        // Active treatment plans
+        $activePlans = [
+            'recommended_full_plan' => 'Facial & Pigmentation Treatment Roadmap',
+            'iv_treatment_plan' => 'IV Therapy Plan',
+        ];
+
+        foreach ($activePlans as $column => $label) {
+            if (!empty($this->$column)) {
+                $lines[] = "### {$label}:";
+                $lines[] = $this->formatArrayToMarkdownSummary($this->$column);
+                $lines[] = "";
+            }
+        }
+
+        // Completed sessions history
+        $lines[] = "## 2. HISTORICAL TREATMENT SESSIONS LOG";
+        $completedSessions = $this->treatmentSessions()
+            ->where('status', 'completed')
+            ->orderBy('session_number')
+            ->get();
+
+        if ($completedSessions->isEmpty()) {
+            $lines[] = "No clinical treatment sessions have been executed yet.";
+        } else {
+            foreach ($completedSessions as $session) {
+                $lines[] = "- **Session #{$session->session_number}**: {$session->title}";
+                if (!empty($session->post_diagnosis)) {
+                    $lines[] = "  *Reassessment Outcome:*";
+                    $lines[] = $this->formatArrayToMarkdownSummary($session->post_diagnosis, 1, "    ");
+                }
+            }
+        }
+
+        $lines[] = "";
+        $lines[] = "Use the baseline history above as reference. Evaluate the new session data relative to this baseline.";
+
+        $this->ai_summary = implode("\n", $lines);
+        return $this->ai_summary;
+    }
+
+    /**
+     * Helper to recursively format arrays to markdown summary.
+     */
+    private function formatArrayToMarkdownSummary($data, $maxDepth = 2, $indent = "", $currentDepth = 0)
+    {
+        if (!is_array($data)) {
+            return $indent . "- " . (is_bool($data) ? ($data ? 'Yes' : 'No') : $data);
+        }
+
+        $lines = [];
+        foreach ($data as $key => $value) {
+            if (in_array($key, ['images', 'post_images', 'steps', 'script', 'raw_response', 'metadata', 'fixed_protocol'])) {
+                continue;
+            }
+
+            $formattedKey = ucwords(str_replace('_', ' ', $key));
+
+            if (is_array($value)) {
+                if ($currentDepth < $maxDepth) {
+                    $lines[] = $indent . "- **{$formattedKey}**:";
+                    $subResult = $this->formatArrayToMarkdownSummary($value, $maxDepth, $indent . "  ", $currentDepth + 1);
+                    if (!empty($subResult)) {
+                        $lines[] = $subResult;
+                    }
+                }
+            } else {
+                if ($value !== null && $value !== '') {
+                    $displayVal = is_bool($value) ? ($value ? 'Yes' : 'No') : $value;
+                    $lines[] = $indent . "- **{$formattedKey}**: {$displayVal}";
+                }
+            }
+        }
+        return implode("\n", $lines);
+    }
 }
