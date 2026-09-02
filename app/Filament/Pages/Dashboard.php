@@ -23,6 +23,35 @@ class Dashboard extends BaseDashboard
 {
     use HasFiltersForm;
 
+    /**
+     * Widgets that are auto-discovered from App\Filament\Widgets but should not
+     * be rendered on the dashboard. Remove an entry here to bring it back.
+     */
+    protected const HIDDEN_WIDGETS = [
+        \App\Filament\Widgets\WhatsAppDeliveryRateChart::class,      // Message Status Distribution
+        \App\Filament\Widgets\WhatsAppMessagesChart::class,          // Messages per Day (Last 30 Days)
+        \App\Filament\Widgets\WhatsAppStatsOverview::class,          // WhatsApp Messaging Overview
+        \App\Filament\Widgets\AiMorningSummary::class,               // Morning Summary — Today's Opportunity
+        \App\Filament\Widgets\AiActionQueue::class,                  // Action Queue
+        \App\Filament\Widgets\LeadImportStatsOverview::class,        // Import Activity
+        \App\Filament\Widgets\LeadStatsOverview::class,              // Lead Overview
+        \App\Filament\Widgets\AiCapacityGaps::class,                 // Clinic Capacity — Today & Tomorrow
+        \App\Filament\Widgets\LeadsByCampaignChart::class,           // Leads by Campaign
+        \App\Filament\Widgets\LeadsByConcernChart::class,            // Leads by Answer
+        \App\Filament\Widgets\ExpenseCategoryBreakdownChart::class,  // Expenses by Category
+        \App\Filament\Widgets\ExpenseTrendChart::class,              // Daily Expense Trend
+        \App\Filament\Widgets\LeadMorningSummary::class,             // Morning Summary — Today's Opportunity
+        \App\Filament\Widgets\LeadActionQueue::class,                // Lead Action Queue
+    ];
+
+    public function getWidgets(): array
+    {
+        return array_values(array_filter(
+            parent::getWidgets(),
+            fn ($widget) => ! in_array($widget, static::HIDDEN_WIDGETS, true),
+        ));
+    }
+
     protected function getHeaderActions(): array
     {
         return [];

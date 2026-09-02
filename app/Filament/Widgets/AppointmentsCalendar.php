@@ -28,7 +28,7 @@ class AppointmentsCalendar extends FullCalendarWidget
     // use InteractsWithPageFilters, HasWidgetShield;
     // protected string $view = 'filament.widgets.appointments-calendar';
     // Optional: Link events to your Filament resource for editing
-    public string | Model | null $model = Appointment::class;
+    public string|Model|null $model = Appointment::class;
 
     // protected ?string $heading = 'Appointments Calendar';
 
@@ -61,52 +61,72 @@ class AppointmentsCalendar extends FullCalendarWidget
         return [
             // 🔹 Start Assessment
             Action::make('new_iv_assessment')
-                    ->label('Create IV Assessment')
-                    ->visible(fn ($record) => can_create_assessment($record))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->button()
-                    ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record->client, 'iv', $record);
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                ->label('Create IV Assessment')
+                ->record(fn(FullCalendarWidget $livewire) => $livewire->getRecord())
+                ->visible(fn(?Appointment $record) => can_create_assessment($record))
+                ->icon('heroicon-o-plus')
+                ->color('info')
+                ->button()
+                ->action(function ($record) {
+                    $assessmentUrl = new_assessment($record->client, 'iv', $record);
+                    return redirect($assessmentUrl);
+                })
+                ->requiresConfirmation()
+                ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create IV Assessment Early?' : 'Create IV Assessment')
+                ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
 
             Action::make('new_assessment')
-                    ->label('Create Assessment')
-                    ->visible(fn ($record) => can_create_assessment($record))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->button()
-                    ->action(function ($record) {
-                        $assessmentUrl = new_assessment($record->client, 'assessment', $record);
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                ->label('Create Assessment')
+                ->record(fn(FullCalendarWidget $livewire) => $livewire->getRecord())
+                ->visible(fn(?Appointment $record) => can_create_assessment($record))
+                ->icon('heroicon-o-plus')
+                ->color('info')
+                ->button()
+                ->action(function ($record) {
+                    $assessmentUrl = new_assessment($record->client, 'assessment', $record);
+                    return redirect($assessmentUrl);
+                })
+                ->requiresConfirmation()
+                ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Assessment Early?' : 'Create Assessment')
+                ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
 
             Action::make('new_pigmentation_assessment')
-                    ->label('Create Pigmentation Assessment')
-                    ->visible(fn ($record) => can_create_assessment($record))
-                    ->icon('heroicon-o-plus')
-                    ->color('info')
-                    ->button()
-                    ->action(function ($record) {
-                        $assessment = \App\Models\Assessment::create([
-                            'user_id' => $record->client->id,
-                            'assessment_type' => 'pigmentation',
-                            'status' => \App\Enums\AssessmentStatus::InProgress,
-                        ]);
-                        $record->update(['assessment_id' => $assessment->id]);
-                        $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
-                        $assessmentUrl .= '&assessment_id=' . $assessment->id;
-                        return redirect($assessmentUrl);
-                    })
-                    ->requiresConfirmation(),
+                ->label('Create Pigmentation Assessment')
+                ->record(fn(FullCalendarWidget $livewire) => $livewire->getRecord())
+                ->visible(fn(?Appointment $record) => can_create_assessment($record))
+                ->icon('heroicon-o-plus')
+                ->color('info')
+                ->button()
+                ->action(function ($record) {
+                    $assessment = \App\Models\Assessment::create([
+                        'user_id' => $record->client->id,
+                        'assessment_type' => 'pigmentation',
+                        'status' => \App\Enums\AssessmentStatus::InProgress,
+                    ]);
+                    $record->update(['assessment_id' => $assessment->id]);
+                    $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
+                    $assessmentUrl .= '&assessment_id=' . $assessment->id;
+                    return redirect($assessmentUrl);
+                })
+                ->requiresConfirmation()
+                ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Pigmentation Assessment Early?' : 'Create Pigmentation Assessment')
+                ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
 
             // 🔹 Start Treatment Session
             Action::make('start_session')
                 ->label('Start Session')
-                ->visible(fn ($record) => can_start_session($record))
+                // Modal footer actions are form actions, so they are not record-bound by default.
+                ->record(fn(FullCalendarWidget $livewire) => $livewire->getRecord())
+                ->visible(fn(?Appointment $record) => can_start_session($record))
                 ->icon('heroicon-o-plus')
                 ->color('warning')
                 ->button()
@@ -114,7 +134,12 @@ class AppointmentsCalendar extends FullCalendarWidget
                     $startSessionUrl = start_session($record);
                     return redirect($startSessionUrl);
                 })
-                ->requiresConfirmation(),
+                ->requiresConfirmation()
+                ->modalHeading(fn($record) => is_early_session_start($record) ? 'Start Session Early?' : 'Start Session')
+                ->modalDescription(fn($record) => start_session_confirmation_message($record))
+                ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, start early' : 'Yes, start session'),
 
             // Existing actions (optional)
             // EditAction::make()->visible(false),
@@ -125,41 +150,41 @@ class AppointmentsCalendar extends FullCalendarWidget
     public function getFormSchema(): array
     {
         return [
-                Section::make('Basic Information')
-                    ->description('Core details about the appointment.')
-                    ->icon('heroicon-o-information-circle')
-                    ->schema([
-                        TextEntry::make('type'),
-                        TextEntry::make('clinic.name')->label('Clinic Name'),
-                        TextEntry::make('client.first_name')->label('Client Name'),
-                        TextEntry::make('therapist.first_name')->label('therapist Name'),
+            Section::make('Basic Information')
+                ->description('Core details about the appointment.')
+                ->icon('heroicon-o-information-circle')
+                ->schema([
+                    TextEntry::make('type'),
+                    TextEntry::make('clinic.name')->label('Clinic Name'),
+                    TextEntry::make('client.first_name')->label('Client Name'),
+                    TextEntry::make('therapist.first_name')->label('therapist Name'),
 
-                        TextEntry::make('start_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
-                        TextEntry::make('end_datetime')->dateTime('d M Y, h:i A')->badge()->color('warning'),
-                        TextEntry::make('status')->placeholder('N/A'),
-                        IconEntry::make('createdBy.first_name')->label('Created By')->placeholder('N/A'),
-                        IconEntry::make('updatedBy.first_name')->label('Updated By')->placeholder('N/A'),
-                        TextEntry::make('is_emergency')
-                            ->label('Emergency Override')
-                            ->badge()
-                            ->color(fn (bool $state) => $state ? 'danger' : 'gray')
-                            ->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No'),
-                        TextEntry::make('notes')->placeholder('N/A'),
+                    TextEntry::make('start_datetime')->dateTime(app_datetime_format())->badge()->color('warning'),
+                    TextEntry::make('end_datetime')->dateTime(app_datetime_format())->badge()->color('warning'),
+                    TextEntry::make('status')->placeholder('N/A'),
+                    IconEntry::make('createdBy.first_name')->label('Created By')->placeholder('N/A'),
+                    IconEntry::make('updatedBy.first_name')->label('Updated By')->placeholder('N/A'),
+                    TextEntry::make('is_emergency')
+                        ->label('Emergency Override')
+                        ->badge()
+                        ->color(fn(bool $state) => $state ? 'danger' : 'gray')
+                        ->formatStateUsing(fn(bool $state) => $state ? 'Yes' : 'No'),
+                    TextEntry::make('notes')->placeholder('N/A'),
 
-                    ])
-                    ->columns(3),
+                ])
+                ->columns(3),
 
-                Section::make('Emergency Reason')
-                    ->description('Emergency reason details')
-                    ->icon('heroicon-o-exclamation-triangle')
-                    ->visible(fn ($record) => ! empty($record->is_emergency))
-                    ->schema([
-                        TextEntry::make('emergency_reason.capacity')->label('Available Capacity')->numeric(),
-                        TextEntry::make('emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
-                        TextEntry::make('emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
-                    ])
-                    ->columns(3)
-                    ->collapsible(),
+            Section::make('Emergency Reason')
+                ->description('Emergency reason details')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->visible(fn($record) => !empty($record->is_emergency))
+                ->schema([
+                    TextEntry::make('emergency_reason.capacity')->label('Available Capacity')->numeric(),
+                    TextEntry::make('emergency_reason.confirmed')->label('Confirmed Cases')->numeric(),
+                    TextEntry::make('emergency_reason.violations')->label('Violations')->badge()->listWithLineBreaks()->color('danger'),
+                ])
+                ->columns(3)
+                ->collapsible(),
 
                 Section::make('Treatment Session Details')
                     ->description('assessment id and treatment session title.')
@@ -196,17 +221,17 @@ class AppointmentsCalendar extends FullCalendarWidget
                     ->visible(fn ($record) => $record->type->value == 'treatment')
                     ->collapsible(),
 
-                Section::make('Record Information')
-                    ->description('Timestamps for creation, update, deletion and billed.')
-                    ->icon('heroicon-o-clock')
-                    ->schema([
-                        TextEntry::make('created_at')->label('Created At')->dateTime('d M Y, h:i A'),
-                        TextEntry::make('updated_at')->label('Updated At')->dateTime('d M Y, h:i A'),
-                        TextEntry::make('deleted_at')->label('Deleted At')->dateTime('d M Y, h:i A')->placeholder('Not deleted'),
-                    ])
-                    ->columns(3)
-                    ->collapsed()
-                    ->collapsible(),
+            Section::make('Record Information')
+                ->description('Timestamps for creation, update, deletion and billed.')
+                ->icon('heroicon-o-clock')
+                ->schema([
+                    TextEntry::make('created_at')->label('Created At')->dateTime(app_datetime_format()),
+                    TextEntry::make('updated_at')->label('Updated At')->dateTime(app_datetime_format()),
+                    TextEntry::make('deleted_at')->label('Deleted At')->dateTime(app_datetime_format())->placeholder('Not deleted'),
+                ])
+                ->columns(3)
+                ->collapsed()
+                ->collapsible(),
         ];
     }
 
@@ -231,7 +256,7 @@ class AppointmentsCalendar extends FullCalendarWidget
                     default => '#3B82F6',
                 };
                 $emergencyLabel = NULL;
-                if($appointment->is_emergency){
+                if ($appointment->is_emergency) {
                     $statusColor = '#92400E';
                     $emergencyLabel = 'Emergency';
                 }

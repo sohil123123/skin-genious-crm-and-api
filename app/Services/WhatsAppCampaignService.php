@@ -175,16 +175,22 @@ class WhatsAppCampaignService
         $resolved = [];
 
         foreach ($variableMapping as $key => $field) {
-            $resolved[$key] = match ($field) {
-                'first_name' => $user->first_name ?? '',
+            $fieldLower = strtolower(trim((string) $field));
+            $keyLower = strtolower(trim((string) $key));
+
+            // Check field selection first, fallback to variable key name
+            $target = ($fieldLower !== '') ? $fieldLower : $keyLower;
+
+            $resolved[$key] = match ($target) {
+                'first_name' => $user->first_name ?? $user->name ?? '',
                 'last_name' => $user->last_name ?? '',
-                'name', 'full_name' => $user->name ?? '',
-                'mobile', 'phone' => $user->mobile ?? '',
+                'name', 'full_name', 'user_name', 'username', 'client_name', 'customer_name', '1' => $user->name ?? '',
+                'mobile', 'phone', 'phone_number', 'mobile_number' => $user->mobile ?? '',
                 'email' => $user->email ?? '',
                 'city' => $user->city ?? '',
                 'state' => $user->state ?? '',
-                'clinic' => $user->clinic?->name ?? '',
-                default => is_string($field) ? $field : '',
+                'clinic', 'clinic_name' => $user->clinic?->name ?? '',
+                default => is_string($field) && $field !== '' ? $field : ($user->name ?? ''),
             };
         }
 

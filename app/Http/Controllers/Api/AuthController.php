@@ -20,7 +20,8 @@ class AuthController extends BaseApiController
     {
         $request->validate([
             'email' => [
-                'required', 'string',
+                'required',
+                'string',
                 function ($attribute, $value, $fail) {
                     if (!filter_var($value, FILTER_VALIDATE_EMAIL) && !preg_match('/^[a-zA-Z0-9_]+$/', $value)) {
                         $fail('The value must be a valid email or mobile number.');

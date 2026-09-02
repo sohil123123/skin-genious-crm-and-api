@@ -197,13 +197,13 @@ class UserInfolist
                     ->schema([
                         TextEntry::make('created_at')
                             ->label('Created At')
-                            ->dateTime('d M Y, h:i A'),
+                            ->dateTime(app_datetime_format()),
                         TextEntry::make('updated_at')
                             ->label('Updated At')
-                            ->dateTime('d M Y, h:i A'),
+                            ->dateTime(app_datetime_format()),
                         TextEntry::make('deleted_at')
                             ->label('Deleted At')
-                            ->dateTime('d M Y, h:i A')
+                            ->dateTime(app_datetime_format())
                             ->placeholder('Not deleted'),
                     ])
                     ->columns(3)

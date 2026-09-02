@@ -35,8 +35,8 @@ class ClinicInfolist
                         //     ->placeholder('No logo uploaded'),
                         TextEntry::make('face_scan_machine')->label('Face Scan Machine')->placeholder('Not specified'),
                         IconEntry::make('is_active')->label('Active')->boolean(),
-                        TextEntry::make('start_time')->time('h:i A')->placeholder('N/A'),
-                        TextEntry::make('end_time')->time('h:i A')->placeholder('N/A'),
+                        TextEntry::make('start_time')->time(app_time_format())->placeholder('N/A'),
+                        TextEntry::make('end_time')->time(app_time_format())->placeholder('N/A'),
                         TextEntry::make('number_of_beds')->placeholder('N/A'),
                         // TextEntry::make('description')
                         //     ->label('Description')
@@ -96,9 +96,9 @@ class ClinicInfolist
                     ->description('Timestamps for creation, update, and deletion.')
                     ->icon('heroicon-o-clock')
                     ->schema([
-                        TextEntry::make('created_at')->label('Created At')->dateTime('d M Y, h:i A'),
-                        TextEntry::make('updated_at')->label('Updated At')->dateTime('d M Y, h:i A'),
-                        TextEntry::make('deleted_at')->label('Deleted At')->dateTime('d M Y, h:i A')->placeholder('Not deleted'),
+                        TextEntry::make('created_at')->label('Created At')->dateTime(app_datetime_format()),
+                        TextEntry::make('updated_at')->label('Updated At')->dateTime(app_datetime_format()),
+                        TextEntry::make('deleted_at')->label('Deleted At')->dateTime(app_datetime_format())->placeholder('Not deleted'),
                     ])
                     ->columns(3)
                     ->collapsible(),

@@ -27,6 +27,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 
@@ -49,6 +50,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
 use App\Enums\AppointmentStatus;
+use App\Enums\AssessmentStatus;
 use App\Enums\AppointmentType;
 
 class AppointmentsTable
@@ -113,13 +115,13 @@ class AppointmentsTable
                     ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('start_datetime')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->badge()
                     ->icon('heroicon-o-clock')
                     ->color(fn($record) => $record->status?->getColor() ?? 'gray')
                     ->sortable(),
                 TextColumn::make('end_datetime')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->badge()
                     ->icon('heroicon-o-clock')
                     ->color(fn($record) => $record->status?->getColor() ?? 'gray')
@@ -141,17 +143,54 @@ class AppointmentsTable
                     ->formatStateUsing(fn(bool $state) => $state ? 'Yes' : 'No'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn($record) => $record->status?->getColor() ?? 'gray'),
+                    ->color(fn($record) => $record->status?->getColor() ?? 'gray')
+                    ->icon(fn($record) => $record->status?->getIcon() ?? 'heroicon-o-clock')
+                    ->tooltip('Click to update status and note')
+                    ->action(
+                        Action::make('updateStatusColumn')
+                            ->label('Update Status & Note')
+                            ->modalHeading(fn($record) => "Update Status & Note (Appointment #{$record->id})")
+                            ->modalIcon('heroicon-o-arrow-path')
+                            ->modalWidth('md')
+                            ->form([
+                                Select::make('status')
+                                    ->label('Status')
+                                    ->options(
+                                        collect(AppointmentStatus::cases())->mapWithKeys(fn($case) => [
+                                            $case->value => $case->getLabel(),
+                                        ])->all()
+                                    )
+                                    ->default(fn($record) => $record->status?->value ?? $record->status)
+                                    ->required(),
+                                Textarea::make('notes')
+                                    ->label('Note')
+                                    ->placeholder('Write note here...')
+                                    ->rows(3)
+                                    ->default(fn($record) => $record->notes),
+                            ])
+                            ->action(function (Appointment $record, array $data): void {
+                                $record->update([
+                                    'status' => $data['status'],
+                                    'notes' => $data['notes'] ?? null,
+                                ]);
+
+                                Notification::make()
+                                    ->title('Status Updated Successfully 🎉')
+                                    ->body("Appointment status changed to " . (AppointmentStatus::tryFrom($data['status'])?->getLabel() ?? $data['status']) . ".")
+                                    ->success()
+                                    ->send();
+                            })
+                    ),
                 TextColumn::make('deleted_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -475,7 +514,12 @@ class AppointmentsTable
                             $assessmentUrl = new_assessment($record->client, 'iv', $record);
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create IV Assessment Early?' : 'Create IV Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
                     Action::make('new_assessment')
                         ->label('Create Assessment')
                         ->visible(fn($record) => can_create_assessment($record))
@@ -485,34 +529,84 @@ class AppointmentsTable
                             $assessmentUrl = new_assessment($record->client, 'assessment', $record);
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Assessment Early?' : 'Create Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
                     Action::make('new_pigmentation_assessment')
                         ->label('Create Pigmentation Assessment')
                         ->visible(fn($record) => can_create_assessment($record))
                         ->icon('heroicon-o-plus')
                         ->color('info')
                         ->action(function ($record) {
-                            $assessment = \App\Models\Assessment::create([
+                            $assessment = Assessment::create([
                                 'user_id' => $record->client->id,
                                 'assessment_type' => 'pigmentation',
-                                'status' => \App\Enums\AssessmentStatus::InProgress,
+                                'status' => AssessmentStatus::InProgress,
                             ]);
                             $record->update(['assessment_id' => $assessment->id]);
                             $assessmentUrl = new_assessment($record->client, 'pigmentation', $record);
                             $assessmentUrl .= '&assessment_id=' . $assessment->id;
                             return redirect($assessmentUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Create Pigmentation Assessment Early?' : 'Create Pigmentation Assessment')
+                        ->modalDescription(fn($record) => create_assessment_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, create early' : 'Yes, create assessment'),
+                    Action::make('update_status')
+                        ->label('Update Status & Note')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('primary')
+                        ->modalHeading(fn($record) => "Update Status & Note (Appointment #{$record->id})")
+                        ->modalIcon('heroicon-o-arrow-path')
+                        ->modalWidth('md')
+                        ->form([
+                            Select::make('status')
+                                ->label('Status')
+                                ->options(
+                                    collect(AppointmentStatus::cases())->mapWithKeys(fn($case) => [
+                                        $case->value => $case->getLabel(),
+                                    ])->all()
+                                )
+                                ->default(fn($record) => $record->status?->value ?? $record->status)
+                                ->required(),
+                            Textarea::make('notes')
+                                ->label('Note')
+                                ->placeholder('Write note here...')
+                                ->rows(3)
+                                ->default(fn($record) => $record->notes),
+                        ])
+                        ->action(function (Appointment $record, array $data): void {
+                            $record->update([
+                                'status' => $data['status'],
+                                'notes' => $data['notes'] ?? null,
+                            ]);
+
+                            Notification::make()
+                                ->title('Status Updated Successfully 🎉')
+                                ->body("Appointment status changed to " . (AppointmentStatus::tryFrom($data['status'])?->getLabel() ?? $data['status']) . ".")
+                                ->success()
+                                ->send();
+                        }),
                     Action::make('start_session')
                         ->label('Start Session')
-                        ->visible(fn($record) => can_start_session($record))
+                        ->visible(fn(?Appointment $record) => can_start_session($record))
                         ->icon('heroicon-o-plus')
                         ->color('warning')
                         ->action(function ($record) {
                             $startSessionUrl = start_session($record);
                             return redirect($startSessionUrl);
                         })
-                        ->requiresConfirmation(),
+                        ->requiresConfirmation()
+                        ->modalHeading(fn($record) => is_early_session_start($record) ? 'Start Session Early?' : 'Start Session')
+                        ->modalDescription(fn($record) => start_session_confirmation_message($record))
+                        ->modalIcon(fn($record) => is_early_session_start($record) ? 'heroicon-o-exclamation-triangle' : null)
+                        ->modalIconColor(fn($record) => is_early_session_start($record) ? 'warning' : null)
+                        ->modalSubmitActionLabel(fn($record) => is_early_session_start($record) ? 'Yes, start early' : 'Yes, start session'),
                     ViewAction::make(),
                     EditAction::make(),
                     DeleteAction::make()

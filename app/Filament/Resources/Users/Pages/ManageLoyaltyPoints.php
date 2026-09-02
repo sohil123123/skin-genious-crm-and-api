@@ -61,7 +61,7 @@ class ManageLoyaltyPoints extends ManageRelatedRecords
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
 
                 TextColumn::make('type')

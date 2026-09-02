@@ -26,4 +26,21 @@ Schedule::command('appointments:send-today-whatsapp --mode=previous_day_evening'
 // 2. Appointments after 11:30 -> Send same day morning at 08:00 (8:00 AM)
 Schedule::command('appointments:send-today-whatsapp --mode=same_day_morning')->dailyAt('08:00');
 
+// 3. AI Actions - 7:00 AM daily
+Schedule::command('ai:generate-actions')->dailyAt('07:00');
 
+// 4. Meta Lead Actions - 7:10 AM daily.
+//
+// Runs after ai:generate-actions on purpose: the lead engine skips any lead
+// whose phone already has a patient action today, so the patient queue must
+// exist before this runs or that check has nothing to compare against.
+// withoutOverlapping guards the case where a large import makes a run outlast
+// the next tick.
+Schedule::command('leads:generate-actions')
+    ->dailyAt('07:10')
+    ->withoutOverlapping();
+
+// Lead imports: the wizard deletes each temporary upload once it has copied the
+// export, so this only sweeps up files abandoned before that point — someone
+// choosing a file and then closing the tab.
+Schedule::command('leads:cleanup-temp-uploads')->dailyAt('03:00');

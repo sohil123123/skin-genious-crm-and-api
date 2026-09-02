@@ -138,7 +138,7 @@ class GstReport extends Page implements HasTable, HasForms
 
                 TextColumn::make('invoice_date')
                     ->label('Invoice Date')
-                    ->date('d-m-Y')
+                    ->date(app_date_format())
                     ->sortable(),
 
                 TextColumn::make('taxable_value')

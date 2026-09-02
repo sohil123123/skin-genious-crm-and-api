@@ -33,7 +33,7 @@ class WhatsAppScheduledMessagesTable
                     }),
 
                 TextColumn::make('scheduled_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->sortable(),
 
                 TextColumn::make('is_recurring')
@@ -54,12 +54,12 @@ class WhatsAppScheduledMessagesTable
                     }),
 
                 TextColumn::make('last_sent_at')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime(app_datetime_format())
                     ->placeholder('-')
                     ->toggleable(),
 
                 TextColumn::make('created_at')
-                    ->dateTime('d M Y')
+                    ->dateTime(app_date_format())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

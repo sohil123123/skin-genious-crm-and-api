@@ -242,6 +242,27 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Leads this staff member is responsible for following up.
+     */
+    public function assignedLeads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'assigned_to');
+    }
+
+    /**
+     * Imported leads that appear to be this patient, flagged during import.
+     */
+    public function matchedLeads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'matched_user_id');
+    }
+
+    public function leadImports(): HasMany
+    {
+        return $this->hasMany(LeadImport::class, 'uploaded_by');
+    }
+
+    /**
      * Get the current loyalty points balance from the users table column.
      */
     public function getLoyaltyBalance(): int

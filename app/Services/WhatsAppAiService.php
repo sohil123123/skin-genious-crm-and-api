@@ -73,12 +73,13 @@ class WhatsAppAiService
         // Extract any mentioned dates from the last incoming message
         $requestedDates = [];
         $lastIncoming = $messages->last(fn($msg) => ($msg->direction?->value ?? $msg->direction) === 'incoming');
+        $lastMessageText = $lastIncoming?->text_body ?? null;
         if ($lastIncoming && !empty($lastIncoming->text_body)) {
             $requestedDates = $this->extractMentionedDates($lastIncoming->text_body);
         }
 
         // Build database-aware context
-        $crmContext = $this->buildDatabaseContext($conversation, $requestedDates);
+        $crmContext = $this->buildDatabaseContext($conversation, $requestedDates, $lastMessageText);
 
         $systemPrompt = $this->buildSystemPrompt($crmContext);
 
@@ -89,10 +90,17 @@ class WhatsAppAiService
         ];
 
         foreach ($messages as $msg) {
+            // Reactions, images and other non-text messages have no text body.
+            // Sending them as blank turns makes the model invent filler replies.
+            $body = trim((string) ($msg->text_body ?? ''));
+            if ($body === '') {
+                continue;
+            }
+
             $role = ($msg->direction?->value ?? $msg->direction) === 'incoming' ? 'user' : 'assistant';
             $messagesPayload[] = [
                 'role' => $role,
-                'content' => $msg->text_body ?? '',
+                'content' => $body,
             ];
         }
 
@@ -181,7 +189,7 @@ class WhatsAppAiService
     /**
      * Build structured CRM context from the database for AI prompt injection.
      */
-    protected function buildDatabaseContext(WhatsAppConversation $conversation, array $requestedDates = []): array
+    protected function buildDatabaseContext(WhatsAppConversation $conversation, array $requestedDates = [], ?string $lastMessageText = null): array
     {
         $context = [];
 
@@ -190,7 +198,7 @@ class WhatsAppAiService
         $context['client'] = $this->buildClientContext($client);
 
         // 2. Products/Services catalog
-        $context['services'] = $this->buildServicesContext();
+        $context['services'] = $this->buildServicesContext($lastMessageText);
 
         // 3. Client's purchased packages (if client exists)
         $context['packages'] = $client ? $this->buildPackagesContext($client) : null;
@@ -319,30 +327,56 @@ class WhatsAppAiService
     }
 
     /**
-     * Build services catalog context string.
+     * Build services catalog context string, fetching ALL active services with priority matching for user query.
      */
-    protected function buildServicesContext(): string
+    protected function buildServicesContext(?string $lastMessageText = null): string
     {
         $services = Product::where('is_active', true)
             ->where('type', 'service')
             ->orderBy('name')
-            ->limit(25)
             ->get(['name', 'sell_price', 'description']);
 
         if ($services->isEmpty()) {
             return 'No services currently listed.';
         }
 
-        $lines = [];
+        $matchedLines = [];
+        $regularLines = [];
+
+        // Check if user mentioned any keyword for targeted price matching
+        $cleanQuery = strtolower(trim($lastMessageText ?? ''));
+
         foreach ($services as $service) {
+            $nameLower = strtolower($service->name);
             $line = "- {$service->name}: ₹" . number_format($service->sell_price, 0);
             if ($service->description) {
                 $line .= " ({$service->description})";
             }
-            $lines[] = $line;
+
+            // Fuzzy/substring match check for misspelled terms like 'haydra', 'peel', 'carbon', etc.
+            $isMatched = false;
+            if (!empty($cleanQuery)) {
+                if (str_contains($nameLower, $cleanQuery) || str_contains($cleanQuery, $nameLower)) {
+                    $isMatched = true;
+                } elseif (str_contains($cleanQuery, 'haydra') && str_contains($nameLower, 'hydra')) {
+                    $isMatched = true;
+                }
+            }
+
+            if ($isMatched) {
+                $matchedLines[] = "  * [EXACT MATCHED SERVICE] {$service->name}: ₹" . number_format($service->sell_price, 0);
+            }
+
+            $regularLines[] = $line;
         }
 
-        return implode("\n", $lines);
+        $output = '';
+        if (!empty($matchedLines)) {
+            $output .= "PRIORITY MATCHED SERVICES FOR CLIENT QUERY:\n" . implode("\n", $matchedLines) . "\n\nALL CLINIC SERVICES CATALOG:\n";
+        }
+        $output .= implode("\n", $regularLines);
+
+        return $output;
     }
 
     /**
@@ -624,12 +658,22 @@ class WhatsAppAiService
         $prompt .= "- **NO CODING ANSWERS**: Never provide any programming, coding-level, databases, API, webhook, development, or code-related responses. If asked technical questions or code-related prompts, politely refuse and steer back to skin services.\n";
         $prompt .= "- **CLINIC IDENTITY**: Always refer to the clinic only as \"AI Aesthetics Jaipur\".\n";
         $prompt .= "- **PRIVACY RESTRICTION**: Strictly provide loyalty point info ONLY for the active client chatting. NEVER share or reveal any other user's loyalty points, balance, or CRM information.\n";
-        $prompt .= "- **PRICE CITATION**: Only quote prices from the CRM data listed below. If a price is not listed, refer them to the team or tell them to check the website/contact the clinic.\n";
+        $prompt .= "- **STRICT CRM PRICE CITATION**: You MUST ONLY quote exact prices directly from the CRM data listed in '=== OUR SERVICES & PRICES ===' below (e.g. Hydrafacial is ₹4,000). NEVER invent, guess, or quote any price (such as ₹6,000) that is not in the CRM data. If a client misspells a treatment name (such as 'Haydra' for 'Hydrafacial' or 'Pigmintensan' for 'Pigmentation Peel'), map it to the matching CRM service name and state its EXACT CRM price.\n";
         $prompt .= "- **SPECIFIC WEBPAGE LINKS**: When answering questions about a concern, treatment, price, or doctor, you **MUST** construct and provide the corresponding link using the WEBSITE URL PATTERNS rules above so the client can explore details directly on the website.\n";
         $prompt .= "- **CONNECTING TO TEAM**: If a client asks about something not in the data, or you say \"Let me connect you with our team for more details...\", you **MUST** include this WhatsApp chat link: {$whatsappLink}.\n";
         $prompt .= "- **SUNDAY HOLIDAY**: Sunday is a weekly holiday for AI Aesthetics Jaipur. The clinic is CLOSED every Sunday. NEVER book or reschedule appointments on Sundays. If a client asks for a Sunday appointment, warmly inform them: 'Our clinic is closed on Sundays (Weekly Holiday). We are open Monday through Saturday from 10:00 AM to 7:00 PM. Would you like to book for Monday or another working day?'\n";
         $prompt .= "- **KEYWORD BOLDING RULE**: ALWAYS bold main action words, status, dates, times, and key choices using single asterisks * (e.g. *cancel*, *reschedule*, *book*, *confirm*, *pending*, *confirmed*, *date*, *time*). Example: 'Would you like to *reschedule* or *cancel* your appointment on *25th July at 5:30 PM*? Type *confirm* to proceed.' NEVER use double asterisks ** anywhere.\n";
         $prompt .= "- **CONCISE**: Keep responses friendly, warm, clear, and under 150 words.\n\n";
+
+        $prompt .= "=== CONVERSATION ETIQUETTE (VERY IMPORTANT) ===\n";
+        $prompt .= "Clients get confused and annoyed when the assistant keeps talking after their question is already answered. Follow these rules strictly:\n";
+        $prompt .= "- **ACKNOWLEDGEMENTS END THE CHAT**: If the client's last message is only an acknowledgement or a closing courtesy — such as 'ok', 'okay', 'thanks', 'thank you', 'thank you so much', 'got it', 'noted', 'done', 'sure', 'fine', 'haan', 'theek hai', 'accha', 'shukriya', 'bye', or just an emoji like 👍 🙏 ❤️ 😊 — the conversation is FINISHED. Reply with AT MOST one short, warm closing line (e.g. 'Happy to help! 😊' or 'Anytime! See you soon.'). Then STOP.\n";
+        $prompt .= "- **NEVER RE-OPEN A CLOSED CHAT**: After an acknowledgement, do NOT summarize what was already discussed, do NOT repeat the appointment details, do NOT re-share links or prices, do NOT suggest new treatments, and do NOT ask a new question like 'Is there anything else?' or 'Would you also like to book...?'. The client did not ask anything — answer nothing.\n";
+        $prompt .= "- **NO UNSOLICITED UPSELLING**: Never push additional treatments, packages, or offers that the client did not ask about. Only recommend a treatment when the client describes a concern or asks for a suggestion.\n";
+        $prompt .= "- **ANSWER ONLY WHAT WAS ASKED**: Respond to the client's actual question. Do not pre-emptively add extra information, extra links, or extra options they did not request.\n";
+        $prompt .= "- **ONE QUESTION AT A TIME**: If you need information from the client, ask for exactly one thing per message. Never send a list of questions.\n";
+        $prompt .= "- **DO NOT REPEAT YOURSELF**: If you already shared a price, slot list, link, or confirmation earlier in this conversation, do not send it again unless the client explicitly asks for it again.\n";
+        $prompt .= "- **AFTER A COMPLETED ACTION**: Once a booking, reschedule, or cancellation is confirmed, send ONE short confirmation message and stop. Do not follow up with suggestions or reminders.\n\n";
 
         $prompt .= "=== APPOINTMENT BOOKING / RESCHEDULE / CANCEL INSTRUCTIONS ===\n";
         $prompt .= "You CAN book, reschedule, and cancel CONSULT appointments directly using the provided tools.\n";
@@ -1486,6 +1530,77 @@ class WhatsAppAiService
                     ->orWhere('name', 'like', '%AI Aesthetics%');
             })
             ->first();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reply Gating
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Bare acknowledgement words that carry no question or request on their own.
+     */
+    protected const ACKNOWLEDGEMENT_WORDS = [
+        'ok', 'okay', 'okk', 'k', 'kk', 'oky', 'okie',
+        'thanks', 'thank', 'thankyou', 'thx', 'tq', 'ty',
+        'welcome', 'sure', 'fine', 'good', 'great', 'nice', 'cool', 'perfect',
+        'yes', 'yeah', 'yep', 'ya', 'yup', 'yaa', 'haan', 'han', 'ha', 'hn',
+        'no', 'nope', 'na', 'nahi',
+        'done', 'noted', 'got', 'it', 'alright', 'right', 'super', 'awesome',
+        'dhanyavad', 'shukriya', 'thik', 'theek', 'thike', 'accha', 'acha',
+        'bye', 'byee', 'gm', 'gn', 'welcom',
+        // Filler that only ever pads an acknowledgement, e.g. "thank you so much".
+        'you', 'u', 'so', 'much', 'very', 'hai', 'ji', 'sir', 'madam', 'maam',
+    ];
+
+    /**
+     * Decide whether an incoming message deserves an AI reply.
+     *
+     * Clients often close a conversation with a thumbs-up, a 🙏, or a bare "ok".
+     * Answering those restarts the chat and confuses them, so we stay silent
+     * unless the message contains actual words beyond an acknowledgement.
+     */
+    public function shouldReplyTo(?string $text): bool
+    {
+        if ($text === null) {
+            return false;
+        }
+
+        // Strip emoji, pictographs, symbols, variation selectors and skin-tone modifiers.
+        $stripped = preg_replace(
+            '/[\x{1F000}-\x{1FAFF}\x{2190}-\x{2BFF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{1F3FB}-\x{1F3FF}\x{200D}\x{20E3}\x{E0020}-\x{E007F}]/u',
+            '',
+            $text
+        ) ?? $text;
+
+        // Drop anything that is not a letter or digit (punctuation, whitespace, "+1", "...").
+        $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($stripped), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        // Emoji-only, punctuation-only or empty message — nothing was asked.
+        if ($words === []) {
+            return false;
+        }
+
+        // "+1" / "1" used as a thumbs-up. Other numbers ("2pm", "5") may answer
+        // a slot question, so only this exact idiom is treated as silent.
+        if ($words === ['1'] && !preg_match('/\p{L}/u', $stripped)) {
+            return false;
+        }
+
+        // Short message made up entirely of acknowledgement words,
+        // e.g. "ok", "thank you 🙏", "thank you so much".
+        if (count($words) <= 5) {
+            foreach ($words as $word) {
+                if (!in_array($word, self::ACKNOWLEDGEMENT_WORDS, true)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /*
