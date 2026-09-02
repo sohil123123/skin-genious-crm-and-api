@@ -186,16 +186,40 @@ class AppointmentsCalendar extends FullCalendarWidget
                 ->columns(3)
                 ->collapsible(),
 
-            Section::make('Treatment Session Details')
-                ->description('assessment id and treatment session title.')
-                ->icon('heroicon-o-map-pin')
-                ->schema([
-                    TextEntry::make('assessment.id')->label('Assessment Id')->placeholder('N/A'),
-                    TextEntry::make('treatmentSession.title')->label('Treatment Session Title')->placeholder('N/A'),
-                ])
-                ->columns(2)
-                ->visible(fn($record) => $record->type->value == 'treatment')
-                ->collapsible(),
+                Section::make('Treatment Session Details')
+                    ->description('assessment id and treatment session title.')
+                    ->icon('heroicon-o-map-pin')
+                    ->schema([
+                        TextEntry::make('assessment.id')->label('Assessment Id')->placeholder('N/A'),
+                        TextEntry::make('treatmentSession.title')->label('Treatment Session Title')->placeholder('N/A'),
+
+                        TextEntry::make('start_session_note')
+                            ->label('')
+                            ->columnSpanFull()
+                            ->getStateUsing(function ($record) {
+                                $start = \Carbon\Carbon::parse($record->start_datetime)->subMinutes(15);
+                                $now   = now();
+
+                                if ($now->lt($start)) {
+                                    $minutesLeft = (int) $now->diffInMinutes($start, false);
+                                    return "⏰ The \"Start Session\" button will be available 15 minutes before the appointment (at {$start->format('h:i A')}). It will appear in approximately {$minutesLeft} minute(s).";
+                                }
+
+                                return null;
+                            })
+                            ->visible(fn ($record) => ! can_start_session($record))
+                            ->html()
+                            ->formatStateUsing(fn ($state) => $state
+                                ? "<div style='background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;color:#92400e;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px;'>"
+                                    . "<svg xmlns='http://www.w3.org/2000/svg' style='width:18px;height:18px;flex-shrink:0;margin-top:2px;' fill='none' viewBox='0 0 24 24' stroke-width='1.8' stroke='#d97706'><path stroke-linecap='round' stroke-linejoin='round' d='M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z' /></svg>"
+                                    . "<span>{$state}</span>"
+                                    . "</div>"
+                                : ''
+                            ),
+                    ])
+                    ->columns(2)
+                    ->visible(fn ($record) => $record->type->value == 'treatment')
+                    ->collapsible(),
 
             Section::make('Record Information')
                 ->description('Timestamps for creation, update, deletion and billed.')
