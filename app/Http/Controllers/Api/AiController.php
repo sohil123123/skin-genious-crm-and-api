@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Models\Assessment;
+use App\Models\TreatmentSession;
 
 class AiController extends Controller
 {
