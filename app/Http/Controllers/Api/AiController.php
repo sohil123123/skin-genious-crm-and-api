@@ -136,6 +136,12 @@ class AiController extends Controller
      */
     private function executeOpenAiCall($apiKey, $payload)
     {
+        // Ensure PHP itself does not kill the process before OpenAI responds.
+        // Treatment-plan generation with reasoning can legitimately take 3-5 minutes.
+        if (function_exists('set_time_limit')) {
+            set_time_limit(420);
+        }
+
         try {
             return Http::withOptions([
                 'verify' => false,
@@ -143,15 +149,8 @@ class AiController extends Controller
                 'Authorization' => 'Bearer ' . $apiKey,
                 'Content-Type'  => 'application/json',
             ])
-            ->connectTimeout(10)
-            ->timeout(180)
-            ->retry(2, 1000, function ($exception, $request) {
-                // Do not retry on client errors like 400 Bad Request
-                if ($exception instanceof \Illuminate\Http\Client\RequestException && $exception->response->clientError()) {
-                    return false;
-                }
-                return true;
-            })
+            ->connectTimeout(15)
+            ->timeout(360)
             ->post('https://api.openai.com/v1/responses', $payload);
         } catch (\Illuminate\Http\Client\RequestException $e) {
             return $e->response;
