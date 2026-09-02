@@ -67,10 +67,10 @@ class ProductSalesChart extends ChartWidget
         }
 
         // Use raw DB query for aggregation to avoid external dependency issues
-        $dateFormatInvoice = match (DB::getDriverName()) {
-            'sqlite' => "strftime('%Y-%m-%d', invoices.invoice_date)",
-            'pgsql' => "to_char(invoices.invoice_date, 'YYYY-MM-DD')",
-            default => "DATE(invoices.invoice_date)", // MySQL, MariaDB, SQL Server
+        $dateFormatPayment = match (DB::getDriverName()) {
+            'sqlite' => "strftime('%Y-%m-%d', invoice_payments.payment_date)",
+            'pgsql' => "to_char(invoice_payments.payment_date, 'YYYY-MM-DD')",
+            default => "DATE(invoice_payments.payment_date)", // MySQL, MariaDB, SQL Server
         };
 
         $dateFormatPackage = match (DB::getDriverName()) {
@@ -82,44 +82,48 @@ class ProductSalesChart extends ChartWidget
         $invoiceData = [];
         $packageData = [];
 
-        // Check if we need to query invoices (products / iv_products)
-        if (!$this->productType || in_array($this->productType, ['product', 'iv_product'])) {
-            $query = DB::table('invoice_items')
-                ->selectRaw("$dateFormatInvoice as date, SUM(invoice_items.line_total) as aggregate")
-                ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
-                ->join('products', 'invoice_items.product_id', '=', 'products.id')
-                ->where('invoices.status', '!=', 'cancelled')
-                ->whereIn('products.type', ['product', 'iv_product'])
-                ->whereDate('invoices.invoice_date', '>=', $startDate)
-                ->whereDate('invoices.invoice_date', '<=', $endDate);
+        // Standard Invoice Payments (excluding package invoices)
+        $queryInvoice = DB::table('invoice_items')
+            ->selectRaw("$dateFormatPayment as date, SUM(invoice_items.line_total * COALESCE(invoice_payments.amount / NULLIF(invoices.grand_total, 0), 1)) as aggregate")
+            ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->join('invoice_payments', 'invoice_payments.invoice_id', '=', 'invoices.id')
+            ->join('products', 'invoice_items.product_id', '=', 'products.id')
+            ->where('invoices.status', '!=', 'cancelled')
+            ->where(function ($q) {
+                $q->whereNull('invoices.invoice_type')
+                  ->orWhere('invoices.invoice_type', '!=', 'package');
+            })
+            ->whereNull('invoices.package_id')
+            ->whereDate('invoice_payments.payment_date', '>=', $startDate)
+            ->whereDate('invoice_payments.payment_date', '<=', $endDate);
 
-            if ($clinicId) {
-                $query->where('invoices.clinic_id', $clinicId);
-            }
-
-            if ($this->productType) {
-                $query->where('products.type', $this->productType);
-            }
-
-            $invoiceData = $query->groupBy('date')->get()->pluck('aggregate', 'date')->toArray();
+        if ($clinicId) {
+            $queryInvoice->where('invoices.clinic_id', $clinicId);
         }
 
-        // Check if we need to query packages (services)
-        if (!$this->productType || $this->productType === 'service') {
-            $query = DB::table('user_package_items')
-                ->selectRaw("$dateFormatPackage as date, SUM(user_package_items.total_amount * COALESCE(user_packages.final_amount / NULLIF(user_packages.subtotal, 0), 1)) as aggregate")
-                ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
-                ->join('products', 'user_package_items.service_id', '=', 'products.id')
-                ->where('products.type', '=', 'service')
-                ->whereDate('user_packages.created_at', '>=', $startDate)
-                ->whereDate('user_packages.created_at', '<=', $endDate);
-
-            if ($clinicId) {
-                $query->where('user_packages.clinic_id', $clinicId);
-            }
-
-            $packageData = $query->groupBy('date')->get()->pluck('aggregate', 'date')->toArray();
+        if ($this->productType) {
+            $queryInvoice->where('products.type', $this->productType);
         }
+
+        $invoiceData = $queryInvoice->groupBy('date')->get()->pluck('aggregate', 'date')->toArray();
+
+        // User Packages
+        $queryPackage = DB::table('user_package_items')
+            ->selectRaw("$dateFormatPackage as date, SUM(user_package_items.total_amount * COALESCE(user_packages.final_amount / NULLIF(user_packages.subtotal, 0), 1)) as aggregate")
+            ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
+            ->join('products', 'user_package_items.service_id', '=', 'products.id')
+            ->whereDate('user_packages.created_at', '>=', $startDate)
+            ->whereDate('user_packages.created_at', '<=', $endDate);
+
+        if ($clinicId) {
+            $queryPackage->where('user_packages.clinic_id', $clinicId);
+        }
+
+        if ($this->productType) {
+            $queryPackage->where('products.type', $this->productType);
+        }
+
+        $packageData = $queryPackage->groupBy('date')->get()->pluck('aggregate', 'date')->toArray();
 
         // Fill missing dates with 0 to ensure continuous chart line
         $period = CarbonPeriod::create($startDate, $endDate);

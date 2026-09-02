@@ -79,7 +79,6 @@ class ReportController extends BaseApiController
         $session_id = $session_id ?: request('session_id');
         $record = Assessment::findOrFail($assessment_id);
         $session = $session_id ? \App\Models\TreatmentSession::findOrFail($session_id) : null;
-
         $pdfContent = \App\Services\ReportAssetHelper::getReassessmentPdfContent($record, $session);
 
         return response($pdfContent, 200, [

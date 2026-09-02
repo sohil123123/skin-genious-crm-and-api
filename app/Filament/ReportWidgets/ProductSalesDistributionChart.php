@@ -65,13 +65,19 @@ class ProductSalesDistributionChart extends ChartWidget
         }
 
         $invoiceQuery = DB::table('invoice_items')
-            ->select('products.name', DB::raw('SUM(invoice_items.line_total) as total_revenue'))
+            ->select('products.name', DB::raw('SUM(invoice_items.line_total * COALESCE(invoice_payments.amount / NULLIF(invoices.grand_total, 0), 1)) as total_revenue'))
             ->join('products', 'invoice_items.product_id', '=', 'products.id')
             ->join('invoices', 'invoice_items.invoice_id', '=', 'invoices.id')
+            ->join('invoice_payments', 'invoice_payments.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', '!=', 'cancelled')
-            ->whereDate('invoices.invoice_date', '>=', $startDate)
-            ->whereDate('invoices.invoice_date', '<=', $endDate)
-            ->whereIn('products.type', ['product', 'iv_product'])
+            ->where(function ($q) {
+                $q->whereNull('invoices.invoice_type')
+                  ->orWhere('invoices.invoice_type', '!=', 'package');
+            })
+            ->whereNull('invoices.package_id')
+            ->whereDate('invoice_payments.payment_date', '>=', $startDate)
+            ->whereDate('invoice_payments.payment_date', '<=', $endDate)
+            ->when($this->productType, fn($q, $type) => $q->where('products.type', $type))
             ->when($clinicId, fn($q) => $q->where('invoices.clinic_id', $clinicId))
             ->groupBy('products.name');
 
@@ -81,26 +87,19 @@ class ProductSalesDistributionChart extends ChartWidget
             ->join('user_packages', 'user_package_items.user_package_id', '=', 'user_packages.id')
             ->whereDate('user_packages.created_at', '>=', $startDate)
             ->whereDate('user_packages.created_at', '<=', $endDate)
-            ->where('products.type', '=', 'service')
+            ->when($this->productType, fn($q, $type) => $q->where('products.type', $type))
             ->when($clinicId, fn($q) => $q->where('user_packages.clinic_id', $clinicId))
             ->groupBy('products.name');
 
-        if ($this->productType === 'service') {
-            $data = $packageQuery->orderByDesc('total_revenue')->limit(10)->get();
-        } elseif (in_array($this->productType, ['product', 'iv_product'])) {
-            $data = $invoiceQuery->orderByDesc('total_revenue')->limit(10)->get();
-        } else {
-            // Union and wrap
-            $unionQuery = DB::table(DB::raw("({$invoiceQuery->toSql()} UNION ALL {$packageQuery->toSql()}) as combined"))
-                ->mergeBindings($invoiceQuery)
-                ->mergeBindings($packageQuery)
-                ->select('name', DB::raw('SUM(total_revenue) as total_revenue'))
-                ->groupBy('name')
-                ->orderByDesc('total_revenue')
-                ->limit(10)
-                ->get();
-            $data = $unionQuery;
-        }
+        $unionQuery = DB::table(DB::raw("({$invoiceQuery->toSql()} UNION ALL {$packageQuery->toSql()}) as combined"))
+            ->mergeBindings($invoiceQuery)
+            ->mergeBindings($packageQuery)
+            ->select('name', DB::raw('SUM(total_revenue) as total_revenue'))
+            ->groupBy('name')
+            ->orderByDesc('total_revenue')
+            ->limit(10)
+            ->get();
+        $data = $unionQuery;
 
         return [
             'datasets' => [

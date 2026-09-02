@@ -44,7 +44,6 @@ class ProductSalesReportExport implements FromCollection, WithHeadings, WithStyl
         )
             ->orderByDesc('sales_revenue')
             ->get();
-        dd($products->toArray());
 
         return $products->map(function ($product) {
             return [
