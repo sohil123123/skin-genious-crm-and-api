@@ -1048,22 +1048,659 @@ class ReportController extends BaseApiController
         ]);
     }
 
-    // ─────────────────────────────────────────────
-    //  13. Download All Reassessment Reports as ZIP
-    // ─────────────────────────────────────────────
-    public function downloadAllReassessmentZip($assessment_id)
-    {
-        $record = Assessment::findOrFail($assessment_id);
-        $service = new \App\Services\ReassessmentReportService();
-        $zipFilePath = $service->generateZipOfReports($record);
+    // --- Helper methods for Pigmentation Diagnosis ---
+    private function shortenPigmentText(string $text, int $limit): string {
+        $text = trim(preg_replace('/\s+/u', ' ', $text));
+        if (mb_strlen($text) <= $limit) return $text;
+        $cut = mb_substr($text, 0, $limit);
+        $p = mb_strrpos($cut, ' ');
+        if ($p !== false) $cut = mb_substr($cut, 0, $p);
+        return rtrim($cut, ',;: ') . '.';
+    }
 
-        if (!$zipFilePath) {
-            return response()->json(['message' => 'No completed reassessment sessions found for this client.'], 404);
+    private function fitzpatrickFromDiagnosis(array $d): string {
+        foreach ([($d['summaries']['clinical_summary_for_doctor'] ?? ''), ($d['validation_metadata']['reasoning'] ?? '')] as $text) {
+            if (preg_match('/Fitzpatrick\s+([IVX]+)/i', (string)$text, $m)) return strtoupper($m[1]);
+        }
+        return 'IV';
+    }
+
+    private function findPigmentComponent(array $components, string $id): array {
+        foreach ($components as $c) if (($c['diagnostic_component_id'] ?? '') === $id) return $c;
+        return [];
+    }
+
+    private function patientPigmentCopy(array $c, string $fallback, int $limit): string {
+        return $this->shortenPigmentText((string)($c['patient_explanation'] ?? $fallback), $limit);
+    }
+
+    private function scorePigmentBand(int $score): string {
+        return match (true) {
+            $score <= 10 => 'Minimal',
+            $score <= 35 => 'Mild',
+            $score <= 65 => 'Moderate',
+            $score <= 85 => 'High',
+            default => 'Very High'
+        };
+    }
+    private function ptpCleanText(string $text): string {
+        $text = preg_replace('/\b(?:DC|PG|PM|OP)_[0-9]+\b/u', '', $text) ?? $text;
+        $text = str_replace(['_', '  '], [' ', ' '], $text);
+        $text = preg_replace('/\(\s*\)/u', '', $text) ?? $text;
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        return trim($text, " \t\n\r\0\x0B,;-");
+    }
+
+    private function ptpShorten(string $text, int $limit): string {
+        $text = $this->ptpCleanText($text);
+        if (mb_strlen($text) <= $limit) return $text;
+        $cut = mb_substr($text, 0, $limit);
+        $space = mb_strrpos($cut, ' ');
+        if ($space !== false) $cut = mb_substr($cut, 0, $space);
+        return rtrim($cut, ',;: ') . '.';
+    }
+
+    private function ptpTitleize(string $value): string {
+        return ucwords(str_replace(['_', '-'], ' ', trim($value)));
+    }
+
+    private function ptpTreatmentName(string $modality, ?string $protocol = null): string {
+        $protocol = strtoupper((string)$protocol);
+        if ($modality === 'q_switch_laser') return 'Q-Switch Laser';
+        if ($modality === 'microneedling_with_active') {
+            if (str_contains($protocol, 'PERIOCULAR')) return 'Under-Eye Microneedling';
+            return 'Microneedling with Active';
+        }
+        if ($modality === 'led') return 'Red LED Recovery Support';
+        if ($modality === 'chemical_peel') return 'Clinical Peel';
+        return $this->ptpTitleize($modality);
+    }
+
+    private function ptpUniqueTreatments(array $uses): array {
+        $labels = [];
+        foreach ($uses as $use) {
+            $label = $this->ptpTreatmentName((string)($use['modality_id'] ?? ''), (string)($use['protocol_id'] ?? ''));
+            if ($label !== '' && !in_array($label, $labels, true)) $labels[] = $label;
+        }
+        return $labels;
+    }
+
+    private function ptpFindComponent(array $components, string $id): array {
+        foreach ($components as $component) {
+            if (($component['diagnostic_component_id'] ?? '') === $id) return $component;
+        }
+        return [];
+    }
+
+    private function ptpModalityCount(array $plan, string $modality): int {
+        foreach (($plan['package_modality_summary'] ?? []) as $item) {
+            if (($item['modality_id'] ?? '') === $modality) return (int)($item['planned_visits'] ?? 0);
+        }
+        foreach (($plan['full_course_summary']['planned_modality_allocation'] ?? []) as $item) {
+            if (($item['modality_id'] ?? '') === $modality) return (int)($item['planned_uses'] ?? 0);
+        }
+        return 0;
+    }
+
+    private function ptpBuildTimeline(array $plan): array {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+        $timeline = [];
+
+        $currentSessions = $planData['current_treatment_block']['sessions']
+            ?? $planData['current_sessions']
+            ?? [];
+        $futureSessions = $planData['future_provisional_sessions'] ?? [];
+        $genericSessions = $planData['sessions'] ?? [];
+
+        $allSessions = [];
+        foreach ($currentSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0) {
+                $allSessions[$n] = $session;
+            }
+        }
+        foreach ($futureSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0 && !isset($allSessions[$n])) {
+                $allSessions[$n] = $session;
+            }
+        }
+        foreach ($genericSessions as $session) {
+            $n = (int)($session['session_number'] ?? 0);
+            if ($n > 0 && !isset($allSessions[$n])) {
+                $allSessions[$n] = $session;
+            }
         }
 
-        $patientName = $record->user ? str_replace(' ', '_', strtolower($record->user->name)) : 'patient';
-        $zipName = $patientName . '_facial_reassessment_reports.zip';
+        ksort($allSessions);
 
-        return response()->download($zipFilePath, $zipName)->deleteFileAfterSend(true);
+        $blocks = $planData['master_treatment_roadmap']['blocks'] ?? [];
+        $blockBySession = [];
+        foreach ($blocks as $idx => $block) {
+            $bNum = (int)($block['block_number'] ?? ($idx + 1));
+            $bStatus = (string)($block['detail_status'] ?? '');
+            $bPurpose = (string)($block['purpose'] ?? '');
+            $bTitle = (string)($block['title'] ?? $block['name'] ?? $block['phase'] ?? '');
+            foreach (($block['session_numbers'] ?? []) as $sNum) {
+                $blockBySession[(int)$sNum] = [
+                    'block_number' => $bNum,
+                    'title' => $bTitle,
+                    'detail_status' => $bStatus,
+                    'purpose' => $bPurpose,
+                ];
+            }
+        }
+
+        $ordinals = [
+            1 => 'First treatment block',
+            2 => 'Second treatment block',
+            3 => 'Third treatment block',
+            4 => 'Fourth treatment block',
+            5 => 'Fifth treatment block',
+            6 => 'Sixth treatment block',
+        ];
+
+        $blockColors = [
+            1 => 'gold',
+            2 => 'purple',
+            3 => 'cyan',
+            4 => 'coral',
+        ];
+        $palette = ['gold', 'purple', 'cyan', 'coral'];
+
+        foreach ($allSessions as $number => $session) {
+            $rawUses = array_merge(
+                $session['treatment_operations'] ?? [],
+                $session['planned_protocol_uses'] ?? [],
+                $session['supportive_protocol_uses'] ?? []
+            );
+
+            if (!empty($session['treatments']) && is_array($session['treatments'])) {
+                $treatments = $session['treatments'];
+            } else {
+                $treatments = $this->ptpUniqueTreatments($rawUses);
+            }
+
+            if (empty($treatments)) {
+                $treatments = ['Treatment Session'];
+            }
+
+            $rawFocus = $session['focus']
+                ?? $session['session_goal']
+                ?? $session['retain_if']
+                ?? ($blockBySession[$number]['purpose'] ?? null)
+                ?? ('Session ' . $number . ' treatment focus');
+
+            $focus = $this->ptpShorten((string)$rawFocus, 140);
+
+            $bInfo = $blockBySession[$number] ?? [];
+            $bNum = (int)($bInfo['block_number'] ?? (int)ceil($number / 2));
+
+            if (!empty($session['phase'])) {
+                $phase = (string)$session['phase'];
+            } elseif (!empty($bInfo['title'])) {
+                $phase = (string)$bInfo['title'];
+            } elseif (isset($ordinals[$bNum])) {
+                $phase = $ordinals[$bNum];
+            } else {
+                $phase = 'Block ' . $bNum;
+            }
+
+            if (!empty($session['colour'])) {
+                $colour = (string)$session['colour'];
+            } else {
+                $colour = $blockColors[$bNum] ?? $palette[($bNum - 1) % count($palette)];
+            }
+
+            $timingRaw = !empty($session['timing']) ? (string)$session['timing'] : ('Session ' . $number);
+            $timing = $this->ptpFormatTiming($timingRaw, $number);
+
+            $timeline[] = [
+                'number' => $number,
+                'timing' => $timing,
+                'treatments' => $treatments,
+                'focus' => $focus,
+                'phase' => $phase,
+                'colour' => $colour,
+            ];
+        }
+
+        return $timeline;
+    }
+
+    private function ptpFormatTiming(string $timing, int $number): string {
+        $timing = trim($timing);
+        if ($timing === '') {
+            return 'Session ' . $number;
+        }
+        $timing = str_replace('_', ' ', $timing);
+        $timing = preg_replace('/\s+/u', ' ', $timing) ?? $timing;
+
+        if (mb_strlen($timing) > 35) {
+            if (preg_match('/^(Session\s+\d+)\s*\((.*?)\)$/i', $timing, $m)) {
+                $inner = $this->ptpCleanText($m[2]);
+                $inner = preg_replace('/\b(after|if|depending on|unless|only if)\b.*$/i', '', $inner);
+                $inner = trim($inner, " \t\n\r\0\x0B,;-");
+                if (mb_strlen($inner) > 22) {
+                    $inner = mb_substr($inner, 0, 20) . '...';
+                }
+                return $m[1] . ($inner !== '' ? ' (' . $inner . ')' : '');
+            }
+            return $this->ptpShorten($timing, 35);
+        }
+        return $timing;
+    }
+
+    private function ptpFormatDuration(string $duration): string {
+        $duration = trim($duration);
+        if ($duration === '') return '~5 months';
+
+        if (str_contains($duration, '(')) {
+            $parts = explode('(', $duration, 2);
+            $duration = trim($parts[0]);
+        }
+        $duration = preg_replace('/^approx\.?\s*/i', '~', $duration) ?? $duration;
+        if (mb_strlen($duration) > 22) {
+            $duration = $this->ptpShorten($duration, 20);
+        }
+        return $duration;
+    }
+
+    private function ptpBuildTreatmentMix(array $plan): array {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+        $summary = $planData['full_course_summary']['current_full_course_summary']
+            ?? $planData['full_course_summary']['initial_full_course_summary']
+            ?? $planData['full_course_summary']
+            ?? [];
+
+        $allocations = $summary['planned_modality_allocation']
+            ?? $planData['planned_modality_allocation']
+            ?? [];
+        $supportive = $summary['supportive_inclusions']
+            ?? $planData['supportive_inclusions']
+            ?? [];
+
+        $modalitySessions = [];
+        $modalityNotes = [];
+
+        foreach ($allocations as $item) {
+            $modality = (string)($item['modality_id'] ?? '');
+            if ($modality === '') continue;
+            $sessions = $item['session_numbers'] ?? [];
+            if (!isset($modalitySessions[$modality])) {
+                $modalitySessions[$modality] = [];
+            }
+            foreach ($sessions as $s) {
+                $modalitySessions[$modality][(int)$s] = true;
+            }
+            if (!empty($item['note'])) {
+                $modalityNotes[$modality] = $item['note'];
+            }
+        }
+
+        $defaults = [
+            'q_switch_laser' => [
+                'label' => 'Q-Switch Laser Visits',
+                'icon' => 'icon_glow',
+                'colour' => 'gold',
+                'copy' => 'Targets background sun-related tone and cheek speckling on suitable areas.',
+            ],
+            'microneedling_with_active' => [
+                'label' => 'Microneedling Visits',
+                'icon' => 'icon_renewal',
+                'colour' => 'purple',
+                'copy' => 'Supports cheek pigment, tone uniformity and selected under-eye care when ready.',
+            ],
+            'chemical_peel' => [
+                'label' => 'Clinical Peel Visits',
+                'icon' => 'icon_pores',
+                'colour' => 'cyan',
+                'copy' => 'Melasma-cautious regional peel to address background melanin load and surface renewal.',
+            ],
+            'led' => [
+                'label' => 'LED Support Uses',
+                'icon' => 'icon_barrier',
+                'colour' => 'cyan',
+                'copy' => 'Calming and recovery support after treatment; not counted as a separate visit.',
+            ],
+        ];
+
+        $mix = [];
+
+        foreach ($modalitySessions as $modality => $sessionsSet) {
+            $count = count($sessionsSet);
+            if ($count <= 0) continue;
+
+            $def = $defaults[$modality] ?? [
+                'label' => $this->ptpTreatmentName($modality) . ' Visits',
+                'icon' => 'icon_target',
+                'colour' => 'purple',
+                'copy' => 'Targeted clinical procedure as part of the personalized treatment roadmap.',
+            ];
+
+            $copy = !empty($modalityNotes[$modality])
+                ? $this->ptpShorten($modalityNotes[$modality], 110)
+                : $def['copy'];
+
+            $mix[] = [
+                'modality_id' => $modality,
+                'count' => $count,
+                'label' => $def['label'],
+                'icon' => $def['icon'],
+                'colour' => $def['colour'],
+                'copy' => $copy,
+            ];
+        }
+
+        foreach ($supportive as $item) {
+            $modality = (string)($item['modality_id'] ?? '');
+            if ($modality === '') continue;
+
+            $alreadyAdded = false;
+            foreach ($mix as $existing) {
+                if ($existing['modality_id'] === $modality) {
+                    $alreadyAdded = true;
+                    break;
+                }
+            }
+            if ($alreadyAdded) continue;
+
+            $count = (int)($item['planned_uses'] ?? count($item['session_numbers'] ?? []));
+            if ($count <= 0) continue;
+
+            $def = $defaults[$modality] ?? [
+                'label' => $this->ptpTreatmentName($modality) . ' Support Uses',
+                'icon' => 'icon_barrier',
+                'colour' => 'cyan',
+                'copy' => 'Supportive recovery care included within the treatment visits.',
+            ];
+
+            $note = $item['note'] ?? null;
+            $copy = !empty($note)
+                ? $this->ptpShorten((string)$note, 110)
+                : $def['copy'];
+
+            $mix[] = [
+                'modality_id' => $modality,
+                'count' => $count,
+                'label' => $def['label'],
+                'icon' => $def['icon'],
+                'colour' => $def['colour'],
+                'copy' => $copy,
+            ];
+        }
+
+        if (empty($mix)) {
+            $qCount = $this->ptpModalityCount($plan, 'q_switch_laser');
+            $mnCount = $this->ptpModalityCount($plan, 'microneedling_with_active');
+            $ledCount = (int)($summary['supportive_inclusions'][0]['planned_uses'] ?? 0);
+            $mix = [
+                [
+                    'modality_id' => 'q_switch_laser',
+                    'count' => $qCount > 0 ? $qCount : 3,
+                    'label' => 'Q-Switch Laser Visits',
+                    'icon' => 'icon_glow',
+                    'colour' => 'gold',
+                    'copy' => 'Targets background sun-related tone and cheek speckling on suitable areas.',
+                ],
+                [
+                    'modality_id' => 'microneedling_with_active',
+                    'count' => $mnCount > 0 ? $mnCount : 3,
+                    'label' => 'Microneedling Visits',
+                    'icon' => 'icon_renewal',
+                    'colour' => 'purple',
+                    'copy' => 'Supports cheek pigment, tone uniformity and selected under-eye care when ready.',
+                ],
+                [
+                    'modality_id' => 'led',
+                    'count' => $ledCount > 0 ? $ledCount : 6,
+                    'label' => 'LED Support Uses',
+                    'icon' => 'icon_barrier',
+                    'colour' => 'cyan',
+                    'copy' => 'Calming and recovery support after treatment; not counted as a separate visit.',
+                ],
+            ];
+        }
+
+        $colorOrder = ['gold', 'purple', 'cyan'];
+        foreach ($mix as $idx => &$mItem) {
+            if (isset($colorOrder[$idx])) {
+                $mItem['colour'] = $colorOrder[$idx];
+            }
+        }
+        unset($mItem);
+
+        return array_slice($mix, 0, 3);
+    }
+
+    private function ptpBuildSequenceRationale(array $plan, array $treatmentMix): string {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+
+        $rawLogic = $planData['course']['base_case_logic']
+            ?? $planData['full_course_summary']['base_case_logic']
+            ?? $planData['master_treatment_roadmap']['roadmap_logic']
+            ?? $planData['sequence_rationale']
+            ?? null;
+
+        if (!empty($rawLogic)) {
+            $cleanLogic = $this->ptpCleanText((string)$rawLogic);
+            if (mb_strlen($cleanLogic) > 20) {
+                return $this->ptpShorten($cleanLogic, 260);
+            }
+        }
+
+        $modalities = array_column($treatmentMix, 'modality_id');
+        $parts = [];
+
+        if (in_array('q_switch_laser', $modalities, true)) {
+            $parts[] = 'Q-Switch laser sessions focus on overall sun-related background tone and cheek speckling.';
+        }
+        if (in_array('microneedling_with_active', $modalities, true)) {
+            $parts[] = 'Microneedling sessions support skin quality, tone uniformity and targeted active penetration.';
+        }
+        if (in_array('chemical_peel', $modalities, true)) {
+            $parts[] = 'Clinical peel sessions encourage gentle epidermal renewal and background melanin load reduction.';
+        }
+
+        $parts[] = 'Under-eye treatment is deliberately staged because the skin is delicate and requires barrier-first care.';
+
+        return implode(' ', $parts);
+    }
+
+    private function ptpBuildPriorities(array $plan): array {
+        $planData = $plan['linear_treatment_plan'] ?? $plan;
+        $summary = $planData['full_course_summary']['current_full_course_summary']
+            ?? $planData['full_course_summary']['initial_full_course_summary']
+            ?? $planData['full_course_summary']
+            ?? [];
+
+        $assumptions = $summary['base_case_assumptions'] ?? $planData['base_case_assumptions'] ?? [];
+        $priorities = [];
+
+        $block1Goal = $planData['current_treatment_block']['block_goal']
+            ?? ($assumptions[1] ?? null);
+
+        if (!empty($block1Goal)) {
+            $clean1 = $this->ptpCleanText((string)$block1Goal);
+            $priorities[] = [
+                'label' => 'First priority',
+                'copy' => $this->ptpShorten($clean1, 120),
+                'colour' => 'gold',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'First priority',
+                'copy' => 'Begin conservative pigment treatment while preserving mapped safety exclusions.',
+                'colour' => 'gold',
+            ];
+        }
+
+        $gateRules = $planData['current_treatment_block']['reassessment_gate']['decision_rules']
+            ?? $planData['reassessment_gate']['decision_rules']
+            ?? [];
+
+        if (!empty($gateRules[0])) {
+            $clean2 = $this->ptpCleanText((string)$gateRules[0]);
+            $priorities[] = [
+                'label' => 'Second priority',
+                'copy' => $this->ptpShorten($clean2, 120),
+                'colour' => 'purple',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'Second priority',
+                'copy' => 'Review tolerance and visible response at reassessment before expanding the plan.',
+                'colour' => 'purple',
+            ];
+        }
+
+        $sunAssumption = null;
+        foreach ($assumptions as $item) {
+            $itemStr = (string)$item;
+            if (str_contains(strtolower($itemStr), 'sunscreen') || str_contains(strtolower($itemStr), 'barrier') || str_contains(strtolower($itemStr), 'photoprotection')) {
+                $sunAssumption = $itemStr;
+                break;
+            }
+        }
+
+        if (!empty($sunAssumption)) {
+            $clean3 = $this->ptpCleanText((string)$sunAssumption);
+            $priorities[] = [
+                'label' => 'Ongoing priority',
+                'copy' => $this->ptpShorten($clean3, 120),
+                'colour' => 'cyan',
+            ];
+        } else {
+            $priorities[] = [
+                'label' => 'Ongoing priority',
+                'copy' => 'Maintain daily sun protection and preserve skin barrier comfort throughout the course.',
+                'colour' => 'cyan',
+            ];
+        }
+
+        return array_slice($priorities, 0, 3);
+    }
+
+    private function ptpPatientFacingSession(array $session): array {
+        $number = (int)($session['session_number'] ?? 0);
+        $operations = $session['treatment_operations'] ?? [];
+        $treatments = $this->ptpUniqueTreatments($operations);
+        $primary = null;
+        $aftercare = [];
+
+        foreach ($operations as $operation) {
+            if (($operation['role'] ?? '') === 'primary' && $primary === null) {
+                $primary = $operation;
+            }
+            foreach (($operation['aftercare'] ?? []) as $item) {
+                $clean = $this->ptpCleanText((string)$item);
+                $clean = str_ireplace('photoprotection', 'sun protection', $clean);
+                if ($clean !== '' && !in_array($clean, $aftercare, true)) {
+                    $aftercare[] = $clean;
+                }
+            }
+        }
+        if ($primary === null && !empty($operations[0])) {
+            $primary = $operations[0];
+        }
+
+        $primaryModality = (string)($primary['modality_id'] ?? '');
+        $primaryProtocol = strtoupper((string)($primary['protocol_id'] ?? ''));
+
+        if (!empty($session['headline'])) {
+            $headline = (string)$session['headline'];
+        } elseif ($primaryModality === 'q_switch_laser') {
+            $headline = 'Tone and cheek-spot laser session';
+        } elseif ($primaryModality === 'microneedling_with_active') {
+            if (str_contains($primaryProtocol, 'PERIOCULAR')) {
+                $headline = 'Under-eye microneedling session';
+            } else {
+                $headline = 'Field microneedling session';
+            }
+        } elseif ($primaryModality === 'chemical_peel') {
+            $headline = 'Clinical peel session';
+        } elseif (!empty($treatments)) {
+            $headline = implode(' + ', $treatments) . ' session';
+        } else {
+            $headline = 'Treatment session ' . $number;
+        }
+
+        if (!empty($session['what'])) {
+            $what = (string)$session['what'];
+        } else {
+            $goalText = $session['session_goal'] ?? $primary['target_location_text'] ?? implode(' + ', $treatments);
+            $what = $this->ptpShorten($this->ptpCleanText((string)$goalText), 180);
+        }
+
+        if (!empty($session['target'])) {
+            $target = (string)$session['target'];
+        } elseif (!empty($primary['target_location_text'])) {
+            $target = $this->ptpShorten($this->ptpCleanText((string)$primary['target_location_text']), 140);
+        } elseif (!empty($primary['target_regions']) && is_array($primary['target_regions'])) {
+            $target = 'Treated regions: ' . implode(', ', array_map([$this, 'ptpTitleize'], $primary['target_regions']));
+        } else {
+            $target = 'Suitable facial areas selected on the day of treatment.';
+        }
+
+        if (!empty($session['avoid'])) {
+            $avoid = (string)$session['avoid'];
+        } elseif (!empty($primary['exclusion_instruction'])) {
+            $avoid = $this->ptpShorten($this->ptpCleanText((string)$primary['exclusion_instruction']), 140);
+        } elseif (!empty($primary['excluded_regions']) && is_array($primary['excluded_regions'])) {
+            $avoid = 'Excluded regions: ' . implode(', ', array_map([$this, 'ptpTitleize'], $primary['excluded_regions']));
+        } else {
+            $avoid = 'Irritated, dry, or excluded regions remain held.';
+        }
+
+        if (!empty($session['colour'])) {
+            $colour = (string)$session['colour'];
+        } elseif ($primaryModality === 'q_switch_laser') {
+            $colour = 'gold';
+        } elseif ($primaryModality === 'microneedling_with_active') {
+            $colour = 'purple';
+        } elseif ($primaryModality === 'chemical_peel') {
+            $colour = 'cyan';
+        } else {
+            $colour = ($number % 2 === 1) ? 'gold' : 'purple';
+        }
+
+        if (!empty($session['icon'])) {
+            $icon = (string)$session['icon'];
+        } elseif ($primaryModality === 'q_switch_laser') {
+            $icon = 'icon_glow';
+        } elseif ($primaryModality === 'microneedling_with_active') {
+            $icon = 'icon_renewal';
+        } elseif ($primaryModality === 'chemical_peel') {
+            $icon = 'icon_pores';
+        } else {
+            $icon = 'icon_target';
+        }
+
+        $timingRaw = (string)($session['timing'] ?? ('Session ' . $number));
+        $timing = $this->ptpFormatTiming($timingRaw, $number);
+
+        return [
+            'number' => $number,
+            'timing' => $timing,
+            'headline' => $headline,
+            'treatments' => $treatments,
+            'goal' => $this->ptpShorten($this->ptpCleanText((string)($session['session_goal'] ?? '')), 190),
+            'what' => $what,
+            'target' => $target,
+            'avoid' => $avoid,
+            'aftercare' => array_slice($aftercare, 0, 3),
+            'colour' => $colour,
+            'icon' => $icon,
+        ];
+    }
+
+    private function ptpTranslateReassessmentItem(string $item): string {
+        $lower = strtolower($item);
+        if (str_contains($lower, 'melanin')) return 'Overall tone and background pigment trend';
+        if (str_contains($lower, 'flat_focal') || str_contains($lower, 'speckling') || str_contains($lower, 'macule')) return 'Cheek brown-spot contrast and coverage';
+        if (str_contains($lower, 'pm_005') || str_contains($lower, 'erythema')) return 'Whether the left-cheek red patch has settled';
+        if (str_contains($lower, 'pm_002') || str_contains($lower, 'periocular')) return 'Whether under-eye dryness has improved enough for staged treatment';
+        if (str_contains($lower, 'pih')) return 'Any unwanted darkening, irritation or prolonged redness';
+        return $this->ptpShorten($item, 100);
     }
 }
