@@ -102,3 +102,60 @@ it('says when Exotel has the call but no recording', function (): void {
         ->expectsOutputToContain('No RecordingUrl on this call')
         ->assertSuccessful();
 });
+
+/**
+ * Exotel does not always put the audio on the parent call. A Dial applet
+ * records the agent leg, and the URL then sits nested — which reads on screen
+ * as "no recording exists" when the truth is "the mapper is reading the wrong
+ * key". Those need opposite responses, so the command has to tell them apart.
+ */
+it('finds a recording nested inside the response', function (): void {
+    Http::fake(['*' => Http::response(['Call' => [
+        'Sid' => 'sid-abc',
+        'Status' => 'completed',
+        'Duration' => '275',
+        'Details' => [
+            'Legs' => [
+                ['Type' => 'single', 'RecordingUrl' => 'https://recordings.exotel.com/leg-1.mp3'],
+            ],
+        ],
+    ]], 200)]);
+
+    $this->artisan('calls:check-exotel')
+        ->expectsOutputToContain('does carry audio, nested')
+        ->expectsOutputToContain('Call.Details.Legs.0.RecordingUrl')
+        ->assertSuccessful();
+});
+
+/**
+ * Matched on the value, not the key: Exotel has moved this between RecordingUrl,
+ * RecordingUrlList and a plain Url inside a leg, and a search that insists on a
+ * key name finds only the shapes already known about.
+ */
+it('recognises an audio file under a key that does not say recording', function (): void {
+    Http::fake(['*' => Http::response(['Call' => [
+        'Sid' => 'sid-abc',
+        'Legs' => [['Url' => 'https://s3.ap-south-1.amazonaws.com/exotelrecordings/leg.wav']],
+    ]], 200)]);
+
+    $this->artisan('calls:check-exotel')
+        ->expectsOutputToContain('does carry audio, nested')
+        ->assertSuccessful();
+});
+
+/**
+ * And when there genuinely is none, show the shape so the next question can be
+ * asked without another round trip.
+ */
+it('lists the response keys when no audio is anywhere in it', function (): void {
+    Http::fake(['*' => Http::response(['Call' => [
+        'Sid' => 'sid-abc',
+        'Status' => 'completed',
+        'Duration' => '275',
+    ]], 200)]);
+
+    $this->artisan('calls:check-exotel')
+        ->expectsOutputToContain('Top-level keys Exotel returned')
+        ->expectsOutputToContain('Sid, Status, Duration')
+        ->assertSuccessful();
+});

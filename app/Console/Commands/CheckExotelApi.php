@@ -146,11 +146,41 @@ class CheckExotelApi extends Command
         $this->newLine();
 
         if (blank($call['RecordingUrl'] ?? null)) {
-            $this->warn('  No RecordingUrl on this call, so a refresh cannot attach audio.');
+            $this->warn('  No RecordingUrl on this call.');
+            $this->newLine();
+
+            // Exotel does not always put the audio on the parent call. A Dial
+            // applet records the agent leg, and the URL then sits inside a
+            // nested structure whose name has moved between accounts and API
+            // versions. Rather than guess at the shape, look through the whole
+            // response for anything that is audibly a recording and say where
+            // it was — which is the difference between "no audio exists" and
+            // "the mapper is reading the wrong key".
+            $found = $this->findRecordingUrls($call);
+
+            if ($found !== []) {
+                $this->info('  But the response does carry audio, nested:');
+                $this->newLine();
+
+                foreach ($found as $path => $url) {
+                    $this->line(sprintf('    %s', $path));
+                    $this->line(sprintf('      %s', $url));
+                }
+
+                $this->newLine();
+                $this->warn('  The mapper reads RecordingUrl at the top level only, so it is');
+                $this->warn('  missing this. Send the path above and it can be taught to look.');
+
+                return self::SUCCESS;
+            }
+
+            $this->line('  Top-level keys Exotel returned, so the shape is visible:');
+            $this->line('    ' . implode(', ', array_keys($call)));
+            $this->newLine();
             $this->line('    Exotel finalises recordings a little after a call ends. If this');
             $this->line('    call is minutes old, try again shortly. If it is hours old and');
-            $this->line('    the Exotel inbox shows a player, the recording belongs to a leg');
-            $this->line('    this call id does not cover.');
+            $this->line('    the Exotel inbox shows a player, the audio is not on this call');
+            $this->line('    id and the inbox is reading a different leg.');
 
             return self::SUCCESS;
         }
@@ -158,6 +188,45 @@ class CheckExotelApi extends Command
         $this->info('  A refresh on this call will attach that recording.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Every recording URL anywhere in the response, with the path to it.
+     *
+     * Matched on the value rather than the key: Exotel has used RecordingUrl,
+     * RecordingUrlList and Url-inside-Legs across accounts and versions, and a
+     * search that insists on a key name finds only the shapes already known
+     * about. An audio URL is recognisable on sight, so recognise it that way.
+     *
+     * @param  array<mixed>  $data
+     * @return array<string, string>
+     */
+    protected function findRecordingUrls(array $data, string $path = 'Call'): array
+    {
+        $found = [];
+
+        foreach ($data as $key => $value) {
+            $here = $path . '.' . $key;
+
+            if (is_array($value)) {
+                $found += $this->findRecordingUrls($value, $here);
+
+                continue;
+            }
+
+            if (! is_string($value) || ! str_starts_with(strtolower($value), 'http')) {
+                continue;
+            }
+
+            $looksLikeAudio = preg_match('/\.(mp3|wav|ogg|m4a)(\?|$)/i', $value) === 1
+                || str_contains(strtolower($key), 'recording');
+
+            if ($looksLikeAudio) {
+                $found[$here] = $value;
+            }
+        }
+
+        return $found;
     }
 
     protected function resolveCallSid(): ?string
