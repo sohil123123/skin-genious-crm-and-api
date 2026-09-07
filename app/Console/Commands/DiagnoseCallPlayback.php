@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Says why a recording will not play.
@@ -42,6 +43,9 @@ class DiagnoseCallPlayback extends Command
      * @var list<string>
      */
     protected const PER_PROCESS_STORES = ['array', 'apc', 'apcu', 'octane'];
+
+    /** @var \Illuminate\Support\Collection<int, CallRecording>|null */
+    protected ?\Illuminate\Support\Collection $recordings = null;
 
     public function handle(): int
     {
@@ -166,6 +170,37 @@ class DiagnoseCallPlayback extends Command
 
             $this->line(sprintf('      roles: %s', $user->getRoleNames()->implode(', ') ?: 'none'));
 
+            // The permission is only half the policy. playRecording is
+            // "can(...) AND sharesClinic(...)", and the second half is what the
+            // controller actually calls — so run the real gate check against a
+            // real recording rather than inferring from the permission alone.
+            foreach ($this->recordingsToCheck() as $recording) {
+                if ($recording->call === null) {
+                    continue;
+                }
+
+                $allowed = Gate::forUser($user)->allows('playRecording', $recording->call);
+
+                $this->line(sprintf(
+                    '      %s policy playRecording on recording #%d (call %d, clinic %s): %s',
+                    $allowed ? '<fg=green>✓</>' : '<fg=red>✗</>',
+                    $recording->getKey(),
+                    $recording->call->getKey(),
+                    $recording->call->clinic_id === null ? 'none' : (string) $recording->call->clinic_id,
+                    $allowed ? 'allowed' : 'DENIED — this is the 403',
+                ));
+
+                if (! $allowed) {
+                    $ok = false;
+
+                    $this->line(sprintf(
+                        '          user clinic: %s, super admin: %s',
+                        $user->clinic_id === null ? 'none' : (string) $user->clinic_id,
+                        $user->hasRole(config('project.roles.super_admin')) ? 'yes' : 'no',
+                    ));
+                }
+            }
+
             if (! $can) {
                 $ok = false;
 
@@ -207,11 +242,21 @@ class DiagnoseCallPlayback extends Command
      * state right after a deploy to a machine that has never run the download
      * worker.
      */
-    protected function reportRecordings(): void
+    /**
+     * The recordings both the policy check and the storage report run against.
+     *
+     * @return \Illuminate\Support\Collection<int, CallRecording>
+     */
+    protected function recordingsToCheck(): \Illuminate\Support\Collection
     {
-        $recordings = $this->option('recording')
+        return $this->recordings ??= $this->option('recording')
             ? CallRecording::query()->whereKey($this->option('recording'))->get()
             : CallRecording::query()->latest('id')->limit(5)->get();
+    }
+
+    protected function reportRecordings(): void
+    {
+        $recordings = $this->recordingsToCheck();
 
         if ($recordings->isEmpty()) {
             $this->line('  <fg=yellow>–</> No recordings to check.');

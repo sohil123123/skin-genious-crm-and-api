@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CallRecording;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -41,7 +43,30 @@ class CallRecordingController extends Controller
         // conversation is decided by whose conversation it was — and against
         // playRecording rather than view, because hearing what a patient said
         // is a different grant from knowing that they rang.
-        $this->authorize('playRecording', $call);
+        //
+        // Checked explicitly rather than with authorize() so the refusal can be
+        // written down. A bare 403 tells whoever is looking at it nothing: the
+        // policy is a permission AND a clinic match, the browser cannot say
+        // which failed, and the same page can work for one account and not
+        // another. Every refusal now names the user, their roles, the clinic on
+        // both sides, and which half said no — which is the difference between
+        // reading one log line and bisecting a deployment.
+        if (! Gate::allows('playRecording', $call)) {
+            $user = $request->user();
+
+            Log::channel('calls')->warning('Recording playback refused.', [
+                'recording_id' => $recording->getKey(),
+                'call_id' => $call->getKey(),
+                'call_clinic_id' => $call->clinic_id,
+                'user_id' => $user?->getKey(),
+                'user_clinic_id' => $user?->clinic_id,
+                'roles' => $user?->getRoleNames()->all() ?? [],
+                'has_play_permission' => $user?->can('PlayRecording:Call') ?? false,
+                'guard' => config('auth.defaults.guard'),
+            ]);
+
+            abort(403, 'You are not allowed to play this recording.');
+        }
 
         abort_unless($recording->fileExists(), 404, 'The audio for this recording is not stored.');
 
