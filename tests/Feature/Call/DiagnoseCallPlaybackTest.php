@@ -112,3 +112,39 @@ it('separates missing audio from a refused one', function (): void {
         ->expectsOutputToContain('404, not 403')
         ->assertSuccessful();
 });
+
+/**
+ * A recording whose call has been deleted cannot be played by anybody.
+ * Reporting it as MISSING alongside audio that merely failed to download sends
+ * the reader after a worker that was never the problem.
+ *
+ * The foreign key cascades, so a genuinely parentless row is close to
+ * impossible; in practice the call is in the trash, and Call::count() does not
+ * see it — which is why a server can show more recordings than calls.
+ */
+it('tells a recording on a deleted call apart from one that failed to download', function (): void {
+    Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web'])
+        ->givePermissionTo(Permission::firstOrCreate(['name' => 'PlayRecording:Call', 'guard_name' => 'web']));
+
+    Permission::firstOrCreate(['name' => 'ViewTranscript:Call', 'guard_name' => 'web']);
+
+    $call = Call::create([
+        'uuid' => (string) Str::uuid(), 'clinic_id' => $this->clinic->getKey(),
+        'provider' => 'exotel', 'provider_call_id' => 'orphan-1', 'source' => 'webhook',
+        'direction' => 'incoming', 'call_status' => 'completed', 'started_at' => now(),
+    ]);
+
+    \App\Models\CallRecording::create([
+        'call_id' => $call->getKey(), 'provider' => 'exotel',
+        'storage_status' => 'remote_only', 'storage_path' => 'calls/orphan.mp3',
+    ]);
+
+    // Soft-deleted, so the row survives for the foreign key while dropping out
+    // of every ordinary query.
+    $call->delete();
+
+    $this->artisan('calls:diagnose-playback')
+        ->expectsOutputToContain('its call is in the trash')
+        ->expectsOutputToContain('belong to deleted calls')
+        ->assertSuccessful();
+});

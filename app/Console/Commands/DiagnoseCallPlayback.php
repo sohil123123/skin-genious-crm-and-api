@@ -225,21 +225,47 @@ class DiagnoseCallPlayback extends Command
         foreach ($recordings as $recording) {
             $exists = $recording->fileExists();
 
+            // A recording whose call has been deleted cannot be played by
+            // anybody, and reporting it as MISSING alongside audio that merely
+            // failed to download sends the reader after a worker that was never
+            // the problem. The two need opposite responses: run the worker, or
+            // ignore the row entirely.
+            //
+            // belongsTo applies the parent's soft-delete scope, so ->call is
+            // null for a trashed call as well as an absent one. The foreign key
+            // cascades, which makes a truly absent parent close to impossible —
+            // so in practice this is always the trash.
+            $detached = $recording->call === null;
+            $trashed = $detached && Call::withTrashed()->whereKey($recording->call_id)->exists();
+
             $this->line(sprintf(
                 '  %s #%-4d call %-5s disk %-18s %s',
-                $exists ? '<fg=green>✓</>' : '<fg=red>✗</>',
+                $exists ? '<fg=green>✓</>' : ($detached ? '<fg=yellow>–</>' : '<fg=red>✗</>'),
                 $recording->getKey(),
                 (string) $recording->call_id,
-                $recording->diskName(),
-                $exists ? 'on disk' : 'MISSING — the route will answer 404, not 403',
+                $recording->diskName() ?: '(never downloaded)',
+                match (true) {
+                    $exists => 'on disk',
+                    $trashed => 'its call is in the trash; nothing to play',
+                    $detached => 'ORPHAN — its call is gone; nothing to play',
+                    default => 'MISSING — the route will answer 404, not 403',
+                },
             ));
         }
 
+        $detached = CallRecording::query()->whereDoesntHave('call')->count();
+
         $this->newLine();
         $this->line(sprintf(
-            '  Calls: %d, recordings: %d',
+            '  Calls: %d (excluding trashed), recordings: %d%s',
             Call::query()->count(),
             CallRecording::query()->count(),
+            $detached > 0 ? sprintf(' — %d belong to deleted calls', $detached) : '',
         ));
+
+        if ($detached > 0) {
+            $this->line('      Those are not a playback fault. They are audio for calls');
+            $this->line('      that were deleted, and they go when calls:prune runs.');
+        }
     }
 }
