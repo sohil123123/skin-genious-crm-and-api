@@ -6,6 +6,9 @@ namespace App\Filament\Resources\Calls\Tables;
 
 use App\Enums\Call\CallAnalysisStatus;
 use App\Filament\Resources\Calls\Actions\AnalyseCallAction;
+use App\Filament\Resources\Calls\Actions\RefreshCallFromProviderAction;
+use App\Filament\Resources\Calls\Actions\RematchCallCustomerAction;
+use App\Filament\Resources\Calls\Actions\RetryRecordingDownloadAction;
 use App\Filament\Resources\Calls\Actions\TranscribeCallAction;
 use App\Enums\Call\CallDirection;
 use App\Enums\Call\CallMatchingStatus;
@@ -90,6 +93,13 @@ class CallsTable
                     // static::followUpAction(),
                     TranscribeCallAction::make(),
                     AnalyseCallAction::make(),
+                    // The same repairs the call page offers. This is where
+                    // somebody notices a row with no recording or an unmatched
+                    // caller, so it is where the fix belongs — opening the call
+                    // to press one button is a page load per repair.
+                    RetryRecordingDownloadAction::make(),
+                    RematchCallCustomerAction::make(),
+                    RefreshCallFromProviderAction::make(),
                 ]),
             ])
             ->toolbarActions([
