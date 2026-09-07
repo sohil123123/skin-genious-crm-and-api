@@ -46,7 +46,14 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
      * A transcript shorter than this cannot support twenty judgements. Sending
      * it costs money and returns confident nonsense.
      */
-    protected const MIN_WORDS = 15;
+    /**
+     * The floor when nothing has been configured.
+     *
+     * Kept as a constant so the driver still has an answer if the settings
+     * table is unreachable, which is exactly when a hard-coded zero would send
+     * every fragment of hold music to a paid endpoint.
+     */
+    protected const DEFAULT_MIN_WORDS = 15;
 
     public function isEnabled(): bool
     {
@@ -64,6 +71,19 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
         return (string) Setting::getConfigured('call_analysis_version', config('calls.analysis.version', 'v1'));
     }
 
+    /**
+     * Read fresh each time rather than cached on the instance: an administrator
+     * changing this in Call Settings expects the next analysis to obey it, not
+     * the next deploy.
+     */
+    public function minimumWords(): int
+    {
+        return max(1, (int) Setting::getConfigured(
+            'call_analysis_min_words',
+            config('calls.analysis.min_words', self::DEFAULT_MIN_WORDS),
+        ));
+    }
+
     public function analyse(Call $call, CallTranscription $transcription): ?CallAnalysisResult
     {
         $transcript = trim((string) $transcription->transcript);
@@ -73,7 +93,7 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
         // Devanagari and left the space tally doing all the work - so a Hindi
         // call needed roughly twice the words of an English one to clear the
         // same floor, and most of this clinic's calls are in Hindi.
-        if ($transcript === '' || TranscriptWordCounter::count($transcript) < self::MIN_WORDS) {
+        if ($transcript === '' || TranscriptWordCounter::count($transcript) < $this->minimumWords()) {
             return null;
         }
 

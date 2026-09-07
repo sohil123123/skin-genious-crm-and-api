@@ -484,3 +484,78 @@ it('still refuses a transcript that is genuinely too short', function (): void {
     expect($this->call->fresh()->analysis_status)->toBe(CallAnalysisStatus::NotAvailable);
     Http::assertNothingSent();
 });
+
+// ──────────────── The floor, and saying so ────────────────
+
+it('takes the minimum word count from settings', function (): void {
+    enableAnalysis();
+
+    expect(app(CallAnalysisServiceInterface::class)->minimumWords())->toBe(15);
+
+    Setting::setValue('call_analysis_min_words', '40');
+    Setting::flushRuntimeCache();
+
+    expect(app(CallAnalysisServiceInterface::class)->minimumWords())->toBe(40);
+});
+
+/**
+ * A floor of zero would send every fragment of hold music to a paid endpoint,
+ * so a nonsensical setting falls back rather than being obeyed.
+ */
+it('refuses a minimum below one', function (): void {
+    enableAnalysis();
+
+    Setting::setValue('call_analysis_min_words', '0');
+    Setting::flushRuntimeCache();
+
+    expect(app(CallAnalysisServiceInterface::class)->minimumWords())->toBe(1);
+});
+
+it('honours a raised minimum by skipping a call it used to analyse', function (): void {
+    enableAnalysis();
+    Http::fake();
+
+    // Comfortably over the default 15, well under 40.
+    Setting::setValue('call_analysis_min_words', '40');
+    Setting::flushRuntimeCache();
+
+    (new AnalyzeCallJob($this->call->getKey()))->handle(app(CallAnalysisServiceInterface::class));
+
+    expect($this->call->fresh()->analysis_status)->toBe(CallAnalysisStatus::NotAvailable);
+    Http::assertNothingSent();
+});
+
+/**
+ * The call used to sit at "Not analysed yet" for ever, with the button doing
+ * nothing visible. A transcript below the floor will never be analysed however
+ * many times it is pressed, so the section has to say so rather than imply
+ * patience is all that is needed.
+ */
+it('warns on the call page when a transcript is below the floor', function (): void {
+    $admin = analysisAdmin();
+    enableAnalysis();
+
+    Setting::setValue('call_analysis_min_words', '40');
+    Setting::flushRuntimeCache();
+
+    $html = $this->actingAs($admin)->get(
+        \App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $this->call])
+    )->getContent();
+
+    expect($html)->toContain('too short to analyse')
+        // The numbers on both sides, so the reader can judge the setting.
+        ->toContain('and the minimum is 40')
+        ->not->toContain('Not analysed yet');
+});
+
+it('leaves the ordinary empty state alone when the transcript is long enough', function (): void {
+    $admin = analysisAdmin();
+    enableAnalysis();
+
+    $html = $this->actingAs($admin)->get(
+        \App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $this->call])
+    )->getContent();
+
+    expect($html)->toContain('Not analysed yet')
+        ->not->toContain('too short to analyse');
+});

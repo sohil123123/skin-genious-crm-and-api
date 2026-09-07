@@ -177,6 +177,20 @@ return [
         // question, so the two are not comparable and the version is stored
         // next to every result.
         'version' => env('CALL_ANALYSIS_VERSION', 'v2'),
+
+        /*
+         * The shortest transcript worth sending to a model.
+         *
+         * "Hello? Wrong number." is not a sales enquiry, and asking for twenty
+         * judgements about it produces twenty inventions at full price. The
+         * floor is counted in whitespace-separated words, so it means the same
+         * thing in Hindi as in English.
+         *
+         * Overridable from Call Settings, because the right number depends on
+         * how a clinic answers its phone: a reception that opens with a scripted
+         * greeting clears fifteen words before anyone has said anything.
+         */
+        'min_words' => (int) env('CALL_ANALYSIS_MIN_WORDS', 15),
     ],
 
     /*
