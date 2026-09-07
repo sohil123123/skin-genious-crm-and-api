@@ -121,7 +121,7 @@ echo "Running Migrations..."
 php artisan migrate --force --no-interaction
 
 echo "Generating Shield Permissions..."
-php artisan shield:generate --panel=admin --all --no-interaction || true
+php artisan shield:generate --panel=admin --all --option=policies_and_permissions --no-interaction --ignore-existing-policies || true
 
 echo "Clearing Cache..."
 php artisan optimize:clear
