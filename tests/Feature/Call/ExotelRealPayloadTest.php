@@ -245,3 +245,83 @@ it('does not pass a computed answer time off as the provider word', function ():
     expect($call->answeredAt)->not->toBeNull()
         ->and($call->providerAnsweredAtRaw ?? null)->toBeNull();
 });
+
+// ──────────────── Pulling a call back from the API ────────────────
+
+/**
+ * The API and the webhook are not the same shape.
+ *
+ * A Passthru delivery calls the total DialCallDuration; the v1 API calls it
+ * Duration, and names the call Sid rather than CallSid. Reading only the
+ * webhook's names meant "Refresh from provider" fetched a call whose duration
+ * sat in a field nothing looked at — so a 0s row stayed 0s however many times
+ * it was pulled, while Exotel's own inbox showed four minutes against it.
+ *
+ * @return array<string, mixed>
+ */
+function exotelApiCall(array $overrides = []): array
+{
+    return array_merge([
+        'Sid' => 'exotel-api-1',
+        'From' => '08209377406',
+        'To' => '09167356935',
+        'Direction' => 'incoming',
+        'Status' => 'completed',
+        'StartTime' => '2026-09-07 15:30:00',
+        'EndTime' => '2026-09-07 15:34:17',
+        'Duration' => '257',
+        'RecordingUrl' => 'https://recordings.exotel.com/exotel-api-1.mp3',
+    ], $overrides);
+}
+
+it('reads the duration the API returns, not just the webhook name', function (): void {
+    $call = $this->mapper->map(exotelApiCall());
+
+    expect($call)->not->toBeNull()
+        ->and($call->providerCallId)->toBe('exotel-api-1')
+        ->and($call->durationSeconds)->toBe(257);
+});
+
+it('picks up a recording that only the API knows about', function (): void {
+    $call = $this->mapper->map(exotelApiCall());
+
+    expect($call->recordings)->toHaveCount(1)
+        ->and($call->recordings[0]->sourceUrl)->toBe('https://recordings.exotel.com/exotel-api-1.mp3');
+});
+
+/**
+ * The webhook's own name still wins where both appear, since a Passthru
+ * delivery is the more specific answer about the agent leg.
+ */
+it('still prefers DialCallDuration when the webhook sends both', function (): void {
+    $call = $this->mapper->map(exotelApiCall(['DialCallDuration' => '70']));
+
+    expect($call->durationSeconds)->toBe(70);
+});
+
+/**
+ * A refresh that was never sent must not report on data it never received.
+ * Without credentials the action used to say "the provider returned nothing
+ * new", which is a statement about Exotel for a request that never left.
+ */
+it('says so when the API credentials are missing', function (): void {
+    \App\Models\Setting::setValue('exotel_account_sid', '');
+    \App\Models\Setting::setValue('exotel_api_key', '');
+    \App\Models\Setting::setValue('exotel_api_token', '');
+    \App\Models\Setting::flushRuntimeCache();
+
+    $call = \App\Models\Call::create([
+        'uuid' => (string) \Illuminate\Support\Str::uuid(),
+        'provider' => 'exotel',
+        'provider_call_id' => 'needs-credentials',
+        'source' => 'webhook',
+        'direction' => 'incoming',
+        'call_status' => 'completed',
+        'started_at' => now(),
+    ]);
+
+    $provider = app(\App\Services\Call\CallProviderManager::class)->get(\App\Enums\Call\CallProvider::Exotel);
+
+    expect(fn () => $provider->refreshCall($call))
+        ->toThrow(\App\Services\Call\Exceptions\CallProviderException::class, 'API credentials are not set');
+});
