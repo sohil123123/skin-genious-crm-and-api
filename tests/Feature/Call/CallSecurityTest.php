@@ -232,3 +232,78 @@ it('strips the webhook secret out of a query-string payload', function (): void 
 it('keeps the provider recording URL out of serialised output', function (): void {
     expect($this->recording->toArray())->not->toHaveKey('source_url');
 });
+
+/**
+ * A 403 with nothing behind it cost a production afternoon: the policy is a
+ * permission AND a clinic match, the browser cannot say which failed, and the
+ * same page worked for one account and not another. The refusal is written down
+ * now, with everything needed to tell the two apart.
+ */
+it('writes down why it refused a recording', function (): void {
+    // channel() has to return something chainable, or the controller falls
+    // over on the very line under test.
+    $logged = [];
+
+    \Illuminate\Support\Facades\Log::shouldReceive('channel')->andReturnSelf();
+    \Illuminate\Support\Facades\Log::shouldReceive('warning')
+        ->andReturnUsing(function (string $message, array $context = []) use (&$logged): void {
+            $logged[] = [$message, $context];
+        });
+
+    foreach (['info', 'error', 'debug', 'notice'] as $level) {
+        \Illuminate\Support\Facades\Log::shouldReceive($level)->andReturnNull();
+    }
+
+    $clinic = \App\Models\Clinic::create([
+        'name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true,
+    ]);
+
+    $other = \App\Models\Clinic::create([
+        'name' => 'Mumbai', 'address_line1' => '2', 'city' => 'M', 'pincode' => '400001', 'is_active' => true,
+    ]);
+
+    $call = \App\Models\Call::create([
+        'uuid' => (string) \Illuminate\Support\Str::uuid(), 'clinic_id' => $clinic->getKey(),
+        'provider' => 'exotel', 'provider_call_id' => 'refuse-1', 'source' => 'webhook',
+        'direction' => 'incoming', 'call_status' => 'completed', 'started_at' => now(),
+    ]);
+
+    $recording = \App\Models\CallRecording::create([
+        'call_id' => $call->getKey(), 'provider' => 'exotel',
+        'storage_status' => 'stored', 'storage_disk' => 'call_recordings',
+        'storage_path' => 'calls/refuse-1.mp3',
+    ]);
+
+    // Holds the permission, but belongs to another branch — the half of the
+    // policy a permission check alone would never reveal.
+    $role = \App\Models\Role::firstOrCreate(['name' => 'reception-refuse', 'guard_name' => 'web']);
+
+    foreach (['ViewAny:Call', 'View:Call', 'PlayRecording:Call'] as $permission) {
+        $role->givePermissionTo(\App\Models\Permission::firstOrCreate([
+            'name' => $permission, 'guard_name' => 'web',
+        ]));
+    }
+
+    $staff = \App\Models\User::create([
+        'clinic_id' => $other->getKey(), 'first_name' => 'Front', 'last_name' => 'Desk',
+        'mobile' => '9222222299', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    $staff->assignRole($role);
+
+    $this->actingAs($staff)
+        ->get(route('calls.recordings.stream', ['recording' => $recording]))
+        ->assertForbidden();
+
+    $refusal = collect($logged)->firstWhere(0, 'Recording playback refused.');
+
+    expect($refusal)->not->toBeNull();
+
+    [$message, $context] = $refusal;
+
+    // The two facts that separate the halves of the policy. Without them the
+    // line says only "refused", which is what the 403 already said.
+    expect($context['user_id'])->toBe($staff->getKey())
+        ->and($context['has_play_permission'])->toBeTrue()
+        ->and($context['call_clinic_id'])->not->toBe($context['user_clinic_id']);
+});
