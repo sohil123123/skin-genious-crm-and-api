@@ -135,16 +135,59 @@
                 {{-- No recording badge here: the Recording column next door is
                      a working player, and a badge restating what it already
                      shows was the first thing that read as clutter. --}}
+                {{-- Buttons rather than labels.
+                     Both were badges announcing that something exists without
+                     offering it, and the thing they announce is exactly what
+                     somebody scanning the list wants to read. mountAction is
+                     how Filament opens a row action from arbitrary markup; the
+                     actions themselves are registered on the table. --}}
                 @if ($record->transcription_status === \App\Enums\Call\TranscriptionStatus::Completed)
-                    <x-filament::badge color="info" icon="heroicon-m-document-text" title="Transcribed">
-                        Text
-                    </x-filament::badge>
+                    {{-- Reading a transcript is a separate grant from seeing
+                         that a call happened. That a transcript exists is not
+                         secret, so the badge still shows — but for somebody who
+                         may not read it, it stays a label rather than becoming
+                         a button that would be refused on click. --}}
+                    @if (auth()->user()?->can('viewTranscript', $record))
+                        {{-- Every column sits inside the row's own <a href>, so
+                             a bare click here opens the call page as well as the
+                             modal. Same guard the recording player uses: stop the
+                             event reaching the anchor, and stop the browser
+                             following the href. wire:click still fires — these
+                             are separate listeners on the same element. --}}
+                        <button
+                            type="button"
+                            class="sgc-badge-button"
+                            onmousedown="event.preventDefault(); event.stopPropagation();"
+                            onclick="event.preventDefault(); event.stopPropagation();"
+                            wire:click="mountAction('viewTranscript', {}, { table: true, recordKey: '{{ $record->getKey() }}' })"
+                            wire:loading.attr="disabled"
+                            title="Read the transcript"
+                        >
+                            <x-filament::badge color="info" icon="heroicon-m-document-text">
+                                Text
+                            </x-filament::badge>
+                        </button>
+                    @else
+                        <x-filament::badge color="info" icon="heroicon-m-document-text" title="Transcribed">
+                            Text
+                        </x-filament::badge>
+                    @endif
                 @endif
 
                 @if ($record->analysis_status === \App\Enums\Call\CallAnalysisStatus::Completed)
-                    <x-filament::badge color="info" icon="heroicon-m-sparkles" title="AI analysed">
-                        AI
-                    </x-filament::badge>
+                    <button
+                        type="button"
+                        class="sgc-badge-button"
+                        onmousedown="event.preventDefault(); event.stopPropagation();"
+                        onclick="event.preventDefault(); event.stopPropagation();"
+                        wire:click="mountAction('viewAnalysis', {}, { table: true, recordKey: '{{ $record->getKey() }}' })"
+                        wire:loading.attr="disabled"
+                        title="Read the AI analysis"
+                    >
+                        <x-filament::badge color="info" icon="heroicon-m-sparkles">
+                            AI
+                        </x-filament::badge>
+                    </button>
                 @endif
 
                 @if ($record->follow_up_required && $record->follow_up_completed_at === null)

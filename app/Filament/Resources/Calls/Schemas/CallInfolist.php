@@ -598,11 +598,38 @@ class CallInfolist
 
             $url = route('calls.recordings.stream', ['recording' => $recording->getKey()]);
 
+            // The browser's own <audio controls> is a different widget in
+            // every browser, ignores the panel entirely, and puts a download
+            // menu on a patient's recorded consultation. This is the same
+            // element with controls suppressed, driven by markup that belongs
+            // to this application.
             return sprintf(
-                '<div class="sgc-rec-item">'
-                . '<audio class="sgc-rec-audio" controls preload="none" src="%s"'
+                '<div class="sgc-player" data-sgc-player>'
+                . '<audio class="sgc-rec-audio" preload="metadata" src="%s"'
                 . ' onplay="window.sgCallAudio?.stop(); window.sgCallAudioSolo(this);"></audio>'
-                . '<p class="sgc-rec-meta">%s</p>'
+                // The button and the rail share a row so they share a centre
+                // line. Nested inside a column with the times, the button
+                // centred against the whole block and sat visibly below the
+                // line it controls.
+                . '<div class="sgc-player-row">'
+                . '<button type="button" class="sgc-player-toggle" data-sgc-toggle aria-label="Play recording">'
+                . '<svg class="sgc-player-icon" data-sgc-icon="play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
+                . '<path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.3-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14Z"/></svg>'
+                . '<svg class="sgc-player-icon" data-sgc-icon="pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden>'
+                . '<path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/></svg>'
+                . '</button>'
+                . '<div class="sgc-player-rail" data-sgc-rail role="slider" tabindex="0"'
+                . ' aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">'
+                . '<div class="sgc-player-buffer" data-sgc-buffer></div>'
+                . '<div class="sgc-player-fill" data-sgc-fill></div>'
+                . '<span class="sgc-player-knob" data-sgc-knob></span>'
+                . '</div>'
+                . '</div>'
+                . '<div class="sgc-player-times">'
+                . '<span data-sgc-current>0:00</span>'
+                . '<span class="sgc-rec-meta">%s</span>'
+                . '<span data-sgc-duration>--:--</span>'
+                . '</div>'
                 . '</div>',
                 e($url),
                 e($meta),

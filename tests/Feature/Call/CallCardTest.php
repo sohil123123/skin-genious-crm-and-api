@@ -261,3 +261,127 @@ it('hides repairs that cannot do anything for the record', function (): void {
         ->and($view)->not->toContain('Retry download')
         ->and($view)->not->toContain('Re-run customer matching');
 });
+
+/**
+ * The Text and AI badges announced that something existed without offering it,
+ * and the thing they announce is exactly what somebody scanning the list wants
+ * to read. Reaching it meant opening the call.
+ */
+it('opens the transcript and analysis from the card badges', function (): void {
+    config(['app.env' => 'local']);
+
+    foreach (config('project.roles') as $r) {
+        Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+    }
+
+    $role = Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web']);
+
+    foreach (['ViewAny:Call', 'View:Call', 'Update:Call', 'ViewTranscript:Call', 'PlayRecording:Call'] as $p) {
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+    }
+
+    $clinic = Clinic::create(['name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true]);
+
+    $admin = User::create(['clinic_id' => $clinic->id, 'first_name' => 'Super', 'last_name' => 'Admin', 'mobile' => '9111111115', 'password' => bcrypt('x'), 'is_active' => true]);
+    $admin->assignRole($role);
+
+    $call = Call::create([
+        'uuid' => (string) Str::uuid(),
+        'clinic_id' => $clinic->id,
+        'provider' => 'callyzer',
+        'provider_call_id' => 'badges-1',
+        'source' => 'webhook',
+        'direction' => 'incoming',
+        'call_status' => 'completed',
+        'transcription_status' => 'completed',
+        'analysis_status' => 'completed',
+        'client_name' => 'Sohil Shingala',
+        'started_at' => now()->subHour(),
+    ]);
+
+    \App\Models\CallTranscription::create([
+        'call_id' => $call->getKey(), 'provider' => 'openai',
+        'transcript' => 'हां जी, टेस्टिंग कर रहे थे. पैकेज कितने का है?',
+        'status' => 'completed', 'is_current' => true,
+    ]);
+
+    \App\Models\CallAnalysis::create([
+        'call_id' => $call->getKey(),
+        'summary' => 'Caller asked about package pricing.',
+        'customer_intent' => 'price enquiry',
+        'analysis_version' => 'v2',
+        'model' => 'gpt-4o',
+        'is_current' => true,
+    ]);
+
+    $this->actingAs($admin);
+
+    $rows = \Livewire\Livewire::test(\App\Filament\Resources\Calls\Pages\ListCalls::class)
+        ->call('loadTable')
+        ->html();
+
+    // Both badges carry a mount handler for their own action, scoped to this
+    // row — without the record key the modal would open on the wrong call.
+    expect($rows)->toContain("mountAction('viewTranscript'")
+        ->toContain("mountAction('viewAnalysis'")
+        ->toContain("recordKey: '" . $call->getKey() . "'");
+
+    // Every column sits inside the row's own <a href>, so a badge without this
+    // guard opens the call page as well as the modal — two things happening
+    // from one click, one of them unasked for.
+    expect(substr_count($rows, 'event.preventDefault(); event.stopPropagation();'))
+        ->toBeGreaterThanOrEqual(4);
+});
+
+/**
+ * Reading a transcript is a separate grant from seeing that a call happened, so
+ * a badge that opens one must not appear for somebody who may not read it.
+ */
+it('does not offer the transcript to a user without that permission', function (): void {
+    config(['app.env' => 'local']);
+
+    foreach (config('project.roles') as $r) {
+        Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+    }
+
+    $role = Role::firstOrCreate(['name' => 'reception-badges', 'guard_name' => 'web']);
+
+    // Deliberately without ViewTranscript:Call.
+    foreach (['ViewAny:Call', 'View:Call'] as $p) {
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+    }
+
+    $clinic = Clinic::create(['name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true]);
+
+    $staff = User::create(['clinic_id' => $clinic->id, 'first_name' => 'Front', 'last_name' => 'Desk', 'mobile' => '9222222298', 'password' => bcrypt('x'), 'is_active' => true]);
+    $staff->assignRole($role);
+
+    $call = Call::create([
+        'uuid' => (string) Str::uuid(),
+        'clinic_id' => $clinic->id,
+        'provider' => 'callyzer',
+        'provider_call_id' => 'badges-2',
+        'source' => 'webhook',
+        'direction' => 'incoming',
+        'call_status' => 'completed',
+        'transcription_status' => 'completed',
+        'client_name' => 'Restricted Caller',
+        'started_at' => now(),
+    ]);
+
+    \App\Models\CallTranscription::create([
+        'call_id' => $call->getKey(), 'provider' => 'openai',
+        'transcript' => 'Private medical detail.', 'status' => 'completed', 'is_current' => true,
+    ]);
+
+    $this->actingAs($staff);
+
+    $rows = \Livewire\Livewire::test(\App\Filament\Resources\Calls\Pages\ListCalls::class)
+        ->call('loadTable')
+        ->html();
+
+    // The row renders, and the badge is still drawn — the call was transcribed,
+    // which is not a secret. What is withheld is the way to read it.
+    expect($rows)->toContain('Restricted Caller')
+        ->not->toContain("mountAction('viewTranscript'");
+});

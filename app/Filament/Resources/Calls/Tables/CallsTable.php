@@ -9,6 +9,8 @@ use App\Filament\Resources\Calls\Actions\AnalyseCallAction;
 use App\Filament\Resources\Calls\Actions\RefreshCallFromProviderAction;
 use App\Filament\Resources\Calls\Actions\RematchCallCustomerAction;
 use App\Filament\Resources\Calls\Actions\RetryRecordingDownloadAction;
+use App\Filament\Resources\Calls\Actions\ViewAnalysisAction;
+use App\Filament\Resources\Calls\Actions\ViewTranscriptAction;
 use App\Filament\Resources\Calls\Actions\TranscribeCallAction;
 use App\Enums\Call\CallDirection;
 use App\Enums\Call\CallMatchingStatus;
@@ -24,7 +26,11 @@ use App\Services\Call\CallIngestionService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -44,6 +50,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Enums\RecordActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -84,6 +91,13 @@ class CallsTable
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
+                    // Registered here so the Text and AI badges on the card can
+                    // mount them: an action has to be on the table to be
+                    // mountable at all. They earn their place in the menu too —
+                    // both hide themselves unless the call actually has the
+                    // thing they show.
+                    ViewTranscriptAction::make(),
+                    ViewAnalysisAction::make(),
                     static::matchCustomerAction(),
                     // Temporarily off with the Outcome column; see the note
                     // where that column used to be.
@@ -100,12 +114,35 @@ class CallsTable
                     RetryRecordingDownloadAction::make(),
                     RematchCallCustomerAction::make(),
                     RefreshCallFromProviderAction::make(),
+
+                    // Delete, restore, and delete for good — the third of which
+                    // takes the audio off disk with it, so it is worded as what
+                    // it is rather than as a tidier "delete".
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                    ForceDeleteAction::make()
+                        ->label('Delete permanently')
+                        ->modalHeading('Delete this call permanently')
+                        ->modalDescription('The call, its recording, transcript and analysis are removed for good. The audio file is deleted from storage too. This cannot be undone.')
+                        ->modalSubmitActionLabel('Delete permanently'),
                 ]),
-            ])
+            ],
+                // Moved to the front of the row. Reviewing calls is a repeated
+                // trip to the same menu, and at the far right that trip crossed
+                // the whole table — past a card, a name, a provider and a
+                // player — every time. First column puts it where the pointer
+                // already is when a row is chosen.
+                position: RecordActionsPosition::BeforeColumns,
+            )
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                     RestoreBulkAction::make(),
+                    ForceDeleteBulkAction::make()
+                        ->label('Delete permanently')
+                        ->modalHeading('Delete these calls permanently')
+                        ->modalDescription('Every selected call, with its recording, transcript and analysis, is removed for good. The audio files are deleted from storage too. This cannot be undone.')
+                        ->modalSubmitActionLabel('Delete permanently'),
                 ]),
             ])
             ->emptyStateHeading('No calls yet')
