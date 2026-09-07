@@ -230,6 +230,27 @@ return [
         'toggle_user_status' => 'Toggle User Status',
         'toggle_user_permissions' => 'Toggle User Permissions',
         'toggle_clinic_status' => 'Toggle Clinic Status',
+
+        /*
+         * The two call grants that are not part of Shield's resource set.
+         *
+         * Shield generates a fixed twelve permissions per resource — view,
+         * create, update, delete and so on — and these are neither. Knowing a
+         * patient rang at 3pm is roster information; hearing what they said
+         * about their skin, or reading it back as text, is not, and CallPolicy
+         * keeps them as separate grants for that reason.
+         *
+         * Listed here so they can be given and taken away with a checkbox like
+         * everything else. Until now they existed only in the database, created
+         * by calls:grant-permissions, invisible on this screen — so the only
+         * way to grant them to a new role was a terminal.
+         *
+         * The keys are the permission names verbatim, and must stay that way:
+         * they are what CallPolicy asks for, and the pascal case Shield applies
+         * leaves a name of this shape unchanged.
+         */
+        'PlayRecording:Call' => 'Play Call Recording',
+        'ViewTranscript:Call' => 'View Call Transcript',
     ],
 
     /*
