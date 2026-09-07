@@ -78,3 +78,38 @@ it('does not create a permission for the raw payload', function (): void {
 
     expect(Permission::where('name', 'like', '%RawPayload%')->exists())->toBeFalse();
 });
+
+// ──────────────── Granting them from the Roles screen ────────────────
+
+/**
+ * Shield generates a fixed twelve permissions per resource, and these two are
+ * not among them — so they existed only in the database, created by
+ * calls:grant-permissions and invisible on the role editor. Granting them to a
+ * new role meant a terminal.
+ *
+ * Registering them as custom permissions puts them on that screen. The name has
+ * to survive Shield's pascal-case pass untouched, or the checkbox would grant a
+ * permission under a name CallPolicy never asks for — which fails silently, and
+ * looks exactly like the permission not working.
+ */
+it('offers the call grants as checkboxes on the role editor', function (): void {
+    $offered = app(\BezhanSalleh\FilamentShield\FilamentShield::class)->transformCustomPermissions();
+
+    expect($offered)->toHaveKey('PlayRecording:Call')
+        ->and($offered)->toHaveKey('ViewTranscript:Call');
+});
+
+/**
+ * The names the checkboxes write must be the names the policy reads. Asserted
+ * against the policy's own source rather than a copy of the strings, so
+ * renaming one without the other fails here.
+ */
+it('registers them under the exact names the policy asks for', function (): void {
+    $offered = array_keys(app(\BezhanSalleh\FilamentShield\FilamentShield::class)->transformCustomPermissions());
+    $policy = file_get_contents(app_path('Policies/CallPolicy.php'));
+
+    foreach (['PlayRecording:Call', 'ViewTranscript:Call'] as $permission) {
+        expect($offered)->toContain($permission)
+            ->and($policy)->toContain("can('" . $permission . "')");
+    }
+});
