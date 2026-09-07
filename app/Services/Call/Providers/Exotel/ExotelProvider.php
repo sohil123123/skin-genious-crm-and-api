@@ -9,6 +9,7 @@ use App\Enums\Call\CallProvider;
 use App\Enums\Call\CallSource;
 use App\Models\Call;
 use App\Models\Setting;
+use App\Services\Call\Exceptions\CallProviderException;
 use App\Services\Call\CallIngestionService;
 use App\Services\Call\Contracts\CallProviderInterface;
 use Illuminate\Http\Request;
@@ -168,7 +169,22 @@ class ExotelProvider implements CallProviderInterface
      */
     public function refreshCall(Call $call): bool
     {
-        if (! $this->client->isConfigured() || blank($call->provider_call_id)) {
+        // Said out loud rather than returned as false.
+        //
+        // Pulling a call needs API credentials, which are a separate setting
+        // from the webhook — a clinic can receive calls all day without ever
+        // filling them in. Returning false here made "Refresh from provider"
+        // answer "the provider returned nothing new", which is a report about
+        // Exotel's data for a request that was never sent.
+        if (! $this->client->isConfigured()) {
+            throw CallProviderException::permanent(
+                'Exotel API credentials are not set. Add the Account SID, API key and API token '
+                . 'under Calls → Call Settings → Exotel. The webhook works without them; pulling a '
+                . 'call after the fact does not.'
+            );
+        }
+
+        if (blank($call->provider_call_id)) {
             return false;
         }
 

@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * The parameter names follow Exotel's documented Passthru set: CallSid,
  * CallFrom, CallTo, From, To, Direction, CallStatus, DialCallStatus, CallType,
  * DialWhomNumber, DialCallDuration, StartTime, EndTime, Created, CurrentTime,
+ * and — from the v1 API rather than the webhook — Sid, Duration and Status,
  * RecordingUrl, OutgoingPhoneNumber and Legs.
  */
 class ExotelCallMapper
@@ -79,7 +80,12 @@ class ExotelCallMapper
         $legs = $this->legs($payload);
         $lastLeg = $legs !== [] ? end($legs) : null;
 
-        $dialDuration = $this->int($payload, ['DialCallDuration', 'dialCallDuration']);
+        // "Duration" is the API's name for this; the Passthru webhook calls it
+        // DialCallDuration. Reading only the webhook's name meant a refresh
+        // brought back a call with its duration in a field nothing looked at,
+        // so a 0s row stayed 0s no matter how many times it was pulled — while
+        // Exotel's own inbox showed four minutes.
+        $dialDuration = $this->int($payload, ['DialCallDuration', 'dialCallDuration', 'Duration', 'duration']);
         $conversationDuration = $this->int($payload, ['ConversationDuration', 'conversationDuration', 'OnCallDuration']);
 
         $totalDuration = $dialDuration ?? $conversationDuration;
@@ -349,7 +355,7 @@ class ExotelCallMapper
             'DialCallStatus', 'dialCallStatus',
             'StartTime', 'startTime', 'EndTime', 'endTime',
             'Created', 'created', 'DateCreated', 'DateUpdated',
-            'DialCallDuration', 'dialCallDuration',
+            'DialCallDuration', 'dialCallDuration', 'Duration', 'duration',
             'ConversationDuration', 'conversationDuration', 'OnCallDuration',
             'DialWhomNumber', 'dialWhomNumber', 'AgentNumber',
             'RecordingUrl', 'recordingUrl', 'RecordingUrlList',
