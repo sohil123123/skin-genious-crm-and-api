@@ -148,3 +148,38 @@ it('tells a recording on a deleted call apart from one that failed to download',
         ->expectsOutputToContain('belong to deleted calls')
         ->assertSuccessful();
 });
+
+/**
+ * The check that catches a deployment rather than a configuration.
+ *
+ * Gate denies an ability it cannot resolve, silently and identically to a
+ * policy that considered the request and said no. A server whose CallPolicy is
+ * missing — or predates playRecording — refuses every play while the permission
+ * is correctly granted, which is a combination no amount of reading roles will
+ * explain.
+ */
+it('reports the policy the gate will consult', function (): void {
+    Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web'])
+        ->givePermissionTo(Permission::firstOrCreate(['name' => 'PlayRecording:Call', 'guard_name' => 'web']));
+
+    Permission::firstOrCreate(['name' => 'ViewTranscript:Call', 'guard_name' => 'web']);
+
+    $this->artisan('calls:diagnose-playback')
+        ->expectsOutputToContain('Policy for Call')
+        ->expectsOutputToContain('Policy method playRecording()')
+        ->assertSuccessful();
+});
+
+it('fails loudly when no policy is registered for Call', function (): void {
+    Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web'])
+        ->givePermissionTo(Permission::firstOrCreate(['name' => 'PlayRecording:Call', 'guard_name' => 'web']));
+
+    Permission::firstOrCreate(['name' => 'ViewTranscript:Call', 'guard_name' => 'web']);
+
+    // Exactly what a server with the file missing looks like to the gate.
+    \Illuminate\Support\Facades\Gate::guessPolicyNamesUsing(fn (): array => []);
+
+    $this->artisan('calls:diagnose-playback')
+        ->expectsOutputToContain('No policy is registered')
+        ->assertFailed();
+});
