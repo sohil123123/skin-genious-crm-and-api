@@ -164,6 +164,38 @@ return [
     |
     */
 
+    /*
+    |---------------------------------------------------------------------------
+    | Automatic retries
+    |---------------------------------------------------------------------------
+    |
+    | The scheduled sweep that picks work back up when a step failed on its own.
+    | Every stage here fails for reasons that pass: a provider publishing a
+    | recording URL before the file exists, an API timing out, a worker
+    | restarted mid-transcription. Without a sweep those calls stay broken for
+    | ever, because nothing revisits a settled row.
+    |
+    | Each stage can be switched off from Call Settings — a clinic watching its
+    | API bill may want analysis retried by hand — and the attempt ceiling stops
+    | a permanently broken item crowding out work that can still succeed.
+    |
+    */
+
+    'retry' => [
+        'recordings' => (bool) env('CALL_RETRY_RECORDINGS', true),
+        'transcriptions' => (bool) env('CALL_RETRY_TRANSCRIPTIONS', true),
+        'analyses' => (bool) env('CALL_RETRY_ANALYSES', true),
+        'matching' => (bool) env('CALL_RETRY_MATCHING', true),
+
+        // Past this, a retry is not going to be the thing that fixes it.
+        'max_attempts' => (int) env('CALL_RETRY_MAX_ATTEMPTS', 5),
+
+        // How long something must have sat untouched before the sweep treats it
+        // as stalled rather than in progress. Too short and it fights a worker
+        // that is still going.
+        'stale_minutes' => (int) env('CALL_RETRY_STALE_MINUTES', 30),
+    ],
+
     'popup' => [
         'recent_minutes' => (int) env('CALL_POPUP_RECENT_MINUTES', 5),
     ],

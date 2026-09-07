@@ -82,6 +82,12 @@ class CallSettings extends Page
         'call_analysis_driver',
         'call_analysis_model',
         'call_analysis_min_words',
+        'call_retry_recordings_enabled',
+        'call_retry_transcriptions_enabled',
+        'call_retry_analyses_enabled',
+        'call_retry_matching_enabled',
+        'call_retry_max_attempts',
+        'call_retry_stale_minutes',
         'call_exotel_number_map',
     ];
 
@@ -388,6 +394,56 @@ class CallSettings extends Page
                                 // output to it, and teaches the model treatment
                                 // names it would otherwise mangle.
                                 ->helperText('A sentence or two in the script you want back. Also the place to list treatment names the model keeps getting wrong.'),
+                        ]),
+                    ]),
+
+                Section::make('Automatic retries')
+                    ->icon('heroicon-o-arrow-path-rounded-square')
+                    ->description('What the CRM picks back up on its own when a step fails. Every stage here fails for reasons that pass — a recording published before its file exists, an API timing out, a worker restarted mid-job — and nothing revisits a settled row without this.')
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        Grid::make(2)->schema([
+                            Toggle::make('call_retry_recordings_enabled')
+                                ->label('Retry recording downloads')
+                                ->default(true)
+                                ->helperText('The common one: a provider announces a recording before the file behind it exists, so the first download 404s.'),
+
+                            Toggle::make('call_retry_transcriptions_enabled')
+                                ->label('Retry transcriptions')
+                                ->default(true)
+                                ->helperText('Also frees anything left mid-flight by a worker that was restarted.'),
+
+                            Toggle::make('call_retry_analyses_enabled')
+                                ->label('Retry AI analyses')
+                                ->default(true)
+                                // Named as a cost, because that is the reason
+                                // somebody would switch this one off and not
+                                // the other two.
+                                ->helperText('Each retry is another model call. Calls settled as "not available" are never retried — that answer will not change.'),
+
+                            Toggle::make('call_retry_matching_enabled')
+                                ->label('Retry customer matching')
+                                ->default(true)
+                                ->helperText('A caller who was a stranger last week is a patient today. Costs nothing but a query.'),
+
+                            TextInput::make('call_retry_max_attempts')
+                                ->label('Give up after')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(50)
+                                ->default((string) config('calls.retry.max_attempts', 5))
+                                ->suffix('attempts')
+                                ->helperText('Past this a retry is not what fixes it, and continuing crowds out work that can still succeed.'),
+
+                            TextInput::make('call_retry_stale_minutes')
+                                ->label('Treat as stalled after')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(1440)
+                                ->default((string) config('calls.retry.stale_minutes', 30))
+                                ->suffix('minutes')
+                                ->helperText('How long a job must sit untouched before the sweep assumes nobody is working on it. Too short and it fights a worker that is still going.'),
                         ]),
                     ]),
             ]);
