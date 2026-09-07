@@ -81,6 +81,14 @@ class DemoCallPopup extends Command
             $call->clinic_id,
         ));
 
+        // Printed before anything is sent, because the failure this command
+        // most often surfaces is a broadcast pointed at the wrong place — and
+        // cURL reports that as a timeout against an IP, which says nothing
+        // about which setting produced it. Seeing the target first turns a
+        // stack trace into a comparison against the port Reverb is listening
+        // on.
+        $this->line(sprintf('  broadcasting via: %s', $this->broadcastTarget()));
+
         $this->newLine();
 
         foreach ($directions as $direction) {
@@ -105,6 +113,33 @@ class DemoCallPopup extends Command
         $this->comment('Reverb must be running, and the browser signed in as someone who can watch that clinic.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Where this process will post the event, in one readable line.
+     *
+     * Deliberately reads the resolved config rather than the environment: a
+     * cached config is exactly the case where .env says one thing and the
+     * running application does another.
+     */
+    protected function broadcastTarget(): string
+    {
+        $driver = (string) config('broadcasting.default');
+
+        if ($driver !== 'reverb') {
+            return $driver . ' (not reverb)';
+        }
+
+        $options = (array) config('broadcasting.connections.reverb.options', []);
+
+        return sprintf(
+            '%s://%s:%s   [reverb listens on %s:%s]',
+            $options['scheme'] ?? '?',
+            $options['host'] ?? '?',
+            $options['port'] ?? '?',
+            config('reverb.servers.reverb.host', '?'),
+            config('reverb.servers.reverb.port', '?'),
+        );
     }
 
     /**

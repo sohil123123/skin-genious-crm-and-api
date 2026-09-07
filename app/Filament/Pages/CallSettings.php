@@ -81,6 +81,7 @@ class CallSettings extends Page
         'call_analysis_enabled',
         'call_analysis_driver',
         'call_analysis_model',
+        'call_analysis_min_words',
         'call_exotel_number_map',
     ];
 
@@ -307,6 +308,19 @@ class CallSettings extends Page
                                 // minute of audio, so the cost difference is
                                 // small in absolute terms.
                                 ->helperText('Runs once per transcribed call.'),
+
+                            TextInput::make('call_analysis_min_words')
+                                ->label('Shortest transcript to analyse')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(500)
+                                ->default((string) config('calls.analysis.min_words', 15))
+                                ->suffix('words')
+                                // Named in words rather than seconds because
+                                // that is what the rule actually counts, and
+                                // because a talkative ten seconds and a silent
+                                // minute are not the same call.
+                                ->helperText('Anything shorter is skipped. "Hello? Wrong number." is not worth a model call. Counted in words, so it means the same in Hindi as in English.'),
 
                             // Without this the driver could only be changed in
                             // .env, so turning the toggle on left the null

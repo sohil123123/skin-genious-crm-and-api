@@ -152,3 +152,112 @@ it('shows the provider as its own badge column', function (): void {
     // the provider's app, so it belongs with the rest of their identity.
     expect($rows)->toContain('EMP-09');
 });
+
+/**
+ * The repairs used to live only on the call page. The list is where somebody
+ * actually notices a row with no recording or an unmatched caller, so opening
+ * the call to press one button was a page load per repair.
+ *
+ * Both surfaces now build from the same action classes, which is what stops
+ * them drifting: a guard tightened in one place cannot quietly stay loose in
+ * the other.
+ */
+it('offers the same repairs in the row menu as on the call page', function (): void {
+    config(['app.env' => 'local']);
+
+    foreach (config('project.roles') as $r) {
+        Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+    }
+
+    $role = Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web']);
+
+    foreach (['ViewAny:Call', 'View:Call', 'Update:Call', 'PlayRecording:Call', 'ViewTranscript:Call'] as $p) {
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+    }
+
+    $clinic = Clinic::create(['name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true]);
+
+    $admin = User::create(['clinic_id' => $clinic->id, 'first_name' => 'Super', 'last_name' => 'Admin', 'mobile' => '9111111113', 'password' => bcrypt('x'), 'is_active' => true]);
+    $admin->assignRole($role);
+
+    $call = Call::create([
+        'uuid' => (string) Str::uuid(),
+        'clinic_id' => $clinic->id,
+        'provider' => 'exotel',
+        'provider_call_id' => 'repairs-1',
+        'source' => 'webhook',
+        'direction' => 'incoming',
+        'call_status' => 'completed',
+        'client_phone_normalized' => '+919687784381',
+        'client_phone_key' => '9687784381',
+        'matching_status' => 'unmatched',
+        'started_at' => now()->subHour(),
+    ]);
+
+    // Retry download only appears when there is audio to fetch.
+    \App\Models\CallRecording::create([
+        'call_id' => $call->getKey(), 'provider' => 'exotel',
+        'storage_status' => 'remote_only', 'storage_path' => 'calls/repairs-1.mp3',
+    ]);
+
+    $this->actingAs($admin);
+
+    $rows = \Livewire\Livewire::test(\App\Filament\Resources\Calls\Pages\ListCalls::class)
+        ->call('loadTable')
+        ->html();
+
+    foreach (['Refresh from provider', 'Retry download', 'Re-run customer matching'] as $label) {
+        expect($rows)->toContain($label);
+    }
+
+    // And the call page still offers them, from the same definitions.
+    $view = $this->get(\App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $call]))->getContent();
+
+    foreach (['Refresh from provider', 'Retry download', 'Re-run customer matching'] as $label) {
+        expect($view)->toContain($label);
+    }
+});
+
+/**
+ * A manual call has no provider to ask, and a match a person decided by hand
+ * outranks a phone-number guess — so neither button should be offered.
+ */
+it('hides repairs that cannot do anything for the record', function (): void {
+    config(['app.env' => 'local']);
+
+    foreach (config('project.roles') as $r) {
+        Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+    }
+
+    $role = Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web']);
+
+    foreach (['ViewAny:Call', 'View:Call', 'Update:Call'] as $p) {
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+    }
+
+    $clinic = Clinic::create(['name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true]);
+
+    $admin = User::create(['clinic_id' => $clinic->id, 'first_name' => 'Super', 'last_name' => 'Admin', 'mobile' => '9111111114', 'password' => bcrypt('x'), 'is_active' => true]);
+    $admin->assignRole($role);
+
+    $call = Call::create([
+        'uuid' => (string) Str::uuid(),
+        'clinic_id' => $clinic->id,
+        'provider' => 'manual',
+        'provider_call_id' => 'manual-1',
+        'source' => 'manual',
+        'direction' => 'outgoing',
+        'call_status' => 'completed',
+        'matching_status' => 'manually_matched',
+        'started_at' => now(),
+    ]);
+
+    $view = $this->actingAs($admin)
+        ->get(\App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $call]))
+        ->getContent();
+
+    expect($view)->not->toContain('Refresh from provider')
+        // No recordings, so nothing to download.
+        ->and($view)->not->toContain('Retry download')
+        ->and($view)->not->toContain('Re-run customer matching');
+});

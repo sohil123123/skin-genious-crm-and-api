@@ -37,4 +37,18 @@ class NullCallAnalysisService implements CallAnalysisServiceInterface
     {
         return null;
     }
+
+    /**
+     * The configured floor, even though nothing here reads a transcript.
+     *
+     * The screens ask the bound service what the minimum is so they can explain
+     * a refusal. Returning 0 while no provider is chosen would have the call
+     * page announce that every transcript is long enough, moments before the
+     * analyser declines to run at all — two different reasons for the same
+     * blank panel, and the wrong one shown.
+     */
+    public function minimumWords(): int
+    {
+        return max(1, (int) config('calls.analysis.min_words', 15));
+    }
 }

@@ -44,4 +44,14 @@ interface CallAnalysisServiceInterface
      * it wrong means either a permanent retry loop or a silently dropped call.
      */
     public function analyse(Call $call, CallTranscription $transcription): ?CallAnalysisResult;
+
+    /**
+     * The shortest transcript this driver will accept.
+     *
+     * On the contract rather than inside the driver because the screens need
+     * it: a transcript below the floor is refused silently otherwise, which
+     * looks identical to analysis being broken. The call page says why, and the
+     * button says so before queueing work that would be discarded.
+     */
+    public function minimumWords(): int;
 }

@@ -8,6 +8,7 @@ use App\Enums\Call\CallAnalysisStatus;
 use App\Jobs\Call\AnalyzeCallJob;
 use App\Models\Call;
 use App\Services\Call\Contracts\CallAnalysisServiceInterface;
+use App\Services\Call\Transcription\TranscriptWordCounter;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -45,11 +46,37 @@ final class AnalyseCallAction
                 : 'Reads the transcript and extracts intent, sentiment, objection and a suggested next step.')
             ->modalSubmitActionLabel('Analyse')
             ->action(function (Call $record): void {
-                if (! app(CallAnalysisServiceInterface::class)->isEnabled()) {
+                $analyser = app(CallAnalysisServiceInterface::class);
+
+                if (! $analyser->isEnabled()) {
                     Notification::make()
                         ->warning()
                         ->title('Analysis is switched off')
                         ->body('Set an analysis provider under Calls → Call Settings first.')
+                        ->send();
+
+                    return;
+                }
+
+                // Refused here rather than in the worker. The driver already
+                // declines a transcript this short, but it does so silently and
+                // settles the call as "not available" — so pressing the button
+                // appeared to work, and the panel then showed the same blank
+                // section as before with no explanation anywhere.
+                $words = TranscriptWordCounter::count($record->currentTranscription?->transcript);
+                $minimum = $analyser->minimumWords();
+
+                if ($words < $minimum) {
+                    Notification::make()
+                        ->warning()
+                        ->title('Too short to analyse')
+                        ->body(sprintf(
+                            'This transcript is %d word%s and the minimum is %d. Lower it under Calls → Call Settings → Transcription and AI if these calls are worth reading.',
+                            $words,
+                            $words === 1 ? '' : 's',
+                            $minimum,
+                        ))
+                        ->persistent()
                         ->send();
 
                     return;

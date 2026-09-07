@@ -14,6 +14,8 @@ use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Call;
 use App\Models\CallRecording;
+use App\Services\Call\Contracts\CallAnalysisServiceInterface;
+use App\Services\Call\Transcription\TranscriptWordCounter;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\EmptyState;
@@ -250,12 +252,23 @@ class CallInfolist
                 // menu entries stay for people who are already looking there.
                 EmptyState::make(fn (Call $record): string => match (true) {
                     ! $record->hasTranscript() => 'Nothing to analyse yet',
+                    // Stated before the other cases, because a call below the
+                    // floor is never going to be analysed however many times
+                    // the button is pressed. Saying "not analysed yet" of it
+                    // implies patience is all that is needed.
+                    static::isTooShortToAnalyse($record) => 'This call is too short to analyse',
                     $record->analysis_status === CallAnalysisStatus::Processing => 'Analysing now',
                     $record->analysis_status === CallAnalysisStatus::Failed => 'The last attempt failed',
                     default => 'Not analysed yet',
                 })
                     ->description(fn (Call $record): string => match (true) {
                         ! $record->hasTranscript() => 'Analysis reads the transcript, so the recording has to be transcribed first.',
+                        static::isTooShortToAnalyse($record) => sprintf(
+                            'The transcript is %d word%s, and the minimum is %d. A few words carry no intent to read, so analysis is skipped rather than invented. Change the minimum under Calls → Call Settings → Transcription and AI.',
+                            static::transcriptWords($record),
+                            static::transcriptWords($record) === 1 ? '' : 's',
+                            static::minimumAnalysisWords(),
+                        ),
                         $record->analysis_status === CallAnalysisStatus::Processing => 'The result appears here once the worker finishes.',
                         $record->analysis_status === CallAnalysisStatus::Failed => 'Try again below.',
                         // Pending is the column default, not evidence that
@@ -263,7 +276,12 @@ class CallInfolist
                         // on its way. Both readings are covered instead.
                         default => 'Read the transcript for intent, sentiment, objection and a suggested next step. If you just started one, it appears here once the worker picks it up.',
                     })
-                    ->icon('heroicon-o-sparkles')
+                    ->icon(fn (Call $record): string => static::isTooShortToAnalyse($record)
+                        ? 'heroicon-o-exclamation-triangle'
+                        : 'heroicon-o-sparkles')
+                    ->iconColor(fn (Call $record): string => static::isTooShortToAnalyse($record)
+                        ? 'warning'
+                        : 'gray')
                     ->footer([AnalyseCallAction::make('analyseFromEmptyState')])
                     ->columnSpanFull()
                     ->visible(fn (Call $record): bool => $record->currentAnalysis === null),
@@ -310,6 +328,32 @@ class CallInfolist
                     ->placeholder('-')->visible(fn (Call $record): bool => $record->currentAnalysis !== null),
             ])
             ->columns(['default' => 2, 'sm' => 3]);
+    }
+
+    /**
+     * Whether this call's transcript is below the analyser's floor.
+     *
+     * Asked of the bound service rather than a constant, so the answer follows
+     * the setting an administrator can change - and so the page cannot promise
+     * something the driver will refuse.
+     */
+    protected static function isTooShortToAnalyse(Call $call): bool
+    {
+        if (! $call->hasTranscript()) {
+            return false;
+        }
+
+        return static::transcriptWords($call) < static::minimumAnalysisWords();
+    }
+
+    protected static function transcriptWords(Call $call): int
+    {
+        return TranscriptWordCounter::count($call->currentTranscription?->transcript);
+    }
+
+    protected static function minimumAnalysisWords(): int
+    {
+        return app(CallAnalysisServiceInterface::class)->minimumWords();
     }
 
     protected static function participantsSection(): Section
