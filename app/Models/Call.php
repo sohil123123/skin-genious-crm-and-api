@@ -16,6 +16,8 @@ use App\Enums\Call\TranscriptionStatus;
 use App\Traits\HasAuditColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -169,6 +171,43 @@ class Call extends Model
         static::creating(function (self $call): void {
             $call->uuid ??= (string) Str::uuid();
             $call->first_seen_at ??= now();
+        });
+
+        // Permanently deleting a call takes its audio with it.
+        //
+        // The foreign key removes the call_recordings rows, but a cascade is a
+        // database operation and knows nothing about files: the mp3s would stay
+        // on disk with nothing pointing at them. For a recorded medical
+        // conversation that is not untidiness, it is a deletion the patient was
+        // told had happened and had not.
+        //
+        // Done here rather than in the delete action because it must hold for
+        // every route to a force delete — the row action, the bulk action, a
+        // command, a future one nobody has written yet.
+        //
+        // Failure is logged and swallowed on purpose: a file already gone, or a
+        // disk that has been reconfigured, must not leave the record itself
+        // undeletable.
+        static::deleting(function (self $call): void {
+            if (! $call->isForceDeleting()) {
+                return;
+            }
+
+            $call->recordings()->get()->each(function (CallRecording $recording): void {
+                if (blank($recording->storage_path) || blank($recording->diskName())) {
+                    return;
+                }
+
+                try {
+                    Storage::disk($recording->diskName())->delete($recording->storage_path);
+                } catch (\Throwable $exception) {
+                    Log::channel('calls')->warning('Could not delete a recording file with its call.', [
+                        'recording_id' => $recording->getKey(),
+                        'path' => $recording->storage_path,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            });
         });
     }
 

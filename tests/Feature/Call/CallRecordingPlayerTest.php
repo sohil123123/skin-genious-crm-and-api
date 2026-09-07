@@ -191,9 +191,17 @@ it('gives the detail page real transport controls, not just play and stop', func
         \App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $this->call])
     )->getContent();
 
-    expect($html)->toContain('<audio class="sgc-rec-audio" controls')
-        // Three recordings must not start three downloads on page open.
-        ->toContain('preload="none"')
+    expect($html)
+        // Our own transport, not the browser's. The native control set is a
+        // different widget in every browser, ignores the panel's styling, and
+        // puts a download menu on a patient's recorded consultation.
+        ->toContain('data-sgc-player')
+        ->toContain('data-sgc-toggle')
+        ->toContain('data-sgc-rail')
+        ->not->toContain('<audio class="sgc-rec-audio" controls')
+        // metadata, not auto: enough to show the length without pulling three
+        // recordings down the moment the page opens.
+        ->toContain('preload="metadata"')
         ->toContain(route('calls.recordings.stream', ['recording' => $recording->getKey()]))
         // Length and size, so it is clear what is about to be played.
         ->toContain('4:05');

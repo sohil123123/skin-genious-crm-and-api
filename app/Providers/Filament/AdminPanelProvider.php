@@ -412,6 +412,22 @@ class AdminPanelProvider extends PanelProvider
                            Filament badges, which carry their own padding. */
                         .sgc-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.25rem; }
 
+                        /*
+                            A badge that opens something has to look like it
+                            does. The button is stripped back to nothing so the
+                            badge inside keeps its own shape, and the affordance
+                            is carried by the cursor and a lift on hover.
+                        */
+                        .sgc-badge-button {
+                            padding: 0; border: 0; background: none; cursor: pointer;
+                            line-height: 0; border-radius: 999px;
+                            transition: transform .12s ease, filter .12s ease;
+                        }
+
+                        .sgc-badge-button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+                        .sgc-badge-button:focus-visible { outline: 2px solid var(--primary-500, #16a34a); outline-offset: 2px; }
+                        .sgc-badge-button:disabled { opacity: .5; cursor: progress; }
+
                         /* Handled by */
                         .sgc-own { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem 0.25rem; }
 
@@ -537,7 +553,131 @@ class AdminPanelProvider extends PanelProvider
                         .sgc-rec-item { margin-bottom: 1rem; }
                         .sgc-rec-item:last-child { margin-bottom: 0; }
 
-                        .sgc-rec-audio { width: 100%; display: block; }
+                        /*
+                            Hidden, not removed. The element is still the thing
+                            that plays; only its chrome is ours, so seeking,
+                            buffering and the solo behaviour all keep working
+                            through the same API.
+                        */
+                        .sgc-rec-audio { display: none; }
+
+                        .sgc-player {
+                            padding: 0.625rem 0.875rem;
+                            background: var(--gray-50, #f9fafb);
+                            border: 1px solid rgba(17, 24, 39, .08);
+                            border-radius: 0.75rem;
+                        }
+
+                        /* Button and rail on one line, sharing a centre. */
+                        .sgc-player-row { display: flex; align-items: center; gap: 0.75rem; }
+
+                        .sgc-player-toggle {
+                            position: relative;
+                            flex: 0 0 auto;
+                            width: 2.25rem; height: 2.25rem;
+                            display: grid; place-items: center;
+                            border: 0; border-radius: 999px; cursor: pointer;
+                            color: #fff; background: var(--primary-600, #16a34a);
+                            transition: transform .12s ease, filter .12s ease;
+                        }
+
+                        .sgc-player-toggle:hover { filter: brightness(1.08); transform: scale(1.04); }
+                        .sgc-player-toggle:focus-visible { outline: 2px solid var(--primary-500, #16a34a); outline-offset: 2px; }
+
+                        /*
+                            Pressed, briefly and physically. A control that
+                            starts something several seconds away — a stream has
+                            to be fetched before a sound arrives — needs to
+                            acknowledge the press at the moment of pressing, or
+                            it gets pressed again.
+                        */
+                        .sgc-player-toggle:active { transform: scale(0.9); filter: brightness(0.95); }
+
+                        /*
+                            And a ring while it plays, so a page holding several
+                            recordings says which one is audible without anyone
+                            reading two small icons to work it out.
+                        */
+                        .sgc-player.is-playing .sgc-player-toggle::after {
+                            content: ''; position: absolute; inset: 0;
+                            border-radius: 999px;
+                            border: 2px solid var(--primary-600, #16a34a);
+                            animation: sgc-player-pulse 1.6s ease-out infinite;
+                        }
+
+                        @keyframes sgc-player-pulse {
+                            0% { opacity: .6; transform: scale(1); }
+                            100% { opacity: 0; transform: scale(1.7); }
+                        }
+
+                        .sgc-player-icon { width: 1.05rem; height: 1.05rem; }
+
+                        /* Generous hit area around a 4px bar: the bar is the
+                           thing to look at, not the thing to hit. */
+                        .sgc-player-rail {
+                            position: relative; flex: 1 1 auto; min-width: 0;
+                            height: 1.25rem; cursor: pointer;
+                            display: flex; align-items: center;
+                        }
+
+                        .sgc-player-rail::before {
+                            content: ''; position: absolute; inset-inline: 0;
+                            height: 4px; border-radius: 999px;
+                            background: rgba(17, 24, 39, .12);
+                        }
+
+                        .sgc-player-buffer, .sgc-player-fill {
+                            position: absolute; inset-inline-start: 0;
+                            height: 4px; border-radius: 999px; width: 0;
+                        }
+
+                        .sgc-player-buffer { background: rgba(17, 24, 39, .18); }
+                        .sgc-player-fill { background: var(--primary-600, #16a34a); }
+
+                        /*
+                            Always visible, not hover-only. It marks where the
+                            playhead is, which is worth seeing at rest — and on
+                            a touch screen there is no hover to reveal it with.
+                        */
+                        .sgc-player-knob {
+                            position: absolute; inset-inline-start: 0;
+                            width: 0.75rem; height: 0.75rem; margin-inline-start: -0.375rem;
+                            border-radius: 999px; background: var(--primary-600, #16a34a);
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+                            transition: transform .12s ease;
+                        }
+
+                        .sgc-player:hover .sgc-player-knob,
+                        .sgc-player-rail:focus-visible .sgc-player-knob { transform: scale(1.2); }
+
+                        /*
+                            Indented to start where the rail starts — button
+                            width plus the gap — so the elapsed time sits under
+                            the position it describes rather than under the
+                            button.
+                        */
+                        .sgc-player-times {
+                            display: flex; align-items: center; justify-content: space-between;
+                            gap: 0.5rem; margin-top: 0.125rem;
+                            padding-inline-start: 3rem;
+                            font-size: 0.6875rem; color: #6b7280;
+                            font-variant-numeric: tabular-nums;
+                        }
+
+                        .sgc-player-times .sgc-rec-meta { margin: 0; }
+
+                        .dark .sgc-player { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .08); }
+                        .dark .sgc-player-rail::before { background: rgba(255, 255, 255, .15); }
+                        .dark .sgc-player-buffer { background: rgba(255, 255, 255, .22); }
+                        .dark .sgc-player-times { color: #9ca3af; }
+
+                        @media (prefers-reduced-motion: reduce) {
+                            .sgc-player-toggle, .sgc-player-knob { transition: none; }
+                            .sgc-player:hover .sgc-player-knob { transform: none; }
+                            .sgc-player-toggle:active { transform: none; }
+                            .sgc-player.is-playing .sgc-player-toggle::after { animation: none; opacity: .5; }
+                            .sgc-player-toggle:hover { transform: none; }
+                        }
 
                         .sgc-rec-meta {
                             margin: 0.375rem 0 0;
@@ -719,6 +859,125 @@ class AdminPanelProvider extends PanelProvider
                                 }
                             });
                         };
+
+                        /*
+                         * The detail-page player.
+                         *
+                         * Delegated from the document rather than bound per
+                         * element: the infolist is re-rendered by Livewire on
+                         * every action, and handlers attached to the old nodes
+                         * would be lost without anybody noticing until a button
+                         * stopped responding.
+                         */
+                        window.sgCallPlayer = window.sgCallPlayer || (() => {
+                            const clock = (seconds) => {
+                                if (!isFinite(seconds) || seconds < 0) return '--:--';
+                                const m = Math.floor(seconds / 60);
+                                const s = Math.floor(seconds % 60);
+                                return m + ':' + String(s).padStart(2, '0');
+                            };
+
+                            const paint = (player) => {
+                                const audio = player.querySelector('audio');
+                                if (!audio) return;
+
+                                const ratio = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+                                const fill = player.querySelector('[data-sgc-fill]');
+                                const knob = player.querySelector('[data-sgc-knob]');
+                                const rail = player.querySelector('[data-sgc-rail]');
+
+                                if (fill) fill.style.width = (ratio * 100) + '%';
+                                if (knob) knob.style.insetInlineStart = (ratio * 100) + '%';
+                                if (rail) rail.setAttribute('aria-valuenow', Math.round(ratio * 100));
+
+                                const current = player.querySelector('[data-sgc-current]');
+                                const duration = player.querySelector('[data-sgc-duration]');
+                                if (current) current.textContent = clock(audio.currentTime);
+                                if (duration) duration.textContent = clock(audio.duration);
+
+                                // Buffered ahead of the playhead, so a slow
+                                // connection looks like loading rather than like
+                                // a player that has stopped.
+                                const buffer = player.querySelector('[data-sgc-buffer]');
+                                if (buffer && audio.buffered.length && audio.duration > 0) {
+                                    const end = audio.buffered.end(audio.buffered.length - 1);
+                                    buffer.style.width = ((end / audio.duration) * 100) + '%';
+                                }
+
+                                const playing = !audio.paused && !audio.ended;
+                                const play = player.querySelector('[data-sgc-icon="play"]');
+                                const pause = player.querySelector('[data-sgc-icon="pause"]');
+                                if (play) play.hidden = playing;
+                                if (pause) pause.hidden = !playing;
+
+                                const toggle = player.querySelector('[data-sgc-toggle]');
+                                if (toggle) toggle.setAttribute('aria-label', playing ? 'Pause recording' : 'Play recording');
+
+                                // Carries the state to CSS. The icon swap alone
+                                // is a small target to read across a page, and
+                                // a card with several recordings needs to say
+                                // which one is the one you can hear.
+                                player.classList.toggle('is-playing', playing);
+                            };
+
+                            const seek = (player, clientX) => {
+                                const audio = player?.querySelector('audio');
+                                const rail = player?.querySelector('[data-sgc-rail]');
+                                if (!audio || !rail || !(audio.duration > 0)) return;
+
+                                const box = rail.getBoundingClientRect();
+                                const ratio = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+                                audio.currentTime = ratio * audio.duration;
+                                paint(player);
+                            };
+
+                            document.addEventListener('click', (event) => {
+                                const toggle = event.target.closest('[data-sgc-toggle]');
+
+                                if (toggle) {
+                                    const player = toggle.closest('[data-sgc-player]');
+                                    const audio = player?.querySelector('audio');
+                                    if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                    return;
+                                }
+
+                                const rail = event.target.closest('[data-sgc-rail]');
+                                if (rail) seek(rail.closest('[data-sgc-player]'), event.clientX);
+                            });
+
+                            // Arrow keys on the rail, because scrubbing a call
+                            // with a mouse alone excludes anyone who cannot.
+                            document.addEventListener('keydown', (event) => {
+                                const rail = event.target.closest ? event.target.closest('[data-sgc-rail]') : null;
+                                if (!rail) return;
+
+                                const player = rail.closest('[data-sgc-player]');
+                                const audio = player?.querySelector('audio');
+                                if (!audio) return;
+
+                                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                                    event.preventDefault();
+                                    audio.currentTime += event.key === 'ArrowRight' ? 5 : -5;
+                                } else if (event.key === ' ' || event.key === 'Enter') {
+                                    event.preventDefault();
+                                    audio.paused ? audio.play() : audio.pause();
+                                }
+                            });
+
+                            // Captured, because media events do not bubble.
+                            ['timeupdate', 'loadedmetadata', 'play', 'pause', 'ended', 'progress'].forEach((name) => {
+                                document.addEventListener(name, (event) => {
+                                    const audio = event.target;
+
+                                    if (audio && audio.classList && audio.classList.contains('sgc-rec-audio')) {
+                                        const player = audio.closest('[data-sgc-player]');
+                                        if (player) paint(player);
+                                    }
+                                }, true);
+                            });
+
+                            return { paint };
+                        })();
 
                         // Filament runs in SPA mode, so leaving the list does not
                         // reload the page — without this the audio would keep
