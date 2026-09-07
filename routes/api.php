@@ -18,7 +18,8 @@ use App\Http\Controllers\Api\VisionQuantifierController;
 use App\Http\Controllers\Api\FeaturePacketCvController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\MetaLeadWebhookController;
-use App\Http\Controllers\Api\ExotelWebhookController;
+use App\Http\Controllers\Api\Webhooks\CallyzerWebhookController;
+use App\Http\Controllers\Api\Webhooks\ExotelCallWebhookController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -30,7 +31,21 @@ Route::
 
             Route::post('/login', [AuthController::class, 'login']);
             // Exotel Webhook
-            Route::match(['get', 'post'], '/exotel/webhook', [ExotelWebhookController::class, 'saveExotelWebhookDataForPopup']);
+            //
+            // The original screen-pop endpoint. Its {"select": ...} response is
+            // what the reception software reads while the phone is ringing, so
+            // the contract is frozen — the unified call pipeline hangs off it
+            // as a side effect that cannot change what it returns.
+            Route::match(['get', 'post'], '/exotel/webhook', [ExotelCallWebhookController::class, 'screenPop']);
+
+            // Unified call webhooks.
+            //
+            // Public by design, as both providers must be: Exotel's Passthru
+            // applet and Callyzer's webhook cannot carry a session. Each is
+            // authenticated in its controller by a shared secret, and each
+            // rejects everything while that secret is unconfigured.
+            Route::match(['get', 'post'], '/webhooks/exotel/calls', ExotelCallWebhookController::class);
+            Route::post('/webhooks/callyzer/calls', CallyzerWebhookController::class);
 
             // WhatsApp Webhooks
             Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
@@ -63,7 +78,7 @@ Route::
 
                 // INFO: Treatment Plan CRUD Route
                 // Route::apiResource('treatment-plans', 'TreatmentPlanController')->only(['index', 'show', 'destroy']);
-        
+
                 // INFO: Appointment CRUD Route
                 // Availability engine
                 Route::get('/availability/slots', [AppointmentController::class, 'getSlots']);
@@ -124,7 +139,7 @@ Route::
                 //     Route::put('/{id}', [WhatsAppTemplateController::class, 'update']);
                 //     Route::delete('/{id}', [WhatsAppTemplateController::class, 'destroy']);
                 // });
-        
+
             });
 
         });

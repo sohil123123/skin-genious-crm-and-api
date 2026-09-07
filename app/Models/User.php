@@ -260,6 +260,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Calls where this person was the customer.
+     *
+     * Only the calls the CRM managed to attribute. A patient's full history
+     * also includes calls that arrived before anyone knew who they were, which
+     * are matched on the phone number instead — see CallsRelationManager, which
+     * widens this relation rather than replacing it.
+     */
+    public function calls(): HasMany
+    {
+        return $this->hasMany(Call::class, 'customer_user_id');
+    }
+
+    /**
+     * Calls this staff member handled.
+     */
+    public function handledCalls(): HasMany
+    {
+        return $this->hasMany(Call::class, 'agent_user_id');
+    }
+
+    /**
      * Get the current loyalty points balance from the users table column.
      */
     public function getLoyaltyBalance(): int

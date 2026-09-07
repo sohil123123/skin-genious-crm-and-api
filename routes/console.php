@@ -40,6 +40,30 @@ Schedule::command('leads:generate-actions')
     ->dailyAt('07:10')
     ->withoutOverlapping();
 
+// Call integrations.
+//
+// The Callyzer pull runs hourly rather than daily because its window is
+// bounded by the API rate limit — one request every two seconds — and a day's
+// worth of calls in one run takes long enough to be worth avoiding. Nothing is
+// duplicated by running it often: every record is upserted on its provider
+// call id, and a run that fails does not advance the cursor, so the next one
+// covers the same ground.
+Schedule::command('calls:sync-callyzer')
+    ->hourly()
+    ->withoutOverlapping();
+
+// Sweeps up recordings, transcriptions and customer matches that stalled. The
+// recording retry matters most: a provider often publishes a recording URL
+// before the file behind it exists, so the first download 404s and nothing
+// would ever fetch it again.
+Schedule::command('calls:retry')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();
+
+// Retention. Does nothing unless a retention period is configured, so this is
+// safe to schedule before anyone has decided on a policy.
+Schedule::command('calls:prune')->dailyAt('03:30');
+
 // Lead imports: the wizard deletes each temporary upload once it has copied the
 // export, so this only sweeps up files abandoned before that point — someone
 // choosing a file and then closing the tab.
