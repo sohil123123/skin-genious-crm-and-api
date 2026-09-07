@@ -83,7 +83,72 @@ it('draws the call card and ships its styles', function (): void {
     $view = $this->actingAs($admin)->get(\App\Filament\Resources\Calls\CallResource::getUrl('view', ['record' => $call]))->getContent();
 
     // The two-column layout's sections are all present, not hidden behind tabs.
-    foreach (['Outcome and notes', 'Participants', 'Timing', 'Follow-up', 'Provider and sync'] as $heading) {
+    //
+    // "Outcome and notes" and "Follow-up" are absent on purpose: both sections
+    // are commented out of the layout while those two features are temporarily
+    // switched off. Restore them here when the sections come back, or this test
+    // will pass without checking the thing it was written to check.
+    foreach (['Participants', 'Timing', 'Provider and sync'] as $heading) {
         expect($view)->toContain($heading);
     }
+
+    // And they really are gone, rather than merely unasserted.
+    foreach (['Outcome and notes', 'Follow-up'] as $switchedOff) {
+        expect($view)->not->toContain($switchedOff);
+    }
+});
+
+/**
+ * The provider used to be the fourth muted line inside the "Handled by" cell,
+ * under a name, a warning and a phone number — which read as a footnote about
+ * the agent rather than as the system that recorded the call. It has its own
+ * badge column now.
+ */
+it('shows the provider as its own badge column', function (): void {
+    config(['app.env' => 'local']);
+
+    foreach (config('project.roles') as $r) {
+        Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
+    }
+
+    $role = Role::firstOrCreate(['name' => config('project.roles.super_admin'), 'guard_name' => 'web']);
+
+    foreach (['ViewAny:Call', 'View:Call', 'Update:Call'] as $p) {
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+    }
+
+    $clinic = Clinic::create(['name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true]);
+
+    $admin = User::create(['clinic_id' => $clinic->id, 'first_name' => 'Super', 'last_name' => 'Admin', 'mobile' => '9111111112', 'password' => bcrypt('x'), 'is_active' => true]);
+    $admin->assignRole($role);
+
+    foreach ([['prov-exotel', 'exotel'], ['prov-callyzer', 'callyzer']] as [$id, $provider]) {
+        Call::create([
+            'uuid' => (string) Str::uuid(),
+            'clinic_id' => $clinic->id,
+            'provider' => $provider,
+            'provider_call_id' => $id,
+            'source' => 'webhook',
+            'direction' => 'outgoing',
+            'call_status' => 'completed',
+            'employee_name' => 'soumyendro',
+            'employee_code' => 'EMP-09',
+            'started_at' => now()->subMinutes(5),
+        ]);
+    }
+
+    $this->actingAs($admin);
+
+    $rows = \Livewire\Livewire::test(\App\Filament\Resources\Calls\Pages\ListCalls::class)
+        ->call('loadTable')
+        ->html();
+
+    // Both providers named, and the column header present.
+    foreach (['Provider', 'Exotel', 'Callyzer'] as $needle) {
+        expect($rows)->toContain($needle);
+    }
+
+    // The employee code stays in the agent cell — it identifies the person in
+    // the provider's app, so it belongs with the rest of their identity.
+    expect($rows)->toContain('EMP-09');
 });

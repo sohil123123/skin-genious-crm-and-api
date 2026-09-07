@@ -82,8 +82,12 @@ class CallsTable
                 ActionGroup::make([
                     ViewAction::make(),
                     static::matchCustomerAction(),
-                    static::recordOutcomeAction(),
-                    static::followUpAction(),
+                    // Temporarily off with the Outcome column; see the note
+                    // where that column used to be.
+                    // static::recordOutcomeAction(),
+                    // Temporarily off with the rest of follow-up; see the note
+                    // on the Follow-up filter below.
+                    // static::followUpAction(),
                     TranscribeCallAction::make(),
                     AnalyseCallAction::make(),
                 ]),
@@ -145,6 +149,19 @@ class CallsTable
                 ->label('Call')
                 ->view('filament.tables.columns.call-card')
                 ->verticalAlignment(VerticalAlignment::Start)
+                // Shrink to fit the card rather than swallow the row.
+                //
+                // "1%" is the shrink-to-content idiom for a full-width table:
+                // the browser cannot honour it, so it falls back to the cell's
+                // minimum content width and hands the remainder to whichever
+                // column has no constraint. Every other column here is either
+                // fixed or content-sized, so that column is "Handled by" —
+                // which is the right one to stretch, being the only other cell
+                // holding a name that can run long.
+                //
+                // Without this the card had no upper bound at all, and taking
+                // the Outcome column out gave it another 11rem to spread into.
+                ->width('1%')
                 // customer_name is an accessor, so search has to name the
                 // underlying columns explicitly.
                 ->searchable(query: fn (Builder $query, string $search): Builder => $query
@@ -175,6 +192,23 @@ class CallsTable
                             ->where('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%")))),
 
+            // Lifted out of the "Handled by" cell, where it sat as the fourth
+            // muted line under a name and a number and read as a footnote about
+            // the agent. It is not: it says which system recorded the call, and
+            // when two providers are running it is the first thing anyone
+            // checks when a call looks wrong.
+            //
+            // The enum carries its own label, colour and icon, so the badge
+            // needs none of them spelled out here.
+            TextColumn::make('provider')
+                ->label('Provider')
+                ->badge()
+                ->verticalAlignment(VerticalAlignment::Center)
+                ->alignCenter()
+                ->width('8rem')
+                ->sortable()
+                ->toggleable(),
+
             // Its own column rather than a badge in the card, because it is a
             // control rather than a fact: reviewing calls means sampling a lot
             // of them, and opening each one to press play made that a page load
@@ -187,23 +221,36 @@ class CallsTable
                 ->width('9rem')
                 ->visible(fn (): bool => auth()->user()?->can('viewAny', Call::class) ?? false),
 
+            // ─── Outcome, temporarily switched off ──────────────────────────
+            //
+            // Commented rather than deleted, at the client's request, while the
+            // outcome vocabulary is reconsidered. Nothing behind it is removed:
+            // crm_outcome is still stored, still searchable, still shown on the
+            // call page, and anything already recorded is untouched. Only the
+            // two ways of setting it from this screen are hidden — this column
+            // and the "Record outcome" row action.
+            //
+            // The SelectColumn import and recordOutcomeAction() below are kept
+            // for the same reason: turning this back on should be an uncomment,
+            // not a reconstruction. Neither is dead code to be tidied away.
+            //
             // Editable in place: recording an outcome is the most common thing
             // anyone does to a call, and as a row action it sat two clicks and
             // a modal away.
-            SelectColumn::make('crm_outcome')
-                ->label('Outcome')
-                ->options(static::OUTCOMES)
-                ->placeholder('Not recorded')
-                ->verticalAlignment(VerticalAlignment::Center)
-                ->width('11rem')
-                ->disabled(fn (Call $record): bool => ! (auth()->user()?->can('update', $record) ?? false))
-                // SelectColumn saves silently; name the outcome so the change is
-                // visible without re-reading the row.
-                ->afterStateUpdated(fn (Call $record, $state) => Notification::make()
-                    ->success()
-                    ->title('Outcome saved')
-                    ->body(filled($state) ? 'Marked as ' . $state . '.' : 'Outcome cleared.')
-                    ->send()),
+            // SelectColumn::make('crm_outcome')
+            //     ->label('Outcome')
+            //     ->options(static::OUTCOMES)
+            //     ->placeholder('Not recorded')
+            //     ->verticalAlignment(VerticalAlignment::Center)
+            //     ->width('11rem')
+            //     ->disabled(fn (Call $record): bool => ! (auth()->user()?->can('update', $record) ?? false))
+            //     // SelectColumn saves silently; name the outcome so the change is
+            //     // visible without re-reading the row.
+            //     ->afterStateUpdated(fn (Call $record, $state) => Notification::make()
+            //         ->success()
+            //         ->title('Outcome saved')
+            //         ->body(filled($state) ? 'Marked as ' . $state . '.' : 'Outcome cleared.')
+            //         ->send()),
 
             TextColumn::make('created_at')
                 ->label('Recorded')
@@ -359,12 +406,28 @@ class CallsTable
                     false: fn (Builder $query): Builder => $query->where('analysis_status', '!=', CallAnalysisStatus::Completed->value),
                 ),
 
-            TernaryFilter::make('follow_up_required')
-                ->label('Follow-up needed')
-                ->queries(
-                    true: fn (Builder $query): Builder => $query->needsFollowUp(),
-                    false: fn (Builder $query): Builder => $query->where('follow_up_required', false),
-                ),
+            // ─── Follow-up, temporarily switched off ────────────────────────
+            //
+            // Commented rather than deleted, at the client's request, on the
+            // same terms as the Outcome column above: the ways to act on a
+            // follow-up and to organise the list by one are hidden, while what
+            // is already stored stays visible.
+            //
+            // Off with it: this filter, the "Flag for follow-up" row action,
+            // and the Follow-up tab on ListCalls. Still there: the Follow-up
+            // section on the call page and the badge on a flagged row, so a
+            // call somebody already flagged does not look as though the flag
+            // were lost.
+            //
+            // needsFollowUp() on the model is untouched and still used by the
+            // action queue widgets, which are outside this resource.
+            //
+            // TernaryFilter::make('follow_up_required')
+            //     ->label('Follow-up needed')
+            //     ->queries(
+            //         true: fn (Builder $query): Builder => $query->needsFollowUp(),
+            //         false: fn (Builder $query): Builder => $query->where('follow_up_required', false),
+            //     ),
 
             TrashedFilter::make(),
         ];
@@ -488,6 +551,10 @@ class CallsTable
     /**
      * Record what came of the call.
      *
+     * NOT CURRENTLY WIRED UP. Its entry in recordActions() is commented out
+     * alongside the Outcome column, temporarily, while the outcome vocabulary
+     * is reconsidered. Kept intact so restoring it is a one-line uncomment.
+     *
      * Writes only to the CRM-owned columns. The provider's own status and note
      * sit beside these untouched and are shown next to them on the detail page,
      * so a re-sync can never overwrite what a staff member concluded and a
@@ -537,6 +604,13 @@ class CallsTable
             });
     }
 
+    /**
+     * Flag a call for a callback.
+     *
+     * NOT CURRENTLY WIRED UP. Its entry in recordActions() is commented out
+     * along with the Follow-up filter and tab, temporarily. Kept intact so
+     * restoring it is a one-line uncomment.
+     */
     protected static function followUpAction(): Action
     {
         return Action::make('followUp')

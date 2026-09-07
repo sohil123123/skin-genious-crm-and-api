@@ -70,13 +70,21 @@
                 </span>
             @endif
 
-            <span class="sgc-own-row sgc-muted">
-                <x-filament::icon :icon="$record->provider?->getIcon() ?? 'heroicon-m-signal'" />
-                {{ $record->provider?->getLabel() }}
-                @if ($record->employee_code)
-                    · {{ $record->employee_code }}
-                @endif
-            </span>
+            {{--
+                The provider moved out to its own badge column. It was the
+                fourth muted line here, under a name and a number, which read as
+                a footnote about the agent rather than what it is: the system
+                that recorded the call.
+
+                The employee code stays, because it identifies this person in
+                the provider's app and belongs with the rest of their identity.
+            --}}
+            @if ($record->employee_code)
+                <span class="sgc-own-row sgc-muted" title="Employee code in the provider app">
+                    <x-filament::icon icon="heroicon-m-identification" />
+                    {{ $record->employee_code }}
+                </span>
+            @endif
         </div>
     </div>
 </div>

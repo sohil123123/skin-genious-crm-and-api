@@ -57,7 +57,7 @@ class CallInfolist
                             ->columnSpan(2)
                             ->schema([
                                 static::conversationSection(),
-                                static::outcomeSection(),
+                                // static::outcomeSection(),
                                 static::transcriptSection(),
                                 static::analysisSection(),
                             ]),
@@ -68,7 +68,7 @@ class CallInfolist
                             ->schema([
                                 static::participantsSection(),
                                 static::timingSection(),
-                                static::followUpSection(),
+                                // static::followUpSection(),
                                 static::providerSection(),
                             ]),
                     ]),

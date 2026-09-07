@@ -79,11 +79,15 @@ class ListCalls extends ListRecords
                 ->badge(fn (): int => static::listingQuery()->needsMatching()->count())
                 ->badgeColor(fn (): string => static::listingQuery()->needsMatching()->exists() ? 'warning' : 'gray'),
 
-            'follow_up' => Tab::make('Follow-up')
-                ->icon('heroicon-o-flag')
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->needsFollowUp())
-                ->badge(fn (): int => static::listingQuery()->needsFollowUp()->count())
-                ->badgeColor(fn (): string => static::listingQuery()->needsFollowUp()->exists() ? 'danger' : 'gray'),
+            // Temporarily off with the rest of follow-up; see the note on the
+            // Follow-up filter in CallsTable. A tab whose count can only ever
+            // fall, because nothing can raise a new flag, is worse than no tab.
+            //
+            // 'follow_up' => Tab::make('Follow-up')
+            //     ->icon('heroicon-o-flag')
+            //     ->modifyQueryUsing(fn (Builder $query): Builder => $query->needsFollowUp())
+            //     ->badge(fn (): int => static::listingQuery()->needsFollowUp()->count())
+            //     ->badgeColor(fn (): string => static::listingQuery()->needsFollowUp()->exists() ? 'danger' : 'gray'),
 
             'today' => Tab::make('Today')
                 ->icon('heroicon-o-calendar-days')
