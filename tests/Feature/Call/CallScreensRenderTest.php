@@ -416,3 +416,63 @@ it('rings the phone icon only while a call is live', function (): void {
         // moving things.
         ->and($popup)->toContain('prefers-reduced-motion');
 });
+
+// ──────────────── What an agent mapping has handled ────────────────
+
+/**
+ * The Calls column read 0 on every row for ever. It was bound to a stored
+ * call_count kept current by a touchUsage() method that nothing ever called,
+ * and "Last seen" was really the moment the mapping row was created.
+ *
+ * Both are derived now, so this asserts against the resource's own query rather
+ * than a copy of the logic.
+ */
+it('counts the calls an agent has actually handled', function (): void {
+    $mapping = \App\Models\CallProviderAgent::create([
+        'provider' => 'callyzer',
+        'provider_employee_name' => 'Shivani',
+        'provider_employee_number' => '8169308873',
+        'provider_employee_key' => '8169308873',
+        'active' => true,
+        // The frozen values the screen used to show.
+        'call_count' => 0,
+        'last_seen_at' => now()->subYear(),
+    ]);
+
+    foreach (['a', 'b', 'c'] as $index => $id) {
+        makeDirectedCall('agent-' . $id, 'outgoing', [
+            'call_provider_agent_id' => $mapping->getKey(),
+            'started_at' => now()->subMinutes(10 - $index),
+        ]);
+    }
+
+    // A call belonging to nobody must not be counted against this agent.
+    makeDirectedCall('agent-none', 'outgoing');
+
+    $row = \App\Filament\Resources\CallProviderAgents\CallProviderAgentResource::getEloquentQuery()
+        ->whereKey($mapping->getKey())
+        ->first();
+
+    expect($row->calls_count)->toBe(3)
+        // The newest attributed call, not the year-old row creation.
+        ->and($row->calls_max_started_at)->not->toBeNull()
+        ->and(\Illuminate\Support\Carbon::parse($row->calls_max_started_at)->isToday())->toBeTrue();
+});
+
+it('shows an agent with no calls as never seen', function (): void {
+    $mapping = \App\Models\CallProviderAgent::create([
+        'provider' => 'callyzer',
+        'provider_employee_name' => 'Idle',
+        'provider_employee_number' => '9000000009',
+        'provider_employee_key' => '9000000009',
+        'active' => true,
+        'last_seen_at' => now(),
+    ]);
+
+    $row = \App\Filament\Resources\CallProviderAgents\CallProviderAgentResource::getEloquentQuery()
+        ->whereKey($mapping->getKey())
+        ->first();
+
+    expect($row->calls_count)->toBe(0)
+        ->and($row->calls_max_started_at)->toBeNull();
+});

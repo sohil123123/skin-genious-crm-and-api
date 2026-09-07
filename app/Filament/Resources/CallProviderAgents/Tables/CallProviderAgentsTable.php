@@ -24,7 +24,9 @@ class CallProviderAgentsTable
         return $table
             // Unmapped rows first, then the busiest — so the list opens on the
             // work rather than on the rows that are already fine.
-            ->defaultSort('call_count', 'desc')
+            // Busiest first. Sorted on the derived count, not the frozen column
+            // it replaced — which was 0 on every row, so this sort did nothing.
+            ->defaultSort('calls_count', 'desc')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->orderByRaw('user_id IS NULL DESC'))
             ->columns([
                 TextColumn::make('provider')->badge()->sortable(),
@@ -50,17 +52,19 @@ class CallProviderAgentsTable
 
                 TextColumn::make('clinic.name')->label('Clinic')->badge()->placeholder('—')->toggleable(),
 
-                TextColumn::make('call_count')
+                TextColumn::make('calls_count')
                     ->label('Calls')
                     ->numeric()
                     ->alignEnd()
                     ->sortable(),
 
-                TextColumn::make('last_seen_at')
+                // The newest call actually attributed to this agent, not the
+                // moment somebody created the mapping row.
+                TextColumn::make('calls_max_started_at')
                     ->label('Last seen')
                     ->dateTime(app_datetime_format())
                     ->timezone(app_timezone())
-                    ->placeholder('—')
+                    ->placeholder('Never')
                     ->sortable(),
 
                 IconColumn::make('auto_discovered')

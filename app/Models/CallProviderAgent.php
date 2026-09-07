@@ -183,16 +183,19 @@ class CallProviderAgent extends Model
         return $agent;
     }
 
-    /**
-     * Note that this identity appeared on another call.
+    /*
+     * touchUsage() used to live here, incrementing call_count and refreshing
+     * last_seen_at. Nothing ever called it, so both columns froze at their
+     * creation values and the mappings screen reported every agent as having
+     * handled no calls.
+     *
+     * It is not restored, because a counter maintained by hand is a counter
+     * that can be wrong: it drifts whenever a call is re-attributed or removed,
+     * it needs a backfill for every row written before the fix, and it has to
+     * be made race-safe for two deliveries landing together. The screen now
+     * derives both figures from the calls themselves, in the resource query,
+     * where they cannot disagree with the rows they describe.
      */
-    public function touchUsage(): void
-    {
-        $this->forceFill([
-            'last_seen_at' => now(),
-            'call_count' => $this->call_count + 1,
-        ])->saveQuietly();
-    }
 
     public function displayName(): string
     {

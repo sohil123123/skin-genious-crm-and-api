@@ -57,7 +57,19 @@ class CallProviderAgentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['user:id,first_name,last_name', 'clinic:id,name']);
+        return parent::getEloquentQuery()
+            ->with(['user:id,first_name,last_name', 'clinic:id,name'])
+            // Counted from the calls themselves rather than read from a stored
+            // tally. There were call_count and last_seen_at columns here, kept
+            // up to date by a touchUsage() method that nothing ever called - so
+            // every agent read "0 calls" for ever, and "last seen" was really
+            // the moment the mapping was created.
+            //
+            // Deriving them cannot drift, needs no backfill for the rows that
+            // are already wrong, and removes the question of what happens when
+            // two deliveries for the same agent land at once.
+            ->withCount('calls')
+            ->withMax('calls', 'started_at');
     }
 
     /**
