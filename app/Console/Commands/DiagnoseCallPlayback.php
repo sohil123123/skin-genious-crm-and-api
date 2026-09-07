@@ -53,6 +53,7 @@ class DiagnoseCallPlayback extends Command
         $this->components->info('Playback diagnosis');
 
         $ok = $this->reportCache();
+        $ok = $this->reportPolicy() && $ok;
         $ok = $this->reportPermissions() && $ok;
         $ok = $this->reportUsers() && $ok;
 
@@ -107,6 +108,57 @@ class DiagnoseCallPlayback extends Command
         }
 
         return $shared;
+    }
+
+    /**
+     * Whether the gate can find the code it is supposed to consult.
+     *
+     * This is the check that catches a deployment rather than a configuration:
+     * Gate denies an ability it cannot resolve, silently and identically to a
+     * policy that considered the request and said no. So a server missing the
+     * policy file — or holding a copy from before playRecording was written —
+     * refuses every play with the permission correctly granted, which is a
+     * combination no amount of looking at roles will explain.
+     */
+    protected function reportPolicy(): bool
+    {
+        $ok = true;
+
+        if (! class_exists(\App\Policies\CallPolicy::class)) {
+            $this->line('  <fg=red>✗</> App\Policies\CallPolicy does not exist on this server.');
+            $this->line('      The file was not deployed, or composer\'s autoloader is stale.');
+            $this->line('      Upload it and run: composer dump-autoload -o');
+
+            return false;
+        }
+
+        $policy = Gate::getPolicyFor(Call::class);
+
+        if ($policy === null) {
+            $this->line('  <fg=red>✗</> No policy is registered for App\Models\Call.');
+            $this->line('      Gate denies any ability it cannot resolve, so every play is a 403.');
+
+            return false;
+        }
+
+        $this->line(sprintf('  <fg=green>✓</> Policy for Call: <options=bold>%s</>', $policy::class));
+
+        // A policy present but missing the method is the same denial, and the
+        // likeliest shape of a half-finished upload.
+        foreach (['playRecording', 'viewTranscript'] as $method) {
+            $exists = method_exists($policy, $method);
+
+            $this->line(sprintf(
+                '  %s Policy method %s()%s',
+                $exists ? '<fg=green>✓</>' : '<fg=red>✗</>',
+                $method,
+                $exists ? '' : ' is MISSING — this server has an older copy of the policy',
+            ));
+
+            $ok = $exists && $ok;
+        }
+
+        return $ok;
     }
 
     protected function reportPermissions(): bool
