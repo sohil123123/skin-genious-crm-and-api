@@ -55,6 +55,7 @@ class DiagnoseCallPlayback extends Command
         $ok = $this->reportCache();
         $ok = $this->reportPolicy() && $ok;
         $ok = $this->reportPermissions() && $ok;
+        $ok = $this->reportShieldTab() && $ok;
         $ok = $this->reportUsers() && $ok;
 
         $this->reportRecordings();
@@ -143,19 +144,59 @@ class DiagnoseCallPlayback extends Command
 
         $this->line(sprintf('  <fg=green>✓</> Policy for Call: <options=bold>%s</>', $policy::class));
 
+        // Where the file is and when it last changed, because "did my upload
+        // actually land" is the question behind most of this, and a stale copy
+        // is indistinguishable from a fresh one until you look at the clock.
+        $file = (new \ReflectionClass($policy))->getFileName();
+
+        if (is_string($file) && is_file($file)) {
+            $this->line(sprintf('      file: %s', $file));
+            $this->line(sprintf(
+                '      last modified: %s (%d lines, %d public methods)',
+                date('Y-m-d H:i:s', (int) filemtime($file)),
+                count(file($file) ?: []),
+                count((new \ReflectionClass($policy))->getMethods(\ReflectionMethod::IS_PUBLIC)),
+            ));
+        }
+
         // A policy present but missing the method is the same denial, and the
         // likeliest shape of a half-finished upload.
+        //
+        // Checked twice, deliberately. method_exists() asks the class PHP has
+        // loaded; the raw file is read with no compilation involved. When those
+        // two disagree the file on disk is current and PHP is running a cached
+        // compile of the previous one — which is a completely different fix
+        // from uploading again, and indistinguishable from it by any other
+        // means.
+        $source = is_string($file) && is_file($file) ? (string) file_get_contents($file) : '';
+
         foreach (['playRecording', 'viewTranscript'] as $method) {
-            $exists = method_exists($policy, $method);
+            $loaded = method_exists($policy, $method);
+            $onDisk = str_contains($source, 'function ' . $method . '(');
 
             $this->line(sprintf(
                 '  %s Policy method %s()%s',
-                $exists ? '<fg=green>✓</>' : '<fg=red>✗</>',
+                $loaded ? '<fg=green>✓</>' : '<fg=red>✗</>',
                 $method,
-                $exists ? '' : ' is MISSING — this server has an older copy of the policy',
+                match (true) {
+                    $loaded => '',
+                    $onDisk => ' — PRESENT ON DISK but not in the loaded class: PHP is running a cached compile',
+                    default => ' is MISSING from the file on disk — this server has an older copy',
+                },
             ));
 
-            $ok = $exists && $ok;
+            if (! $loaded && $onDisk) {
+                $this->line('      The upload landed. Opcache is serving the previous version.');
+                $this->line('      A reload may not be enough if opcache.validate_timestamps=0:');
+                $this->line('      sudo systemctl restart php8.4-fpm');
+            }
+
+            if (! $loaded && ! $onDisk) {
+                $this->line('      Verify with a plain read, which no cache can affect:');
+                $this->line('      grep -c "function ' . $method . '" ' . ($file ?: 'app/Policies/CallPolicy.php'));
+            }
+
+            $ok = $loaded && $ok;
         }
 
         return $ok;
@@ -192,6 +233,39 @@ class DiagnoseCallPlayback extends Command
             ));
 
             $ok = $matches && $ok;
+        }
+
+        return $ok;
+    }
+
+    /**
+     * Whether the two grants are offered on the Roles screen.
+     *
+     * They are registered in config, and a server running config:cache is
+     * holding a compiled copy of that file. Uploading the new config changes
+     * nothing until the cache is rebuilt — so the checkboxes stay missing while
+     * the source on disk plainly lists them.
+     */
+    protected function reportShieldTab(): bool
+    {
+        if (! class_exists(\BezhanSalleh\FilamentShield\FilamentShield::class)) {
+            return true;
+        }
+
+        $offered = array_keys(app(\BezhanSalleh\FilamentShield\FilamentShield::class)->transformCustomPermissions() ?? []);
+        $ok = true;
+
+        foreach (['PlayRecording:Call', 'ViewTranscript:Call'] as $permission) {
+            $present = in_array($permission, $offered, true);
+
+            $this->line(sprintf(
+                '  %s %s offered on the Roles screen%s',
+                $present ? '<fg=green>✓</>' : '<fg=red>✗</>',
+                $permission,
+                $present ? '' : ' — run: php artisan optimize:clear',
+            ));
+
+            $ok = $present && $ok;
         }
 
         return $ok;
