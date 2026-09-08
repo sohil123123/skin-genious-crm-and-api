@@ -29,12 +29,16 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 class UserPackagesTable
 {
@@ -97,33 +101,38 @@ class UserPackagesTable
                     ->sortable(
                         query: fn(Builder $query, string $direction) =>
                         $query->withSum('items', 'quantity')->orderBy('items_sum_quantity', $direction)
-                    ),
+                    )
+                    ->summarize(self::sessionsSummarizer('Total', 'quantity')),
 
                 TextColumn::make('used_sessions')
                     ->label('Used')
                     ->getStateUsing(fn($record) => $record->getTotalUsedSessions())
                     ->alignCenter()
                     ->badge()
-                    ->color('warning'),
+                    ->color('warning')
+                    ->summarize(self::sessionsSummarizer('Total Used', 'used_sessions')),
 
                 TextColumn::make('remaining_sessions')
                     ->label('Remaining')
                     ->getStateUsing(fn($record) => $record->getTotalRemainingSessions())
                     ->alignCenter()
                     ->badge()
-                    ->color(fn($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger'),
+                    ->color(fn($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger')
+                    ->summarize(self::sessionsSummarizer('Total Remaining', 'quantity - used_sessions')),
 
                 TextColumn::make('final_amount')
                     ->label('Final Amount')
                     ->money('INR')
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('sum')->label('Total Amount')->money('INR')),
 
                 TextColumn::make('paid_amount')
                     ->label('Paid')
                     ->getStateUsing(fn($record) => $record->getPaidAmount())
                     ->money('INR')
                     ->badge()
-                    ->color('success'),
+                    ->color('success')
+                    ->summarize(self::paidAmountSummarizer()),
 
                 TextColumn::make('outstanding_amount')
                     ->label('Outstanding')
@@ -131,7 +140,8 @@ class UserPackagesTable
                     ->placeholder('')
                     ->money('INR')
                     ->badge()
-                    ->color(fn($record) => $record->getOutstandingAmount() > 0 ? 'warning' : null),
+                    ->color(fn($record) => $record->getOutstandingAmount() > 0 ? 'warning' : null)
+                    ->summarize(self::outstandingAmountSummarizer()),
 
                 TextColumn::make('expired_at')
                     ->label('Expires')
@@ -184,8 +194,8 @@ class UserPackagesTable
                                 Grid::make(1)->schema([
                                     Select::make('clinic_id')
                                         ->label('Clinic')
-                                        ->relationship('clinic', 'name')
-                                        ->searchable()
+                                        ->relationship('clinic', 'name', fn ($query) => $query->active())
+                                        // ->searchable()
                                         ->preload()
                                         ->placeholder('Select Clinic')
                                         ->native(true)
@@ -319,7 +329,7 @@ class UserPackagesTable
                                     //     ->searchable()
                                     //     ->nullable()
                                     //     ->placeholder('None'),
-                
+
                                     Textarea::make('notes')
                                         ->label('Notes')
                                         ->nullable()
@@ -371,5 +381,58 @@ class UserPackagesTable
             ->emptyStateIcon('heroicon-o-rectangle-stack')
             ->emptyStateHeading('No Packages Found')
             ->emptyStateDescription('Start by creating a patient package using the button above.');
+    }
+
+    /**
+     * Sessions live on `user_package_items`, so the session columns have no
+     * database column of their own to aggregate. Each summarizer therefore
+     * joins the items onto the (already filtered) package query and sums the
+     * given expression across them.
+     */
+    protected static function sessionsSummarizer(string $label, string $expression): Summarizer
+    {
+        return Summarizer::make('sum')
+            ->label($label)
+            ->numeric()
+            ->using(fn(QueryBuilder $query): int => (int) $query
+                ->leftJoin('user_package_items', 'user_package_items.user_package_id', '=', 'user_packages.id')
+                ->sum(DB::raw($expression)));
+    }
+
+    /**
+     * Mirrors UserPackage::getPaidAmount() — the sum of `amount_paid` across
+     * every invoice raised against the package.
+     */
+    protected static function paidAmountSummarizer(): Summarizer
+    {
+        return Summarizer::make('sum')
+            ->label('Total Paid')
+            ->money('INR')
+            ->using(fn(QueryBuilder $query): float => (float) $query
+                ->leftJoin('invoices', 'invoices.package_id', '=', 'user_packages.id')
+                ->sum('invoices.amount_paid'));
+    }
+
+    /**
+     * Mirrors UserPackage::getOutstandingAmount() — final amount less what has
+     * been paid, floored at zero per package so an overpaid package cannot
+     * cancel out the balance owed on another.
+     */
+    protected static function outstandingAmountSummarizer(): Summarizer
+    {
+        return Summarizer::make('sum')
+            ->label('Total Outstanding')
+            ->money('INR')
+            ->using(function (QueryBuilder $query): float {
+                $paidPerPackage = DB::table('invoices')
+                    ->selectRaw('package_id, sum(amount_paid) as paid_total')
+                    ->whereNotNull('package_id')
+                    ->groupBy('package_id');
+
+                return (float) $query
+                    ->leftJoinSub($paidPerPackage, 'package_payments', 'package_payments.package_id', '=', 'user_packages.id')
+                    ->selectRaw('coalesce(sum(greatest(user_packages.final_amount - coalesce(package_payments.paid_total, 0), 0)), 0) as aggregate')
+                    ->value('aggregate');
+            });
     }
 }

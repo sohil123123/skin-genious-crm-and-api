@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Invoices\Pages;
 
+use App\Exports\InvoiceExport;
+use App\Filament\Actions\ExportExcelAction;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -14,6 +16,7 @@ class ListInvoices extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            ExportExcelAction::make(InvoiceExport::class, 'invoices', 'Export Excel (.xlsx)'),
             CreateAction::make()->icon('heroicon-o-plus'),
         ];
     }

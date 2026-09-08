@@ -393,7 +393,7 @@ class WhatsAppCampaignForm
                     Grid::make(3)->schema([
                         Select::make('audience_filter.clinic_id')
                             ->label('Clinic')
-                            ->options(fn () => Clinic::pluck('name', 'id')->toArray())
+                            ->options(fn () => Clinic::active()->pluck('name', 'id')->toArray())
                             ->searchable()
                             ->visible(fn ($get) => $get('audience_type') === 'filter'),
 

@@ -372,7 +372,7 @@ class AppointmentsTable
                                         // Clinic
                                         Select::make('clinic_id')
                                             ->label('Clinic')
-                                            ->relationship('clinic', 'name')
+                                            ->relationship('clinic', 'name', fn ($query) => $query->active())
                                             ->searchable()
                                             ->preload()
                                             ->placeholder('Select clinic')
