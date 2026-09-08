@@ -223,6 +223,20 @@ class AiActionLog extends Model
         return $this->belongsTo(Clinic::class);
     }
 
+    /**
+     * The call that raised this action, where one did.
+     *
+     * Loaded with its current analysis because the card shows what the model
+     * made of the conversation, not just that a call happened: a staff member
+     * about to ring somebody back needs the summary and the objection, and
+     * sending them to the call page to read it is a page load in the middle of
+     * a queue they are working through.
+     */
+    public function relatedCall(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Call::class, 'related_call_id');
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

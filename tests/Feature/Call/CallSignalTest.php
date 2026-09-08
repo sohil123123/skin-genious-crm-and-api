@@ -242,6 +242,49 @@ it('reads a refusal as a reason to stop, not a weak negative', function (): void
     expect($reader->pressure($signals))->toBeLessThan($reader->pressure($withoutRefusal));
 });
 
+/**
+ * Every key must have a phrase. The phrases used to live behind a default arm
+ * in the reader that fell back to the machine name, and the two keys Rohit's
+ * call actually produced had no arm — so the reason read "they appointment
+ * intent, staff followup required". An exhaustive match on the enum makes a
+ * missing phrase fatal instead of merely embarrassing.
+ */
+it('has a human phrase for every signal in the vocabulary', function (): void {
+    foreach (CallSignalKey::cases() as $key) {
+        expect($key->phrase())
+            ->toBeString()
+            ->not->toContain('_');
+    }
+});
+
+it('says what an appointment intent and a promised follow-up were, in words', function (): void {
+    signal('appointment_intent', ['customer_user_id' => test()->patient->getKey()]);
+    signal('staff_followup_required', ['customer_user_id' => test()->patient->getKey()]);
+    signal('timing_objection', ['customer_user_id' => test()->patient->getKey()]);
+
+    $reader = app(CallSignalReader::class);
+
+    expect($reader->explain($reader->forPatient($this->patient->getKey())))
+        ->toContain('wanted to arrange an appointment')
+        ->toContain('were promised a follow-up')
+        ->not->toContain('staff followup required');
+});
+
+/**
+ * "They sounded neutral" is true and useless. It would take one of the three
+ * slots in the reason without telling anybody anything they can act on.
+ */
+it('leaves sentiment that argues neither way out of the reason', function (): void {
+    signal('neutral_sentiment', ['customer_user_id' => test()->patient->getKey()]);
+    signal('price_objection', ['customer_user_id' => test()->patient->getKey()]);
+
+    $reader = app(CallSignalReader::class);
+    $explanation = $reader->explain($reader->forPatient($this->patient->getKey()));
+
+    expect($explanation)->toContain('raised the cost')
+        ->not->toContain('neutral');
+});
+
 it('explains itself in words a staff member can open a call with', function (): void {
     signal('price_objection', ['customer_user_id' => test()->patient->getKey()]);
     signal('information_requested', ['customer_user_id' => test()->patient->getKey()]);

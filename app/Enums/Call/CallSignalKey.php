@@ -156,9 +156,130 @@ enum CallSignalKey: string implements HasLabel
         };
     }
 
+    /**
+     * Whether this signal leaves the clinic owing somebody something.
+     *
+     * The set both Next Best Action engines fire on, kept here rather than
+     * hand-listed in each of them. Two hand-written lists is how the first
+     * version of this shipped, and they disagreed immediately: the patient
+     * engine listened for "unresolved issue" and the lead engine did not, the
+     * lead engine listened for "high intent" and the patient engine did not,
+     * and neither listened for "staff followup required" — the one signal in
+     * the whole vocabulary that says, in as many words, that a member of staff
+     * has to do something. A call that produced exactly that signal generated
+     * no action at all, which is the bug this method exists to make
+     * impossible: a key added to the vocabulary is now either actionable or
+     * deliberately not, decided once.
+     *
+     * Intent counts as well as an explicit request. "I want to book" and
+     * "please book me in" are the same conversation, and a model choosing
+     * between AppointmentIntent and AppointmentRequested for that sentence is
+     * making a distinction the clinic does not have to act on.
+     *
+     * Objections and sentiment are excluded on purpose. "Sounded hesitant" is
+     * not a promise, and chasing it as one is how a queue fills with actions
+     * nobody can complete. They still reach the engines through the score
+     * modifier and the reason text.
+     */
+    public function demandsFollowUp(): bool
+    {
+        return match ($this) {
+            // Asked for something outright.
+            self::CallbackRequested, self::InformationRequested,
+            self::AppointmentRequested, self::StaffFollowUpRequired,
+            self::PatientCommitment => true,
+
+            // Wanted something, in words a shade softer.
+            self::AppointmentIntent, self::PurchaseIntent,
+            self::HighIntent, self::BuyingSignal => true,
+
+            // Left the call still needing an answer.
+            self::UnresolvedIssue => true,
+
+            default => false,
+        };
+    }
+
+    /**
+     * How to say this in a sentence somebody can open a call with.
+     *
+     * Written to follow "On the call yesterday they ..." because the reason
+     * field is read aloud in effect — a staff member is about to ring this
+     * person, and "appointment_intent, staff_followup_required" tells them
+     * nothing they can say.
+     *
+     * The match is exhaustive with no default arm, deliberately. The phrases
+     * used to live in the reader behind a default that fell back to the machine
+     * name, and the two keys the model actually returned for Rohit's call had
+     * no arm — so the reason read "they appointment intent, staff followup
+     * required". A missing arm is now a fatal error the first time a developer
+     * runs the code, which is the only way this stays honest as the vocabulary
+     * grows.
+     */
+    public function phrase(?string $value = null): string
+    {
+        return match ($this) {
+            self::RecentCall => 'spoke to us recently',
+            self::MissedCall => 'missed a call from us',
+            self::RepeatedCalls => 'has been rung several times',
+            self::NoResponse => 'has not been answering',
+            self::HighEngagement => 'was engaged throughout',
+            self::LowEngagement => 'was hard to draw out',
+
+            self::HighIntent => 'was clearly interested',
+            self::MediumIntent => 'was fairly interested',
+            self::LowIntent => 'showed little interest',
+            self::NotInterested => 'said they are not interested',
+            self::AppointmentIntent => 'wanted to arrange an appointment',
+            self::PurchaseIntent => 'wanted to go ahead',
+
+            self::PriceObjection => 'raised the cost',
+            self::TrustObjection => 'was unsure about trusting the clinic',
+            self::TimingObjection => 'said the timing did not suit',
+            self::EffectivenessObjection => 'questioned whether it works',
+            self::FearObjection => 'was nervous about the treatment',
+            self::DistanceObjection => 'mentioned the travel',
+            self::FamilyApprovalObjection => 'wants to discuss it at home',
+
+            self::PositiveSentiment => 'sounded positive',
+            self::NeutralSentiment => 'sounded neutral',
+            self::NegativeSentiment => 'sounded unhappy',
+            self::Frustrated => 'sounded frustrated',
+
+            self::CallbackRequested => 'asked to be called back',
+            self::InformationRequested => 'asked for more information',
+            self::AppointmentRequested => 'asked for an appointment',
+            self::StaffFollowUpRequired => 'were promised a follow-up',
+            self::PatientCommitment => 'said they would come back to us',
+
+            self::Complaint => 'made a complaint',
+            self::Dissatisfaction => 'was unhappy with something',
+            self::UnresolvedIssue => 'left with a question unanswered',
+            self::RepeatedFailedFollowUp => 'has not been reached despite several attempts',
+
+            self::BuyingSignal => 'sounded ready to go ahead',
+            self::AppointmentBooked => 'booked on the call',
+            self::TreatmentInterest => filled($value) ? 'asked about ' . $value : 'asked about a treatment',
+            self::ProductInterest => filled($value) ? 'asked about ' . $value : 'asked about a product',
+        };
+    }
+
     public function getLabel(): string
     {
         return ucfirst(str_replace('_', ' ', $this->value));
+    }
+
+    /**
+     * The keys that put somebody in a work queue.
+     *
+     * @return array<int, string>
+     */
+    public static function followUpValues(): array
+    {
+        return array_values(array_map(
+            fn (self $case): string => $case->value,
+            array_filter(self::cases(), fn (self $case): bool => $case->demandsFollowUp()),
+        ));
     }
 
     /**

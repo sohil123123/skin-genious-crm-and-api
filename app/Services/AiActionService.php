@@ -211,18 +211,15 @@ class AiActionService
     {
         $reader = $this->callSignals();
 
-        $asking = [
-            CallSignalKey::CallbackRequested->value,
-            CallSignalKey::InformationRequested->value,
-            CallSignalKey::AppointmentRequested->value,
-            CallSignalKey::PatientCommitment->value,
-            CallSignalKey::UnresolvedIssue->value,
-        ];
-
         $grouped = CallInsightSignal::query()
             ->where('clinic_id', $clinic->id)
             ->whereNotNull('customer_user_id')
-            ->whereIn('signal_key', $asking)
+            // Taken from the enum rather than listed here. The lead engine asks
+            // the same question, and when both kept their own list the two
+            // disagreed about which signals count — including agreeing to
+            // ignore "staff followup required", which is the vocabulary's
+            // plainest statement that somebody has to do something.
+            ->whereIn('signal_key', CallSignalKey::followUpValues())
             ->recent($reader->windowDays())
             ->confident($reader->confidenceThreshold())
             ->with('customer')
@@ -247,14 +244,19 @@ class AiActionService
             }
 
             $latest = $group->first();
-            $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(Carbon::today()) ?? 0);
 
-            // Nothing is overdue on the day it was asked for. Chasing a promise
-            // made an hour ago would put a staff member back in the queue for
-            // work they are still doing.
-            if ($daysSince < 1) {
+            // Left with the person who took the call for a few hours before it
+            // counts as anybody else's work. Measured in hours rather than
+            // calendar days, which is the correction: comparing against
+            // midnight meant a call at 10:29 yesterday morning read as zero
+            // days old this morning and was skipped, and so was every other
+            // call until it was nearly two days old. The queue is built once at
+            // 07:00, so that rule could never see yesterday at all.
+            if (! $reader->isDue($latest->occurred_at)) {
                 continue;
             }
+
+            $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(now()) ?? 0);
 
             $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.9,
@@ -281,7 +283,13 @@ class AiActionService
                 'recommended_channel' => $wantsWriting ? 'whatsapp' : 'call',
                 'recommended_time' => '11:00 AM - 1:00 PM',
                 'reason' => $this->withCallReason(
-                    sprintf('Asked for something on a call %d day(s) ago and has not had it.', $daysSince),
+                    sprintf(
+                        'Asked for something on a call %s and has not had it.',
+                        // "0 day(s) ago" for this morning's call, which is what
+                        // the day count produced. diffForHumans says "5 hours ago"
+                        // and needs no special case for the same day.
+                        $latest->occurred_at?->diffForHumans() ?? 'recently',
+                    ),
                     $reader->explain($subjectSignals),
                 ),
                 'suggested_message' => sprintf(

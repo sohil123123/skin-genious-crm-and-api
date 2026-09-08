@@ -175,40 +175,24 @@ class CallSignalReader
      */
     public function explain(Collection $signals): ?string
     {
-        $notable = $this->notable($signals);
+        // Signals that argue neither way are dropped. "They sounded neutral" is
+        // true and useless: it takes up one of the three slots without telling
+        // anybody anything they can use, and a reason full of it stops being
+        // read at all.
+        $notable = $this->notable(
+            $signals->filter(fn (CallInsightSignal $signal): bool => $signal->signal_key->pressure() !== 0.0)
+        );
 
         if ($notable->isEmpty()) {
             return null;
         }
 
-        $phrases = $notable->map(fn (CallInsightSignal $signal): string => match ($signal->signal_key) {
-            CallSignalKey::PriceObjection => 'raised the cost',
-            CallSignalKey::TrustObjection => 'was unsure about trusting the clinic',
-            CallSignalKey::TimingObjection => 'said the timing did not suit',
-            CallSignalKey::EffectivenessObjection => 'questioned whether it works',
-            CallSignalKey::FearObjection => 'was nervous about the treatment',
-            CallSignalKey::DistanceObjection => 'mentioned the travel',
-            CallSignalKey::FamilyApprovalObjection => 'wants to discuss it at home',
-            CallSignalKey::CallbackRequested => 'asked to be called back',
-            CallSignalKey::InformationRequested => 'asked for more information',
-            CallSignalKey::AppointmentRequested => 'asked for an appointment',
-            CallSignalKey::AppointmentBooked => 'booked on the call',
-            CallSignalKey::BuyingSignal => 'sounded ready to go ahead',
-            CallSignalKey::HighIntent => 'was clearly interested',
-            CallSignalKey::NotInterested => 'said they are not interested',
-            CallSignalKey::Complaint => 'made a complaint',
-            CallSignalKey::Dissatisfaction => 'was unhappy with something',
-            CallSignalKey::UnresolvedIssue => 'left with a question unanswered',
-            CallSignalKey::Frustrated => 'sounded frustrated',
-            CallSignalKey::TreatmentInterest => filled($signal->value)
-                ? 'asked about ' . $signal->value
-                : 'asked about a treatment',
-            CallSignalKey::ProductInterest => filled($signal->value)
-                ? 'asked about ' . $signal->value
-                : 'asked about a product',
-            CallSignalKey::PatientCommitment => 'said they would come back to us',
-            default => str_replace('_', ' ', $signal->signal_key->value),
-        });
+        // The wording lives on the enum, where the match is exhaustive: a key
+        // with no phrase is a fatal error rather than a reason that reads
+        // "they appointment intent, staff followup required".
+        $phrases = $notable->map(
+            fn (CallInsightSignal $signal): string => $signal->signal_key->phrase($signal->value)
+        );
 
         $when = $notable->first()?->occurred_at?->diffForHumans() ?? 'recently';
 
@@ -262,6 +246,41 @@ class CallSignalReader
             'call_signal_window_days',
             config('calls.signals.window_days', 45),
         ));
+    }
+
+    /**
+     * How long to leave a promise alone before queueing it as outstanding.
+     *
+     * Somebody who asked for a price list ten minutes ago is being dealt with
+     * by the person who took the call, and putting them in a work queue asks a
+     * colleague to duplicate it. A few hours later nobody is holding it any
+     * more and it is genuinely outstanding.
+     *
+     * Measured in hours, and that is the correction. The first version of this
+     * asked for a whole calendar day and compared against midnight, so a call
+     * at 10:29 yesterday morning counted as zero days old this morning and was
+     * skipped — as was every call, until it was nearly two days old. The queue
+     * is built at 07:00 each day, so a rule that cannot see yesterday's calls
+     * cannot see calls at all.
+     */
+    public function cooloffHours(): int
+    {
+        return max(0, (int) Setting::getConfigured(
+            'call_signal_cooloff_hours',
+            config('calls.signals.cooloff_hours', 2),
+        ));
+    }
+
+    /**
+     * Whether enough time has passed to treat this as somebody's outstanding work.
+     */
+    public function isDue(?\Illuminate\Support\Carbon $occurredAt): bool
+    {
+        if ($occurredAt === null) {
+            return false;
+        }
+
+        return $occurredAt->copy()->addHours($this->cooloffHours())->isPast();
     }
 
     /**
