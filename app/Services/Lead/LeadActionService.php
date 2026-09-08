@@ -9,6 +9,8 @@ use App\Models\AiActionLog;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Lead;
+use App\Enums\Call\CallSignalKey;
+use App\Models\CallInsightSignal;
 use App\Models\LeadActionLog;
 use App\Models\LeadCustomField;
 use App\Services\Concerns\CalculatesActionPriority;
@@ -32,6 +34,9 @@ use Illuminate\Support\Facades\DB;
 class LeadActionService
 {
     use CalculatesActionPriority;
+
+    // What was said on the phone, read the same way by both engines.
+    use \App\Services\Concerns\AppliesCallSignals;
 
     /** Key of the lead-form question that reveals visit urgency. */
     protected const VISIT_TIMING_KEY = 'when_would_you_like_to_visit';
@@ -90,6 +95,9 @@ class LeadActionService
         LeadActionLog::TRIGGER_EXISTING_PATIENT => 1.45,
         LeadActionLog::TRIGGER_STALLED => 1.30,
         LeadActionLog::TRIGGER_NEVER_CONTACTED => 1.15,
+        // Above hot intent: a form said what they wanted, a call is them
+        // saying it, and asking twice is how a warm lead goes cold.
+        LeadActionLog::TRIGGER_CALL_COMMITMENT => 1.65,
     ];
 
     /**
@@ -154,7 +162,12 @@ class LeadActionService
             ->merge($this->findHotIntent($clinic))
             ->merge($this->findExistingPatientLeads($clinic))
             ->merge($this->findNeverContacted($clinic))
-            ->merge($this->findStalled($clinic));
+            ->merge($this->findStalled($clinic))
+            ->merge($this->findOpenCallCommitments($clinic));
+
+        // What the lead actually said on the phone: can raise or lower a score,
+        // and drops the action entirely for somebody who declined or booked.
+        $actions = $this->decorateWithCallSignals($actions);
 
         // One action per lead: the triggers overlap by design (a hot lead is
         // also an uncontacted one), so the strongest reason wins.
@@ -208,6 +221,155 @@ class LeadActionService
      * decays over three days rather than the usual weeks, so a same-day lead
      * that has gone a week cold stops outranking everything else.
      */
+    /**
+     * Leads who asked for something on the phone and have not had it.
+     *
+     * The mirror of the patient engine's trigger, and the reason both queues
+     * needed this: a lead who said "send me the price" is the warmest thing in
+     * the list, and until now the engine could only see that somebody rang them
+     * — not what was said. "Contacted three days ago" and "asked for a quote
+     * three days ago" led to the same recommendation.
+     *
+     * Closed leads are excluded, as everywhere else here: a lead marked Won,
+     * Lost, Junk or Unqualified is finished, whatever the last call suggested.
+     */
+    protected function findOpenCallCommitments(Clinic $clinic): Collection
+    {
+        $reader = $this->callSignals();
+
+        $asking = [
+            CallSignalKey::CallbackRequested->value,
+            CallSignalKey::InformationRequested->value,
+            CallSignalKey::AppointmentRequested->value,
+            CallSignalKey::PatientCommitment->value,
+            CallSignalKey::BuyingSignal->value,
+            CallSignalKey::HighIntent->value,
+        ];
+
+        $grouped = CallInsightSignal::query()
+            ->where('clinic_id', $clinic->id)
+            ->whereNotNull('lead_id')
+            ->whereIn('signal_key', $asking)
+            ->recent($reader->windowDays())
+            ->confident($reader->confidenceThreshold())
+            ->with('lead')
+            ->orderByDesc('occurred_at')
+            ->get()
+            ->groupBy('lead_id');
+
+        $actions = collect();
+
+        foreach ($grouped as $leadId => $group) {
+            $lead = $group->first()->lead;
+
+            if (! $lead || in_array($lead->status?->value, self::CLOSED_STATUSES, true)) {
+                continue;
+            }
+
+            $subjectSignals = $reader->forLead((int) $leadId);
+
+            if ($this->callSignalsSuppress($subjectSignals)) {
+                continue;
+            }
+
+            $latest = $group->first();
+            $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(Carbon::today()) ?? 0);
+
+            if ($daysSince < 1) {
+                continue;
+            }
+
+            $priority = $this->weighted($this->calculatePriority([
+                'intent' => 0.95,
+                'recency' => max(0.3, 1 - ($daysSince / 14)),
+                'treatment_fit' => 0.8,
+                'urgency' => 0.9,
+                'slot_availability' => 0.8,
+                'fatigue_penalty' => $this->contactFatiguePenaltyFor(LeadActionLog::class, 'lead_id', (int) $leadId),
+            ]), LeadActionLog::TRIGGER_CALL_COMMITMENT);
+
+            $wantsWriting = $group->contains(
+                fn (CallInsightSignal $signal): bool => $signal->signal_key === CallSignalKey::InformationRequested
+            );
+
+            $actions->push([
+                'clinic_id' => $clinic->id,
+                'lead_id' => (int) $leadId,
+                'matched_user_id' => null,
+                'action_category' => LeadActionLog::CATEGORY_CONVERSION,
+                'action_trigger' => LeadActionLog::TRIGGER_CALL_COMMITMENT,
+                'priority_score' => $priority,
+                'recommended_channel' => $wantsWriting ? 'whatsapp' : 'call',
+                'recommended_time' => '11:00 AM - 1:00 PM',
+                'reason' => $this->withCallReason(
+                    sprintf('Asked for something on a call %d day(s) ago and has not had it.', $daysSince),
+                    $reader->explain($subjectSignals),
+                ),
+                'suggested_message' => sprintf(
+                    'Hi %s, following up on your call — sending across what you asked about.',
+                    $lead->first_name ?: 'there',
+                ),
+                'goal' => 'Answer what they asked for and move to a consultation',
+                'avoid_notes' => 'They already told us what they want. Do not restart the pitch.',
+                'assigned_to' => null,
+                'related_call_id' => $latest->call_id,
+                'call_signals' => $reader->toBasis($subjectSignals),
+                'expires_at' => Carbon::today()->endOfDay(),
+                'generated_date' => Carbon::today(),
+                'is_active' => true,
+                '_phone' => $lead->phone,
+            ]);
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Fold call insight into the actions the existing lead triggers produced.
+     *
+     * Identical in shape to the patient engine's pass, and deliberately so:
+     * staff read the two queues as one worklist, and a lead who said "not
+     * interested" must drop out of it exactly as a patient would.
+     *
+     * @param  Collection<int, array<string, mixed>>  $actions
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function decorateWithCallSignals(Collection $actions): Collection
+    {
+        if ($actions->isEmpty()) {
+            return $actions;
+        }
+
+        $signalsByLead = $this->callSignals()->forLeads(
+            $actions->pluck('lead_id')->filter()->all()
+        );
+
+        return $actions
+            ->map(function (array $action) use ($signalsByLead): ?array {
+                $signals = $signalsByLead->get($action['lead_id']) ?? collect();
+
+                if ($signals->isEmpty()) {
+                    return $action;
+                }
+
+                if ($action['action_trigger'] !== LeadActionLog::TRIGGER_CALL_COMMITMENT
+                    && $this->callSignalsSuppress($signals)) {
+                    return null;
+                }
+
+                $applied = $this->applyCallSignals((int) $action['priority_score'], $signals);
+
+                $action['priority_score'] = $applied['score'];
+                $action['reason'] = $this->withCallReason($action['reason'], $applied['note']);
+                $action['call_signals'] ??= ($applied['basis'] ?: null);
+                $action['related_call_id'] ??= $signals->first()?->call_id;
+
+                return $action;
+            })
+            ->filter()
+            ->values();
+    }
+
     protected function findHotIntent(Clinic $clinic): Collection
     {
         $actions = collect();

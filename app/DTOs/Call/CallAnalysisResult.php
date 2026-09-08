@@ -50,6 +50,16 @@ final readonly class CallAnalysisResult
         public ?string $model = null,
         public ?int $inputTokens = null,
         public ?int $outputTokens = null,
+        /**
+         * Validated signals, ready to become rows.
+         *
+         * Separate from $raw because $raw is whatever the model said and this
+         * is what survived checking: unknown keys dropped, confidences clamped.
+         * The action engines read only this.
+         *
+         * @var array<int, array{key: string, type: string, confidence: ?float, value: ?string}>
+         */
+        public array $signals = [],
         public array $raw = [],
     ) {}
 

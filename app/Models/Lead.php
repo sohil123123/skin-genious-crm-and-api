@@ -122,6 +122,27 @@ class Lead extends Model
     /**
      * Next Best Action entries generated for this lead.
      */
+    /**
+     * Calls with this lead.
+     *
+     * The column has existed since the call system was built — the matcher
+     * writes calls.lead_id whenever a number resolves to a lead — but nothing
+     * could traverse it from this side, so a lead could not be asked what was
+     * said to it. The action engine needs exactly that question answered.
+     */
+    public function calls(): HasMany
+    {
+        return $this->hasMany(Call::class, 'lead_id');
+    }
+
+    /**
+     * Everything calls with this lead have revealed, newest first.
+     */
+    public function callSignals(): HasMany
+    {
+        return $this->hasMany(CallInsightSignal::class, 'lead_id')->latest('occurred_at');
+    }
+
     public function actionLogs(): HasMany
     {
         return $this->hasMany(LeadActionLog::class);

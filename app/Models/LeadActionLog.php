@@ -32,6 +32,8 @@ class LeadActionLog extends Model
         'goal',
         'avoid_notes',
         'assigned_to',
+        'related_call_id',
+        'call_signals',
         'expires_at',
         'staff_outcome',
         'outcome_notes',
@@ -42,6 +44,7 @@ class LeadActionLog extends Model
     ];
 
     protected $casts = [
+        'call_signals' => 'array',
         'expires_at' => 'datetime',
         'outcome_at' => 'datetime',
         'generated_date' => 'date',
@@ -60,6 +63,15 @@ class LeadActionLog extends Model
     public const TRIGGER_NEVER_CONTACTED = 'lead_never_contacted';
     public const TRIGGER_EXISTING_PATIENT = 'lead_existing_patient';
     public const TRIGGER_STALLED = 'lead_stalled';
+
+    /**
+     * Something the lead asked for on a call and has not received.
+     *
+     * The only lead trigger that comes from a conversation rather than from
+     * dates and form fields, which is why it outranks them: a form says what
+     * somebody wanted when they filled it in, a call is them saying it now.
+     */
+    public const TRIGGER_CALL_COMMITMENT = 'lead_call_commitment';
 
     /**
      * Outcome options, identical to the patient queue so staff do not have to

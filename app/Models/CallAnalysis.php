@@ -9,6 +9,7 @@ use App\Enums\Call\CallSentiment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * What AI concluded about one call, at one prompt version.
@@ -80,6 +81,18 @@ class CallAnalysis extends Model
     }
 
     // ──────────────── Relationships ────────────────
+
+    /**
+     * The structured signals this analysis produced.
+     *
+     * The summary is for a person; these are for the action engines. Both come
+     * from the same model response, and both are kept — a signal without the
+     * sentence it came from is unarguable when somebody disputes it.
+     */
+    public function signals(): HasMany
+    {
+        return $this->hasMany(CallInsightSignal::class, 'call_analysis_id');
+    }
 
     public function call(): BelongsTo
     {
