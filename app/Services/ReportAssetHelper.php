@@ -88,7 +88,7 @@ class ReportAssetHelper
         foreach (['baseline' => $baselineMapped, 'post' => $postMapped] as $set => $paths) {
             foreach ($sizesBySet[$set] as $variant => $wh) {
                 foreach ($paths as $mode => $sourcePath) {
-                    $destPath = $baseDir . '/' . $set . '/' . $variant . '/' . $mode . '.jpg';
+                    $destPath = $baseDir . '/' . $set . '/' . $variant . '/' . $mode . '_' . substr(md5($sourcePath), 0, 8) . '.jpg';
                     $assets[$set][$variant][$mode] = self::prepareRaster($sourcePath, $destPath, $wh[0], $wh[1]);
                 }
             }
@@ -97,34 +97,50 @@ class ReportAssetHelper
         return $assets;
     }
 
-    private static function mapMediaToModes($mediaCollection)
+    public static function mapMediaToModes($mediaCollection)
     {
         $modes = ['red', 'subsurface_polarized', 'surface_polarized', 'white', 'woods_uv'];
         $v4Fallbacks = [
             'white' => ['white'],
             'red' => ['positive', 'red'],
-            'subsurface_polarized' => ['negative', 'blue', 'subsurface'],
-            'surface_polarized' => ['uv', 'surface'],
+            'subsurface_polarized' => ['subsurface', 'negative', 'blue', 'xpl', 'cross', 'cpl', 'brown'],
+            'surface_polarized' => ['surface', 'ppl', 'parallel'],
             'woods_uv' => ['woods', 'uv']
         ];
 
         $mapped = [];
+        $usedMediaIds = [];
         $fallbackIndex = 0;
 
         foreach ($modes as $mode) {
             $found = null;
+
+            // 1. Try exact mode key matching
             foreach ($mediaCollection as $media) {
                 $name = strtolower($media->file_name ?? $media->name ?? '');
+
+                // Ensure 'surface_polarized' matching does NOT match 'subsurface_polarized'
+                if ($mode === 'surface_polarized' && strpos($name, 'subsurface') !== false) {
+                    continue;
+                }
+
                 if (strpos($name, $mode) !== false) {
                     $found = $media;
                     break;
                 }
             }
 
+            // 2. Try fallbacks if direct mode match wasn't found
             if (!$found && isset($v4Fallbacks[$mode])) {
                 foreach ($v4Fallbacks[$mode] as $fb) {
                     foreach ($mediaCollection as $media) {
                         $name = strtolower($media->file_name ?? $media->name ?? '');
+
+                        // Ensure 'surface' fallback does NOT match 'subsurface'
+                        if (($fb === 'surface' || $fb === 'surface_polarized') && strpos($name, 'subsurface') !== false) {
+                            continue;
+                        }
+
                         if (strpos($name, $fb) !== false) {
                             $found = $media;
                             break;
@@ -134,13 +150,24 @@ class ReportAssetHelper
                 }
             }
 
-            // Fallback to cycling through the media list to populate missing modes
+            // 3. Fallback to picking an unused media item if available, or cycling through
             if (!$found && count($mediaCollection) > 0) {
-                $found = $mediaCollection[$fallbackIndex % count($mediaCollection)];
-                $fallbackIndex++;
+                foreach ($mediaCollection as $media) {
+                    $mId = $media->id ?? $media->getPath();
+                    if (!in_array($mId, $usedMediaIds, true)) {
+                        $found = $media;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $found = $mediaCollection[$fallbackIndex % count($mediaCollection)];
+                    $fallbackIndex++;
+                }
             }
 
             if ($found) {
+                $mId = $found->id ?? $found->getPath();
+                $usedMediaIds[] = $mId;
                 $mapped[$mode] = $found->getPath();
             }
         }
