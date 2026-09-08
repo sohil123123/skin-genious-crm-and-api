@@ -322,6 +322,26 @@ class CallInfolist
                         ? 'The model read the transcript this way. It is not a booking in the diary.'
                         : null)
                     ->visible(fn (Call $record): bool => $record->currentAnalysis !== null),
+                // What the action engines will actually read. Shown next to the
+                // prose because the prose is for a person and these are for the
+                // queues — and when a patient turns up in tomorrow's worklist,
+                // this is the row that explains why.
+                TextEntry::make('call_signals')
+                    ->label('Signals for Next Best Action')
+                    ->badge()
+                    ->columnSpanFull()
+                    ->state(fn (Call $record): array => $record->currentAnalysis
+                        ?->signals
+                        ->map(fn ($signal): string => $signal->signal_key->getLabel()
+                            . ($signal->confidence !== null
+                                ? ' · ' . round($signal->confidence * 100) . '%'
+                                : ''))
+                        ->all() ?? [])
+                    ->color(fn (): string => 'gray')
+                    ->placeholder('None recognised')
+                    ->helperText('Drawn from a fixed vocabulary so the action engines can match on them. Anything the model said outside it was discarded.')
+                    ->visible(fn (Call $record): bool => $record->currentAnalysis?->signals->isNotEmpty() ?? false),
+
                 TextEntry::make('currentAnalysis.next_best_action')
                     ->label('Suggested next step')
                     ->columnSpanFull()

@@ -6,6 +6,7 @@ namespace App\Services\Call\Analysis;
 
 use App\DTOs\Call\CallAnalysisResult;
 use App\Enums\Call\CallSentiment;
+use App\Enums\Call\CallSignalKey;
 use App\Models\Call;
 use App\Models\CallTranscription;
 use App\Models\Setting;
@@ -165,7 +166,12 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
      */
     protected function systemPrompt(): string
     {
-        return <<<'PROMPT'
+        // The vocabulary is injected rather than written out, so the prompt and
+        // the validation below can never describe different sets — which would
+        // mean the model being asked for keys the CRM then silently discards.
+        $keys = implode(', ', CallSignalKey::conversationalValues());
+
+        return sprintf(<<<'PROMPT'
         You analyse phone calls for a skincare and aesthetics clinic in India.
         Calls mix Hindi and English, often in the same sentence.
 
@@ -191,6 +197,25 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
         next_best_action            one sentence, the single most useful next step
         next_best_action_priority   integer 0-100
         confidence                  number 0-1, how sure you are overall
+        signals                     array, described below
+
+        The signals array is what the CRM acts on. Return one entry for each
+        thing the call actually established, and nothing for things it did not:
+
+            {"key": "price_objection", "confidence": 0.9, "value": null}
+
+        key must be one of exactly these, and nothing else:
+        %s
+
+        value is optional detail — the treatment named, the time asked for —
+        and null when there is none.
+
+        Rules for signals:
+        - Only what was said. A caller who never mentioned money has no
+          price_objection, however likely one seems.
+        - appointment_booked only when a date or time was actually agreed.
+        - not_interested only when they declined, not when they hesitated.
+        - An empty array is a correct answer for a wrong number or hold music.
 
         Rules:
         - Use null when the transcript genuinely does not say. Do not guess.
@@ -207,7 +232,7 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
         - Write summary, objection and next_best_action in English even when the
           call was in Hindi, so one person can scan a day of calls.
         - Do not quote the caller's phone number or full name in the summary.
-        PROMPT;
+        PROMPT, $keys);
     }
 
     protected function userPrompt(Call $call, string $transcript): string
@@ -293,11 +318,71 @@ class OpenAiCallAnalysisService implements CallAnalysisServiceInterface
             nextBestAction: $text('next_best_action'),
             nextBestActionPriority: $percent('next_best_action_priority'),
             confidence: $score('confidence', 0, 1),
+            signals: $this->readSignals($data),
             model: $model,
             inputTokens: isset($usage['prompt_tokens']) ? (int) $usage['prompt_tokens'] : null,
             outputTokens: isset($usage['completion_tokens']) ? (int) $usage['completion_tokens'] : null,
             raw: $data,
         );
+    }
+
+    /**
+     * Pull the signal array out of an untrusted response.
+     *
+     * Checked against the vocabulary rather than stored as given. A model that
+     * returns "cost_concern" has said something reasonable and useless: no rule
+     * matches it, so keeping it would put a row in the table that looks like
+     * data and can never fire. Dropping it is the honest outcome, and the raw
+     * response is kept alongside for anyone auditing what was thrown away.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<int, array{key: string, type: string, confidence: ?float, value: ?string}>
+     */
+    protected function readSignals(array $data): array
+    {
+        $entries = $data['signals'] ?? null;
+
+        if (! is_array($entries)) {
+            return [];
+        }
+
+        $signals = [];
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $key = is_scalar($entry['key'] ?? null)
+                ? CallSignalKey::tryFrom(strtolower(trim((string) $entry['key'])))
+                : null;
+
+            // Unknown to the vocabulary, or a signal the model cannot honestly
+            // have heard — a "repeated calls" judgement belongs to the CRM's
+            // own records, not to a transcript.
+            if ($key === null || ! $key->isConversational()) {
+                continue;
+            }
+
+            $confidence = isset($entry['confidence']) && is_numeric($entry['confidence'])
+                ? max(0.0, min(1.0, (float) $entry['confidence']))
+                : null;
+
+            $value = filled($entry['value'] ?? null) && is_scalar($entry['value'])
+                ? mb_substr(trim((string) $entry['value']), 0, 255)
+                : null;
+
+            // Last write wins on a repeated key: a model that reports the same
+            // objection twice means it once.
+            $signals[$key->value] = [
+                'key' => $key->value,
+                'type' => $key->type()->value,
+                'confidence' => $confidence,
+                'value' => $value,
+            ];
+        }
+
+        return array_values($signals);
     }
 
     /**

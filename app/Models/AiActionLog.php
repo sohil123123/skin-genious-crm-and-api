@@ -30,6 +30,8 @@ class AiActionLog extends Model
         'slots_to_offer',
         'avoid_notes',
         'assigned_to',
+        'related_call_id',
+        'call_signals',
         'related_appointment_id',
         'related_package_id',
         'related_assessment_id',
@@ -43,6 +45,7 @@ class AiActionLog extends Model
     ];
 
     protected $casts = [
+        'call_signals' => 'array',
         'slots_to_offer' => 'array',
         'expires_at' => 'datetime',
         'outcome_at' => 'datetime',

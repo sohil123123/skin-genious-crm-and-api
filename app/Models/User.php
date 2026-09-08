@@ -267,6 +267,14 @@ class User extends Authenticatable
      * are matched on the phone number instead — see CallsRelationManager, which
      * widens this relation rather than replacing it.
      */
+    /**
+     * Everything calls with this patient have revealed, newest first.
+     */
+    public function callSignals(): HasMany
+    {
+        return $this->hasMany(CallInsightSignal::class, 'customer_user_id')->latest('occurred_at');
+    }
+
     public function calls(): HasMany
     {
         return $this->hasMany(Call::class, 'customer_user_id');
