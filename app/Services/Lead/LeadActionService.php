@@ -118,6 +118,13 @@ class LeadActionService
         LeadStatus::Unqualified->value,
     ];
 
+    /**
+     * Eligible leads per clinic, for the length of one generation pass.
+     *
+     * @var array<int, \Illuminate\Support\Collection<int, Lead>>
+     */
+    protected array $eligibleLeadCache = [];
+
     public function __construct(
         protected PhoneNormalizerService $phoneNormalizer,
     ) {}
@@ -238,19 +245,15 @@ class LeadActionService
     {
         $reader = $this->callSignals();
 
-        $asking = [
-            CallSignalKey::CallbackRequested->value,
-            CallSignalKey::InformationRequested->value,
-            CallSignalKey::AppointmentRequested->value,
-            CallSignalKey::PatientCommitment->value,
-            CallSignalKey::BuyingSignal->value,
-            CallSignalKey::HighIntent->value,
-        ];
-
         $grouped = CallInsightSignal::query()
             ->where('clinic_id', $clinic->id)
             ->whereNotNull('lead_id')
-            ->whereIn('signal_key', $asking)
+            // The same set the patient engine fires on, from the enum. When
+            // each engine kept its own list they drifted immediately — this one
+            // listened for high intent and buying signals, the patient one did
+            // not; that one listened for an unresolved issue, this one did not;
+            // and neither listened for "staff followup required" at all.
+            ->whereIn('signal_key', CallSignalKey::followUpValues())
             ->recent($reader->windowDays())
             ->confident($reader->confidenceThreshold())
             ->with('lead')
@@ -274,11 +277,15 @@ class LeadActionService
             }
 
             $latest = $group->first();
-            $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(Carbon::today()) ?? 0);
 
-            if ($daysSince < 1) {
+            // Hours, not calendar days — see the note on the patient engine's
+            // copy of this. The old rule compared against midnight and so could
+            // not see yesterday's calls in this morning's queue.
+            if (! $reader->isDue($latest->occurred_at)) {
                 continue;
             }
+
+            $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(now()) ?? 0);
 
             $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.95,
@@ -303,7 +310,13 @@ class LeadActionService
                 'recommended_channel' => $wantsWriting ? 'whatsapp' : 'call',
                 'recommended_time' => '11:00 AM - 1:00 PM',
                 'reason' => $this->withCallReason(
-                    sprintf('Asked for something on a call %d day(s) ago and has not had it.', $daysSince),
+                    sprintf(
+                        'Asked for something on a call %s and has not had it.',
+                        // "0 day(s) ago" for this morning's call, which is what
+                        // the day count produced. diffForHumans says "5 hours ago"
+                        // and needs no special case for the same day.
+                        $latest->occurred_at?->diffForHumans() ?? 'recently',
+                    ),
                     $reader->explain($subjectSignals),
                 ),
                 'suggested_message' => sprintf(
@@ -496,10 +509,23 @@ class LeadActionService
     {
         $actions = collect();
 
+        // Leads whose number the clinic has actually rung, whatever record the
+        // call ended up attached to.
+        //
+        // Matched on the phone key rather than on lead_id, because a person can
+        // exist twice — once as a lead from an ad, once as a patient — and the
+        // call matcher attaches to the patient. That is the case that produced
+        // a card reading "has never been contacted" nine hours after somebody
+        // had contacted them, which is the kind of thing that stops staff
+        // trusting the whole queue.
+        $called = $this->recentCallsByPhoneKey($clinic);
+
         foreach ($this->eligibleLeads($clinic) as $lead) {
             if ($lead->status !== LeadStatus::New) {
                 continue;
             }
+
+            $lastCall = $called->get($this->phoneNormalizer->matchKey($lead->phone) ?? '_');
 
             $ageDays = $this->ageInDays($lead);
 
@@ -530,17 +556,33 @@ class LeadActionService
                 priority: $priority,
                 channel: $ageDays >= $this->agingDays ? 'whatsapp' : 'call',
                 time: '10:00 AM - 12:00 PM',
-                reason: sprintf(
-                    'Enquired %s and has never been contacted.%s',
-                    $this->agePhrase($ageDays),
-                    $ageDays >= $this->agingDays
-                        ? ' Over a week old — try WhatsApp, calls are unlikely to land now.'
-                        : '',
-                ),
-                goal: 'Make first contact and qualify the enquiry',
-                avoid: $ageDays >= $this->agingDays
-                    ? 'Do not apologise for the delay — it draws attention to it.'
-                    : 'Do not open with a price. Ask about their concern first.',
+                // Two different sentences, because they describe two different
+                // situations. A lead nobody has rung needs a first call. A lead
+                // somebody rang, who is still sitting at New, needs the outcome
+                // of that call recording — and telling staff to make first
+                // contact would have them repeat a conversation that already
+                // happened.
+                reason: $lastCall !== null
+                    ? sprintf(
+                        'Enquired %s and was called %s, but is still marked New — the outcome was never recorded.',
+                        $this->agePhrase($ageDays),
+                        $lastCall->started_at?->diffForHumans() ?? 'recently',
+                    )
+                    : sprintf(
+                        'Enquired %s and has never been contacted.%s',
+                        $this->agePhrase($ageDays),
+                        $ageDays >= $this->agingDays
+                            ? ' Over a week old — try WhatsApp, calls are unlikely to land now.'
+                            : '',
+                    ),
+                goal: $lastCall !== null
+                    ? 'Record what came of the call and move the lead on'
+                    : 'Make first contact and qualify the enquiry',
+                avoid: match (true) {
+                    $lastCall !== null => 'They have already been spoken to. Do not open as a first call.',
+                    $ageDays >= $this->agingDays => 'Do not apologise for the delay — it draws attention to it.',
+                    default => 'Do not open with a price. Ask about their concern first.',
+                },
                 expiresAt: Carbon::today()->addDays(3)->endOfDay(),
             ));
         }
@@ -705,13 +747,17 @@ class LeadActionService
     {
         // Memoised per clinic: all four triggers walk the same set, and
         // re-querying it four times would quadruple the work for no gain.
-        static $cache = [];
-
-        if (isset($cache[$clinic->id])) {
-            return $cache[$clinic->id];
+        //
+        // On the instance, not in a static. A static local lives as long as the
+        // PHP process, so under a queue worker — or Octane, or a test run — the
+        // second generation for a clinic would score the leads as they were the
+        // first time, silently, including leads since deleted. The memoisation
+        // is only meant to last one pass.
+        if (isset($this->eligibleLeadCache[$clinic->id])) {
+            return $this->eligibleLeadCache[$clinic->id];
         }
 
-        return $cache[$clinic->id] = Lead::query()
+        return $this->eligibleLeadCache[$clinic->id] = Lead::query()
             ->where('clinic_id', $clinic->id)
             ->whereNotIn('status', self::CLOSED_STATUSES)
             ->whereNotNull('phone')
@@ -897,6 +943,34 @@ class LeadActionService
      *
      * @return Collection<int, string>
      */
+    /**
+     * The most recent connected call to each number this clinic has rung.
+     *
+     * Keyed by phone key rather than by lead, so it answers the question the
+     * triggers actually ask — "has this person been spoken to" — for a person
+     * who exists as both a lead and a patient, or whose call arrived before
+     * either record did. The Call model's own scopeForCustomer() is built on
+     * the same reasoning.
+     *
+     * One query for the clinic, not one per lead.
+     *
+     * @return Collection<string, \App\Models\Call>
+     */
+    protected function recentCallsByPhoneKey(Clinic $clinic): Collection
+    {
+        return \App\Models\Call::query()
+            ->where('clinic_id', $clinic->id)
+            ->whereNotNull('client_phone_key')
+            // A missed call is not a contact. Somebody whose phone rang out has
+            // still never been spoken to, and telling staff otherwise would
+            // suppress the first real conversation.
+            ->where('is_connected', true)
+            ->where('started_at', '>=', Carbon::today()->subDays($this->callSignals()->windowDays()))
+            ->orderByDesc('started_at')
+            ->get()
+            ->keyBy('client_phone_key');
+    }
+
     protected function phoneNumbersWithPatientActionToday(Clinic $clinic): Collection
     {
         return AiActionLog::query()

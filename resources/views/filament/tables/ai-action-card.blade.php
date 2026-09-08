@@ -124,6 +124,9 @@
                         </div>
                     @endif
 
+                    {{-- What the call said, where a call is why this card exists. --}}
+                    @include('filament.tables.partials.action-call-analysis', ['record' => $record])
+
                     @if ($record->avoid_notes)
                         <div style="font-size: 0.625rem; display: flex; gap: 0.25rem;">
                             <strong style="color: #dc2626; flex-shrink: 0;" class="dark:!text-red-400">⚠️ Avoid:</strong>

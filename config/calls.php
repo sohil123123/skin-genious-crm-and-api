@@ -211,6 +211,12 @@ return [
         'min_confidence' => (float) env('CALL_SIGNAL_MIN_CONFIDENCE', 0.65),
         'modifier_enabled' => (bool) env('CALL_SIGNAL_MODIFIER_ENABLED', false),
 
+        // How long a promise is left with the person who took the call before
+        // it counts as outstanding work for the queue. Hours, not days: the
+        // queue is built once each morning, so anything longer than a few
+        // hours means yesterday's calls are invisible in it.
+        'cooloff_hours' => (int) env('CALL_SIGNAL_COOLOFF_HOURS', 2),
+
         // Ceiling on how far a conversation may move a score, in either
         // direction, as a fraction. Bounded so call insight tilts the ranking
         // rather than replacing the arithmetic the engines already do.

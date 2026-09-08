@@ -396,7 +396,7 @@ class CallsTable
                 ->preload(),
 
             SelectFilter::make('customer_user_id')
-                ->label('Patient')
+                ->label('Client')
                 ->relationship('customer', 'first_name')
                 ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name)
                 ->searchable(),

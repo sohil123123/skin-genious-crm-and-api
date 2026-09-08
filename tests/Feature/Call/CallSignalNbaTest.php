@@ -192,16 +192,108 @@ it('ignores a call older than the signal window', function (): void {
 });
 
 /**
- * Nothing is overdue on the day it was asked for. Chasing a promise made an
- * hour ago puts a staff member back in the queue for work they are doing.
+ * A promise made minutes ago belongs to the person who took the call. Queueing
+ * it immediately asks a colleague to duplicate work already in hand.
  */
-it('gives the clinic the rest of the day before chasing a promise', function (): void {
-    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(2)]);
+it('leaves a promise with whoever took the call for a couple of hours', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subMinutes(20)]);
     nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
 
     app(AiActionService::class)->generateForClinic($this->clinic);
 
     expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+/**
+ * The bug this replaced: the cool-off was a calendar day measured against
+ * midnight, so a call at 10:29 yesterday morning read as zero days old in this
+ * morning's 07:00 run and was skipped — and so was every call, until it was
+ * nearly two days old. The queue is built once a day, so a rule that cannot see
+ * yesterday cannot see anything.
+ */
+it('queues a promise from yesterday morning in this morning run', function (): void {
+    $call = nbaCall([
+        'customer_user_id' => $this->patient->getKey(),
+        'started_at' => now()->subDay()->setTime(10, 29),
+    ]);
+
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(1);
+});
+
+/**
+ * Rohit's call, exactly as it came out of the analyser: an appointment
+ * discussed but not confirmed, the customer objecting to the timing, and the
+ * model saying in as many words that staff must follow up.
+ *
+ * It produced nothing. Neither engine listened for `staff_followup_required` or
+ * `appointment_intent` — both engines hand-listed the keys they cared about and
+ * both lists missed these — so the queue kept showing the lead's original
+ * "never contacted" action hours after somebody had, in fact, contacted them.
+ */
+it('queues the call that produced nothing: intent, an objection, and staff follow-up', function (): void {
+    $call = nbaCall([
+        'customer_user_id' => $this->patient->getKey(),
+        'started_at' => now()->subHours(6),
+    ]);
+
+    nbaSignals(
+        $call,
+        ['appointment_intent', 'timing_objection', 'neutral_sentiment', 'staff_followup_required'],
+        userId: $this->patient->getKey(),
+    );
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    $action = AiActionLog::where('user_id', $this->patient->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->action_trigger)->toBe('call_commitment_open')
+        ->and($action->related_call_id)->toBe($call->getKey())
+        // Said in hours, because "0 day(s) ago" was what the old wording gave
+        // a call from this morning.
+        ->and($action->reason)->toContain('hours ago')
+        ->and($action->reason)->not->toContain('day(s)');
+});
+
+it('queues the same call for a lead', function (): void {
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(6)]);
+
+    nbaSignals(
+        $call,
+        ['appointment_intent', 'timing_objection', 'neutral_sentiment', 'staff_followup_required'],
+        leadId: $this->lead->getKey(),
+    );
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        // Outranks "never contacted", so the queue stops claiming nobody has
+        // spoken to somebody who was called this morning.
+        ->and($action->action_trigger)->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT)
+        ->and($action->reason)->not->toContain('never been contacted');
+});
+
+/**
+ * Both engines must fire on the same signals. They did not, and nothing caught
+ * it because each was tested against its own list.
+ */
+it('agrees between the two engines about which signals demand follow-up', function (): void {
+    foreach (['appointment_intent', 'staff_followup_required', 'high_intent', 'unresolved_issue'] as $key) {
+        expect(CallSignalKey::from($key)->demandsFollowUp())->toBeTrue();
+    }
+
+    // An objection is a reason to prepare for a conversation, not a promise to
+    // keep. Chasing "sounded hesitant" fills a queue with work nobody can
+    // finish.
+    foreach (['timing_objection', 'neutral_sentiment', 'price_objection', 'appointment_booked'] as $key) {
+        expect(CallSignalKey::from($key)->demandsFollowUp())->toBeFalse();
+    }
 });
 
 // ──────────────── Scenario 2: your "sohil" lead ────────────────
@@ -253,6 +345,64 @@ it('leaves a closed lead closed however warm the call was', function (): void {
     app(LeadActionService::class)->generateForClinic($this->clinic);
 
     expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+// ──────────────── Not claiming somebody was never contacted ────────────────
+
+/**
+ * The card that started this: "Enquired yesterday and has never been
+ * contacted", nine hours after the clinic rang them.
+ *
+ * The lead and the patient are the same human with the same number, and the
+ * call matcher attached to the patient — so nothing on the lead itself said a
+ * call had happened. The trigger now asks the phone, which is what a person
+ * would ask.
+ */
+it('does not claim a lead was never contacted when the clinic has rung them', function (): void {
+    // Three days old: findNeverContacted skips anything under a day, and it
+    // measures age to midnight, so "yesterday evening" still reads as zero.
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    nbaCall([
+        'lead_id' => null,
+        'customer_user_id' => null,
+        'client_phone_key' => '9829000002',
+        'is_connected' => true,
+        'started_at' => now()->subHours(9),
+    ]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->reason)->not->toContain('never been contacted')
+        ->and($action->reason)->toContain('the outcome was never recorded')
+        ->and($action->avoid_notes)->toContain('already been spoken to');
+});
+
+/**
+ * A phone that rang out is not a conversation. Suppressing the first real call
+ * because nobody answered would be worse than the falsehood it replaced.
+ */
+it('still calls a lead whose phone only rang out', function (): void {
+    // Three days old: findNeverContacted skips anything under a day, and it
+    // measures age to midnight, so "yesterday evening" still reads as zero.
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    nbaCall([
+        'lead_id' => null,
+        'customer_user_id' => null,
+        'client_phone_key' => '9829000002',
+        'is_connected' => false,
+        'call_status' => 'missed',
+        'started_at' => now()->subHours(9),
+    ]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->reason)
+        ->toContain('never been contacted');
 });
 
 // ──────────────── The modifier, which is off by default ────────────────
