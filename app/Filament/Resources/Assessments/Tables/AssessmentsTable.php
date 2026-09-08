@@ -126,7 +126,7 @@ class AssessmentsTable
                                         // Clinic
                                         Select::make('clinic_id')
                                             ->label('Clinics')
-                                            ->relationship('clinic', 'name')
+                                            ->relationship('clinic', 'name', fn ($query) => $query->active())
                                             ->searchable()
                                             ->preload()
                                             ->placeholder('Select a clinic')

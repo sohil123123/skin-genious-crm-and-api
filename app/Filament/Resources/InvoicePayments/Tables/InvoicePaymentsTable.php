@@ -163,7 +163,7 @@ class InvoicePaymentsTable
                                         // Clinic
                                         Select::make('clinic_id')
                                             ->label('Clinic')
-                                            ->options(Clinic::pluck('name', 'id'))
+                                            ->options(Clinic::active()->pluck('name', 'id'))
                                             ->searchable()
                                             ->preload()
                                             ->placeholder('Select clinic')

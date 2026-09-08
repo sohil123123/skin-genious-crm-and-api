@@ -50,7 +50,7 @@ class ClinicInventoriesTable
             ])
             ->filters([
                 SelectFilter::make('clinic_id')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query) => $query->active())
                     ->searchable()
                     ->preload()
                     ->visible(fn() => auth()->user()->hasRole('super_admin')),

@@ -170,7 +170,7 @@ class UsersTable
                 TrashedFilter::make(),
 
                 SelectFilter::make('clinic')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query) => $query->active())
                     ->searchable()
                     ->preload(),
 

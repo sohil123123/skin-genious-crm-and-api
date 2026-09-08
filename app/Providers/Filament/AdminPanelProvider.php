@@ -297,6 +297,13 @@ class AdminPanelProvider extends PanelProvider
                     HTML;
                 }
             )
+            // The live incoming-call popup, on every panel page — a ringing
+            // phone has to reach whichever screen the receptionist is actually
+            // looking at, not just the calls list.
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => view('filament.incoming-call-popup')->render(),
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn(): string => \Illuminate\Support\Facades\Blade::render(<<<'HTML'
@@ -314,7 +321,672 @@ class AdminPanelProvider extends PanelProvider
                         .dark .invoice-status-partial, .dark .invoice-status-unpaid {
                             background-color: rgba(127, 29, 29, 0.2) !important;
                         }
+
+                        /*
+                         * Calls table: the two card cells.
+                         *
+                         * The panel registers no viteTheme, so no compiled
+                         * Tailwind reaches it — these are the classes the call
+                         * view columns are written against
+                         * (resources/views/filament/tables/columns/call-card
+                         * and call-agent). Colours come from the panel's own
+                         * palette variables so they follow the theme and dark
+                         * mode without a second set of rules.
+                         */
+                        .sgc {
+                            display: flex;
+                            align-items: flex-start;
+                            gap: 0.75rem;
+                            padding: 0.5rem 0.25rem;
+                            width: 30rem;
+                            max-width: 100%;
+                        }
+
+                        /* Direction and outcome in one glyph: an arrow in is a
+                           call we received, and its colour says whether anyone
+                           actually spoke to them. */
+                        .sgc-glyph {
+                            flex: 0 0 auto;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2.25rem;
+                            height: 2.25rem;
+                            border-radius: 9999px;
+                            margin-top: 0.125rem;
+                        }
+
+                        .sgc-glyph svg { width: 1.125rem; height: 1.125rem; }
+
+                        .sgc-glyph--ok { background: var(--success-50); color: var(--success-600); }
+                        .sgc-glyph--bad { background: var(--danger-50); color: var(--danger-600); }
+                        .sgc-glyph--idle { background: var(--gray-100); color: var(--gray-500); }
+
+                        .dark .sgc-glyph--ok { background: color-mix(in srgb, var(--success-500) 16%, transparent); color: var(--success-400); }
+                        .dark .sgc-glyph--bad { background: color-mix(in srgb, var(--danger-500) 16%, transparent); color: var(--danger-400); }
+                        .dark .sgc-glyph--idle { background: color-mix(in srgb, var(--gray-500) 16%, transparent); color: var(--gray-400); }
+
+                        .sgc-body { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+
+                        .sgc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; }
+
+                        .sgc-name {
+                            font-weight: 600;
+                            font-size: 0.875rem;
+                            color: var(--gray-950);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 18rem;
+                        }
+
+                        .dark .sgc-name { color: var(--gray-50); }
+
+                        .sgc-meta {
+                            display: flex;
+                            align-items: center;
+                            flex-wrap: wrap;
+                            gap: 0.4375rem;
+                            font-size: 0.75rem;
+                            color: var(--gray-600);
+                        }
+
+                        .dark .sgc-meta { color: var(--gray-400); }
+
+                        .sgc-meta-item { display: inline-flex; align-items: center; gap: 0.25rem; }
+                        .sgc-meta-item svg { width: 0.875rem; height: 0.875rem; opacity: 0.7; }
+
+                        .sgc-sep { color: var(--gray-300); }
+                        .dark .sgc-sep { color: var(--gray-600); }
+
+                        .sgc-muted { color: var(--gray-500); }
+                        .dark .sgc-muted { color: var(--gray-500); }
+
+                        .sgc-warn { color: var(--warning-600); }
+                        .dark .sgc-warn { color: var(--warning-400); }
+
+                        /* Phone numbers line up down the column. */
+                        .sgc-num { font-variant-numeric: tabular-nums; }
+
+                        /* Roomier than the meta rows: these hold full-size
+                           Filament badges, which carry their own padding. */
+                        .sgc-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.25rem; }
+
+                        /*
+                            A badge that opens something has to look like it
+                            does. The button is stripped back to nothing so the
+                            badge inside keeps its own shape, and the affordance
+                            is carried by the cursor and a lift on hover.
+                        */
+                        .sgc-badge-button {
+                            padding: 0; border: 0; background: none; cursor: pointer;
+                            line-height: 0; border-radius: 999px;
+                            transition: transform .12s ease, filter .12s ease;
+                        }
+
+                        .sgc-badge-button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+                        .sgc-badge-button:focus-visible { outline: 2px solid var(--primary-500, #16a34a); outline-offset: 2px; }
+                        .sgc-badge-button:disabled { opacity: .5; cursor: progress; }
+
+                        /* Handled by */
+                        .sgc-own { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem 0.25rem; }
+
+                        .sgc-own-avatar {
+                            flex: 0 0 auto;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2rem;
+                            height: 2rem;
+                            border-radius: 9999px;
+                            font-size: 0.6875rem;
+                            font-weight: 700;
+                            letter-spacing: 0.02em;
+                        }
+
+                        .sgc-own-avatar-primary { background: var(--primary-50); color: var(--primary-600); }
+                        .sgc-own-avatar-success { background: var(--success-50); color: var(--success-600); }
+                        .sgc-own-avatar-warning { background: var(--warning-50); color: var(--warning-600); }
+                        .sgc-own-avatar-danger { background: var(--danger-50); color: var(--danger-600); }
+                        .sgc-own-avatar-info { background: var(--info-50); color: var(--info-600); }
+                        .sgc-own-avatar-gray { background: var(--gray-100); color: var(--gray-500); }
+
+                        .dark .sgc-own-avatar-primary { background: color-mix(in srgb, var(--primary-500) 16%, transparent); color: var(--primary-400); }
+                        .dark .sgc-own-avatar-success { background: color-mix(in srgb, var(--success-500) 16%, transparent); color: var(--success-400); }
+                        .dark .sgc-own-avatar-warning { background: color-mix(in srgb, var(--warning-500) 16%, transparent); color: var(--warning-400); }
+                        .dark .sgc-own-avatar-danger  { background: color-mix(in srgb, var(--danger-500) 16%, transparent);  color: var(--danger-400); }
+                        .dark .sgc-own-avatar-info    { background: color-mix(in srgb, var(--info-500) 16%, transparent);    color: var(--info-400); }
+                        .dark .sgc-own-avatar-gray    { background: color-mix(in srgb, var(--gray-500) 16%, transparent);    color: var(--gray-400); }
+
+                        .sgc-own-body { min-width: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+
+                        .sgc-own-name {
+                            font-weight: 600;
+                            font-size: 0.8125rem;
+                            color: var(--gray-950);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 12rem;
+                        }
+
+                        .dark .sgc-own-name { color: var(--gray-50); }
+
+                        .sgc-own-row {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 0.25rem;
+                            font-size: 0.6875rem;
+                            color: var(--gray-600);
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            max-width: 12rem;
+                        }
+
+                        .dark .sgc-own-row { color: var(--gray-400); }
+                        .sgc-own-row svg { width: 0.75rem; height: 0.75rem; opacity: 0.7; flex: 0 0 auto; }
+
+                        /* A call nobody could attribute is tinted, so the rows
+                           that need a human are visible without reading a
+                           column. */
+                        .fi-row-call-unmatched { background-color: rgba(251, 191, 36, 0.07) !important; }
+                        .dark .fi-row-call-unmatched { background-color: rgba(180, 83, 9, 0.12) !important; }
+
+                        /* Recording column: one button, one shared player. */
+                        .sgc-rec { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+                        .sgc-rec-btn {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2rem;
+                            height: 2rem;
+                            border-radius: 9999px;
+                            background: var(--primary-50);
+                            color: var(--primary-600);
+                            cursor: pointer;
+                            flex: 0 0 auto;
+                            transition: background-color .15s, transform .1s;
+                        }
+
+                        .sgc-rec-btn:hover { background: var(--primary-100); }
+                        .sgc-rec-btn:active { transform: scale(0.94); }
+
+                        .dark .sgc-rec-btn { background: color-mix(in srgb, var(--primary-500) 18%, transparent); color: var(--primary-400); }
+                        .dark .sgc-rec-btn:hover { background: color-mix(in srgb, var(--primary-500) 28%, transparent); }
+
+                        /* Playing reads as a different control, not the same one
+                           with a swapped glyph. */
+                        .sgc-rec-btn.is-playing { background: var(--success-50); color: var(--success-600); }
+                        .dark .sgc-rec-btn.is-playing { background: color-mix(in srgb, var(--success-500) 18%, transparent); color: var(--success-400); }
+
+                        .sgc-rec-icon { display: inline-flex; }
+                        .sgc-rec-icon svg { width: 1rem; height: 1rem; }
+                        .sgc-rec-icon[data-sgc-icon="wait"] svg { animation: sgc-spin 1s linear infinite; }
+
+                        @keyframes sgc-spin { to { transform: rotate(360deg); } }
+
+                        .sgc-rec-body { display: flex; flex-direction: column; line-height: 1.25; }
+
+                        .sgc-rec-time {
+                            font-size: 0.75rem;
+                            font-variant-numeric: tabular-nums;
+                            color: var(--gray-700);
+                        }
+
+                        .dark .sgc-rec-time { color: var(--gray-300); }
+
+                        .sgc-rec-note { font-size: 0.6875rem; color: var(--gray-500); }
+
+                        .sgc-rec-empty {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 0.25rem;
+                            font-size: 0.75rem;
+                            color: var(--gray-500);
+                        }
+
+                        .sgc-rec-empty svg { width: 0.875rem; height: 0.875rem; opacity: 0.7; }
+
+                        /* Detail page: one native player per recording. */
+                        .sgc-rec-item { margin-bottom: 1rem; }
+                        .sgc-rec-item:last-child { margin-bottom: 0; }
+
+                        /*
+                            Hidden, not removed. The element is still the thing
+                            that plays; only its chrome is ours, so seeking,
+                            buffering and the solo behaviour all keep working
+                            through the same API.
+                        */
+                        .sgc-rec-audio { display: none; }
+
+                        .sgc-player {
+                            padding: 0.625rem 0.875rem;
+                            background: var(--gray-50, #f9fafb);
+                            border: 1px solid rgba(17, 24, 39, .08);
+                            border-radius: 0.75rem;
+                        }
+
+                        /* Button and rail on one line, sharing a centre. */
+                        .sgc-player-row { display: flex; align-items: center; gap: 0.75rem; }
+
+                        .sgc-player-toggle {
+                            position: relative;
+                            flex: 0 0 auto;
+                            width: 2.25rem; height: 2.25rem;
+                            display: grid; place-items: center;
+                            border: 0; border-radius: 999px; cursor: pointer;
+                            color: #fff; background: var(--primary-600, #16a34a);
+                            transition: transform .12s ease, filter .12s ease;
+                        }
+
+                        .sgc-player-toggle:hover { filter: brightness(1.08); transform: scale(1.04); }
+                        .sgc-player-toggle:focus-visible { outline: 2px solid var(--primary-500, #16a34a); outline-offset: 2px; }
+
+                        /*
+                            Pressed, briefly and physically. A control that
+                            starts something several seconds away — a stream has
+                            to be fetched before a sound arrives — needs to
+                            acknowledge the press at the moment of pressing, or
+                            it gets pressed again.
+                        */
+                        .sgc-player-toggle:active { transform: scale(0.9); filter: brightness(0.95); }
+
+                        /*
+                            And a ring while it plays, so a page holding several
+                            recordings says which one is audible without anyone
+                            reading two small icons to work it out.
+                        */
+                        .sgc-player.is-playing .sgc-player-toggle::after {
+                            content: ''; position: absolute; inset: 0;
+                            border-radius: 999px;
+                            border: 2px solid var(--primary-600, #16a34a);
+                            animation: sgc-player-pulse 1.6s ease-out infinite;
+                        }
+
+                        @keyframes sgc-player-pulse {
+                            0% { opacity: .6; transform: scale(1); }
+                            100% { opacity: 0; transform: scale(1.7); }
+                        }
+
+                        .sgc-player-icon { width: 1.05rem; height: 1.05rem; }
+
+                        /* Generous hit area around a 4px bar: the bar is the
+                           thing to look at, not the thing to hit. */
+                        .sgc-player-rail {
+                            position: relative; flex: 1 1 auto; min-width: 0;
+                            height: 1.25rem; cursor: pointer;
+                            display: flex; align-items: center;
+                        }
+
+                        .sgc-player-rail::before {
+                            content: ''; position: absolute; inset-inline: 0;
+                            height: 4px; border-radius: 999px;
+                            background: rgba(17, 24, 39, .12);
+                        }
+
+                        .sgc-player-buffer, .sgc-player-fill {
+                            position: absolute; inset-inline-start: 0;
+                            height: 4px; border-radius: 999px; width: 0;
+                        }
+
+                        .sgc-player-buffer { background: rgba(17, 24, 39, .18); }
+                        .sgc-player-fill { background: var(--primary-600, #16a34a); }
+
+                        /*
+                            Always visible, not hover-only. It marks where the
+                            playhead is, which is worth seeing at rest — and on
+                            a touch screen there is no hover to reveal it with.
+                        */
+                        .sgc-player-knob {
+                            position: absolute; inset-inline-start: 0;
+                            width: 0.75rem; height: 0.75rem; margin-inline-start: -0.375rem;
+                            border-radius: 999px; background: var(--primary-600, #16a34a);
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+                            transition: transform .12s ease;
+                        }
+
+                        .sgc-player:hover .sgc-player-knob,
+                        .sgc-player-rail:focus-visible .sgc-player-knob { transform: scale(1.2); }
+
+                        /*
+                            Indented to start where the rail starts — button
+                            width plus the gap — so the elapsed time sits under
+                            the position it describes rather than under the
+                            button.
+                        */
+                        .sgc-player-times {
+                            display: flex; align-items: center; justify-content: space-between;
+                            gap: 0.5rem; margin-top: 0.125rem;
+                            padding-inline-start: 3rem;
+                            font-size: 0.6875rem; color: #6b7280;
+                            font-variant-numeric: tabular-nums;
+                        }
+
+                        .sgc-player-times .sgc-rec-meta { margin: 0; }
+
+                        .dark .sgc-player { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .08); }
+                        .dark .sgc-player-rail::before { background: rgba(255, 255, 255, .15); }
+                        .dark .sgc-player-buffer { background: rgba(255, 255, 255, .22); }
+                        .dark .sgc-player-times { color: #9ca3af; }
+
+                        @media (prefers-reduced-motion: reduce) {
+                            .sgc-player-toggle, .sgc-player-knob { transition: none; }
+                            .sgc-player:hover .sgc-player-knob { transform: none; }
+                            .sgc-player-toggle:active { transform: none; }
+                            .sgc-player.is-playing .sgc-player-toggle::after { animation: none; opacity: .5; }
+                            .sgc-player-toggle:hover { transform: none; }
+                        }
+
+                        .sgc-rec-meta {
+                            margin: 0.375rem 0 0;
+                            font-size: 0.75rem;
+                            color: var(--gray-500);
+                        }
+
+                        .sgc-rec-msg { margin: 0; font-size: 0.8125rem; color: var(--gray-500); }
+
+                        .sgc-rec-err {
+                            margin: 0.25rem 0 0;
+                            font-size: 0.75rem;
+                            color: var(--danger-600);
+                            word-break: break-word;
+                        }
+
+                        .dark .sgc-rec-err { color: var(--danger-400); }
+
+                        @media (max-width: 1024px) {
+                            .sgc { width: 100%; }
+                            .sgc-name { max-width: 100%; white-space: normal; }
+                        }
                     </style>
+
+                    <script>
+                        /*
+                         * One audio element for the whole panel.
+                         *
+                         * A player per table row would hold fifty media elements
+                         * on a fifty-row page, and starting a second recording
+                         * would leave the first one talking over it. A single
+                         * shared element makes "only one plays at a time" the
+                         * default rather than something to enforce.
+                         *
+                         * Registered on window rather than in a module so the
+                         * inline handlers in the table cell can reach it, and
+                         * guarded so SPA navigation cannot build a second one.
+                         */
+                        window.sgCallAudio = window.sgCallAudio || (() => {
+                            const el = new Audio();
+                            el.preload = 'none';
+
+                            let button = null;
+
+                            const icon = (name, show) => {
+                                const node = button?.querySelector(`[data-sgc-icon="${name}"]`);
+
+                                if (node) {
+                                    node.hidden = ! show;
+                                }
+                            };
+
+                            const clock = (seconds) => {
+                                if (! Number.isFinite(seconds)) {
+                                    return null;
+                                }
+
+                                const whole = Math.floor(seconds);
+
+                                return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+                            };
+
+                            const paint = (state) => {
+                                if (! button) {
+                                    return;
+                                }
+
+                                icon('play', state === 'idle');
+                                icon('pause', state === 'playing');
+                                icon('wait', state === 'loading');
+
+                                button.classList.toggle('is-playing', state === 'playing');
+                                button.setAttribute('title', state === 'playing' ? 'Pause' : 'Play this recording');
+                            };
+
+                            // The row keeps its own total length, so restoring it
+                            // on stop is just remembering what was there.
+                            const time = (text) => {
+                                const node = button?.parentElement?.querySelector('[data-sgc-time]');
+
+                                if (node && text !== null) {
+                                    node.textContent = text;
+                                }
+                            };
+
+                            const release = () => {
+                                if (! button) {
+                                    return;
+                                }
+
+                                paint('idle');
+                                time(button.dataset.sgcTotal ?? null);
+                                button = null;
+                            };
+
+                            el.addEventListener('playing', () => paint('playing'));
+                            el.addEventListener('waiting', () => paint('loading'));
+                            el.addEventListener('pause', () => paint('idle'));
+                            el.addEventListener('ended', release);
+
+                            el.addEventListener('error', () => {
+                                // A 404 from the stream route means the file is
+                                // gone from disk. Say so on the row rather than
+                                // leaving a button that silently does nothing.
+                                time('Unavailable');
+                                paint('idle');
+                                button = null;
+                            });
+
+                            el.addEventListener('timeupdate', () => {
+                                if (button) {
+                                    time(clock(el.currentTime));
+                                }
+                            });
+
+                            const stop = () => {
+                                el.pause();
+                                el.removeAttribute('src');
+                                release();
+                            };
+
+                            return {
+                                stop,
+
+                                toggle(trigger) {
+                                    const src = trigger.dataset.sgcAudio;
+
+                                    if (! src) {
+                                        return;
+                                    }
+
+                                    // Same row, already playing: pause in place
+                                    // rather than restarting from zero.
+                                    if (button === trigger && ! el.paused) {
+                                        el.pause();
+                                        paint('idle');
+
+                                        return;
+                                    }
+
+                                    if (button === trigger && el.paused && el.currentSrc) {
+                                        el.play();
+
+                                        return;
+                                    }
+
+                                    // A different row: whatever was playing stops.
+                                    if (button && button !== trigger) {
+                                        stop();
+                                    }
+
+                                    button = trigger;
+                                    button.dataset.sgcTotal = button.parentElement
+                                        ?.querySelector('[data-sgc-time]')?.textContent ?? '';
+
+                                    paint('loading');
+                                    el.src = src;
+                                    el.play().catch(() => {
+                                        time('Unavailable');
+                                        paint('idle');
+                                        button = null;
+                                    });
+                                },
+                            };
+                        })();
+
+                        /*
+                         * The detail page uses native <audio> elements rather
+                         * than the shared one, because reviewing a call means
+                         * scrubbing and a play/pause button cannot seek. A call
+                         * can carry several recordings, so this keeps them from
+                         * talking over each other — the same guarantee the
+                         * table's single shared element gets for free.
+                         */
+                        window.sgCallAudioSolo = window.sgCallAudioSolo || function (playing) {
+                            document.querySelectorAll('audio.sgc-rec-audio').forEach((other) => {
+                                if (other !== playing) {
+                                    other.pause();
+                                }
+                            });
+                        };
+
+                        /*
+                         * The detail-page player.
+                         *
+                         * Delegated from the document rather than bound per
+                         * element: the infolist is re-rendered by Livewire on
+                         * every action, and handlers attached to the old nodes
+                         * would be lost without anybody noticing until a button
+                         * stopped responding.
+                         */
+                        window.sgCallPlayer = window.sgCallPlayer || (() => {
+                            const clock = (seconds) => {
+                                if (!isFinite(seconds) || seconds < 0) return '--:--';
+                                const m = Math.floor(seconds / 60);
+                                const s = Math.floor(seconds % 60);
+                                return m + ':' + String(s).padStart(2, '0');
+                            };
+
+                            const paint = (player) => {
+                                const audio = player.querySelector('audio');
+                                if (!audio) return;
+
+                                const ratio = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+                                const fill = player.querySelector('[data-sgc-fill]');
+                                const knob = player.querySelector('[data-sgc-knob]');
+                                const rail = player.querySelector('[data-sgc-rail]');
+
+                                if (fill) fill.style.width = (ratio * 100) + '%';
+                                if (knob) knob.style.insetInlineStart = (ratio * 100) + '%';
+                                if (rail) rail.setAttribute('aria-valuenow', Math.round(ratio * 100));
+
+                                const current = player.querySelector('[data-sgc-current]');
+                                const duration = player.querySelector('[data-sgc-duration]');
+                                if (current) current.textContent = clock(audio.currentTime);
+                                if (duration) duration.textContent = clock(audio.duration);
+
+                                // Buffered ahead of the playhead, so a slow
+                                // connection looks like loading rather than like
+                                // a player that has stopped.
+                                const buffer = player.querySelector('[data-sgc-buffer]');
+                                if (buffer && audio.buffered.length && audio.duration > 0) {
+                                    const end = audio.buffered.end(audio.buffered.length - 1);
+                                    buffer.style.width = ((end / audio.duration) * 100) + '%';
+                                }
+
+                                const playing = !audio.paused && !audio.ended;
+                                const play = player.querySelector('[data-sgc-icon="play"]');
+                                const pause = player.querySelector('[data-sgc-icon="pause"]');
+                                if (play) play.hidden = playing;
+                                if (pause) pause.hidden = !playing;
+
+                                const toggle = player.querySelector('[data-sgc-toggle]');
+                                if (toggle) toggle.setAttribute('aria-label', playing ? 'Pause recording' : 'Play recording');
+
+                                // Carries the state to CSS. The icon swap alone
+                                // is a small target to read across a page, and
+                                // a card with several recordings needs to say
+                                // which one is the one you can hear.
+                                player.classList.toggle('is-playing', playing);
+                            };
+
+                            const seek = (player, clientX) => {
+                                const audio = player?.querySelector('audio');
+                                const rail = player?.querySelector('[data-sgc-rail]');
+                                if (!audio || !rail || !(audio.duration > 0)) return;
+
+                                const box = rail.getBoundingClientRect();
+                                const ratio = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
+                                audio.currentTime = ratio * audio.duration;
+                                paint(player);
+                            };
+
+                            document.addEventListener('click', (event) => {
+                                const toggle = event.target.closest('[data-sgc-toggle]');
+
+                                if (toggle) {
+                                    const player = toggle.closest('[data-sgc-player]');
+                                    const audio = player?.querySelector('audio');
+                                    if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                    return;
+                                }
+
+                                const rail = event.target.closest('[data-sgc-rail]');
+                                if (rail) seek(rail.closest('[data-sgc-player]'), event.clientX);
+                            });
+
+                            // Arrow keys on the rail, because scrubbing a call
+                            // with a mouse alone excludes anyone who cannot.
+                            document.addEventListener('keydown', (event) => {
+                                const rail = event.target.closest ? event.target.closest('[data-sgc-rail]') : null;
+                                if (!rail) return;
+
+                                const player = rail.closest('[data-sgc-player]');
+                                const audio = player?.querySelector('audio');
+                                if (!audio) return;
+
+                                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                                    event.preventDefault();
+                                    audio.currentTime += event.key === 'ArrowRight' ? 5 : -5;
+                                } else if (event.key === ' ' || event.key === 'Enter') {
+                                    event.preventDefault();
+                                    audio.paused ? audio.play() : audio.pause();
+                                }
+                            });
+
+                            // Captured, because media events do not bubble.
+                            ['timeupdate', 'loadedmetadata', 'play', 'pause', 'ended', 'progress'].forEach((name) => {
+                                document.addEventListener(name, (event) => {
+                                    const audio = event.target;
+
+                                    if (audio && audio.classList && audio.classList.contains('sgc-rec-audio')) {
+                                        const player = audio.closest('[data-sgc-player]');
+                                        if (player) paint(player);
+                                    }
+                                }, true);
+                            });
+
+                            return { paint };
+                        })();
+
+                        // Filament runs in SPA mode, so leaving the list does not
+                        // reload the page — without this the audio would keep
+                        // playing over whatever screen you moved to.
+                        document.addEventListener('livewire:navigating', () => {
+                            window.sgCallAudio?.stop();
+                            document.querySelectorAll('audio.sgc-rec-audio').forEach((el) => el.pause());
+                        });
+                    </script>
                 HTML)
             )
             ->navigationGroups([
@@ -323,6 +995,7 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Reports'),
                 NavigationGroup::make('WhatsApp'),
                 NavigationGroup::make('Leads'),
+                NavigationGroup::make('Calls'),
                 NavigationGroup::make('User Scheduling & Holidays'),
                 NavigationGroup::make('Others'),
                 NavigationGroup::make('Security'),

@@ -92,6 +92,15 @@ return [
             'report' => false,
         ],
 
+        'call_recordings' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/call_recordings'),
+            'url' => env('APP_URL').'/storage/call_recordings',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
 
         's3' => [
             'driver' => 's3',

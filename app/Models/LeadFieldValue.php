@@ -30,6 +30,42 @@ class LeadFieldValue extends Model
         ];
     }
 
+    /**
+     * The shapes an answer must match before it is read as a date at all.
+     *
+     * Deliberately strict: a budget of "5999" or a year "2026" handed to a
+     * loose parser comes back as a valid date, which would let the action
+     * queue score a lead on a number that has nothing to do with a visit.
+     */
+    private const ISO_DATE_ONLY = '/^\d{4}-\d{2}-\d{2}$/';
+
+    private const ISO_DATE_TIME = '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/';
+
+    private const WRITTEN_DATE_TIME = '/^(?<month>[A-Za-z]{3,9})\s+(?<day>\d{1,2}),\s*(?<year>\d{4})'
+        . '\s+at\s+(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<second>\d{2}))?'
+        . '\s*(?<meridiem>AM|PM)?'
+        . '\s*(?<zone>GMT\s*[+-]\s*\d{1,2}:?\d{2}|UTC|[A-Za-z]{2,5})?$/i';
+
+    /**
+     * Read a scheduling answer as a moment in the clinic's timezone.
+     *
+     * Public because the lead action engine scores leads on the visit date they
+     * asked for, and it must read that answer exactly the way the lead detail
+     * screen displays it. A second parser living in the service would drift
+     * from this one, and the queue would start disagreeing with the card it is
+     * built from.
+     */
+    public static function parseAnswerDate(?string $value): ?Carbon
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        return static::parseIsoAnswer($value) ?? static::parseWrittenAnswer($value);
+    }
+
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
@@ -103,15 +139,28 @@ class LeadFieldValue extends Model
      */
     protected static function presentIsoAnswer(string $value): ?string
     {
+        $parsed = static::parseIsoAnswer($value);
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        // A date with no time of day must not gain a misleading "12:00 AM".
+        return preg_match(self::ISO_DATE_ONLY, $value)
+            ? $parsed->format('d M Y')
+            : $parsed->format(app_datetime_format());
+    }
+
+    /**
+     * The machine shape, as a moment rather than a formatted string.
+     */
+    protected static function parseIsoAnswer(string $value): ?Carbon
+    {
         // Deliberately strict. A loose parse would turn "5999" into a year and
         // a budget answer would silently become a date.
-        $isDateOnly = (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
-        $isDateTime = (bool) preg_match(
-            '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/',
-            $value
-        );
+        $isDateOnly = (bool) preg_match(self::ISO_DATE_ONLY, $value);
 
-        if (! $isDateOnly && ! $isDateTime) {
+        if (! $isDateOnly && ! preg_match(self::ISO_DATE_TIME, $value)) {
             return null;
         }
 
@@ -121,13 +170,11 @@ class LeadFieldValue extends Model
             return null;
         }
 
-        // A date with no time of day must not gain a misleading "12:00 AM", and
-        // shifting it between timezones could move it a day either way.
-        if ($isDateOnly) {
-            return $parsed->format('d M Y');
-        }
-
-        return $parsed->timezone(app_timezone())->format(app_datetime_format());
+        // Shifting a bare date between timezones could move it a day either
+        // way, so it is pinned to midnight in the clinic's own zone instead.
+        return $isDateOnly
+            ? Carbon::parse($parsed->format('Y-m-d'), app_timezone())
+            : $parsed->timezone(app_timezone());
     }
 
     /**
@@ -138,12 +185,15 @@ class LeadFieldValue extends Model
      */
     protected static function presentWrittenAnswer(string $value): ?string
     {
-        $pattern = '/^(?<month>[A-Za-z]{3,9})\s+(?<day>\d{1,2}),\s*(?<year>\d{4})'
-            . '\s+at\s+(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<second>\d{2}))?'
-            . '\s*(?<meridiem>AM|PM)?'
-            . '\s*(?<zone>GMT\s*[+-]\s*\d{1,2}:?\d{2}|UTC|[A-Za-z]{2,5})?$/i';
+        return static::parseWrittenAnswer($value)?->format(app_datetime_format());
+    }
 
-        if (! preg_match($pattern, $value, $m)) {
+    /**
+     * The written shape, as a moment rather than a formatted string.
+     */
+    protected static function parseWrittenAnswer(string $value): ?Carbon
+    {
+        if (! preg_match(self::WRITTEN_DATE_TIME, $value, $m)) {
             return null;
         }
 
@@ -169,7 +219,7 @@ class LeadFieldValue extends Model
             return null;
         }
 
-        return $parsed->timezone(app_timezone())->format(app_datetime_format());
+        return $parsed->timezone(app_timezone());
     }
 
     /**

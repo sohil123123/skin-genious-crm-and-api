@@ -138,7 +138,7 @@ class LeadImportsTable
 
                 SelectFilter::make('clinic_id')
                     ->label('Clinic')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query) => $query->active())
                     ->searchable()
                     ->preload()
                     ->visible(fn (): bool => check_role(config('project.roles.super_admin'))),

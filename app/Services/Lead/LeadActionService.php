@@ -11,6 +11,7 @@ use App\Models\Clinic;
 use App\Models\Lead;
 use App\Models\LeadActionLog;
 use App\Models\LeadCustomField;
+use App\Models\LeadFieldValue;
 use App\Services\Concerns\CalculatesActionPriority;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -213,16 +214,16 @@ class LeadActionService
         $actions = collect();
 
         foreach ($this->eligibleLeads($clinic) as $lead) {
-            $timing = $this->answer($lead, self::VISIT_TIMING_KEY);
+            $intent = $this->visitIntent($lead);
 
-            if ($timing === null || ! in_array($timing, self::HOT_TIMINGS, true)) {
+            if ($intent === null || ! $intent['hot']) {
                 continue;
             }
 
             $ageDays = $this->ageInDays($lead);
 
             $priority = $this->weighted($this->calculatePriority([
-                'intent' => self::TIMING_INTENT[$timing] ?? 0.9,
+                'intent' => $intent['weight'],
                 // Two-day half-life: declared same-day intent is the fastest
                 // decaying signal the clinic has.
                 'recency' => $this->decay($ageDays, 2),
@@ -241,8 +242,8 @@ class LeadActionService
                 channel: 'call',
                 time: 'Within the next 2 hours',
                 reason: sprintf(
-                    'Asked to visit "%s" and enquired %s. Paid lead with declared intent — value drops sharply each day.',
-                    $this->humanize($timing),
+                    'Asked to visit %s and enquired %s. Paid lead with declared intent — value drops sharply each day.',
+                    $intent['phrase'],
                     $this->agePhrase($ageDays),
                 ),
                 goal: 'Book an appointment today or tomorrow',
@@ -273,7 +274,7 @@ class LeadActionService
 
         foreach ($this->eligibleLeads($clinic)->whereNotNull('matched_user_id') as $lead) {
             $ageDays = $this->ageInDays($lead);
-            $timing = $this->answer($lead, self::VISIT_TIMING_KEY);
+            $intent = $this->visitIntent($lead);
 
             $lastVisit = Appointment::where('user_id', $lead->matched_user_id)
                 ->where('status', \App\Enums\AppointmentStatus::Completed)
@@ -291,7 +292,7 @@ class LeadActionService
                 'recency' => $this->decay($ageDays, 10),
                 // They are a known quantity, so treatment fit is high.
                 'treatment_fit' => 0.95,
-                'urgency' => $timing !== null && in_array($timing, self::HOT_TIMINGS, true) ? 0.95 : 0.8,
+                'urgency' => ($intent['hot'] ?? false) ? 0.95 : 0.8,
                 'slot_availability' => 0.9,
                 'fatigue_penalty' => $this->fatigueFor($lead),
             ]), LeadActionLog::TRIGGER_EXISTING_PATIENT);
@@ -340,17 +341,16 @@ class LeadActionService
 
             $ageDays = $this->ageInDays($lead);
 
-            // Same-day leads belong to the hot trigger; give staff a moment
-            // before the queue starts nagging about a brand-new arrival.
-            if ($ageDays < 1) {
-                continue;
-            }
-
-            $timing = $this->answer($lead, self::VISIT_TIMING_KEY);
-            $intent = $timing !== null ? (self::TIMING_INTENT[$timing] ?? 0.55) : 0.55;
+            // Same-day leads are deliberately included. They used to be skipped
+            // on the assumption that the hot-intent trigger would claim them,
+            // but that only holds when the lead declared a near visit date — an
+            // overnight enquiry that left the timing question blank was claimed
+            // by nothing and never appeared in the 7:10 AM queue at all. The
+            // deduplication below still lets hot intent win where it applies.
+            $intent = $this->visitIntent($lead);
 
             $priority = $this->weighted($this->calculatePriority([
-                'intent' => $intent,
+                'intent' => $intent['weight'] ?? 0.55,
                 'recency' => $this->decay($ageDays, 7),
                 'treatment_fit' => 0.8,
                 // Urgency rises as the lead ages: an untouched enquiry becomes
@@ -405,7 +405,7 @@ class LeadActionService
                 continue;
             }
 
-            $stalledDays = (int) round(Carbon::parse($lead->updated_at)->diffInDays(Carbon::today()));
+            $stalledDays = $this->calendarDaysSince($lead->updated_at);
 
             if ($stalledDays < 3) {
                 continue;
@@ -497,7 +497,7 @@ class LeadActionService
         $name = $lead->first_name ?: ($lead->full_name ?: 'there');
         $concern = $this->answer($lead, self::CONCERN_KEY);
         $session = $this->answer($lead, self::SESSION_INTEREST_KEY);
-        $timing = $this->answer($lead, self::VISIT_TIMING_KEY);
+        $intent = $this->visitIntent($lead);
 
         if ($trigger === LeadActionLog::TRIGGER_EXISTING_PATIENT) {
             return sprintf(
@@ -515,8 +515,8 @@ class LeadActionService
 
         $opening .= '. ';
 
-        if ($timing !== null && in_array($timing, self::HOT_TIMINGS, true)) {
-            $opening .= 'You mentioned you would like to visit ' . strtolower($this->humanize($timing))
+        if ($intent !== null && $intent['hot']) {
+            $opening .= 'You mentioned you would like to visit ' . $intent['phrase']
                 . ' — I have a couple of slots I can hold for you. Which suits better?';
         } elseif ($session !== null) {
             $opening .= sprintf(
@@ -576,6 +576,80 @@ class LeadActionService
         return null;
     }
 
+    /**
+     * What the lead told us about when they want to come in.
+     *
+     * The visit-timing question comes back in two completely different shapes
+     * depending on how the form was built, and only one of them was ever read:
+     *
+     *   - A multiple-choice form answers with Meta's own slugs, e.g.
+     *     "today_/_tomorrow" — these are the keys in TIMING_INTENT.
+     *   - An appointment-request form answers with a real date and time, e.g.
+     *     "2026-09-08T11:25:00+0530" or "Sep 8, 2026 at 11:25 AM IST".
+     *
+     * Every live form on this account is the second kind, so matching only
+     * against the slug list meant the hot-intent trigger could never fire for a
+     * single lead, and the strongest buying signal in the CRM went unread.
+     *
+     * @return array{weight: float, phrase: string, hot: bool}|null
+     */
+    protected function visitIntent(Lead $lead): ?array
+    {
+        $answer = $this->answer($lead, self::VISIT_TIMING_KEY);
+
+        if ($answer === null) {
+            return null;
+        }
+
+        if (array_key_exists($answer, self::TIMING_INTENT)) {
+            return [
+                'weight' => self::TIMING_INTENT[$answer],
+                'phrase' => '"' . $this->humanize($answer) . '"',
+                'hot' => in_array($answer, self::HOT_TIMINGS, true),
+            ];
+        }
+
+        $date = LeadFieldValue::parseAnswerDate($answer);
+
+        if ($date === null) {
+            return null;
+        }
+
+        $daysAway = (int) Carbon::today()->diffInDays($date->copy()->startOfDay());
+
+        return match (true) {
+            // The slot they asked for has already gone by. That is a missed
+            // appointment request rather than a cold lead, but it is no longer
+            // time-critical the way an upcoming date is, so it is handed to the
+            // ageing triggers instead of the hot one.
+            $daysAway < 0 => [
+                'weight' => 0.55,
+                'phrase' => 'on ' . $date->format('d M'),
+                'hot' => false,
+            ],
+            $daysAway <= 1 => [
+                'weight' => 0.95,
+                'phrase' => $daysAway === 0 ? 'today' : 'tomorrow',
+                'hot' => true,
+            ],
+            $daysAway <= 6 => [
+                'weight' => 0.90,
+                'phrase' => 'on ' . $date->format('l d M'),
+                'hot' => true,
+            ],
+            $daysAway <= 14 => [
+                'weight' => 0.75,
+                'phrase' => 'on ' . $date->format('d M'),
+                'hot' => false,
+            ],
+            default => [
+                'weight' => 0.55,
+                'phrase' => 'on ' . $date->format('d M Y'),
+                'hot' => false,
+            ],
+        };
+    }
+
     protected function humanize(?string $value): string
     {
         return LeadCustomField::humanizeValue($value);
@@ -585,7 +659,27 @@ class LeadActionService
     {
         $submitted = $lead->fb_created_time ?? $lead->created_at;
 
-        return (int) round(Carbon::parse($submitted)->diffInDays(Carbon::today()));
+        return $this->calendarDaysSince($submitted);
+    }
+
+    /**
+     * Whole calendar days between a moment and this morning.
+     *
+     * Deliberately compares midnights rather than the raw instants. Carbon 3's
+     * diffInDays() returns a fraction, so rounding it made a lead's age depend
+     * on the clock time it arrived at: an enquiry submitted at 10:51 AM
+     * yesterday rounded to 1 day old, while one submitted at 5:01 PM the same
+     * afternoon rounded to 0 and was then discarded by the "skip same-day
+     * leads" guard. Every lead that came in after roughly midday simply never
+     * reached the queue the following morning.
+     */
+    protected function calendarDaysSince(mixed $moment): int
+    {
+        $days = Carbon::parse($moment)->startOfDay()->diffInDays(Carbon::today());
+
+        // Negative only for a future-dated import; such a lead is "today" as
+        // far as the queue is concerned.
+        return max(0, (int) $days);
     }
 
     protected function agePhrase(int $days): string

@@ -60,7 +60,7 @@ class UserWeeklySchedulesTable
                                     // Clinic
                                     Select::make('clinic_id')
                                         ->label('Clinic')
-                                        ->relationship('clinic', 'name')
+                                        ->relationship('clinic', 'name', fn ($query) => $query->active())
                                         ->visible(check_role('super_admin'))
                                         // ->searchable()
                                         // ->preload()
