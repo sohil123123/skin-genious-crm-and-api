@@ -13,6 +13,7 @@ use App\Filament\Resources\Calls\Actions\ViewAnalysisAction;
 use App\Filament\Resources\Calls\Actions\ViewTranscriptAction;
 use App\Filament\Resources\Calls\Actions\TranscribeCallAction;
 use App\Enums\Call\CallDirection;
+use App\Enums\Call\CallLinkType;
 use App\Enums\Call\CallMatchingStatus;
 use App\Enums\Call\CallProvider;
 use App\Enums\Call\CallStatus;
@@ -372,6 +373,20 @@ class CallsTable
                 ->label('Match status')
                 ->options(CallMatchingStatus::options())
                 ->multiple(),
+
+            // Separate from Match status on purpose. That one asks how well the
+            // matching worked; this asks who the caller is — and "show me every
+            // call with a lead this week" is a sales question nobody could ask
+            // this table before.
+            //
+            // Not a relationship filter: the answer spans two nullable foreign
+            // keys with a precedence between them, which lives in the scope.
+            SelectFilter::make('link_type')
+                ->label('Linked to')
+                ->options(CallLinkType::options())
+                ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                    ? $query->linkedTo($data['value'])
+                    : $query),
 
             SelectFilter::make('agent_user_id')
                 ->label('Agent')

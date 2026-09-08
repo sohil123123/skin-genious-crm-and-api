@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\Call\CallDirection;
+use App\Enums\Call\CallLinkType;
 use App\Enums\Call\CallMatchingMethod;
 use App\Enums\Call\CallMatchingStatus;
 use App\Enums\Call\CallProvider;
@@ -373,6 +374,24 @@ class Call extends Model
     }
 
     /**
+     * Calls attached to a patient, to a lead, or to neither.
+     *
+     * Mirrors getLinkTypeAttribute() in SQL, including its precedence: a call
+     * with both columns set is a patient's call, so the lead filter excludes it
+     * rather than listing it in both places.
+     */
+    public function scopeLinkedTo(Builder $query, CallLinkType|string $type): Builder
+    {
+        $type = $type instanceof CallLinkType ? $type : CallLinkType::from($type);
+
+        return match ($type) {
+            CallLinkType::Patient => $query->whereNotNull('customer_user_id'),
+            CallLinkType::Lead => $query->whereNull('customer_user_id')->whereNotNull('lead_id'),
+            CallLinkType::None => $query->whereNull('customer_user_id')->whereNull('lead_id'),
+        };
+    }
+
+    /**
      * Calls whose customer could not be determined automatically.
      */
     public function scopeNeedsMatching(Builder $query): Builder
@@ -478,6 +497,22 @@ class Call extends Model
     public function isMatched(): bool
     {
         return $this->customer_user_id !== null || $this->lead_id !== null;
+    }
+
+    /**
+     * Whether this call belongs to a patient, a lead, or nobody yet.
+     *
+     * A patient wins when both columns are set, which happens when a lead
+     * converts: the call is history the patient now owns, and filing it under
+     * the lead they used to be would hide it from the record anyone opens.
+     */
+    public function getLinkTypeAttribute(): CallLinkType
+    {
+        return match (true) {
+            $this->customer_user_id !== null => CallLinkType::Patient,
+            $this->lead_id !== null => CallLinkType::Lead,
+            default => CallLinkType::None,
+        };
     }
 
     public function hasTranscript(): bool

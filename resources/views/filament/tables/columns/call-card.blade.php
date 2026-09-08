@@ -43,6 +43,12 @@
     $name = $record->customer_name;
     $phone = $record->client_phone_normalized ?: $record->client_phone;
 
+    // Which record the name belongs to. Without this the list showed a name and
+    // left the reader to remember whether that person is a patient with a
+    // history or a lead being sold to — two different jobs, handled by two
+    // different people, opened in two different resources.
+    $linkType = $record->link_type;
+
     // Only surfaced when it needs a human. A matched call showing a "Matched"
     // pill on every row would be noise on the 95% of rows that are fine.
     $needsMatch = $record->matching_status?->needsAttention() ?? false;
@@ -66,6 +72,29 @@
                     second anchor inside it would be invalid markup.
                 --}}
                 <span class="sgc-name" title="{{ $name }}">{{ $name }}</span>
+
+                {{--
+                    Patient or Lead, alongside the name it qualifies.
+
+                    Shown on every linked row rather than only on the exceptions,
+                    unlike the match-status badge below it: this is not a warning
+                    about the row, it is part of reading the name at all, and a
+                    badge that appears on only some patients would be read as
+                    saying something special about those ones.
+
+                    Suppressed where the match badge already speaks, so an
+                    unmatched call carries one pill saying why nobody is attached
+                    rather than two saying it twice.
+                --}}
+                @if ($linkType->isLinked() && ! $needsMatch)
+                    <x-filament::badge
+                        :color="$linkType->getColor()"
+                        :icon="$linkType->getIcon()"
+                        :title="$linkType->getDescription()"
+                    >
+                        {{ $linkType->getLabel() }}
+                    </x-filament::badge>
+                @endif
 
                 @if ($needsMatch)
                     <x-filament::badge
