@@ -172,4 +172,39 @@ trait AppliesCallSignals
     {
         return $note === null ? $reason : rtrim($reason) . ' ' . $note;
     }
+
+    /**
+     * Say that this person is already coming in, and when.
+     *
+     * Only for the call-commitment triggers, which are the one place either
+     * engine keeps an action alive for somebody with an appointment in the
+     * diary: the clinic still owes them what was promised on the phone. Left
+     * unsaid, the card reads as though nobody has managed to book them, and a
+     * staff member rings to sell a consultation the person already has.
+     *
+     * The date is included because it is what makes the card actionable —
+     * "send this before Monday" is a job, "they have booked" is a fact.
+     */
+    protected function withBookingNote(string $reason, ?\Illuminate\Support\Carbon $bookedFor): string
+    {
+        // Any note already there is removed before a new one is added, rather
+        // than appended to. This is called again whenever the appointment is
+        // edited, and a rescheduled booking must correct the date rather than
+        // leave the card carrying both — the sentence is generated here, so
+        // matching it here is safe.
+        $reason = trim((string) preg_replace(
+            '/\s*They are already booked in for [^.]*\.\s*/u',
+            ' ',
+            $reason,
+        ));
+
+        if ($bookedFor === null) {
+            return $reason;
+        }
+
+        return rtrim($reason) . sprintf(
+            ' They are already booked in for %s — this is a promise to keep, not a booking to chase.',
+            $bookedFor->timezone(app_timezone())->format('D j M, g:i A'),
+        );
+    }
 }

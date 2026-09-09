@@ -94,6 +94,73 @@ class AiActionService
     protected const MAX_SCORE = 97;
 
     /**
+     * Triggers that stop making sense the moment the patient books.
+     *
+     * Exactly the ones whose finder calls hasFutureAppointment(), listed here
+     * so the queue can be reconciled when a booking arrives after it was
+     * built. Kept as a constant rather than re-derived, because the alternative
+     * is a second copy of this list somewhere else that silently disagrees.
+     *
+     * same_day_slot_fill, package_nearing_exhaustion and tomorrows_risk_list
+     * are absent on purpose: none of them is an argument for making a booking,
+     * and the last is about an appointment that already exists.
+     */
+    public const TRIGGERS_SUPERSEDED_BY_BOOKING = [
+        'cancelled_not_rebooked',
+        'no_show_not_rebooked',
+        'scan_no_treatment',
+        'consultation_no_treatment',
+        'package_overdue',
+        'treatment_plan_dropoff',
+        'maintenance_due',
+    ];
+
+    /**
+     * Bring today's queue back in line after a booking is made.
+     *
+     * The queue is built once each morning and is a snapshot of what was true
+     * then. A patient who books at noon leaves cards behind that tell staff to
+     * ring and book them, and those cards stay wrong until tomorrow — which is
+     * how a queue loses the trust it needs to be worth reading.
+     *
+     * Two effects. Cards that exist only to chase a booking are deleted, which
+     * is precisely what regeneration would do to them. The call-commitment card
+     * survives, because a promise made on the phone is not discharged by an
+     * appointment, but it is told about the booking so it stops telling staff
+     * to sell one.
+     *
+     * Anything a staff member has already acted on is untouched: that is
+     * history, not a suggestion.
+     */
+    public function reconcileWithBooking(int $userId, Carbon $startsAt): void
+    {
+        $today = AiActionLog::where('user_id', $userId)
+            ->where('generated_date', Carbon::today())
+            ->whereNull('staff_outcome');
+
+        (clone $today)
+            ->whereIn('action_trigger', self::TRIGGERS_SUPERSEDED_BY_BOOKING)
+            ->delete();
+
+        (clone $today)
+            ->where('action_trigger', 'call_commitment_open')
+            ->get()
+            ->each(function (AiActionLog $action) use ($startsAt): void {
+                $reason = $this->withBookingNote($action->reason ?? '', $startsAt);
+
+                if ($reason === $action->reason) {
+                    return;
+                }
+
+                $action->forceFill([
+                    'reason' => $reason,
+                    'goal' => 'Send what was promised before they come in',
+                    'avoid_notes' => 'Do not pitch an appointment — they already have one. Just send what was promised.',
+                ])->save();
+            });
+    }
+
+    /**
      * Generate all AI actions for today across specified clinics.
      * If no clinicIds provided, generates for all active clinics.
      */
@@ -258,11 +325,17 @@ class AiActionService
 
             $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(now()) ?? 0);
 
+            // A promise survives a booking; the urgency behind it does not.
+            // This is the one trigger here that is not gated by
+            // hasFutureAppointment(), because what was asked for on the phone
+            // is still owed whether or not the patient is coming in.
+            $booked = $this->nextAppointmentAt((int) $userId);
+
             $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.9,
                 'recency' => max(0.3, 1 - ($daysSince / 14)),
                 'treatment_fit' => 0.8,
-                'urgency' => 0.85,
+                'urgency' => $booked !== null ? 0.5 : 0.85,
                 'slot_availability' => 0.8,
                 'fatigue_penalty' => $this->contactFatiguePenaltyFor(AiActionLog::class, 'user_id', (int) $userId),
             ]), 'call_commitment_open');
@@ -283,22 +356,32 @@ class AiActionService
                 'recommended_channel' => $wantsWriting ? 'whatsapp' : 'call',
                 'recommended_time' => '11:00 AM - 1:00 PM',
                 'reason' => $this->withCallReason(
-                    sprintf(
-                        'Asked for something on a call %s and has not had it.',
-                        // "0 day(s) ago" for this morning's call, which is what
-                        // the day count produced. diffForHumans says "5 hours ago"
-                        // and needs no special case for the same day.
-                        $latest->occurred_at?->diffForHumans() ?? 'recently',
+                    $this->withBookingNote(
+                        sprintf(
+                            'Asked for something on a call %s and has not had it.',
+                            // "0 day(s) ago" for this morning's call, which is
+                            // what the day count produced. diffForHumans says
+                            // "5 hours ago" and needs no same-day special case.
+                            $latest->occurred_at?->diffForHumans() ?? 'recently',
+                        ),
+                        $booked,
                     ),
                     $reader->explain($subjectSignals),
                 ),
-                'suggested_message' => sprintf(
-                    'Hi %s, following up on your call — sending across what you asked about.',
-                    $client->first_name,
-                ),
-                'goal' => 'Close the loop on what was promised',
+                // Opened from what was actually said, with the generic line as
+                // a fallback for a call that established nothing sayable.
+                'suggested_message' => $this->callAwareScript($client->first_name, $subjectSignals)
+                    ?? sprintf(
+                        'Hi %s, following up on your call — sending across what you asked about.',
+                        $client->first_name,
+                    ),
+                'goal' => $booked !== null
+                    ? 'Send what was promised before they come in'
+                    : 'Close the loop on what was promised',
                 'slots_to_offer' => null,
-                'avoid_notes' => 'They already said what they want. Lead with that, not with a pitch.',
+                'avoid_notes' => $booked !== null
+                    ? 'Do not pitch an appointment — they already have one. Just send what was promised.'
+                    : 'They already said what they want. Lead with that, not with a pitch.',
                 'assigned_to' => null,
                 'related_appointment_id' => null,
                 'related_package_id' => null,
@@ -359,10 +442,19 @@ class AiActionService
                     return $action;
                 }
 
-                // The call-driven trigger has already made this decision and
-                // carries its own basis; re-deciding here would drop it.
-                if ($action['action_trigger'] !== 'call_commitment_open'
-                    && $this->callSignalsSuppress($signals)) {
+                // The call-driven trigger is already built from these
+                // signals: it carries its own basis, its own related call, a
+                // reason that already names what was said and a script drawn
+                // from it. Running it through this pass appended the same
+                // sentence a second time — "on the call 3 hours ago they asked
+                // for more information" twice in one reason — and applied the
+                // score modifier on top of arithmetic that had already
+                // accounted for the conversation.
+                if ($action['action_trigger'] === 'call_commitment_open') {
+                    return $action;
+                }
+
+                if ($this->callSignalsSuppress($signals)) {
                     return null;
                 }
 
@@ -1454,6 +1546,25 @@ class AiActionService
     /**
      * Is there an appointment still ahead of this patient?
      */
+    /**
+     * When this patient is next due in, if they are.
+     *
+     * The date as well as the fact, because the call-commitment card keeps a
+     * promise alive for somebody who has booked and has to say when they are
+     * coming: "send this before Monday" is a job, "they have booked" is not.
+     */
+    protected function nextAppointmentAt(int $userId): ?Carbon
+    {
+        return Appointment::where('user_id', $userId)
+            ->where('start_datetime', '>=', Carbon::now())
+            ->whereNotIn('status', [
+                AppointmentStatus::Cancelled,
+                AppointmentStatus::NoShow,
+            ])
+            ->orderBy('start_datetime')
+            ->value('start_datetime');
+    }
+
     protected function hasFutureAppointment(int $userId): bool
     {
         return Appointment::where('user_id', $userId)

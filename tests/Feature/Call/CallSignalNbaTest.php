@@ -628,3 +628,76 @@ it('keeps a promise made on a call even when the lead has booked', function (): 
     expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()?->action_trigger)
         ->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT);
 });
+
+/**
+ * The reason was being written twice.
+ *
+ * The call-driven trigger builds its own reason from these signals, then the
+ * decorate pass appended the same sentence again — invisible while the score
+ * modifier was off, because that path returned no sentence at all. Ungating the
+ * explanation exposed it: "on the call 3 hours ago they asked for more
+ * information..." printed twice in one card.
+ */
+it('says what was discussed once, not twice', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(6)]);
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(substr_count(
+        AiActionLog::where('user_id', $this->patient->getKey())->first()->reason,
+        'asked for more information',
+    ))->toBe(1);
+});
+
+/**
+ * Gaurav: promised treatment details on a call, then booked a consultation for
+ * the 14th. The clinic still owes him the details, so the card stays — but it
+ * was telling staff to move him to a consultation he had already booked.
+ */
+it('says the lead is already booked rather than selling them a consultation', function (): void {
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['start_datetime' => now()->addDays(5), 'end_datetime' => now()->addDays(5)->addHour()]);
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(6)]);
+    nbaSignals($call, ['information_requested'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action->reason)->toContain('already booked in for')
+        ->and($action->goal)->toBe('Send what was promised before they come in')
+        ->and($action->avoid_notes)->toContain('already booked');
+});
+
+it('ranks a promise to somebody already booked below one to somebody who is not', function (): void {
+    $other = \App\Models\Lead::create([
+        'clinic_id' => $this->clinic->getKey(),
+        'first_name' => 'Unbooked',
+        'phone' => '9829000003',
+        'status' => \App\Enums\LeadStatus::New->value,
+        'source' => \App\Enums\LeadSource::Manual->value,
+    ]);
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['start_datetime' => now()->addDays(5), 'end_datetime' => now()->addDays(5)->addHour()]);
+
+    foreach ([$this->lead, $other] as $subject) {
+        $call = nbaCall(['lead_id' => $subject->getKey(), 'started_at' => now()->subHours(6)]);
+        nbaSignals($call, ['information_requested'], leadId: $subject->getKey());
+    }
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->priority_score)
+        ->toBeLessThan(LeadActionLog::where('lead_id', $other->getKey())->first()->priority_score);
+});

@@ -109,6 +109,23 @@ class LeadActionService
      */
     protected const MAX_SCORE = 97;
 
+    /**
+     * Triggers that stop making sense the moment the lead books.
+     *
+     * Everything except the call commitment: each of the others exists to
+     * argue for getting this person into the diary, and a promise made on the
+     * phone is the one thing an appointment does not discharge.
+     *
+     * One list, read both when the queue is built and when a later booking
+     * reconciles it, so the two cannot disagree.
+     */
+    public const TRIGGERS_SUPERSEDED_BY_BOOKING = [
+        LeadActionLog::TRIGGER_HOT_INTENT,
+        LeadActionLog::TRIGGER_EXISTING_PATIENT,
+        LeadActionLog::TRIGGER_NEVER_CONTACTED,
+        LeadActionLog::TRIGGER_STALLED,
+    ];
+
     /** Statuses that are finished, one way or another. */
     protected const CLOSED_STATUSES = [
         LeadStatus::Junk->value,
@@ -123,6 +140,13 @@ class LeadActionService
      * @var array<int, \Illuminate\Support\Collection<int, Lead>>
      */
     protected array $eligibleLeadCache = [];
+
+    /**
+     * Next appointment per phone key per clinic, for one generation pass.
+     *
+     * @var array<int, Collection<string, Carbon>>
+     */
+    protected array $upcomingAppointmentCache = [];
 
     public function __construct(
         protected PhoneNormalizerService $phoneNormalizer,
@@ -181,17 +205,17 @@ class LeadActionService
         // The call commitment survives on purpose: it is a promise the clinic
         // made — a price list, a callback — and having an appointment does not
         // discharge it. The patient engine draws the same line.
-        $booked = $this->phoneNumbersWithUpcomingAppointment($clinic);
+        $booked = $this->upcomingAppointmentsByPhoneKey($clinic);
 
         if ($booked->isNotEmpty()) {
             $actions = $actions->reject(function (array $action) use ($booked): bool {
-                if ($action['action_trigger'] === LeadActionLog::TRIGGER_CALL_COMMITMENT) {
+                if (! in_array($action['action_trigger'], self::TRIGGERS_SUPERSEDED_BY_BOOKING, true)) {
                     return false;
                 }
 
                 $key = $this->phoneNormalizer->matchKey($action['_phone'] ?? null);
 
-                return $key !== null && $booked->contains($key);
+                return $key !== null && $booked->has($key);
             })->values();
         }
 
@@ -309,11 +333,20 @@ class LeadActionService
 
             $daysSince = (int) max(0, $latest->occurred_at?->diffInDays(now()) ?? 0);
 
+            // A promise survives a booking; the urgency behind it does not.
+            //
+            // Somebody who asked for treatment details on Tuesday and booked a
+            // consultation on Wednesday is still owed the details, so this
+            // action stays — but the thing it was pushing towards has already
+            // happened, and it should not outrank a lead nobody has managed to
+            // book at all.
+            $booked = $this->nextAppointmentFor($clinic, $lead);
+
             $priority = $this->weighted($this->calculatePriority([
                 'intent' => 0.95,
                 'recency' => max(0.3, 1 - ($daysSince / 14)),
                 'treatment_fit' => 0.8,
-                'urgency' => 0.9,
+                'urgency' => $booked !== null ? 0.5 : 0.9,
                 'slot_availability' => 0.8,
                 'fatigue_penalty' => $this->contactFatiguePenaltyFor(LeadActionLog::class, 'lead_id', (int) $leadId),
             ]), LeadActionLog::TRIGGER_CALL_COMMITMENT);
@@ -332,21 +365,32 @@ class LeadActionService
                 'recommended_channel' => $wantsWriting ? 'whatsapp' : 'call',
                 'recommended_time' => '11:00 AM - 1:00 PM',
                 'reason' => $this->withCallReason(
-                    sprintf(
-                        'Asked for something on a call %s and has not had it.',
-                        // "0 day(s) ago" for this morning's call, which is what
-                        // the day count produced. diffForHumans says "5 hours ago"
-                        // and needs no special case for the same day.
-                        $latest->occurred_at?->diffForHumans() ?? 'recently',
+                    $this->withBookingNote(
+                        sprintf(
+                            'Asked for something on a call %s and has not had it.',
+                            // "0 day(s) ago" for this morning's call, which is
+                            // what the day count produced. diffForHumans says
+                            // "5 hours ago" and needs no same-day special case.
+                            $latest->occurred_at?->diffForHumans() ?? 'recently',
+                        ),
+                        $booked,
                     ),
                     $reader->explain($subjectSignals),
                 ),
-                'suggested_message' => sprintf(
-                    'Hi %s, following up on your call — sending across what you asked about.',
-                    $lead->first_name ?: 'there',
-                ),
-                'goal' => 'Answer what they asked for and move to a consultation',
-                'avoid_notes' => 'They already told us what they want. Do not restart the pitch.',
+                'suggested_message' => $this->callAwareScript($lead->first_name, $subjectSignals)
+                    ?? sprintf(
+                        'Hi %s, following up on your call — sending across what you asked about.',
+                        $lead->first_name ?: 'there',
+                    ),
+                // The goal changes once they are booked. "Move to a
+                // consultation" is work already done, and a card that asks for
+                // it sends staff to sell an appointment the lead already has.
+                'goal' => $booked !== null
+                    ? 'Send what was promised before they come in'
+                    : 'Answer what they asked for and move to a consultation',
+                'avoid_notes' => $booked !== null
+                    ? 'Do not pitch the consultation — it is already booked. Just send what was promised.'
+                    : 'They already told us what they want. Do not restart the pitch.',
                 'assigned_to' => null,
                 'related_call_id' => $latest->call_id,
                 'call_signals' => $reader->toBasis($subjectSignals),
@@ -391,8 +435,14 @@ class LeadActionService
                     return $action;
                 }
 
-                if ($action['action_trigger'] !== LeadActionLog::TRIGGER_CALL_COMMITMENT
-                    && $this->callSignalsSuppress($signals)) {
+                // Already built from these signals; see the patient engine's
+                // copy of this. Decorating it again duplicated the sentence in
+                // the reason and double-counted the call in the score.
+                if ($action['action_trigger'] === LeadActionLog::TRIGGER_CALL_COMMITMENT) {
+                    return $action;
+                }
+
+                if ($this->callSignalsSuppress($signals)) {
                     return null;
                 }
 
@@ -885,6 +935,57 @@ class LeadActionService
      * @return Collection<int, string>
      */
     /**
+     * Bring today's queue back in line after a booking is made.
+     *
+     * The lead engine's copy of the patient engine's method, and the same
+     * reasoning: the queue is a snapshot taken at 07:10, and a lead who books
+     * at noon leaves behind a card telling staff to ring and book them.
+     *
+     * Leads are found by phone number rather than by Lead::matched_user_id,
+     * which is null on almost every lead that has actually booked — the
+     * booking creates a patient record and nothing links the two.
+     */
+    public function reconcileWithBooking(string $phone, Carbon $startsAt): void
+    {
+        $key = $this->phoneNormalizer->matchKey($phone);
+
+        if ($key === null) {
+            return;
+        }
+
+        $leadIds = Lead::where('phone', 'like', '%' . $key)->pluck('id');
+
+        if ($leadIds->isEmpty()) {
+            return;
+        }
+
+        $today = LeadActionLog::whereIn('lead_id', $leadIds)
+            ->where('generated_date', Carbon::today())
+            ->whereNull('staff_outcome');
+
+        (clone $today)
+            ->whereIn('action_trigger', self::TRIGGERS_SUPERSEDED_BY_BOOKING)
+            ->delete();
+
+        (clone $today)
+            ->where('action_trigger', LeadActionLog::TRIGGER_CALL_COMMITMENT)
+            ->get()
+            ->each(function (LeadActionLog $action) use ($startsAt): void {
+                $reason = $this->withBookingNote($action->reason ?? '', $startsAt);
+
+                if ($reason === $action->reason) {
+                    return;
+                }
+
+                $action->forceFill([
+                    'reason' => $reason,
+                    'goal' => 'Send what was promised before they come in',
+                    'avoid_notes' => 'Do not pitch the consultation — it is already booked. Just send what was promised.',
+                ])->save();
+            });
+    }
+
+    /**
      * The most recent connected call to each number this clinic has rung.
      *
      * Keyed by phone key rather than by lead, so it answers the question the
@@ -926,11 +1027,23 @@ class LeadActionService
      * the beginning (hasFutureAppointment). The lead engine could not ask it at
      * all, which is why the two queues disagreed about the same person.
      *
-     * @return Collection<int, string>
+     * Carries the date, not just the fact, because a card that keeps a
+     * promise alive for somebody who has booked has to say when they are
+     * coming in — "send this before Monday" is actionable, "they have booked"
+     * is not.
+     *
+     * Memoised: the generation pass asks twice, once to drop the
+     * booking-chasing triggers and once inside the call trigger.
+     *
+     * @return Collection<string, Carbon>
      */
-    protected function phoneNumbersWithUpcomingAppointment(Clinic $clinic): Collection
+    protected function upcomingAppointmentsByPhoneKey(Clinic $clinic): Collection
     {
-        return Appointment::query()
+        if (isset($this->upcomingAppointmentCache[$clinic->id])) {
+            return $this->upcomingAppointmentCache[$clinic->id];
+        }
+
+        $rows = Appointment::query()
             ->where('appointments.clinic_id', $clinic->id)
             ->where('appointments.start_datetime', '>=', Carbon::now())
             // Cancelled and no-show are not bookings. Somebody whose
@@ -940,11 +1053,32 @@ class LeadActionService
                 \App\Enums\AppointmentStatus::NoShow->value,
             ])
             ->join('users', 'users.id', '=', 'appointments.user_id')
-            ->pluck('users.mobile')
-            ->map(fn ($mobile): ?string => $this->phoneNormalizer->matchKey((string) $mobile))
-            ->filter()
-            ->unique()
-            ->values();
+            ->orderBy('appointments.start_datetime')
+            ->get(['users.mobile', 'appointments.start_datetime']);
+
+        $map = collect();
+
+        foreach ($rows as $row) {
+            $key = $this->phoneNormalizer->matchKey((string) $row->mobile);
+
+            // Ordered ascending, so the first one wins: the next appointment
+            // is the one that matters, not the furthest away.
+            if ($key !== null && ! $map->has($key)) {
+                $map->put($key, Carbon::parse($row->start_datetime));
+            }
+        }
+
+        return $this->upcomingAppointmentCache[$clinic->id] = $map;
+    }
+
+    /**
+     * When this lead is next coming in, if they are.
+     */
+    protected function nextAppointmentFor(Clinic $clinic, Lead $lead): ?Carbon
+    {
+        $key = $this->phoneNormalizer->matchKey($lead->phone);
+
+        return $key === null ? null : $this->upcomingAppointmentsByPhoneKey($clinic)->get($key);
     }
 
     protected function phoneNumbersWithPatientActionToday(Clinic $clinic): Collection
