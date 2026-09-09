@@ -541,3 +541,90 @@ it('opens with what was discussed rather than a bare promise to follow up', func
         ->toContain('AI Customized Facial')
         ->not->toContain('Just following up as promised');
 });
+
+// ──────────── Leads who have already booked ────────────
+
+/**
+ * @param  array<string, mixed>  $attributes
+ */
+function nbaAppointment(User $patient, array $attributes = []): \App\Models\Appointment
+{
+    return \App\Models\Appointment::create(array_merge([
+        'type' => \App\Enums\AppointmentType::Consult->value,
+        'clinic_id' => test()->clinic->getKey(),
+        'user_id' => $patient->getKey(),
+        'therapist_id' => test()->patient->getKey(),
+        'start_datetime' => now()->addHours(5),
+        'end_datetime' => now()->addHours(6),
+        'duration_minutes' => 60,
+        'status' => \App\Enums\AppointmentStatus::Confirmed->value,
+        'created_by' => test()->patient->getKey(),
+    ], $attributes));
+}
+
+/**
+ * Neha Gaur: a lead marked New, a confirmed appointment at four this afternoon
+ * under a patient record with the same number, and a queue telling staff to
+ * ring her and make first contact.
+ *
+ * Nothing linked the two records — Lead::matched_user_id was null, as it is for
+ * most leads who book — so the lead engine had no way to know. It asks the
+ * phone number now, which is the same thing a person would do.
+ */
+it('does not chase a lead to book when they already have an appointment', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+/**
+ * A cancelled appointment is not a booking. That lead is exactly who the queue
+ * should be chasing, so the suppression must not swallow them.
+ */
+it('still chases a lead whose appointment was cancelled', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['status' => \App\Enums\AppointmentStatus::Cancelled->value]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(1);
+});
+
+/**
+ * An appointment does not discharge a promise. A lead who is coming in on
+ * Friday and asked for a price list on the phone still has not had the price
+ * list, and the patient engine draws the same line.
+ */
+it('keeps a promise made on a call even when the lead has booked', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked);
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['information_requested'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()?->action_trigger)
+        ->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT);
+});

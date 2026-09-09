@@ -173,6 +173,29 @@ class LeadActionService
             ->merge($this->findStalled($clinic))
             ->merge($this->findOpenCallCommitments($clinic));
 
+        // Somebody with an appointment already in the diary does not need
+        // chasing to make one. Every trigger above except the call commitment
+        // is an argument for getting this person booked, and reading one of
+        // them out to a lead who is coming in at four this afternoon is the
+        // most visible way for this queue to look broken.
+        //
+        // The call commitment survives on purpose: it is a promise the clinic
+        // made — a price list, a callback — and having an appointment does not
+        // discharge it. The patient engine draws the same line.
+        $booked = $this->phoneNumbersWithUpcomingAppointment($clinic);
+
+        if ($booked->isNotEmpty()) {
+            $actions = $actions->reject(function (array $action) use ($booked): bool {
+                if ($action['action_trigger'] === LeadActionLog::TRIGGER_CALL_COMMITMENT) {
+                    return false;
+                }
+
+                $key = $this->phoneNormalizer->matchKey($action['_phone'] ?? null);
+
+                return $key !== null && $booked->contains($key);
+            })->values();
+        }
+
         // What the lead actually said on the phone: can raise or lower a score,
         // and drops the action entirely for somebody who declined or booked.
         $actions = $this->decorateWithCallSignals($actions);
@@ -981,6 +1004,41 @@ class LeadActionService
             ->orderByDesc('started_at')
             ->get()
             ->keyBy('client_phone_key');
+    }
+
+    /**
+     * Phone numbers with an appointment still ahead of them.
+     *
+     * Matched on the number rather than on Lead::matched_user_id, because that
+     * column is null far more often than not — a lead who booked is usually
+     * created as a patient by whoever took the booking, and nothing links the
+     * two records. Neha Gaur is the case: a lead marked New, a confirmed
+     * appointment at four this afternoon under a patient record with the same
+     * number, and a queue telling staff to ring her and make first contact.
+     *
+     * The patient engine has asked this question about its own subjects from
+     * the beginning (hasFutureAppointment). The lead engine could not ask it at
+     * all, which is why the two queues disagreed about the same person.
+     *
+     * @return Collection<int, string>
+     */
+    protected function phoneNumbersWithUpcomingAppointment(Clinic $clinic): Collection
+    {
+        return Appointment::query()
+            ->where('appointments.clinic_id', $clinic->id)
+            ->where('appointments.start_datetime', '>=', Carbon::now())
+            // Cancelled and no-show are not bookings. Somebody whose
+            // appointment fell through is exactly who the queue should chase.
+            ->whereNotIn('appointments.status', [
+                \App\Enums\AppointmentStatus::Cancelled->value,
+                \App\Enums\AppointmentStatus::NoShow->value,
+            ])
+            ->join('users', 'users.id', '=', 'appointments.user_id')
+            ->pluck('users.mobile')
+            ->map(fn ($mobile): ?string => $this->phoneNormalizer->matchKey((string) $mobile))
+            ->filter()
+            ->unique()
+            ->values();
     }
 
     protected function phoneNumbersWithPatientActionToday(Clinic $clinic): Collection
