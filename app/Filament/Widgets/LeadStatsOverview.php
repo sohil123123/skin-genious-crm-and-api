@@ -28,9 +28,9 @@ class LeadStatsOverview extends BaseWidget
             ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic());
 
         $total = $base()->count();
-        $new = $base()->ofStatus(LeadStatus::New)->count();
-        $unassigned = $base()->unassigned()->count();
-        $needsReview = $base()->needsPhoneReview()->count();
+        // $new = $base()->ofStatus(LeadStatus::New)->count();
+        // $unassigned = $base()->unassigned()->count();
+        // $needsReview = $base()->needsPhoneReview()->count();
         $existingPatients = $base()->matchingExistingPatient()->count();
         $thisWeek = $base()->where('created_at', '>=', now()->subDays(7))->count();
 
@@ -41,10 +41,10 @@ class LeadStatsOverview extends BaseWidget
                 ->icon('heroicon-m-user-group')
                 ->color('primary'),
 
-            Stat::make('Awaiting first contact', number_format($new))
-                ->description($total > 0 ? round(($new / $total) * 100) . '% of all leads' : 'No leads yet')
-                ->icon('heroicon-m-sparkles')
-                ->color($new > 0 ? 'info' : 'gray'),
+            // Stat::make('Awaiting first contact', number_format($new))
+            //     ->description($total > 0 ? round(($new / $total) * 100) . '% of all leads' : 'No leads yet')
+            //     ->icon('heroicon-m-sparkles')
+            //     ->color($new > 0 ? 'info' : 'gray'),
 
             // Stat::make('Unassigned', number_format($unassigned))
             //     ->description('No staff member is following these up')
@@ -70,6 +70,6 @@ class LeadStatsOverview extends BaseWidget
 
     public function getColumns(): int
     {
-        return 3;
+        return 2;
     }
 }

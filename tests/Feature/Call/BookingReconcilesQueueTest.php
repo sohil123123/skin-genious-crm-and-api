@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\{AiActionLog, Appointment, Call, CallAnalysis, CallInsightSignal, Clinic, Lead, LeadActionLog, Role, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 /**
@@ -18,6 +19,13 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    // The immediate, targeted pass is what these tests are about. Booking also
+    // queues a full rebuild of the clinic, which under the sync driver would
+    // run inline and replace the hand-built cards below with whatever the
+    // engines produce — testing the rebuild instead of the reconcile. That path
+    // has its own file.
+    Queue::fake();
+
     $this->clinic = Clinic::create([
         'name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true,
     ]);
