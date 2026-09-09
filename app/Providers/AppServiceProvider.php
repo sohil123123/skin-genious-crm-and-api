@@ -155,6 +155,9 @@ class AppServiceProvider extends ServiceProvider
         Expense::observe(ExpenseObserver::class);
         Invoice::observe(InvoiceObserver::class);
         InvoicePayment::observe(InvoicePaymentObserver::class);
+        // Keeps today's action queues honest when somebody books after the
+        // 07:00 run that built them.
+        \App\Models\Appointment::observe(\App\Observers\AppointmentObserver::class);
         // StockTransaction::observe(StockTransactionObserver::class);
 
         Activity::creating(function (Activity $activity) {
