@@ -53,17 +53,22 @@ class LeadsTable
                     ->toggleable()
                     ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
 
+                // Name and phone share one column: they are always read
+                // together when a caller works the list, and keeping them apart
+                // cost a column's width for no extra meaning.
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->description(fn(Lead $record): ?string => $record->city)
-                    ->searchable(['full_name', 'first_name', 'last_name'])
+                    ->description(fn(Lead $record): ?string => collect([$record->phone, $record->city])
+                        ->filter()
+                        ->implode(" \u{00B7} ") ?: null)
+                    ->searchable(['full_name', 'first_name', 'last_name', 'phone'])
                     ->sortable()
-                    ->weight('medium'),
-
-                TextColumn::make('phone')
-                    ->label('Phone')
-                    ->searchable()
+                    ->weight('medium')
+                    // The phone is the actionable half of the cell, so that is
+                    // what the copy button hands over.
                     ->copyable()
+                    ->copyableState(fn(Lead $record): ?string => $record->phone)
+                    ->copyMessage('Phone copied')
                     ->icon(fn(Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
                         ? 'heroicon-o-exclamation-triangle'
                         : null)
@@ -80,7 +85,7 @@ class LeadsTable
                     ->sortable(),
 
                 TextColumn::make('matched_user_id')
-                    ->label('Patient')
+                    ->label('Client')
                     ->badge()
                     ->color('warning')
                     ->icon('heroicon-o-identification')
@@ -102,12 +107,12 @@ class LeadsTable
                     ->searchable()
                     ->toggleable(),
 
-                TextColumn::make('form_name')
-                    ->label('Form')
-                    ->limit(30)
-                    ->tooltip(fn(Lead $record): ?string => $record->form_name)
-                    ->searchable()
-                    ->toggleable(),
+                // TextColumn::make('form_name')
+                //     ->label('Form')
+                //     ->limit(30)
+                //     ->tooltip(fn(Lead $record): ?string => $record->form_name)
+                //     ->searchable()
+                //     ->toggleable(),
 
                 TextColumn::make('adset_name')
                     ->label('Ad set')

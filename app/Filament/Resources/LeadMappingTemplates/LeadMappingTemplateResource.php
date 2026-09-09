@@ -43,6 +43,10 @@ class LeadMappingTemplateResource extends Resource
 
     protected static ?int $navigationSort = 34;
 
+    // Hidden from the sidebar for now; the page itself still resolves, so
+    // the "Import leads" button on the leads list keeps working.
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

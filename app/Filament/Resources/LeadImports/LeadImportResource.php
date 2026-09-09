@@ -33,6 +33,10 @@ class LeadImportResource extends Resource
 
     protected static ?int $navigationSort = 32;
 
+    // Hidden from the sidebar for now; the page itself still resolves, so
+    // the "Import leads" button on the leads list keeps working.
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function table(Table $table): Table
     {
         return LeadImportsTable::configure($table);

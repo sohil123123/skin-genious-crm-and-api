@@ -56,7 +56,7 @@ class LeadStatsOverview extends BaseWidget
             //     ->icon('heroicon-m-exclamation-triangle')
             //     ->color($needsReview > 0 ? 'warning' : 'success'),
 
-            Stat::make('Already patients', number_format($existingPatients))
+            Stat::make('Already clients', number_format($existingPatients))
                 ->description('Lead matches an existing patient record')
                 ->icon('heroicon-m-identification')
                 ->color($existingPatients > 0 ? 'warning' : 'gray'),
