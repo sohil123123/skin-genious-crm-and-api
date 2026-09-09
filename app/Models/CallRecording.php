@@ -157,8 +157,9 @@ class CallRecording extends Model
      *
      * The files are almost always still there under the same path, so this
      * falls back to the configured disk rather than losing them, and warns once
-     * so the stale rows get repaired instead of relying on the fallback
-     * forever. Run `calls:repair-recording-disks` to fix them properly.
+     * so somebody notices rather than relying on the fallback forever. The
+     * repair is a one-line update of storage_disk on the affected rows; there
+     * was a command for it, removed as part of a console tidy-up.
      */
     public function diskName(): ?string
     {
@@ -178,7 +179,7 @@ class CallRecording extends Model
             Log::channel('calls')->warning('Call recordings point at a disk that is no longer configured.', [
                 'stored_disk' => $this->storage_disk,
                 'falling_back_to' => (string) config('calls.recording.disk'),
-                'fix' => 'php artisan calls:repair-recording-disks',
+                'fix' => 'Point these rows at the configured disk, or restore the old disk name in filesystems.php.',
             ]);
         }
 
