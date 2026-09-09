@@ -73,11 +73,10 @@ class CallsTable
             // cells per row; don't run the query until the page is interactive.
             ->deferLoading()
             // Calls arrive by webhook while the page sits open, and reception
-            // works from this screen without touching it. Thirty seconds is
-            // slow enough that the query cost stays trivial and fast enough
-            // that a call is on screen before anyone thinks to reach for
+            // works from this screen without touching it. Ten seconds is fast
+            // enough that a call is on screen before anyone thinks to reach for
             // Refresh. The tab counts refresh with it.
-            ->poll('30s')
+            ->poll('10s')
             // A call nobody could attribute is tinted, so the rows needing a
             // human stand out without reading a column. Deliberately not a
             // Tailwind utility: this panel ships no compiled Tailwind, so those

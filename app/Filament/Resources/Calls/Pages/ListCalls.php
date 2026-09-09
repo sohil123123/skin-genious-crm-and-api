@@ -32,13 +32,33 @@ class ListCalls extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            // Re-runs the page's own queries. The badges above the table are
-            // live counts of work queues, and this is the cheapest way to see
-            // whether anything arrived while the page sat open.
+            // Where the auto-refresh is announced. A table that rewrites
+            // itself mid-read looks like a glitch until you know it is
+            // deliberate, and staff who do not know keep pressing Refresh to be
+            // sure the rows are not stale.
+            //
+            // Rendered as a badge rather than as a badge *on* the Refresh
+            // button: this panel compiles no Tailwind of its own, and the
+            // corner badge on a button came out as bare floating text. The
+            // badge view is the same chip the table already draws for
+            // "Unmatched" and "Completed", so it lands styled and reads as the
+            // status marker it is. It stays pressable — somebody who takes it
+            // for a refresh control is not wrong.
+            Action::make('autoRefresh')
+                ->badge()
+                ->label('Auto-refresh every 10s')
+                ->icon('heroicon-m-bolt')
+                ->color('info')
+                ->tooltip('New calls appear on their own. Nothing here needs pressing.')
+                ->action(function (): void {}),
+
+            // Re-runs the page's own queries. The table polls on its own, so
+            // this is for the moment somebody cannot wait ten seconds.
             Action::make('refresh')
                 ->label('Refresh')
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
+                ->tooltip('See the latest calls now, without waiting for the next refresh.')
                 ->action(function (): void {}),
 
             $this->syncExotelAction(),
