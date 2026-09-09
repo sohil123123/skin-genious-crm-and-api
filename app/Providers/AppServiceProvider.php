@@ -39,6 +39,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Scoped, not singleton: it memoises which enquiries became clients
+        // for the length of one request. A singleton would keep serving the
+        // first answer for the life of an Octane worker.
+        $this->app->scoped(\App\Services\Lead\LeadConversionService::class);
+
         // The call pipeline always resolves transcription through the
         // interface, so it works end to end before any speech provider is
         // signed up. Binding a null driver rather than leaving the interface

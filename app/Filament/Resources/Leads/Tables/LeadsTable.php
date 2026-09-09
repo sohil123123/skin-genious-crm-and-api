@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Leads\Tables;
 
 use App\Actions\Lead\AssignLeadsAction;
+use App\Enums\LeadClientStatus;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Enums\PhoneStatus;
@@ -13,6 +14,7 @@ use App\Models\Lead;
 use App\Models\LeadCustomField;
 use App\Models\LeadImport;
 use App\Models\User;
+use App\Services\Lead\LeadConversionService;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -41,10 +43,42 @@ use Filament\Actions\DeleteAction;
 
 class LeadsTable
 {
+    /**
+     * The clinic the conversion lookup should be scoped to.
+     *
+     * Null for a super admin, who sees every clinic's leads and must therefore
+     * be matched against every clinic's clients — scoping them to their own
+     * would leave another clinic's converted leads showing as never converted.
+     */
+    protected static function conversionClinicId(): ?int
+    {
+        return check_role(config('project.roles.super_admin'))
+            ? null
+            : auth()->user()?->clinic_id;
+    }
+
     public static function configure(Table $table): Table
     {
+        // Named once because the row tint, the badge, its tooltip and its link
+        // all ask the same question, and a clinic id that differed between them
+        // would tint a row the badge disagreed with.
         return $table
             ->defaultSort('created_at', 'desc')
+            // An enquiry that turned into a client is tinted, so the ads that
+            // are working are visible down the list without reading a column.
+            //
+            // Derived rather than stored: matched_user_id only ever marks
+            // people who were already clients when the ad reached them. See
+            // LeadConversionService for why, and for why the lookup is one
+            // memoised pass per request rather than a query per row.
+            //
+            // Deliberately not a Tailwind utility: this panel ships no compiled
+            // Tailwind, so those class names resolve to nothing. The rule for
+            // `fi-row-lead-converted` is injected in AdminPanelProvider.
+            ->recordClasses(fn (Lead $record): ?string => app(LeadConversionService::class)
+                ->leadBecameClient($record, static::conversionClinicId())
+                    ? 'fi-row-lead-converted'
+                    : null)
             ->columns([
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
@@ -75,23 +109,40 @@ class LeadsTable
                         ? 'Repaired from: ' . $record->phone_raw
                         : null),
 
-                TextColumn::make('status')
-                    ->badge()
-                    ->sortable(),
+                // TextColumn::make('status')
+                //     ->badge()
+                //     ->sortable(),
 
-                TextColumn::make('matched_user_id')
-                    ->label('Patient')
+                // Two outcomes, not one.
+                //
+                // This read matched_user_id and could therefore only ever say
+                // "Existing": that column is written at import, when the
+                // matcher looks for a client who already exists, so a lead who
+                // enquired and then came in never had it set. The population
+                // the clinic is paying to create was the one the column could
+                // not show.
+                //
+                // The state is derived per row from the phone number and the
+                // order the two records were created in — see
+                // LeadConversionService, which does it in one memoised pass per
+                // request rather than a query per row. The enum carries the
+                // label, colour and icon.
+                TextColumn::make('client_status')
+                    ->label('Client')
                     ->badge()
-                    ->color('warning')
-                    ->icon('heroicon-o-identification')
-                    ->formatStateUsing(fn(): string => 'Existing')
+                    ->state(fn(Lead $record): ?LeadClientStatus => app(LeadConversionService::class)
+                        ->statusFor($record, static::conversionClinicId()))
                     ->placeholder('—')
-                    ->tooltip(fn(Lead $record): ?string => $record->matchedUser
-                        ? 'Matches patient: ' . $record->matchedUser->name
-                        : null)
-                    ->url(fn(Lead $record): ?string => $record->matched_user_id
-                        ? \App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $record->matched_user_id])
-                        : null),
+                    ->tooltip(fn(Lead $record): ?string => app(LeadConversionService::class)
+                        ->statusFor($record, static::conversionClinicId())?->getDescription())
+                    ->url(function (Lead $record): ?string {
+                        $client = app(LeadConversionService::class)
+                            ->clientFor($record, static::conversionClinicId());
+
+                        return $client === null
+                            ? null
+                            : \App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $client['id']]);
+                    }),
 
                 TextColumn::make('campaign_name')
                     ->label('Campaign')
