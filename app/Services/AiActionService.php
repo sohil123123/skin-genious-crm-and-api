@@ -343,12 +343,16 @@ class AiActionService
 
         // One query for the whole clinic. Asking per patient would put a query
         // inside a loop over every outstanding action.
-        $signalsByUser = $this->callSignals()->forPatients(
-            $actions->pluck('user_id')->filter()->all()
-        );
+        $userIds = $actions->pluck('user_id')->filter()->all();
+
+        $signalsByUser = $this->callSignals()->forPatients($userIds);
+
+        // The script is spoken to the patient, so it needs their name. One
+        // pluck rather than touching all eleven triggers to carry it along.
+        $names = User::whereIn('id', $userIds)->pluck('first_name', 'id');
 
         return $actions
-            ->map(function (array $action) use ($signalsByUser): ?array {
+            ->map(function (array $action) use ($signalsByUser, $names): ?array {
                 $signals = $signalsByUser->get($action['user_id']) ?? collect();
 
                 if ($signals->isEmpty()) {
@@ -368,6 +372,16 @@ class AiActionService
                 $action['reason'] = $this->withCallReason($action['reason'], $applied['note']);
                 $action['call_signals'] ??= ($applied['basis'] ?: null);
                 $action['related_call_id'] ??= $signals->first()?->call_id;
+
+                // Opened from the conversation instead of from the record. The
+                // generic script greets somebody nobody has spoken to, and read
+                // out to a patient the clinic rang yesterday it tells them they
+                // were not listened to.
+                $script = $this->callAwareScript($names->get($action['user_id']), $signals);
+
+                if ($script !== null) {
+                    $action['suggested_message'] = $script;
+                }
 
                 return $action;
             })

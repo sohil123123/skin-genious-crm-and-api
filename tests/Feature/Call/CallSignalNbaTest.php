@@ -347,6 +347,90 @@ it('leaves a closed lead closed however warm the call was', function (): void {
     expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
 });
 
+// ──────────── Why today and the script, once a call has happened ────────────
+
+/**
+ * The form-driven card, after the clinic has been on the phone.
+ *
+ * Before this, the reason still read only "asked to visit on Monday and
+ * enquired yesterday" and the script still opened "thank you for your enquiry"
+ * — to somebody the clinic had already spoken to that morning. Both are built
+ * from the lead's form answers, and neither knew a conversation had happened.
+ */
+it('folds the call into why today and the script on a form-driven lead card', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['family_approval_objection', 'high_intent'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        // Why today now carries what was said, not only what was submitted.
+        ->and($action->reason)->toContain('On the call')
+        ->and($action->reason)->toContain('discuss it at home')
+        // And the script opens from the conversation.
+        ->and($action->suggested_message)->toContain('following up on our call')
+        ->and($action->suggested_message)->toContain('talk it over at home')
+        ->and($action->suggested_message)->not->toContain('thank you for your enquiry');
+});
+
+/**
+ * §41's setting is about scores, not about explanations. Moving a score changes
+ * which patient a clinic rings first and must be switched on deliberately;
+ * telling a staff member what was said changes no ordering at all, and
+ * withholding it leaves a card asserting something the CRM can disprove.
+ */
+it('explains the call even with the score modifier switched off', function (): void {
+    expect((bool) Setting::getConfigured('call_signal_modifier_enabled', config('calls.signals.modifier_enabled')))
+        ->toBeFalse();
+
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['price_objection'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action->reason)->toContain('raised the cost')
+        // The structured basis is stored too, which is what draws the badges on
+        // the card. Withholding it left the analysis block on the dashboard
+        // with a summary and no signals.
+        ->and(collect($action->call_signals)->pluck('key'))->toContain('price_objection');
+});
+
+/**
+ * A call that established only sentiment gives a staff member nothing to say.
+ * Replacing a specific form-driven script with a vague call-driven one would
+ * make the suggestion worse, and a script staff stop trusting is a script staff
+ * stop reading.
+ */
+it('leaves the script alone when the call gave nothing to open with', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['neutral_sentiment'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->suggested_message)
+        ->not->toContain('following up on our call');
+});
+
+it('opens a patient script from the call too', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['price_objection', 'appointment_intent'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->first()->suggested_message)
+        ->toContain('following up on our call');
+});
+
 // ──────────────── Not claiming somebody was never contacted ────────────────
 
 /**
@@ -421,4 +505,39 @@ it('can be switched on from settings', function (): void {
     Setting::flushRuntimeCache();
 
     expect((bool) Setting::getConfigured('call_signal_modifier_enabled', false))->toBeTrue();
+});
+
+/**
+ * "Staff follow-up required" says a call is owed and nothing about what to say.
+ * Ranked at its family's level it beat every signal that carries content, and a
+ * call where the customer asked about a named treatment produced a script that
+ * mentioned no treatment.
+ */
+it('opens with what was discussed rather than a bare promise to follow up', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(20)]);
+
+    $analysis = CallAnalysis::create(['call_id' => $call->getKey(), 'is_current' => true]);
+
+    foreach ([
+        ['staff_followup_required', null],
+        ['treatment_interest', 'AI Customized Facial'],
+    ] as [$key, $value]) {
+        CallInsightSignal::create([
+            'call_analysis_id' => $analysis->getKey(),
+            'call_id' => $call->getKey(),
+            'clinic_id' => $call->clinic_id,
+            'customer_user_id' => $this->patient->getKey(),
+            'signal_type' => CallSignalKey::from($key)->type()->value,
+            'signal_key' => $key,
+            'value' => $value,
+            'confidence' => 0.9,
+            'occurred_at' => $call->started_at,
+        ]);
+    }
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->first()->suggested_message)
+        ->toContain('AI Customized Facial')
+        ->not->toContain('Just following up as promised');
 });

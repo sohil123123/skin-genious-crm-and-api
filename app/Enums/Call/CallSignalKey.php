@@ -264,6 +264,70 @@ enum CallSignalKey: string implements HasLabel
         };
     }
 
+    /**
+     * What to say to the person about this, in the second person.
+     *
+     * Separate from phrase(), and it has to be. phrase() is written for the
+     * staff member — "raised the cost", third person, past tense, part of an
+     * explanation of why this card exists. This is written to be said down the
+     * phone to the patient, and "they raised the cost" is not something anybody
+     * says to the person who raised it.
+     *
+     * Null where a signal is real but gives nothing to open with. "Sounded
+     * neutral" is true and unsayable; a script built on it would be worse than
+     * the generic one it replaced, which is the failure mode to avoid here —
+     * a suggested script staff stop trusting is a suggested script staff stop
+     * reading.
+     */
+    public function scriptLine(?string $value = null): ?string
+    {
+        return match ($this) {
+            self::PriceObjection => 'I know the cost was on your mind — I can talk you through the payment options we have.',
+            self::TrustObjection => 'I want to make sure you feel comfortable with us — happy to answer anything at all.',
+            self::TimingObjection => 'I know the timing did not suit last time — shall we find a slot that works better for you?',
+            self::EffectivenessObjection => 'You asked whether it really works — I can talk you through what results usually look like.',
+            self::FearObjection => 'I know you were a little nervous about it — let me walk you through exactly what happens.',
+            self::DistanceObjection => 'I know the travel is a consideration — we can pick a time that makes the trip worth it.',
+            self::FamilyApprovalObjection => 'You mentioned wanting to talk it over at home — is there anything I can answer that would help?',
+
+            self::CallbackRequested => 'You asked me to give you a call back — is now a good time?',
+            self::InformationRequested => 'I am sending over the details you asked for.',
+            self::AppointmentRequested, self::AppointmentIntent => 'You wanted to get an appointment in the diary — shall we lock in a time?',
+            self::StaffFollowUpRequired => 'Just following up as promised.',
+            self::PatientCommitment => 'You said you would come back to us — I thought I would save you the trouble and call.',
+
+            self::UnresolvedIssue => 'I do not think we fully answered your question last time — let me sort that out now.',
+            self::Complaint, self::Dissatisfaction => 'I am sorry about what happened — I would like to put it right.',
+            self::Frustrated => 'I am sorry this has been more difficult than it should be — let me help.',
+
+            self::HighIntent, self::BuyingSignal, self::PurchaseIntent => 'You sounded keen to get started — shall we book you in?',
+            self::TreatmentInterest => filled($value)
+                ? 'You were asking about ' . $value . ' — I can talk you through it.'
+                : 'You were asking about one of our treatments — I can talk you through it.',
+            self::ProductInterest => filled($value)
+                ? 'You were asking about ' . $value . ' — I can tell you more.'
+                : null,
+
+            default => null,
+        };
+    }
+
+    /**
+     * Where this sits when choosing what to open a call with. Lower first.
+     *
+     * Defers to the family's order — apologise, answer, handle the objection,
+     * then sell — with one demotion. "Staff follow-up required" says that
+     * somebody must ring back and nothing whatsoever about what to say, so its
+     * line is the generic "just following up as promised". Left at its family's
+     * rank it outranks every signal that actually carries content, and a call
+     * where the customer asked about a specific treatment produced a script
+     * that mentioned no treatment. It is a fallback, so it is ranked as one.
+     */
+    public function scriptRank(): int
+    {
+        return $this === self::StaffFollowUpRequired ? 6 : $this->type()->scriptRank();
+    }
+
     public function getLabel(): string
     {
         return ucfirst(str_replace('_', ' ', $this->value));
