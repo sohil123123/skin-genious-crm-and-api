@@ -72,6 +72,12 @@ class CallsTable
             // The largest table this feature produces, and it draws two card
             // cells per row; don't run the query until the page is interactive.
             ->deferLoading()
+            // Calls arrive by webhook while the page sits open, and reception
+            // works from this screen without touching it. Thirty seconds is
+            // slow enough that the query cost stays trivial and fast enough
+            // that a call is on screen before anyone thinks to reach for
+            // Refresh. The tab counts refresh with it.
+            ->poll('30s')
             // A call nobody could attribute is tinted, so the rows needing a
             // human stand out without reading a column. Deliberately not a
             // Tailwind utility: this panel ships no compiled Tailwind, so those
@@ -253,7 +259,7 @@ class CallsTable
                 ->badge()
                 ->verticalAlignment(VerticalAlignment::Center)
                 ->alignCenter()
-                ->width('8rem')
+                // ->width('8rem')
                 ->sortable()
                 ->toggleable(),
 
@@ -265,8 +271,8 @@ class CallsTable
                 ->label('Recording')
                 ->view('filament.tables.columns.call-recording')
                 ->verticalAlignment(VerticalAlignment::Center)
-                ->alignCenter()
-                ->width('9rem')
+                // ->alignCenter()
+                // ->width('9rem')
                 ->visible(fn (): bool => auth()->user()?->can('viewAny', Call::class) ?? false),
 
             // ─── Outcome, temporarily switched off ──────────────────────────
@@ -351,6 +357,21 @@ class CallsTable
     }
 
     /**
+     * Restrict a call subquery to the calls this user is allowed to see.
+     *
+     * The filter options are built from the calls table, so without this a
+     * clinic could infer another clinic's staff and patients from the names
+     * offered in the dropdown.
+     */
+    protected static function visibleCalls(Builder $query): Builder
+    {
+        return $query->when(
+            ! check_role(config('project.roles.super_admin')),
+            fn (Builder $calls): Builder => $calls->forCurrentClinic(),
+        );
+    }
+
+    /**
      * @return array<int, mixed>
      */
     protected static function filters(): array
@@ -388,18 +409,33 @@ class CallsTable
                     ? $query->linkedTo($data['value'])
                     : $query),
 
+            // Both lists are narrowed to people who actually appear on a call.
+            // Offering the whole user table meant scrolling past hundreds of
+            // patients and staff who have never been on the phone, every one of
+            // which filters the table down to nothing.
             SelectFilter::make('agent_user_id')
                 ->label('Agent')
-                ->relationship('agent', 'first_name')
+                ->relationship(
+                    'agent',
+                    'first_name',
+                    modifyQueryUsing: fn (Builder $query): Builder => $query
+                        ->whereHas('handledCalls', fn (Builder $calls): Builder => static::visibleCalls($calls)),
+                )
                 ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name)
                 ->searchable()
                 ->preload(),
 
             SelectFilter::make('customer_user_id')
                 ->label('Client')
-                ->relationship('customer', 'first_name')
+                ->relationship(
+                    'customer',
+                    'first_name',
+                    modifyQueryUsing: fn (Builder $query): Builder => $query
+                        ->whereHas('calls', fn (Builder $calls): Builder => static::visibleCalls($calls)),
+                )
                 ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name)
-                ->searchable(),
+                ->searchable()
+                ->preload(),
 
             // Grouped as one filter rather than three toggles: "connected" is a
             // single question, and the three states are mutually exclusive.

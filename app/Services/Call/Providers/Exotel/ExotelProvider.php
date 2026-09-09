@@ -7,13 +7,18 @@ namespace App\Services\Call\Providers\Exotel;
 use App\DTOs\Call\NormalizedCall;
 use App\Enums\Call\CallProvider;
 use App\Enums\Call\CallSource;
+use App\Enums\Call\CallSyncStatus;
 use App\Models\Call;
+use App\Models\CallSyncRun;
 use App\Models\Setting;
 use App\Services\Call\Exceptions\CallProviderException;
 use App\Services\Call\CallIngestionService;
 use App\Services\Call\Contracts\CallProviderInterface;
+use App\Services\Call\Contracts\SyncsCallsInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * The Exotel adapter: incoming calls, delivered by the Passthru applet.
@@ -26,7 +31,7 @@ use Illuminate\Support\Facades\Log;
  * treated as a shared password — required, redacted before storage, and
  * comparable only in constant time.
  */
-class ExotelProvider implements CallProviderInterface
+class ExotelProvider implements CallProviderInterface, SyncsCallsInterface
 {
     public function __construct(
         protected ExotelClient $client,
@@ -42,6 +47,20 @@ class ExotelProvider implements CallProviderInterface
     public function isEnabled(): bool
     {
         return (bool) Setting::getValue('exotel_enabled', config('calls.exotel.enabled', false));
+    }
+
+    /**
+     * Pulling additionally needs API credentials to pull with.
+     *
+     * Independent of isEnabled() on purpose: Exotel's Passthru works without
+     * the API key and token, so an installation can be receiving calls all day
+     * and still have nothing to poll with.
+     */
+    public function isSyncEnabled(): bool
+    {
+        return $this->isEnabled()
+            && $this->client->isConfigured()
+            && (bool) Setting::getValue('exotel_sync_enabled', config('calls.exotel.sync.enabled', false));
     }
 
     /**
@@ -201,5 +220,125 @@ class ExotelProvider implements CallProviderInterface
         }
 
         return $this->ingestion->ingest($normalized, ['last_source' => CallSource::ApiSync->value]) !== null;
+    }
+
+    /**
+     * Pull the calls Exotel created inside a window.
+     *
+     * A backstop rather than the main path. Exotel pushes every call as it
+     * happens; this catches the ones whose Passthru never arrived — a flow
+     * edited mid-call, an outage at this end — and picks up recordings that
+     * were still being finalised when the last webhook fired.
+     *
+     * Both paths converge on the same mapper and the same ingestion service, so
+     * a call that arrived live and again here updates one row rather than
+     * creating two.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function syncCalls(CallSyncRun $run, Carbon $from, Carbon $to, array $filters = []): CallSyncRun
+    {
+        $maxPages = (int) config('calls.exotel.sync.max_pages', 200);
+        // Exotel's Page parameter is zero-based, unlike Callyzer's.
+        $page = 0;
+        $status = CallSyncStatus::Completed;
+        $error = null;
+        $result = ['has_more' => false];
+
+        try {
+            do {
+                $result = $this->client->calls($from, $to, $page, $filters);
+
+                $run->pages_fetched = $page + 1;
+                $run->records_received += count($result['records']);
+                $run->last_http_status = $result['status'];
+
+                foreach ($result['records'] as $record) {
+                    $this->ingestRecord($run, $record);
+                }
+
+                $run->save();
+
+                $page++;
+            } while ($result['has_more'] && $page < $maxPages);
+
+            if ($page >= $maxPages && $result['has_more']) {
+                // Stopping at the page cap is not success. Saying so is what
+                // stops the cursor moving past calls that were never fetched.
+                $status = CallSyncStatus::Partial;
+                $error = sprintf('Stopped at the %d page limit; more calls remain in this window.', $maxPages);
+            }
+        } catch (CallProviderException $exception) {
+            $status = $exception->httpStatus === 429 ? CallSyncStatus::Partial : CallSyncStatus::Failed;
+            $error = $exception->getMessage();
+
+            if ($exception->httpStatus === 429) {
+                $run->rate_limit_waits++;
+            }
+
+            $run->last_http_status = $exception->httpStatus;
+
+            Log::channel('calls')->error('Exotel sync stopped.', [
+                'run_id' => $run->getKey(),
+                'reason' => $exception->getMessage(),
+                'retryable' => $exception->retryable,
+            ]);
+        }
+
+        // Only a clean run moves the cursor forward.
+        if ($status === CallSyncStatus::Completed) {
+            $run->cursor_to = $to;
+        }
+
+        $run->save();
+        $run->finish($status, $error);
+
+        return $run;
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    protected function ingestRecord(CallSyncRun $run, array $record): void
+    {
+        try {
+            $normalized = $this->mapper->map($record, CallSource::ApiSync);
+
+            if ($normalized === null) {
+                $run->calls_skipped++;
+
+                return;
+            }
+
+            $existing = Call::query()
+                ->where('provider', CallProvider::Exotel->value)
+                ->where('provider_call_id', $normalized->providerCallId)
+                ->first();
+
+            $recordingsBefore = $existing?->recording_count ?? 0;
+
+            $call = $this->ingestion->ingest($normalized, ['last_source' => CallSource::ApiSync->value]);
+
+            if ($call === null) {
+                $run->calls_failed++;
+
+                return;
+            }
+
+            $existing === null ? $run->calls_created++ : $run->calls_updated++;
+
+            if ($call->recording_count > $recordingsBefore) {
+                $run->recordings_queued += $call->recording_count - $recordingsBefore;
+            }
+        } catch (Throwable $exception) {
+            // One malformed record must not abandon the rest of the page.
+            $run->calls_failed++;
+            $run->last_error = mb_substr($exception->getMessage(), 0, 1000);
+
+            Log::channel('calls')->error('Exotel record could not be ingested.', [
+                'run_id' => $run->getKey(),
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }

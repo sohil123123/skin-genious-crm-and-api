@@ -54,6 +54,7 @@ class CallProviderAgentsTable
 
                 TextColumn::make('calls_count')
                     ->label('Calls')
+                    ->badge()
                     ->numeric()
                     ->alignEnd()
                     ->sortable(),

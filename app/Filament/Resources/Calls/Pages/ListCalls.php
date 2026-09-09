@@ -8,6 +8,7 @@ use App\Enums\Call\CallProvider;
 use App\Filament\Resources\Calls\CallResource;
 use App\Filament\Widgets\CallStatsOverview;
 use App\Jobs\Call\SyncCallyzerCallsJob;
+use App\Jobs\Call\SyncExotelCallsJob;
 use App\Models\CallSyncRun;
 use App\Services\Call\CallProviderManager;
 use Filament\Actions\Action;
@@ -39,6 +40,8 @@ class ListCalls extends ListRecords
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
                 ->action(function (): void {}),
+
+            $this->syncExotelAction(),
 
             $this->syncCallyzerAction(),
         ];
@@ -179,6 +182,70 @@ class ListCalls extends ListRecords
                 }
 
                 SyncCallyzerCallsJob::dispatch(
+                    from: $data['from'] ?? null,
+                    to: $data['to'] ?? null,
+                    trigger: 'manual',
+                    triggeredBy: auth()->id(),
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Sync started')
+                    ->body('Progress appears on the Call Integration Health page.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Pull Exotel history now rather than waiting for a webhook that may never
+     * come.
+     *
+     * A backstop, not the usual path: Exotel pushes every call as it happens,
+     * and this exists for the gaps in that push — a call whose Passthru was
+     * lost, and the common case of a recording Exotel had not finalised when
+     * the last webhook fired. Queued rather than run inline because a wide
+     * window is many paged API calls, which would time out a web request and
+     * leave a half-finished run behind.
+     */
+    protected function syncExotelAction(): Action
+    {
+        return Action::make('syncExotel')
+            ->label('Sync Exotel now')
+            ->icon('heroicon-o-arrow-path')
+            ->color('gray')
+            ->visible(fn (): bool => app(CallProviderManager::class)
+                ->syncable(CallProvider::Exotel)
+                ?->isSyncEnabled() === true)
+            ->schema([
+                DatePicker::make('from')
+                    ->label('From')
+                    // Narrower than the Callyzer default: Exotel is already
+                    // delivering these calls live, so a wide window is mostly
+                    // re-reading calls the CRM has.
+                    ->default(now()->subDay())
+                    ->maxDate(now())
+                    ->placeholder('Continue from the last sync'),
+                DatePicker::make('to')
+                    ->label('To')
+                    ->default(now())
+                    ->maxDate(now())
+                    ->placeholder('Up to now'),
+            ])
+            ->modalHeading('Sync Exotel call history')
+            ->modalDescription('Runs in the background. Calls already received by webhook are updated, never duplicated.')
+            ->modalSubmitActionLabel('Start sync')
+            ->action(function (array $data): void {
+                if (CallSyncRun::isRunning(CallProvider::Exotel)) {
+                    Notification::make()
+                        ->warning()
+                        ->title('A sync is already running')
+                        ->body('Wait for it to finish — two at once would fetch every call twice.')
+                        ->send();
+
+                    return;
+                }
+
+                SyncExotelCallsJob::dispatch(
                     from: $data['from'] ?? null,
                     to: $data['to'] ?? null,
                     trigger: 'manual',

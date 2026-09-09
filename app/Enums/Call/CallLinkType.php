@@ -33,7 +33,7 @@ enum CallLinkType: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Patient => 'Patient',
+            self::Patient => 'Client',
             self::Lead => 'Lead',
             self::None => 'Not linked',
         };

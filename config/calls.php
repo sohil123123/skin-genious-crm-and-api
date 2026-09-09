@@ -410,6 +410,23 @@ return [
             'retry_times' => (int) env('EXOTEL_RETRY_TIMES', 2),
             'retry_sleep_ms' => (int) env('EXOTEL_RETRY_SLEEP', 1000),
         ],
+        // Exotel is push-first, so pulling is a backstop rather than the main
+        // path: it collects calls whose Passthru never arrived and recordings
+        // that were not final when the last one did. Off by default for that
+        // reason — an installation whose webhooks work needs nothing here.
+        'sync' => [
+            'enabled' => (bool) env('EXOTEL_SYNC_ENABLED', false),
+            'endpoint' => env('EXOTEL_CALLS_PATH', 'Calls.json'),
+            // Exotel caps PageSize at 100 on this endpoint and answers a larger
+            // value with a 400 rather than a clamp.
+            'page_size' => (int) env('EXOTEL_PAGE_SIZE', 100),
+            'max_pages' => (int) env('EXOTEL_MAX_PAGES', 200),
+            'lookback_hours' => (int) env('EXOTEL_LOOKBACK_HOURS', 24),
+            // The DateCreated filter is compared in the account's own timezone,
+            // not UTC, so the window is formatted in that zone before it is
+            // sent. Sending UTC silently shifts the window by the offset.
+            'date_format' => env('EXOTEL_DATE_FORMAT', 'Y-m-d H:i:s'),
+        ],
         // Exotel's CallStatus / DialCallStatus vocabulary, mapped to the
         // unified statuses.
         'status_map' => [
