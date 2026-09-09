@@ -58,26 +58,80 @@ trait AppliesCallSignals
      */
     protected function applyCallSignals(int $score, Collection $signals): array
     {
-        if (! $this->callSignalModifierEnabled() || $signals->isEmpty()) {
+        if ($signals->isEmpty()) {
             return ['score' => $score, 'basis' => [], 'note' => null];
         }
 
         $reader = $this->callSignals();
-        $pressure = $reader->pressure($signals);
+
+        // The explanation is produced whether or not the modifier is on, and
+        // that separation is the point. The setting exists because moving a
+        // score changes which patient a clinic rings first, and that should not
+        // change silently. Telling a staff member what was said on the phone
+        // changes nothing about the ordering and is useful on its own — a card
+        // reading "enquired yesterday" when the clinic spoke to them this
+        // morning is wrong in a way no ranking preference justifies.
+        $basis = $reader->toBasis($signals);
+        $note = $reader->explain($signals);
+
+        if (! $this->callSignalModifierEnabled()) {
+            return ['score' => $score, 'basis' => $basis, 'note' => $note];
+        }
 
         // Bounded in both directions. A conversation should tilt a ranking, not
         // decide it: the engines' own arithmetic knows about packages, no-shows
         // and appointment history, none of which a transcript can see.
         $ceiling = (float) config('calls.signals.max_influence', 0.40);
-        $influence = max(-$ceiling, min($ceiling, $pressure));
-
-        $adjusted = (int) round($score * (1 + $influence));
+        $influence = max(-$ceiling, min($ceiling, $reader->pressure($signals)));
 
         return [
-            'score' => max(0, min(100, $adjusted)),
-            'basis' => $reader->toBasis($signals),
-            'note' => $reader->explain($signals),
+            'score' => max(0, min(100, (int) round($score * (1 + $influence)))),
+            'basis' => $basis,
+            'note' => $note,
         ];
+    }
+
+    /**
+     * A script that opens from the conversation rather than from the form.
+     *
+     * The generic script is written for somebody nobody has spoken to: "thank
+     * you for your enquiry, would you like to book a skin analysis". Read out
+     * to a person the clinic rang yesterday, it tells them they were not
+     * listened to — which is worse than having no script at all.
+     *
+     * Built from the strongest signal that has something sayable attached.
+     * Sentiment and engagement have nothing, so a call that established only
+     * "sounded neutral" leaves the original script alone rather than replacing
+     * it with something vague.
+     *
+     * @param  Collection<int, \App\Models\CallInsightSignal>  $signals
+     */
+    protected function callAwareScript(?string $firstName, Collection $signals): ?string
+    {
+        if ($signals->isEmpty()) {
+            return null;
+        }
+
+        $window = $this->callSignals()->windowDays();
+
+        // Ordered for a conversation, not for a queue: complaint, then what was
+        // asked for, then the objection, then the sell. Within a rank the
+        // freshest and most confident wins.
+        $line = $signals
+            ->sortBy([
+                fn (\App\Models\CallInsightSignal $a, \App\Models\CallInsightSignal $b): int
+                    => $a->signal_key->scriptRank() <=> $b->signal_key->scriptRank(),
+                fn (\App\Models\CallInsightSignal $a, \App\Models\CallInsightSignal $b): int
+                    => $b->weight($window) <=> $a->weight($window),
+            ])
+            ->map(fn (\App\Models\CallInsightSignal $signal): ?string => $signal->signal_key->scriptLine($signal->value))
+            ->first(fn (?string $line): bool => $line !== null);
+
+        if ($line === null) {
+            return null;
+        }
+
+        return sprintf('Hi %s, following up on our call. %s', $firstName ?: 'there', $line);
     }
 
     /**

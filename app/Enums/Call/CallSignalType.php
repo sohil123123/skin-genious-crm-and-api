@@ -38,6 +38,31 @@ enum CallSignalType: string implements HasColor, HasLabel
         };
     }
 
+    /**
+     * Order these matter in when opening a conversation. Lower comes first.
+     *
+     * Deliberately not the same order as pressure, which ranks how hard a
+     * signal argues for ringing somebody. That is the right question for a
+     * queue and the wrong one for a script: a lead who sounded keen and also
+     * said they must ask their wife scores highest on the keenness, but opening
+     * with "you sounded keen, shall we book you in" walks straight past the one
+     * thing standing between them and a booking.
+     *
+     * So: apologise first if something went wrong, then answer what was asked
+     * for, then handle the objection, and only then sell. Enthusiasm is why the
+     * call is happening; it is not what needs saying.
+     */
+    public function scriptRank(): int
+    {
+        return match ($this) {
+            self::Risk => 1,
+            self::FollowUp => 2,
+            self::Objection => 3,
+            self::Intent, self::Opportunity => 4,
+            self::Sentiment, self::Engagement => 5,
+        };
+    }
+
     public function getColor(): string
     {
         return match ($this) {

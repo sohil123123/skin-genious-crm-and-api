@@ -354,12 +354,15 @@ class LeadActionService
             return $actions;
         }
 
-        $signalsByLead = $this->callSignals()->forLeads(
-            $actions->pluck('lead_id')->filter()->all()
-        );
+        $leadIds = $actions->pluck('lead_id')->filter()->all();
+
+        $signalsByLead = $this->callSignals()->forLeads($leadIds);
+
+        // The script is spoken to the lead, so it needs their name.
+        $names = Lead::whereIn('id', $leadIds)->pluck('first_name', 'id');
 
         return $actions
-            ->map(function (array $action) use ($signalsByLead): ?array {
+            ->map(function (array $action) use ($signalsByLead, $names): ?array {
                 $signals = $signalsByLead->get($action['lead_id']) ?? collect();
 
                 if ($signals->isEmpty()) {
@@ -377,6 +380,15 @@ class LeadActionService
                 $action['reason'] = $this->withCallReason($action['reason'], $applied['note']);
                 $action['call_signals'] ??= ($applied['basis'] ?: null);
                 $action['related_call_id'] ??= $signals->first()?->call_id;
+
+                // The form script greets a stranger. Once somebody has been on
+                // the phone, opening with "thank you for your enquiry" tells
+                // them the call they had did not register anywhere.
+                $script = $this->callAwareScript($names->get($action['lead_id']), $signals);
+
+                if ($script !== null) {
+                    $action['suggested_message'] = $script;
+                }
 
                 return $action;
             })
