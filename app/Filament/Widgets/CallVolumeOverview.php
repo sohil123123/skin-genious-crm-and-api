@@ -35,7 +35,7 @@ class CallVolumeOverview extends StatsOverviewWidget
     // The badge rendering the Leads overview uses, so the two read the same.
     use RendersStatBadges;
 
-    protected ?string $heading = 'Call Overview';
+    // protected ?string $heading = 'Call Overview';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -148,11 +148,13 @@ class CallVolumeOverview extends StatsOverviewWidget
                 'label' => 'missed',
                 'value' => number_format($figures['missed']),
                 'icon' => 'heroicon-m-phone-x-mark',
-                // Green only where there were calls to miss and none was
-                // missed. On a day with no calls at all, a green nought claims
-                // a success nobody earned.
+                // Red where calls were missed: somebody rang the clinic and
+                // nobody answered, which is the strongest thing this row can
+                // report. Green only where there were calls to miss and none
+                // was — on a day with no calls at all, a green nought claims a
+                // success nobody earned.
                 'color' => match (true) {
-                    $figures['missed'] > 0 => 'warning',
+                    $figures['missed'] > 0 => 'danger',
                     $total > 0 => 'success',
                     default => 'gray',
                 },
