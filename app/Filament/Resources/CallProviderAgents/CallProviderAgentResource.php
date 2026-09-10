@@ -38,6 +38,8 @@ class CallProviderAgentResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return CallProviderAgentForm::configure($schema);
@@ -75,20 +77,20 @@ class CallProviderAgentResource extends Resource
     /**
      * How many provider identities nobody has claimed yet.
      */
-    public static function getNavigationBadge(): ?string
-    {
-        $count = static::getEloquentQuery()->needsMapping()->count();
+    // public static function getNavigationBadge(): ?string
+    // {
+    //     $count = static::getEloquentQuery()->needsMapping()->count();
 
-        return $count > 0 ? (string) $count : null;
-    }
+    //     return $count > 0 ? (string) $count : null;
+    // }
 
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'warning';
-    }
+    // public static function getNavigationBadgeColor(): ?string
+    // {
+    //     return 'warning';
+    // }
 
-    public static function getNavigationBadgeTooltip(): ?string
-    {
-        return 'Provider agents not yet mapped to a CRM user';
-    }
+    // public static function getNavigationBadgeTooltip(): ?string
+    // {
+    //     return 'Provider agents not yet mapped to a CRM user';
+    // }
 }
