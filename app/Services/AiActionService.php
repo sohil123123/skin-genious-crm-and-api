@@ -1556,23 +1556,24 @@ class AiActionService
     protected function nextAppointmentAt(int $userId): ?Carbon
     {
         return Appointment::where('user_id', $userId)
-            ->where('start_datetime', '>=', Carbon::now())
-            ->whereNotIn('status', [
-                AppointmentStatus::Cancelled,
-                AppointmentStatus::NoShow,
-            ])
+            ->countsAsBooked()
             ->orderBy('start_datetime')
             ->value('start_datetime');
     }
 
+    /**
+     * Whether this patient is already coming in, or has been in today.
+     *
+     * The seven triggers that argue for getting somebody booked all skip on
+     * this. The conditions live on Appointment::scopeCountsAsBooked() so they
+     * cannot drift from the lead engine's copy of the same question — which is
+     * exactly what happened, and what put a patient back in the queue while she
+     * was in the chair.
+     */
     protected function hasFutureAppointment(int $userId): bool
     {
         return Appointment::where('user_id', $userId)
-            ->where('start_datetime', '>=', Carbon::now())
-            ->whereNotIn('status', [
-                AppointmentStatus::Cancelled,
-                AppointmentStatus::NoShow,
-            ])
+            ->countsAsBooked()
             ->exists();
     }
 

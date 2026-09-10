@@ -9,6 +9,7 @@ use App\Jobs\RegenerateActionQueuesJob;
 use App\Models\Appointment;
 use App\Services\AiActionService;
 use App\Services\Lead\LeadActionService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -88,8 +89,12 @@ class AppointmentObserver
         // Only a booking that is actually ahead of them. A cancelled or
         // no-show appointment leaves the person needing exactly the call the
         // queue is suggesting, and the rebuild will put it back.
+        // The same boundary Appointment::scopeCountsAsBooked() draws: the start
+        // of today, not the current moment. isPast() meant an appointment
+        // stopped counting the instant it began, so a booking made for 12:30
+        // and saved at 12:31 reconciled nothing.
         if ($appointment->start_datetime === null
-            || $appointment->start_datetime->isPast()
+            || $appointment->start_datetime->lt(Carbon::today())
             || in_array($appointment->status, [AppointmentStatus::Cancelled, AppointmentStatus::NoShow], true)) {
             return;
         }

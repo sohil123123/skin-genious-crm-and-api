@@ -1045,13 +1045,9 @@ class LeadActionService
 
         $rows = Appointment::query()
             ->where('appointments.clinic_id', $clinic->id)
-            ->where('appointments.start_datetime', '>=', Carbon::now())
-            // Cancelled and no-show are not bookings. Somebody whose
-            // appointment fell through is exactly who the queue should chase.
-            ->whereNotIn('appointments.status', [
-                \App\Enums\AppointmentStatus::Cancelled->value,
-                \App\Enums\AppointmentStatus::NoShow->value,
-            ])
+            // Same definition the patient engine uses, from the model. Keeping
+            // a second copy here is how the two came to disagree.
+            ->countsAsBooked()
             ->join('users', 'users.id', '=', 'appointments.user_id')
             ->orderBy('appointments.start_datetime')
             ->get(['users.mobile', 'appointments.start_datetime']);
