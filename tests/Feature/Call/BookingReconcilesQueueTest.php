@@ -195,3 +195,94 @@ it('saves the appointment even when the queue cannot be reconciled', function ()
     expect(bookFor($orphan)->exists)->toBeTrue()
         ->and(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
 });
+
+// ──────────── An appointment that has already started ────────────
+
+/**
+ * Pallavi Bhatnagar, in production: booked at 12:30 and 12:56, and at 13:01 —
+ * while she was in the chair — a regeneration put her back on the lead queue at
+ * 97/100 as somebody who "wants to visit now" and should be rung today.
+ *
+ * The window was `start_datetime >= now()`, so an appointment stopped counting
+ * the instant it began. The queue is read all day; it must not start chasing
+ * people the moment their appointment starts.
+ */
+it('does not chase a lead whose appointment is happening right now', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    // $this->patient already shares the lead's number, which is the whole
+    // point: one person, two records, nothing linking them.
+    bookFor($this->patient, [
+        'start_datetime' => now()->subMinutes(30),
+        'end_datetime' => now()->addMinutes(30),
+    ]);
+
+    app(\App\Services\Lead\LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+/**
+ * And somebody seen earlier this morning is in the same position: they came in,
+ * so the card telling staff to get them in is spent.
+ */
+it('does not chase a lead who was seen earlier today', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    // $this->patient already shares the lead's number, which is the whole
+    // point: one person, two records, nothing linking them.
+    bookFor($this->patient, [
+        'start_datetime' => now()->startOfDay()->addHours(9),
+        'end_datetime' => now()->startOfDay()->addHours(10),
+    ]);
+
+    app(\App\Services\Lead\LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+/**
+ * Yesterday is outside the window on purpose. Chasing somebody after a visit is
+ * what the retention triggers are for, and a lead who came in once and went
+ * quiet still needs following up.
+ */
+it('still chases a lead whose only visit was yesterday', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    // $this->patient already shares the lead's number, which is the whole
+    // point: one person, two records, nothing linking them.
+    bookFor($this->patient, [
+        'start_datetime' => now()->startOfDay()->subDay()->addHours(11),
+        'end_datetime' => now()->startOfDay()->subDay()->addHours(12),
+    ]);
+
+    app(\App\Services\Lead\LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(1);
+});
+
+/**
+ * The patient engine asks the same question and must give the same answer, or
+ * a person in the chair drops out of one queue and into the other.
+ */
+it('agrees with the patient engine about an appointment in progress', function (): void {
+    $patient = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Pallavi', 'last_name' => 'B',
+        'mobile' => '9829000077', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    $patient->assignRole(\App\Models\Role::firstOrCreate([
+        'name' => config('project.roles.client'), 'guard_name' => 'web',
+    ]));
+
+    bookFor($patient, [
+        'start_datetime' => now()->subMinutes(30),
+        'end_datetime' => now()->addMinutes(30),
+    ]);
+
+    $service = app(\App\Services\AiActionService::class);
+    $method = (new ReflectionClass($service))->getMethod('hasFutureAppointment');
+    $method->setAccessible(true);
+
+    expect($method->invoke($service, $patient->getKey()))->toBeTrue();
+});

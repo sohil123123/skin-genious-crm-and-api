@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -140,6 +141,39 @@ class Appointment extends Model
     }
 
     //---------------------------- Relations --------------------------
+    /**
+     * Appointments that mean "this person does not need chasing to book".
+     *
+     * Read by both Next Best Action engines and by the observer that reconciles
+     * the queues after a booking. One scope rather than three copies of the
+     * same two conditions, because the copies drifted the first time this was
+     * touched.
+     *
+     * The boundary is the start of today, not the current moment, and that is
+     * the correction. It used to be `start_datetime >= now()`, so an
+     * appointment stopped counting the instant it began: Pallavi Bhatnagar was
+     * booked at 12:30 and 12:56, and at 13:01 — while she was in the chair —
+     * the lead queue rebuilt and put her back on it as somebody who "wants to
+     * visit now" and should be rung. Anybody seen earlier today is in the same
+     * position; the queue is read all day and must not start chasing people the
+     * moment their appointment starts.
+     *
+     * Yesterday is deliberately outside it. Chasing somebody after a visit is
+     * what the retention triggers are for.
+     *
+     * Cancelled and no-show never count: somebody whose appointment fell
+     * through is exactly who the queue should be chasing.
+     */
+    public function scopeCountsAsBooked(Builder $query): Builder
+    {
+        return $query
+            ->where($query->qualifyColumn('start_datetime'), '>=', Carbon::today())
+            ->whereNotIn($query->qualifyColumn('status'), [
+                AppointmentStatus::Cancelled->value,
+                AppointmentStatus::NoShow->value,
+            ]);
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

@@ -40,6 +40,7 @@ use Illuminate\Support\Collection;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Tables\Enums\RecordActionsPosition;
 
 class LeadsTable
 {
@@ -186,19 +187,19 @@ class LeadsTable
                 //     ->placeholder('Unassigned')
                 //     ->toggleable(),
 
-                TextColumn::make('fb_created_time')
-                    ->label('Submitted')
-                    ->dateTime(app_datetime_format())
-                    ->timezone(app_timezone())
-                    ->sortable()
-                    ->toggleable(),
+                // TextColumn::make('fb_created_time')
+                //     ->label('Submitted')
+                //     ->dateTime(app_datetime_format())
+                //     ->timezone(app_timezone())
+                //     ->sortable()
+                //     ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Imported')
                     ->dateTime(app_datetime_format())
                     ->timezone(app_timezone())
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
 
 
             ])
@@ -222,8 +223,14 @@ class LeadsTable
                         // Answers to the imported questions hang off the lead
                         // with a cascading key, so they go with it.
                         ->modalDescription('The lead and its answers to every lead-form question are destroyed. This cannot be undone.'),
-                ])
-            ])
+                ]),
+            ],
+                // Belongs to recordActions(), not to ActionGroup::make() — the
+                // group takes only the list of actions, so a named argument
+                // inside its brackets is an unknown parameter and every page
+                // that renders this table throws.
+                position: RecordActionsPosition::BeforeColumns,
+            )
             ->toolbarActions([
                 BulkActionGroup::make([
                     // BulkAction::make('assign')
