@@ -7,70 +7,21 @@ import {
 } from './skinStateScoreMapperV2.js'
 
 const PARAMETER_META = Object.freeze({
-  skin_type: {
-    legacy_key: 'skin_type',
-    label: 'Skin Type Classification',
-    score_semantics: 'label',
-    score_polarity: 'label_only',
-    ideal_score_direction: 'maintain',
-    comparison_mode: 'label_mapping',
-  },
-  barrier_health_sensitivity: {
-    legacy_key: 'barrier_health_sensitivity',
-    label: 'Barrier Health + Sensitivity (Combined Score)',
-  },
-  visual_acne: {
-    legacy_key: 'visual_acne_grading',
-    label: 'Visual Acne Grading',
-  },
-  skin_sebum: {
-    legacy_key: 'skin_sebum_content',
-    label: 'Skin Sebum Content',
-  },
-  vascularity_redness: {
-    legacy_key: 'vascularity_redness_profiling',
-    label: 'Vascularity / Redness',
-  },
-  skin_hydration: {
-    legacy_key: 'skin_hydration_score',
-    label: 'Skin Hydration',
-  },
-  skin_luminosity_glow: {
-    legacy_key: 'skin_luminosity_glow_index',
-    label: 'Skin Luminosity / Glow',
-  },
-  superficial_pigmentation: {
-    legacy_key: 'superficial_pigmentation_score',
-    label: 'Superficial Pigmentation',
-  },
-  peri_orbital_health: {
-    legacy_key: 'periorbital_health',
-    label: 'Peri-Orbital Health',
-  },
-  lip_pigmentation: {
-    legacy_key: 'lip_pigmentation',
-    label: 'Lip Pigmentation',
-  },
-  texture_open_pores: {
-    legacy_key: 'texture_open_pores_scoring',
-    label: 'Texture + Open Pores',
-  },
-  superficial_wrinkles: {
-    legacy_key: 'superficial_wrinkles_scoring',
-    label: 'Superficial Wrinkles',
-  },
-  jawline_sagging: {
-    legacy_key: 'jawline_sagging_score',
-    label: 'Jawline Sagging',
-  },
-  skin_firmness_elasticity: {
-    legacy_key: 'skin_firmness_elasticity_index',
-    label: 'Skin Firmness & Elasticity',
-  },
-  textural_radiance: {
-    legacy_key: 'textural_radiance_index',
-    label: 'Textural Radiance',
-  },
+  skin_type: { legacy_key: 'skin_type', label: 'Skin Type Classification', score_semantics: 'label', score_polarity: 'label_only', ideal_score_direction: 'maintain', comparison_mode: 'label_mapping' },
+  barrier_health_sensitivity: { legacy_key: 'barrier_health_sensitivity', label: 'Barrier Health + Sensitivity (Combined Score)' },
+  visual_acne: { legacy_key: 'visual_acne_grading', label: 'Visual Acne Grading' },
+  skin_sebum: { legacy_key: 'skin_sebum_content', label: 'Skin Sebum Content' },
+  vascularity_redness: { legacy_key: 'vascularity_redness_profiling', label: 'Vascularity / Redness' },
+  skin_hydration: { legacy_key: 'skin_hydration_score', label: 'Skin Hydration' },
+  skin_luminosity_glow: { legacy_key: 'skin_luminosity_glow_index', label: 'Skin Luminosity / Glow' },
+  superficial_pigmentation: { legacy_key: 'superficial_pigmentation_score', label: 'Superficial Pigmentation' },
+  peri_orbital_health: { legacy_key: 'periorbital_health', label: 'Peri-Orbital Health' },
+  lip_pigmentation: { legacy_key: 'lip_pigmentation', label: 'Lip Pigmentation' },
+  texture_open_pores: { legacy_key: 'texture_open_pores_scoring', label: 'Texture + Open Pores' },
+  superficial_wrinkles: { legacy_key: 'superficial_wrinkles_scoring', label: 'Superficial Wrinkles' },
+  jawline_sagging: { legacy_key: 'jawline_sagging_score', label: 'Jawline Sagging' },
+  skin_firmness_elasticity: { legacy_key: 'skin_firmness_elasticity_index', label: 'Skin Firmness & Elasticity' },
+  textural_radiance: { legacy_key: 'textural_radiance_index', label: 'Textural Radiance' },
 })
 
 const LABEL_ALIASES = Object.freeze({
@@ -99,14 +50,40 @@ const LABEL_ALIASES = Object.freeze({
   'textural radiance': 'textural_radiance',
 })
 
+// Canonical A5 image order on the current frontend:
+// 1 red, 2 subsurface, 3 surface, 4 white, 5 Woods/UV.
+const PARAMETER_IMAGE_INDEX = Object.freeze({
+  skin_type: 4,
+  barrier_health_sensitivity: 3,
+  visual_acne: 2,
+  skin_sebum: 3,
+  vascularity_redness: 1,
+  skin_hydration: 4,
+  skin_luminosity_glow: 4,
+  superficial_pigmentation: 5,
+  peri_orbital_health: 2,
+  lip_pigmentation: 5,
+  texture_open_pores: 3,
+  superficial_wrinkles: 3,
+  jawline_sagging: 4,
+  skin_firmness_elasticity: 4,
+  textural_radiance: 3,
+})
+
+const ZONE_LABEL = Object.freeze({
+  forehead_left: 'forehead', forehead_center: 'central forehead', forehead_right: 'forehead',
+  glabella: 'area between the brows', temple_left: 'temples', temple_right: 'temples', nose: 'nose',
+  malar_medial_left: 'upper cheeks', malar_medial_right: 'upper cheeks',
+  cheek_lateral_left: 'outer cheeks', cheek_lateral_right: 'outer cheeks',
+  peri_orbital_left: 'under-eye area', peri_orbital_right: 'under-eye area',
+  perioral: 'mouth area', chin: 'chin',
+  jawline_left: 'jawline', jawline_right: 'jawline', lips: 'lips',
+})
+
+// Retained for older post-treatment consumers only. New baseline diagnosis does
+// NOT collapse V3 scores to 1-5.
 function healthScoreToFive(score) {
   const n = Number(score)
-  if (!Number.isFinite(n)) return null
-  return Math.max(1, Math.min(5, Math.round(1 + ((n - 1) / 99) * 4)))
-}
-
-function concernBurdenToFive(burden) {
-  const n = Number(burden)
   if (!Number.isFinite(n)) return null
   return Math.max(1, Math.min(5, Math.round(1 + ((n - 1) / 99) * 4)))
 }
@@ -115,44 +92,127 @@ function readableFeature(featureId) {
   return String(featureId || '').replaceAll('_', ' ')
 }
 
-function scoreExplanation(card) {
-  if (card.value_type === 'label') {
-    const modifiers = card.modifiers?.length
-      ? ` with ${card.modifiers.join(', ')} modifier${card.modifiers.length === 1 ? '' : 's'}`
-      : ''
-    return `The five-mode scan classifies the current skin pattern as ${card.display_label}${modifiers}.`
-  }
-  const burden = card.concern_burden_score_1_to_100
-  const health = card.client_health_score_1_to_100
-  return `The current five-mode assessment shows a concern burden of ${burden}/100 and a client health score of ${health}/100 for this parameter.`
+function burdenBand(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 'not reliably quantified'
+  if (n < 15) return 'minimal'
+  if (n < 30) return 'mild'
+  if (n < 45) return 'moderate'
+  if (n < 60) return 'noticeable'
+  if (n < 75) return 'marked'
+  return 'high'
 }
 
-function simpleClientDescription(card) {
-  if (card.value_type === 'label') {
-    return `Your current skin pattern is classified as ${card.display_label}.`
+function uniqueReadableZones(zoneIds = [], limit = 3) {
+  return [...new Set(zoneIds.map((id) => ZONE_LABEL[id] ?? String(id).replaceAll('_', ' ')))].slice(0, limit)
+}
+
+function joinNatural(items) {
+  if (!items.length) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`
+}
+
+function featureData(skinState, featureId) {
+  const feature = skinState?.core_features?.[featureId]
+  return {
+    burden: Number(feature?.global_burden_score_1_to_100 ?? 0),
+    reliability: Number(feature?.score_reliability?.score_1_to_100 ?? 0),
+    reliabilityTier: feature?.score_reliability?.tier ?? 'unknown',
+    reliabilityReasons: feature?.score_reliability?.reasons ?? [],
+    zones: feature?.dominant_zones ?? [],
+    peakZone: feature?.peak_zone ?? null,
   }
-  const health = Number(card.client_health_score_1_to_100)
-  if (health >= 80) return 'This area currently looks strong and relatively well balanced.'
-  if (health >= 60) return 'This area is fairly balanced with some visible room for improvement.'
-  if (health >= 40) return 'This area shows a meaningful visible concern that can be targeted in treatment.'
-  return 'This area is one of the stronger opportunities for visible improvement in the current assessment.'
+}
+
+function parameterReliability(parameterId, skinState) {
+  if (parameterId === 'skin_type') {
+    const ids = ['oiliness', 'visual_dehydration', 'barrier_stress']
+    const values = ids.map((id) => Number(skinState?.core_features?.[id]?.score_reliability?.score_1_to_100 ?? 0)).filter(Number.isFinite)
+    const score = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
+    return { score, tier: score >= 85 ? 'high' : score >= 70 ? 'moderate' : 'low', reasons: [] }
+  }
+  const components = DERIVED_REPORT_FORMULAS_V2[parameterId]?.components ?? {}
+  const entries = Object.entries(components)
+  let weighted = 0
+  let total = 0
+  const reasons = []
+  for (const [featureId, weight] of entries) {
+    const reliability = Number(skinState?.core_features?.[featureId]?.score_reliability?.score_1_to_100 ?? 0)
+    if (Number.isFinite(reliability)) {
+      weighted += reliability * Number(weight)
+      total += Number(weight)
+    }
+    for (const reason of skinState?.core_features?.[featureId]?.score_reliability?.reasons ?? []) {
+      if (!reasons.includes(reason)) reasons.push(reason)
+    }
+  }
+  const score = total > 0 ? Math.round(weighted / total) : 0
+  return { score, tier: score >= 85 ? 'high' : score >= 70 ? 'moderate' : 'low', reasons }
+}
+
+function parameterDominantZones(parameterId, skinState) {
+  if (parameterId === 'skin_type') return []
+  return [...new Set(
+    Object.keys(DERIVED_REPORT_FORMULAS_V2[parameterId]?.components ?? {})
+      .flatMap((featureId) => skinState?.core_features?.[featureId]?.dominant_zones ?? [])
+  )].slice(0, 4)
+}
+
+function groundedDescription(parameterId, card, skinState) {
+  if (card.value_type === 'label') {
+    const modifiers = card.modifiers?.length ? ` (${card.modifiers.join(', ')})` : ''
+    return `Your current five-mode pattern is ${card.display_label}${modifiers}.`
+  }
+  const zones = uniqueReadableZones(parameterDominantZones(parameterId, skinState))
+  const where = zones.length ? ` The strongest signal is in the ${joinNatural(zones)}.` : ''
+  const F = (id) => featureData(skinState, id)
+
+  switch (parameterId) {
+    case 'barrier_health_sensitivity': {
+      const b = F('barrier_stress'), d = F('visual_dehydration'), r = F('erythema_redness')
+      return `Barrier-related stress is ${burdenBand(b.burden)}, with ${burdenBand(d.burden)} visible dehydration and ${burdenBand(r.burden)} redness.${where}`
+    }
+    case 'visual_acne': {
+      const a = F('active_inflammatory_acne'), c = F('comedonal_congestion')
+      const dominant = c.burden > a.burden + 5 ? 'Congestion is more prominent than active inflammatory lesions.' : a.burden > c.burden + 5 ? 'Active inflammatory lesions are the stronger acne signal.' : 'Inflammatory activity and congestion are relatively similar.'
+      return `Active inflammatory acne is ${burdenBand(a.burden)} and comedonal congestion is ${burdenBand(c.burden)}. ${dominant}${where}`
+    }
+    case 'skin_sebum': return `Visible oiliness is ${burdenBand(F('oiliness').burden)} overall.${where}`
+    case 'vascularity_redness': return `Visible redness/vascular prominence is ${burdenBand(F('erythema_redness').burden)} overall.${where}`
+    case 'skin_hydration': return `Visible dehydration is ${burdenBand(F('visual_dehydration').burden)}, so hydration appearance is correspondingly ${Number(card.client_health_score_1_to_100) >= 80 ? 'strong' : Number(card.client_health_score_1_to_100) >= 60 ? 'fairly good' : 'an area for improvement'}.${where}`
+    case 'skin_luminosity_glow': return `Loss of luminosity/glow is ${burdenBand(F('luminosity_loss').burden)}.${where}`
+    case 'superficial_pigmentation': {
+      const v = F('visible_pigmentation'), u = F('underlying_pigment_support')
+      return `Visible pigmentation is ${burdenBand(v.burden)}, with ${burdenBand(u.burden)} underlying pigment support on the deeper/UV-sensitive views.${where}`
+    }
+    case 'peri_orbital_health': return `The combined under-eye concern is ${burdenBand(F('peri_orbital_concern').burden)} across pigment, vascular, shadow, puffiness and fine-line appearance.${where}`
+    case 'lip_pigmentation': return `Visible lip pigmentation/unevenness is ${burdenBand(F('lip_pigmentation').burden)} on this scan.${where}`
+    case 'texture_open_pores': {
+      const p = F('pore_visibility'), t = F('texture_roughness')
+      return `Pore visibility is ${burdenBand(p.burden)} and surface roughness is ${burdenBand(t.burden)}.${where}`
+    }
+    case 'superficial_wrinkles': return `Visible fine-line burden is ${burdenBand(F('fine_line_visibility').burden)}.${where}`
+    case 'jawline_sagging': return `Visible contour laxity is ${burdenBand(F('visible_laxity').burden)} in the assessable jawline/cheek regions.${where}`
+    case 'skin_firmness_elasticity': return `Visible firmness/plumpness loss is ${burdenBand(F('firmness_appearance_loss').burden)}.${where}`
+    case 'textural_radiance': {
+      const t = F('texture_roughness'), l = F('luminosity_loss')
+      return `Textural radiance is being limited by ${burdenBand(t.burden)} roughness and ${burdenBand(l.burden)} luminosity loss.${where}`
+    }
+    default: return `The five-mode scan gives a health score of ${card.client_health_score_1_to_100}/100 for this parameter.${where}`
+  }
+}
+
+function scoreExplanation(parameterId, card, skinState) {
+  if (card.value_type === 'label') return groundedDescription(parameterId, card, skinState)
+  const reliability = parameterReliability(parameterId, skinState)
+  return `Health score ${card.client_health_score_1_to_100}/100, with measured concern burden ${card.concern_burden_score_1_to_100}/100. Scan evidence confidence for this parameter is ${reliability.tier} (${reliability.score}/100).`
 }
 
 function oldPolarity(parameterId) {
-  if (parameterId === 'skin_type') {
-    return {
-      score_semantics: 'label',
-      score_polarity: 'label_only',
-      ideal_score_direction: 'maintain',
-      comparison_mode: 'label_mapping',
-    }
-  }
-  return {
-    score_semantics: 'health',
-    score_polarity: 'higher_is_better',
-    ideal_score_direction: 'increase',
-    comparison_mode: 'direct_numeric',
-  }
+  if (parameterId === 'skin_type') return { score_semantics: 'label', score_polarity: 'label_only', ideal_score_direction: 'maintain', comparison_mode: 'label_mapping' }
+  return { score_semantics: 'health', score_polarity: 'higher_is_better', ideal_score_direction: 'increase', comparison_mode: 'direct_numeric' }
 }
 
 export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
@@ -163,67 +223,63 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
     const meta = PARAMETER_META[card.parameter_id]
     if (!meta) continue
     const polarity = oldPolarity(card.parameter_id)
+    const reliability = parameterReliability(card.parameter_id, skinState)
+    const dominantZones = parameterDominantZones(card.parameter_id, skinState)
     const scoreOrLabel = card.value_type === 'label'
       ? card.display_label
-      : healthScoreToFive(card.client_health_score_1_to_100)
-    const dominantZones = card.parameter_id === 'skin_type'
-      ? []
-      : [...new Set(
-          (DERIVED_REPORT_FORMULAS_V2[card.parameter_id]?.components
-            ? Object.keys(DERIVED_REPORT_FORMULAS_V2[card.parameter_id].components)
-            : [])
-            .flatMap((featureId) => skinState?.core_features?.[featureId]?.dominant_zones ?? [])
-        )].slice(0, 4)
+      : Number(card.client_health_score_1_to_100)
 
     diagnosisReport[meta.legacy_key] = {
       parameter_name: meta.label,
       parameter_id: card.parameter_id,
-      description: `V3.4 five-mode assessment of ${meta.label.toLowerCase()}.`,
-      client_description: simpleClientDescription(card),
+      description: card.value_type === 'label'
+        ? 'Five-mode assessment of current skin-type pattern.'
+        : 'Client health score from the five-mode V3.5 Skin State engine. Higher is better.',
+      client_description: groundedDescription(card.parameter_id, card, skinState),
       score_or_label: scoreOrLabel,
-      score_explanation: scoreExplanation(card),
-      affected_area_image: null,
+      score_explanation: scoreExplanation(card.parameter_id, card, skinState),
+      affected_area_image: PARAMETER_IMAGE_INDEX[card.parameter_id] ?? null,
       affected_zones: dominantZones,
+      // Image-only analysis should not invent etiological causes. History enters
+      // later in treatment selection, not baseline image scoring.
       possible_causes: [],
       ...polarity,
-      normalized_burden_0_to_1:
-        card.value_type === 'score'
-          ? Number((card.concern_burden_score_1_to_100 / 100).toFixed(3))
-          : null,
-      v3_4_client_health_score_1_to_100:
-        card.client_health_score_1_to_100 ?? null,
-      v3_4_concern_burden_score_1_to_100:
-        card.concern_burden_score_1_to_100 ?? null,
+      normalized_burden_0_to_1: card.value_type === 'score'
+        ? Number((card.concern_burden_score_1_to_100 / 100).toFixed(3))
+        : null,
+      v3_4_client_health_score_1_to_100: card.client_health_score_1_to_100 ?? null,
+      v3_4_concern_burden_score_1_to_100: card.concern_burden_score_1_to_100 ?? null,
       data_quality: {
-        is_estimated: false,
-        estimated_fields: [],
-        estimation_basis: 'five_mode_v3_4_skin_state',
-        confidence_0_1: 1,
+        is_estimated: reliability.tier === 'low',
+        estimated_fields: reliability.tier === 'low' ? ['image_measurement_confidence'] : [],
+        estimation_basis: 'five_mode_v3_5_skin_state',
+        confidence_0_1: Number((reliability.score / 100).toFixed(2)),
+        reliability_score_1_to_100: reliability.score,
+        reliability_tier: reliability.tier,
+        reliability_reasons: reliability.reasons,
       },
     }
   }
 
   const numericCards = cards
     .filter((card) => card.value_type === 'score')
-    .sort((a, b) =>
-      b.concern_burden_score_1_to_100 - a.concern_burden_score_1_to_100
-    )
+    .sort((a, b) => b.concern_burden_score_1_to_100 - a.concern_burden_score_1_to_100)
 
   const treatable = numericCards
     .filter((card) => Number(card.concern_burden_score_1_to_100) >= 30)
     .map((card, index) => {
       const meta = PARAMETER_META[card.parameter_id]
-      const currentScore = healthScoreToFive(card.client_health_score_1_to_100)
-      const targetHealth = Math.min(100, Number(card.client_health_score_1_to_100) + 8)
+      const currentHealth = Number(card.client_health_score_1_to_100)
+      const targetHealth = Math.min(100, currentHealth + 8)
       return {
         parameter: meta?.label ?? card.label,
         parameter_id: card.parameter_id,
-        current_score: currentScore,
-        target_single_session_score: healthScoreToFive(targetHealth),
+        current_score: currentHealth,
+        target_single_session_score: targetHealth,
+        score_scale: '1_to_100_client_health_higher_is_better',
         is_primary_concern: index < 3,
-        reason_for_selection:
-          `Measured V3.4 concern burden is ${card.concern_burden_score_1_to_100}/100.`,
-        short_description: simpleClientDescription(card),
+        reason_for_selection: `Measured concern burden is ${card.concern_burden_score_1_to_100}/100.`,
+        short_description: groundedDescription(card.parameter_id, card, skinState),
         score_semantics: 'health',
         score_polarity: 'higher_is_better',
         ideal_score_direction: 'increase',
@@ -234,8 +290,7 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
   return {
     diagnosis_report: diagnosisReport,
     treatable_concerns_summary: {
-      description:
-        'Parameters showing measurable deviations and their expected improvement after a single treatment session.',
+      description: 'Parameters showing measurable deviations and their expected improvement after a single treatment session.',
       parameters_with_abnormal_scores: treatable,
     },
     v3_4_report: skinAnalysisReport,

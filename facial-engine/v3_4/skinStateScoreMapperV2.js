@@ -544,51 +544,99 @@ function reliabilityFromEvidence(featureEvidence, formula) {
   let score = 100
   const reasons = []
 
-  const zoneEvidence = formula.applicable_zones
-    .map((zoneId) => featureEvidence.zones?.[zoneId])
-    .filter(Boolean)
+  const zoneRows = formula.applicable_zones
+    .map((zoneId) => ({
+      zoneId,
+      zone: featureEvidence.zones?.[zoneId],
+      area: Number(FACE_ZONE_ATLAS_V2.zones[zoneId]?.default_area_weight ?? 0),
+    }))
+    .filter((row) => row.zone)
 
-  const partialCount = zoneEvidence.filter(
-    (zone) => zone.assessment_status === 'partially_assessable',
-  ).length
-  const notAssessableCount = zoneEvidence.filter(
-    (zone) => zone.assessment_status === 'not_assessable',
-  ).length
-  const conflictCount = zoneEvidence.filter(
-    (zone) => zone.mode_agreement === 'conflicting',
-  ).length
-  const artifactCount = zoneEvidence.reduce(
-    (sum, zone) => sum + (zone.artifact_flags?.length ?? 0),
+  const totalArea = zoneRows.reduce((sum, row) => sum + row.area, 0) || 1
+  const visibilityFactor = (zone) => {
+    if (zone.assessment_status === 'not_assessable') return 0
+    const visible = clamp01(Number(zone.visibility_fraction_0_to_100 ?? 100) / 100)
+    return visible
+  }
+
+  // Reliability should reflect how much clinically relevant facial area is
+  // actually usable, not raw zone count. Missing a small jawline/temple zone
+  // must not penalise a full-face feature as heavily as losing a central cheek.
+  const usableArea = zoneRows.reduce(
+    (sum, row) => sum + row.area * visibilityFactor(row.zone),
     0,
   )
+  const usableFraction = clamp01(usableArea / totalArea)
+  const visibilityPenalty = Math.round((1 - usableFraction) * 45)
+  score -= visibilityPenalty
 
-  score -= Math.min(20, partialCount * 3)
-  score -= Math.min(35, notAssessableCount * 8)
-  score -= Math.min(25, conflictCount * 6)
-  score -= Math.min(15, artifactCount * 2)
+  const partialArea = zoneRows
+    .filter((row) => row.zone.assessment_status === 'partially_assessable')
+    .reduce((sum, row) => sum + row.area, 0)
+  const notAssessableArea = zoneRows
+    .filter((row) => row.zone.assessment_status === 'not_assessable')
+    .reduce((sum, row) => sum + row.area, 0)
+  if (partialArea > 0) reasons.push('partially_assessable_area')
+  if (notAssessableArea > 0) reasons.push('not_assessable_area')
 
-  if (partialCount) reasons.push('partially_assessable_zones')
-  if (notAssessableCount) reasons.push('not_assessable_zones')
-  if (conflictCount) reasons.push('mode_conflict')
-  if (artifactCount) reasons.push('artifact_flags')
+  // Genuine cross-mode contradictions reduce trust in proportion to the
+  // anatomical area affected, rather than a flat deduction per zone.
+  const conflictArea = zoneRows
+    .filter((row) => row.zone.mode_agreement === 'conflicting')
+    .reduce((sum, row) => sum + row.area * Math.max(0.35, visibilityFactor(row.zone)), 0)
+  const conflictFraction = clamp01(conflictArea / totalArea)
+  const conflictPenalty = Math.round(25 * conflictFraction)
+  score -= conflictPenalty
+  if (conflictArea > 0) reasons.push('mode_conflict')
 
-  const componentConfidences = zoneEvidence.flatMap((zone) =>
-    Object.values(zone.components ?? {})
+  // Artifact flags are a secondary reliability signal. Penalise by affected
+  // area, not by the number of strings attached to a zone. This prevents one
+  // zone with several labels from overwhelming the reliability score.
+  const artifactArea = zoneRows
+    .filter((row) => (row.zone.artifact_flags?.length ?? 0) > 0)
+    .reduce((sum, row) => sum + row.area * Math.max(0.35, visibilityFactor(row.zone)), 0)
+  const artifactFraction = clamp01(artifactArea / totalArea)
+  const artifactPenalty = Math.round(12 * artifactFraction)
+  score -= artifactPenalty
+  if (artifactArea > 0) reasons.push('artifact_affected_area')
+
+  // Confidence is area/visibility weighted. Not-assessable zones are already
+  // handled by the visibility term and are not double-penalised with zero
+  // confidence values.
+  let confidenceWeighted = 0
+  let confidenceWeight = 0
+  for (const row of zoneRows) {
+    const vf = visibilityFactor(row.zone)
+    if (vf <= 0) continue
+    const values = Object.values(row.zone.components ?? {})
       .map((component) => Number(component.assessment_confidence_0_to_100))
-      .filter(Number.isFinite),
-  )
-  const meanConfidence = componentConfidences.length
-    ? componentConfidences.reduce((sum, value) => sum + value, 0) /
-      componentConfidences.length
-    : 80
-  score -= Math.max(0, Math.round((80 - meanConfidence) * 0.5))
+      .filter(Number.isFinite)
+    if (!values.length) continue
+    const zoneMean = values.reduce((sum, value) => sum + value, 0) / values.length
+    const weight = row.area * vf
+    confidenceWeighted += zoneMean * weight
+    confidenceWeight += weight
+  }
+  const meanConfidence = confidenceWeight > 0
+    ? confidenceWeighted / confidenceWeight
+    : 0
+  const confidencePenalty = Math.max(0, Math.round((80 - meanConfidence) * 0.45))
+  score -= confidencePenalty
   if (meanConfidence < 70) reasons.push('low_component_confidence')
 
-  const final = Math.max(1, score)
+  const final = Math.max(1, Math.min(100, score))
   return {
     score_1_to_100: final,
     tier: final >= 85 ? 'high' : final >= 70 ? 'moderate' : 'low',
     reasons,
+    audit: {
+      usable_area_fraction_0_to_1: Number(usableFraction.toFixed(3)),
+      mean_component_confidence_0_to_100: Math.round(meanConfidence),
+      visibility_penalty: visibilityPenalty,
+      conflict_penalty: conflictPenalty,
+      artifact_penalty: artifactPenalty,
+      confidence_penalty: confidencePenalty,
+    },
   }
 }
 
