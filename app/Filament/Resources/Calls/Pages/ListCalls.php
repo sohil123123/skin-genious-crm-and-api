@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Calls\Pages;
 use App\Enums\Call\CallProvider;
 use App\Filament\Resources\Calls\CallResource;
 use App\Filament\Widgets\CallStatsOverview;
+use App\Filament\Widgets\CallVolumeOverview;
 use App\Jobs\Call\SyncCallyzerCallsJob;
 use App\Jobs\Call\SyncExotelCallsJob;
 use App\Models\CallSyncRun;
@@ -70,7 +71,11 @@ class ListCalls extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            CallStatsOverview::class,
+            // Volume first: "is the phone busier than yesterday" is the
+            // question somebody opens this page with, and the thirty-day
+            // summary below it is the context for the answer.
+            CallVolumeOverview::class,
+            // CallStatsOverview::class,
         ];
     }
 

@@ -15,7 +15,11 @@
 --}}
 <span style="display: inline-flex; align-items: center; gap: 0.375rem; flex-wrap: wrap;">
     @foreach ($items as $item)
-        <x-filament::badge :color="$item['color'] ?? 'gray'" size="sm">
+        <x-filament::badge
+            :color="$item['color'] ?? 'gray'"
+            :icon="$item['icon'] ?? null"
+            size="sm"
+        >
             {{ $item['value'] }} {{ $item['label'] }}
         </x-filament::badge>
     @endforeach

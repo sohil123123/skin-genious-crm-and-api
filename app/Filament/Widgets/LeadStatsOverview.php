@@ -12,11 +12,13 @@ use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\HtmlString;
 
 class LeadStatsOverview extends BaseWidget
 {
     use HasWidgetShield;
+
+    // The badge rendering both overviews share.
+    use \App\Filament\Widgets\Concerns\RendersStatBadges;
 
     protected ?string $heading = 'Lead Overview';
 
@@ -104,6 +106,9 @@ class LeadStatsOverview extends BaseWidget
                         'label' => 'of enquiries became clients',
                         'value' => round(($converted / $total) * 100) . '%',
                         'color' => $converted > 0 ? 'success' : 'gray',
+                        // Not a period word, so it says what it wants rather
+                        // than taking a calendar it has no use for.
+                        'icon' => 'heroicon-m-arrow-trending-up',
                     ]])
                     : 'No leads yet')
                 ->icon('heroicon-m-user-plus')
@@ -114,27 +119,6 @@ class LeadStatsOverview extends BaseWidget
             //     ->icon('heroicon-m-check-badge')
             //     ->color('success'),
         ];
-    }
-
-    /**
-     * A stat description drawn as badges rather than a run-on sentence.
-     *
-     * "5 today · 4 yesterday · 62 this month" is three separate facts printed
-     * as one line, and the eye has to parse the separators to find any of them.
-     * As badges each figure is its own object and the important one can carry a
-     * colour.
-     *
-     * Returned as an HtmlString because Filament prints the description with
-     * {{ }}, which leaves an Htmlable unescaped — the supported way to put
-     * markup there without replacing the whole widget view.
-     *
-     * @param  array<int, array{label: string, value: string, color?: string}>  $items
-     */
-    protected function badges(array $items): HtmlString
-    {
-        return new HtmlString(
-            view('filament.widgets.stat-badges', ['items' => $items])->render()
-        );
     }
 
     /**
