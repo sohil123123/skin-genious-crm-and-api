@@ -1,0 +1,1337 @@
+{
+  "version": "aia_clinic_execution_protocol_templates_v3.3.0",
+  "engine_scope": "general_facial_treatment_engine",
+  "approved_by": "Dr. Aakriti Mehra",
+  "selection_mode": "ai_adaptive_within_doctor_constraints",
+  "q_switch_policy": {
+    "wavelength_nm": 1064,
+    "spot_area_cm2": 1,
+    "passes": [
+      1,
+      2
+    ]
+  },
+  "pricing_in_ai_engine": false,
+  "modalities": {
+    "hydrafacial_full_protocol": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hydrafacial_cutin_spatula": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hydrafacial_suction_extraction": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hydrafacial_ice_probe": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "jet_oxygen_infusion": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "ultrasound_infusion_face": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "ultrasound_infusion_ocular": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "q_switch_1064": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_qswitch_1064_facial"
+        },
+        "wavelength_nm": {
+          "type": "fixed",
+          "value": 1064,
+          "provenance": "doctor_constraints_explicit"
+        },
+        "fluence_or_energy_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 100,
+            "max": 2000,
+            "unit": "mJ",
+            "step": 10,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "frequency_hz": {
+          "type": "number_range",
+          "min": 1,
+          "max": 10,
+          "unit": "Hz",
+          "step": 1,
+          "provenance": "doctor_constraints_explicit"
+        },
+        "spot_size_or_handpiece": {
+          "type": "fixed",
+          "value": {
+            "spot_area_cm2": 1,
+            "label": "fixed_1_cm2_spot"
+          },
+          "provenance": "doctor_constraints_explicit"
+        },
+        "passes_or_shots_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 2,
+            "unit": "passes",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        }
+      },
+      "free_ai_fields": [
+        "clinical_endpoint"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "q_switch_532": {
+      "approved": false,
+      "disabled_for_engine_scope": true,
+      "approval_basis": "not_approved_for_general_facial_engine",
+      "release_policy": "disabled_modality",
+      "simple_autorelease": false,
+      "parameter_source": "disabled",
+      "constrained_parameters": {},
+      "free_ai_fields": [],
+      "live_approval_prompt_required": false
+    },
+    "q_switch_755": {
+      "approved": false,
+      "disabled_for_engine_scope": true,
+      "approval_basis": "not_approved_for_general_facial_engine",
+      "release_policy": "disabled_modality",
+      "simple_autorelease": false,
+      "parameter_source": "disabled",
+      "constrained_parameters": {},
+      "free_ai_fields": [],
+      "live_approval_prompt_required": false
+    },
+    "carbon_facial": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_carbon_facial"
+        },
+        "carbon_product": {
+          "type": "fixed",
+          "value": "Carbon Lotion",
+          "provenance": "doctor_constraints_resource_catalog"
+        },
+        "wavelength_nm": {
+          "type": "fixed",
+          "value": 1064,
+          "provenance": "doctor_constraints_explicit"
+        },
+        "fluence_or_energy_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 100,
+            "max": 2000,
+            "unit": "mJ",
+            "step": 10,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "frequency_hz": {
+          "type": "number_range",
+          "min": 1,
+          "max": 10,
+          "unit": "Hz",
+          "step": 1,
+          "provenance": "doctor_constraints_explicit"
+        },
+        "spot_size_or_handpiece": {
+          "type": "fixed",
+          "value": {
+            "spot_area_cm2": 1,
+            "label": "fixed_1_cm2_spot"
+          },
+          "provenance": "doctor_constraints_explicit"
+        },
+        "passes_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 2,
+            "unit": "passes",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        }
+      },
+      "free_ai_fields": [
+        "clinical_endpoint"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "radio_frequency": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_rf_facial"
+        },
+        "device_preset_or_energy_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 10,
+            "unit": "device_level",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "passes_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 2,
+            "unit": "passes",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "contact_medium": {
+          "type": "fixed",
+          "value": "pH Neutral Gel",
+          "provenance": "doctor_constraints_resource_catalog"
+        }
+      },
+      "free_ai_fields": [
+        "temperature_or_endpoint_monitoring"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hifu": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_hifu_facial"
+        },
+        "cartridge_depth_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "enum",
+            "values": [
+              1.5,
+              3,
+              4.5
+            ],
+            "provenance": "doctor_constraints_explicit"
+          }
+        }
+      },
+      "free_ai_fields": [
+        "energy_by_zone",
+        "shot_count_and_vector_map",
+        "anatomical_avoid_map"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "microneedling": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_microneedling_facial"
+        },
+        "needle_depth_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 0.25,
+            "max": 1.5,
+            "unit": "mm",
+            "step": 0.25,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "passes_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 2,
+            "unit": "passes",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        }
+      },
+      "free_ai_fields": [
+        "speed_or_device_preset",
+        "sterile_product_if_used",
+        "clinical_endpoint"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "dermaroller": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_dermaroller_facial"
+        },
+        "needle_depth": {
+          "type": "number_range",
+          "min": 0.25,
+          "max": 1.5,
+          "unit": "mm",
+          "step": 0.25,
+          "provenance": "doctor_constraints_explicit"
+        },
+        "passes_by_direction_and_zone": {
+          "type": "pass_map",
+          "min": 1,
+          "max": 2,
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "sterile_product_if_used",
+        "clinical_endpoint"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "microneedling_rf": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_mnrf_facial"
+        },
+        "needle_depth_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 0.25,
+            "max": 1.5,
+            "unit": "mm",
+            "step": 0.25,
+            "provenance": "doctor_constraints_explicit"
+          }
+        },
+        "passes_by_zone": {
+          "type": "by_zone",
+          "value_spec": {
+            "type": "number_range",
+            "min": 1,
+            "max": 2,
+            "unit": "passes",
+            "step": 1,
+            "provenance": "doctor_constraints_explicit"
+          }
+        }
+      },
+      "free_ai_fields": [
+        "rf_energy_by_zone",
+        "insulated_or_noninsulated_tip",
+        "clinical_endpoint"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "led_blue": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "led_red": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "led_green": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "microdermabrasion_diamond": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "microdermabrasion_crystal": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "high_frequency_glass_electrode": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "manual_extraction": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "lymphatic_drainage": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "charcoal_mask": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "calming_mask": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "brightening_mask": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hydrating_mask": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "lifting_mask": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "final_serum_moisturizer_sunscreen": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "party_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_party_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "whitening_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_whitening_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "sali_ds_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_sali_ds_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "salicylic_30_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_salicylic_30_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "salicylic_20_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_salicylic_20_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "pumpkin_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_pumpkin_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "mandelic_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_mandelic_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "fusion_peel_e": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_fusion_peel_e"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "glyco_35_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_glyco_35_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "alkaline_neutralizer",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "combination_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_combination_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "yellow_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_yellow_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "cosmelan_protocol": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_cosmelan_protocol"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "biorepeelcl3": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_biorepeelcl3"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "salmon_peel": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "requires_adaptive_doctor_constraint_protocol",
+      "simple_autorelease": false,
+      "parameter_source": "ai_selected_within_explicit_doctor_constraints",
+      "constrained_parameters": {
+        "clinic_protocol_id": {
+          "type": "generated_protocol_reference",
+          "prefix": "ai_adaptive_salmon_peel"
+        },
+        "neutralization_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "neutralization_or_removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_method": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        },
+        "removal_and_aftercare": {
+          "type": "fixed",
+          "value": "normal_saline_ns",
+          "provenance": "doctor_constraints_explicit"
+        }
+      },
+      "free_ai_fields": [
+        "contact_time_minutes",
+        "in_clinic_contact_time",
+        "layers",
+        "layers_or_spot_method",
+        "clinical_endpoint",
+        "exact_product_formula",
+        "exact_product_protocol",
+        "verified_formula",
+        "home_maintenance_protocol"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "salicylic_spot": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "hydrafacial_teenage_line_probe": {
+      "approved": true,
+      "disabled_for_engine_scope": false,
+      "approval_basis": "doctor_constraint_envelope",
+      "release_policy": "built_in_general_protocol",
+      "simple_autorelease": true,
+      "parameter_source": "simple_step_ai_customised_without_machine_preset_validation",
+      "constrained_parameters": {},
+      "free_ai_fields": [
+        "duration_minutes",
+        "selected_product_or_solution"
+      ],
+      "live_approval_prompt_required": false
+    },
+    "q_switch_lip_pigmentation_protocol": {
+      "approved": false,
+      "disabled_for_engine_scope": true,
+      "approval_basis": "not_approved_for_general_facial_engine",
+      "release_policy": "disabled_modality",
+      "simple_autorelease": false,
+      "parameter_source": "disabled",
+      "constrained_parameters": {},
+      "free_ai_fields": [],
+      "live_approval_prompt_required": false
+    }
+  }
+}

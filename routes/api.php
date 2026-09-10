@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\CommonController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\FacialV34Controller;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TreatmentSessionController;
 use App\Http\Controllers\Api\LoyaltyController;
@@ -18,8 +19,7 @@ use App\Http\Controllers\Api\VisionQuantifierController;
 use App\Http\Controllers\Api\FeaturePacketCvController;
 use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\MetaLeadWebhookController;
-use App\Http\Controllers\Api\Webhooks\CallyzerWebhookController;
-use App\Http\Controllers\Api\Webhooks\ExotelCallWebhookController;
+use App\Http\Controllers\Api\ExotelWebhookController;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -31,21 +31,7 @@ Route::
 
             Route::post('/login', [AuthController::class, 'login']);
             // Exotel Webhook
-            //
-            // The original screen-pop endpoint. Its {"select": ...} response is
-            // what the reception software reads while the phone is ringing, so
-            // the contract is frozen — the unified call pipeline hangs off it
-            // as a side effect that cannot change what it returns.
-            Route::match(['get', 'post'], '/exotel/webhook', [ExotelCallWebhookController::class, 'screenPop']);
-
-            // Unified call webhooks.
-            //
-            // Public by design, as both providers must be: Exotel's Passthru
-            // applet and Callyzer's webhook cannot carry a session. Each is
-            // authenticated in its controller by a shared secret, and each
-            // rejects everything while that secret is unconfigured.
-            Route::match(['get', 'post'], '/webhooks/exotel/calls', ExotelCallWebhookController::class);
-            Route::post('/webhooks/callyzer/calls', CallyzerWebhookController::class);
+            Route::match(['get', 'post'], '/exotel/webhook', [ExotelWebhookController::class, 'saveExotelWebhookDataForPopup']);
 
             // WhatsApp Webhooks
             Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
@@ -95,6 +81,14 @@ Route::
                 // INFO: AI Route
                 Route::post('/ai/conversations', [AiController::class, 'conversations']);
                 Route::post('/ai/responses', [AiController::class, 'responses']);
+
+                // INFO: Facial V3.4 staging routes (5-light-mode only)
+                Route::prefix('facial-v34')->group(function () {
+                    Route::get('/self-test', [FacialV34Controller::class, 'selfTest']);
+                    Route::post('/assessment/{assessment}', [FacialV34Controller::class, 'assessment']);
+                    Route::post('/treatment-plan/{assessment}', [FacialV34Controller::class, 'treatmentPlan']);
+                    Route::post('/reassessment/{assessment}', [FacialV34Controller::class, 'reassessment']);
+                });
 
                 Route::post('/treatment-sessions/{treatmentSession}/iv-prep-data', [TreatmentSessionController::class, 'saveIvPrepData']);
                 Route::post('/treatment-sessions/status/{treatmentSession}', [TreatmentSessionController::class, 'updateStatus']);

@@ -77,6 +77,7 @@ class TreatmentSessionController extends Controller
     {
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,gif,webp',
+            'mode' => 'nullable|string|in:red,subsurface_polarized,surface_polarized,white,woods_uv',
         ]);
 
         $apiKey = config('project.openai_api_key');
@@ -107,8 +108,13 @@ class TreatmentSessionController extends Controller
 
         $openaiFileId = $response->json('id');
 
+        $customProperties = ['openai_file_id' => $openaiFileId];
+        if ($request->filled('mode')) {
+            $customProperties['mode'] = $request->mode;
+        }
+
         $treatmentSession->addMedia($image)
-            ->withCustomProperties(['openai_file_id' => $openaiFileId])
+            ->withCustomProperties($customProperties)
             ->toMediaCollection('post_treatment_images', 'user_post_assessment_images');
 
         $data = [

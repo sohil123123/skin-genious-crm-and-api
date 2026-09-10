@@ -1,0 +1,911 @@
+{
+  "defined_by": "Dr.Aakriti Mehra",
+  "description": "Clinical , Products & machine constraints for AI Aesthetics skincare and facial treatment plan generation. All treatment plans must comply with these rules. No procedure, product, or device beyond the listed items should be suggested. The treatment engine has FULL FREEDOM to choose ANY sequence of steps or customize different steps for different facial zones, as long as the two mandatory finishing requirements are met.",
+  "version": "1.1",
+  "clinical_constraints": {
+    "patient_history_rules": [
+      {
+        "condition": "age_between_30_and_60",
+        "rule": "Include HiFU treatment only when clinically indicated and if patient age is between 30 and 60 years (inclusive)."
+      },
+      {
+        "condition": "sun_exposure_gt_2_hours",
+        "rule": "If daily sun exposure is greater than 2 hours, avoid Q-Switch Laser and all medium or deep chemical peels."
+      },
+      {
+        "condition": "sun_exposure_1_to_2_hours",
+        "rule": "If daily sun exposure is between 1 and 2 hours, avoid all deep chemical peels."
+      },
+      {
+        "condition": "travel_within_7_days",
+        "rule": "If the patient plans to travel within the next 7 days, avoid Q-Switch Laser and deep chemical peels."
+      },
+      {
+        "condition": "social_event_within_7_days",
+        "rule": "If the patient has a social event within the next 7 days, avoid Q-Switch Laser and deep chemical peels."
+      },
+      {
+        "condition": "diabetes",
+        "rule": "If patient has diabetes, look for link between the condition and Acanthotic patches/pigmentation and provide improvement outlook accordingly."
+      },
+      {
+        "condition": "thyroid",
+        "rule": "If patient has thyroid issues, look for link between the condition and melasma/pigmentation and provide improvement outlook accordingly."
+      },
+      {
+        "condition": "PCOD",
+        "rule": "In case patient has PCOD, keep it in mind while suggesting improvement levels in any active acne."
+      },
+      {
+        "condition": "on_blood_thinners",
+        "rule": "If the patient is on blood thinners, do only gentle exfoliation."
+      },
+      {
+        "condition": "used_salicylic_yesterday",
+        "rule": "If the patient has used Salicylic Acid on the previous day, avoid deep peels and Q-Switch Laser."
+      },
+      {
+        "condition": "used_glycolic_acid_yesterday",
+        "rule": "If the patient has used Glycolic Acid on the previous day, avoid deep peels and Q-Switch Laser."
+      },
+      {
+        "condition": "used_retinol_last_24_hours",
+        "rule": "If retinol was used within the last 24 hours, avoid medium/deep chemical              peels, Q-switch laser, and aggressive exfoliation. Energy-based devices may still be used at low, non-ablative settings only if barrier and erythema proxy scores are stable."
+      },
+      {
+        "condition": "laser_within_last_7_days",
+        "rule": "If any laser or high-heat energy treatment was performed within the last 7 days, avoid all laser-based and high-heat energy modalities in the current session. Allow only non-ablative RF, LED, hydrafacial, or barrier-repair treatments if otherwise safe."
+      },
+      {
+        "condition": "aloe_vera_allergy",
+        "rule": "If the patient has Aloe Vera allergy, skip all treatments or products containing Aloe Vera."
+      },
+      {
+        "condition": "vitamin_c_allergy",
+        "rule": "If the patient has Vitamin C allergy, skip all treatments or products containing Vitamin C."
+      },
+      {
+        "condition": "pregnant",
+        "rule": "If patient is pregnant, allow use of only hydrafacial machine in machines and only party peel and pumpkin peel within Peels. Avoid ALL energy-based devices/modalities including LED light therapy, Q-Switch, and medium/deep peels."
+      },
+      {
+        "condition": "breastfeeding",
+        "rule": "If the patient is breastfeeding, avoid retinol-based peels and products."
+      }
+    ],
+    "energy_device_policy": {
+      "intent": "maximize_outcomes_by_default",
+      "default_permission": "allowed",
+      "policy_statement": "Energy-based treatments (laser/RF/HiFU/carbon laser protocols) are permitted by default and should be considered normally when they are the highest-efficacy option for the primary concern. Deny only when (1) an explicit patient-history contraindication triggers OR (2) numeric proxy safety gates are met. If proxies are borderline but not denied, proceed with energy modalities with appropriate caution rather than excluding them.",
+      "hero_selection_rule": "If an energy-based modality is allowed and ranks highest on expected single-session visible improvement for the primary concern, it should be preferred over peels or supportive treatments.",
+      "explicit_denial_conditions": {
+        "patient_history_rules": [
+          "If any patient_history_rule explicitly prohibits a modality, that prohibition overrides this policy."
+        ],
+        "deny_if_any_true": [
+          "combined_barrier_sensitivity.BSI_continuous>= 0.75",
+          "combined_barrier_sensitivity.backend_details.barrier_uniformity_index < 0.55",
+          "combined_barrier_sensitivity.backend_details.flaking_texture_index >= 0.60",
+          "combined_barrier_sensitivity.backend_details.erythema_intensity_index >= 0.75",
+          "combined_barrier_sensitivity.backend_details.hydration_signal_index < 0.30"
+        ],
+        "notes": "BSI_continuous bands already defined in scoring spec: >=0.55 is severely compromised, >0.75 barrier breakdown. Denial gates are intentionally strict only at clearly unsafe levels."
+      },
+      "caution_conditions": {
+        "result": "allowed_with_caution",
+        "trigger_if_any_true": [
+          "combined_barrier_sensitivity.BSI_continuous>= 0.45 AND combined_barrier_sensitivity.BSI_continuous< 0.55",
+          "combined_barrier_sensitivity.backend_details.erythema_intensity_index >= 0.62 AND combined_barrier_sensitivity.backend_details.erythema_intensity_index < 0.75",
+          "(combined_barrier_sensitivity.backend_details.hydration_signal_index >= 0.30 AND combined_barrier_sensitivity.backend_details.hydration_signal_index < 0.40) AND (combined_barrier_sensitivity.BSI_continuous>= 0.40 OR combined_barrier_sensitivity.backend_details.erythema_intensity_index >= 0.55)"
+        ],
+        "behavior_when_caution": [
+          "Energy devices remain allowed; prefer non-ablative / low-downtime options first.",
+          "Use lower initial settings and fewer passes; escalate only if tolerated and clinically appropriate."
+        ],
+        "notes": "Caution bands are deliberately tightened to keep 'allowed_with_caution' prevalence below ~50% in typical clinic populations while preserving safety. Hydration alone does not trigger caution unless paired with elevated BSI or erythema."
+      },
+      "data_completeness_handling": {
+        "principle": "Do NOT deny energy devices due to vague 'low confidence'. Only deny if numeric denial gates are met or patient-history rules explicitly prohibit. If required proxy indices are missing, default to 'allowed_with_caution' (not 'denied') unless patient-history rules deny.",
+        "required_proxy_fields_for_full_allow": [
+          "combined_barrier_sensitivity.BSI_continuous",
+          "combined_barrier_sensitivity.backend_details.erythema_intensity_index",
+          "combined_barrier_sensitivity.backend_details.hydration_signal_index"
+        ]
+      },
+      "override_hierarchy": {
+        "highest_priority": "patient_history_rules",
+        "secondary_priority": "explicit_denial_conditions.deny_if_any_true",
+        "tertiary_priority": "caution_conditions.trigger_if_any_true",
+        "lowest_priority": "treatment_efficacy_optimization"
+      },
+      "behavioral_directive": "Do NOT avoid energy-based modalities out of conservatism alone. If no denial condition is met, evaluate energy devices normally and select the highest-efficacy modality for the primary concern; if caution is triggered, still use energy devices but with conservative parameters and reduced stacking."
+    },
+    "hero_modality_decision_policy": {
+      "purpose": "Ensure the engine selects the most result-oriented corrective modality for a single session instead of defaulting to broad safe options such as generic peels.",
+      "selection_principle": "For every primary concern, choose the allowed modality with the highest expected single-session visible improvement after safety, downtime, and patient-history constraints are applied.",
+      "hard_rules": [
+        "It is invalid to choose a modality merely because it is broadly safe, familiar, or easy to combine if another allowed modality is expected to produce greater one-session visible correction.",
+        "Supportive modalities may complement a corrective modality but must not replace it when a higher-efficacy corrective modality is allowed.",
+        "If a corrective modality is chosen, it must occupy a meaningful treatment role rather than appear as a token mention.",
+        "If a peel is chosen, the engine must choose a named peel and not use 'chemical peel' as a generic final answer.",
+        "Gel Based Mandelic Peel must not be selected as a default fallback merely because it is broad-spectrum or easy to tolerate.",
+        "For active acne lesions, Q-Switch Laser must not be considered as a standalone hero corrective modality at low fluence or any other fluence.",
+        "For active acne lesions, Carbon Facial remains a valid energy-based hero modality if otherwise allowed.",
+        "If added corrective modalities would meaningfully improve the single-session visible outcome without unacceptable burden and without collapsing session-flow coherence, the engine may and should create a stacked plan instead of forcing an either-or choice."
+      ],
+      "ranking_axes": [
+        "dominant_pathology_fit",
+        "single_session_visible_delta",
+        "regional_precision",
+        "safety_clearance",
+        "downtime_context_fit",
+        "backend_signal_support"
+      ],
+      "tie_break_rule": "If two modalities are close, prefer the one with greater expected single-session visible delta for the primary concern.",
+      "primary_concern_candidate_framework": {
+        "superficial_pigmentation": {
+          "must_compare_candidates": [
+            "Q-Switch Laser",
+            "Carbon Facial",
+            "Party Peel",
+            "Whitening Peel",
+            "Gel Based Pumpkin Peel",
+            "Fusion Peel-E",
+            "Glyco Peel 35",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "selection_guidance": [
+            "If Q-Switch Laser or Carbon Facial is allowed and expected to produce greater one-session visible pigment correction than peels, they should outrank peels.",
+            "Party Peel and Gel Based Pumpkin Peel should be strongly considered when the visible goal is immediate glow, polish, and brightness rather than deeper pigment correction.",
+            "Fusion Peel-E, Whitening Peel, Glyco Peel 35, or Combination Peel should outrank Gel Based Mandelic Peel when pigment correction is more pathology-directed and they are clinically appropriate.",
+            "Gel Based Mandelic Peel should win only when a gentler broad-spectrum corrective is more appropriate than stronger or more targeted options."
+          ]
+        },
+        "active_acne_lesions": {
+          "must_compare_candidates": [
+            "Carbon Facial",
+            "Sali DS Peel",
+            "Salicylic Acid 30% Peel",
+            "20% Salicylic Acid Peel",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "explicit_exclusions": [
+            "Q-Switch Laser must not be considered as a standalone hero corrective modality for active acne lesions, whether low-fluence or any other fluence."
+          ],
+          "selection_guidance": [
+            "For active acne lesions, Carbon Facial is a valid high-quality hero candidate when allowed and clinically suitable.",
+            "Acne-directed salicylic peels should be strongly prioritized when lesion activity, oiliness, congestion, or comedonal burden are visible.",
+            "Combination Peel should be strongly considered when active acne and hyperpigmentation coexist, especially in darker skin tones.",
+            "Gel Based Mandelic Peel should only win if acne burden is mild and stronger acne-directed options do not rank higher after safety and tolerance adjustment."
+          ]
+        },
+        "comedonal_acne_oil_congestion": {
+          "must_compare_candidates": [
+            "Carbon Facial",
+            "Sali DS Peel",
+            "Salicylic Acid 30% Peel",
+            "20% Salicylic Acid Peel",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "selection_guidance": [
+            "For oily, congested, comedonal acne, Carbon Facial or salicylic-family peels should usually outrank Gel Based Mandelic Peel when safe.",
+            "20% Salicylic Acid Peel should be strongly considered when blackheads and clogged pores are a significant visible issue.",
+            "Salicylic Acid 30% Peel should be considered when acne/oil burden is stronger and salicylic use is safe.",
+            "Combination Peel should outrank plain Mandelic when both acne and pigmentation are treatment-relevant."
+          ]
+        },
+        "post_acne_pigmentation": {
+          "must_compare_candidates": [
+            "Carbon Facial",
+            "Fusion Peel-E",
+            "Combination Peel",
+            "Whitening Peel",
+            "Glyco Peel 35",
+            "Gel Based Mandelic Peel"
+          ],
+          "selection_guidance": [
+            "Fusion Peel-E should be strongly favored when post-acne pigmentation is a major visible concern, because its composition is more directly aligned to resurfacing plus PIH correction than Gel Based Mandelic Peel.",
+            "Combination Peel should be strongly considered when PIH coexists with active acne or acne-prone tendency.",
+            "Whitening Peel may be preferred when the visible goal is tone-evening and brightness with mild pigmentation emphasis.",
+            "Gel Based Mandelic Peel should not beat Fusion Peel-E or Combination Peel unless safety, tolerance, or context clearly favor a gentler corrective route."
+          ]
+        },
+        "texture_roughness_rejuvenation": {
+          "must_compare_candidates": [
+            "Carbon Facial",
+            "Glyco Peel 35",
+            "Gel Based Pumpkin Peel",
+            "Party Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "selection_guidance": [
+            "Glyco Peel 35 should be strongly considered when texture, roughness, rejuvenation, fine lines, or surface renewal are dominant goals.",
+            "Carbon Facial should be strongly considered when texture is linked with pores, oiliness, or congestion.",
+            "Party Peel or Gel Based Pumpkin Peel may win when the practical one-session goal is immediate visible glow and cosmetic polish rather than deeper resurfacing.",
+            "Gel Based Mandelic Peel should not be the default texture choice if Glyco Peel 35, Carbon Facial, Party Peel, or Pumpkin Peel are more result-oriented for the case."
+          ]
+        },
+        "instant_glow_brightness_event_readiness": {
+          "must_compare_candidates": [
+            "Party Peel",
+            "Gel Based Pumpkin Peel",
+            "Whitening Peel",
+            "Carbon Facial",
+            "Gel Based Mandelic Peel"
+          ],
+          "selection_guidance": [
+            "Party Peel should be strongly considered when the key goal is immediate visible radiance, brightness, and polished glow.",
+            "Gel Based Pumpkin Peel should be strongly considered when the goal is glow plus gentle resurfacing with better tolerability.",
+            "Whitening Peel may be preferred when brightness and tone-evening are more central than pure glow.",
+            "Gel Based Mandelic Peel should not outrank Party Peel or Pumpkin Peel for glow/event-readiness unless tolerance or safety context clearly makes them less suitable."
+          ]
+        }
+      },
+      "ingredient_informed_reasoning_rules": {
+        "purpose": "Use peel composition as decision support, not as the sole basis for modality choice.",
+        "rules": [
+          "Named clinical indication and expected one-session visible result remain primary decision drivers.",
+          "Ingredient composition should be used to refine ranking, explain why a peel won, and distinguish between otherwise similar peels.",
+          "Salicylic-dominant peels should bias the engine toward acne, oil, congestion, and comedonal correction.",
+          "Glycolic/lactic/pyruvic-containing blends should bias the engine toward resurfacing, PIH correction, texture, and rejuvenation.",
+          "Brightening-supportive actives such as arbutin, kojic acid, niacinamide, and licorice should bias the engine toward tone-evening and brightness goals.",
+          "Gel Based Mandelic Peel should be interpreted as a gentler broad-spectrum corrective, not as an automatic winner."
+        ]
+      },
+      "mandelic_anti_default_rule": {
+        "rule": "Gel Based Mandelic Peel may be selected only when it clearly outranks all other clinically relevant named peels and relevant energy options after safety, downtime, and pathology-fit adjustment.",
+        "invalid_reasons_for_selecting_mandelic": [
+          "generic_peel_choice",
+          "safe_default",
+          "easy_to_pair_with_supportive_steps",
+          "no_explicit_named_peel_comparison_done"
+        ]
+      },
+      "mandatory_omission_logic": [
+        "If Q-Switch Laser is not chosen for pigmentation-related concerns, the engine should explain whether it was blocked by safety/history context or whether another modality was expected to produce a better one-session result.",
+        "If Carbon Facial is not chosen for active acne, oily congestion, acne-plus-pigment, or texture-plus-pore cases, the engine should explain why it lost to the selected modality.",
+        "If Gel Based Mandelic Peel is chosen, the engine must explicitly justify why Party Peel, Gel Based Pumpkin Peel, Fusion Peel-E, Combination Peel, salicylic-family peels, Whitening Peel, Glyco Peel 35, and any relevant energy-based modality did not rank higher."
+      ]
+    },
+    "energy_vs_peel_priority_framework": {
+      "purpose": "Force explicit comparison between energy modalities and named peels so the system does not drift toward peels merely because they are easier or safer-looking.",
+      "hard_rules": [
+        "If an energy-based modality is allowed and is expected to produce greater single-session visible improvement than any peel for the primary concern, it should outrank peels.",
+        "Energy-based modalities must not be omitted solely due to generic conservatism when constraints classify them as allowed.",
+        "Peels must not win by default simply because they are easier to combine with supportive steps.",
+        "For active acne lesions, Q-Switch Laser must not be considered as a standalone hero corrective modality at low fluence or any fluence, but Carbon Facial remains a valid energy-based corrective option."
+      ],
+      "comparison_by_concern": {
+        "superficial_pigmentation": {
+          "energy_modalities": ["Q-Switch Laser", "Carbon Facial"],
+          "named_peel_competitors": [
+            "Party Peel",
+            "Whitening Peel",
+            "Gel Based Pumpkin Peel",
+            "Fusion Peel-E",
+            "Glyco Peel 35",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "If Q-Switch Laser or Carbon Facial is allowed and expected to produce better visible pigment correction in one session than the competing peels, the better energy modality should win."
+        },
+        "active_acne_lesions": {
+          "energy_modalities": ["Carbon Facial"],
+          "named_peel_competitors": [
+            "Sali DS Peel",
+            "Salicylic Acid 30% Peel",
+            "20% Salicylic Acid Peel",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "For active acne lesions, Carbon Facial should compete against acne-directed salicylic peels and Combination Peel. Standalone Q-Switch must not be considered."
+        },
+        "comedonal_acne_oil_congestion": {
+          "energy_modalities": ["Carbon Facial"],
+          "named_peel_competitors": [
+            "Sali DS Peel",
+            "Salicylic Acid 30% Peel",
+            "20% Salicylic Acid Peel",
+            "Combination Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "If Carbon Facial is allowed and expected to produce stronger visible oil, congestion, pore, or comedonal correction in one session, it should outrank peels."
+        },
+        "post_acne_pigmentation": {
+          "energy_modalities": ["Carbon Facial"],
+          "named_peel_competitors": [
+            "Fusion Peel-E",
+            "Combination Peel",
+            "Whitening Peel",
+            "Glyco Peel 35",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "Carbon Facial should be compared against Fusion Peel-E, Combination Peel, Whitening Peel, Glyco Peel 35, and Mandelic. The modality with the stronger expected one-session visible PIH improvement should win."
+        },
+        "texture_roughness_rejuvenation": {
+          "energy_modalities": ["Carbon Facial"],
+          "named_peel_competitors": [
+            "Glyco Peel 35",
+            "Gel Based Pumpkin Peel",
+            "Party Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "For texture, pore, and surface-renewal goals, Carbon Facial should be compared against the relevant peels. The modality with the best visible one-session corrective effect should win."
+        },
+        "instant_glow_brightness_event_readiness": {
+          "energy_modalities": ["Carbon Facial"],
+          "named_peel_competitors": [
+            "Party Peel",
+            "Whitening Peel",
+            "Gel Based Pumpkin Peel",
+            "Gel Based Mandelic Peel"
+          ],
+          "decision_rule": "For glow and event-readiness, Party Peel or Pumpkin Peel may outrank Carbon Facial if they are expected to produce stronger immediate radiance and polish in the specific case."
+        }
+      },
+      "mandatory_loss_explanation": [
+        "If Carbon Facial is allowed but not chosen in acne, oil, pore, pigment, or texture-linked cases, explain why it lost to the selected peel or other modality.",
+        "If Q-Switch Laser is allowed but not chosen for pigmentation, explain whether it was blocked by safety/context or whether another modality was expected to produce a better single-session visible result.",
+        "If a peel wins over an allowed energy modality, the reason must be superiority for that exact one-session context, not generic caution."
+      ]
+    },
+    "stacked_corrective_decision_policy": {
+      "purpose": "Allow stacked corrective treatments when they provide greater single-session visible improvement than fewer modalities, while preserving overall facial-flow coherence.",
+      "selection_principle": "A session may include one HERO_CORRECTIVE, one SECONDARY_CORRECTIVE, and in exceptional cases one TERTIARY_CORRECTIVE if the combination is clinically coherent, non-redundant, safe, and expected to outperform hero-alone or hero-plus-secondary for one-session visible outcome.",
+      "hard_rules": [
+        "Default maximum meaningful corrective modalities in one session = 2.",
+        "A third meaningful corrective modality may be added only if it provides clear non-redundant incremental visible benefit beyond the first two modalities.",
+        "Exactly one modality must be designated HERO_CORRECTIVE.",
+        "A second modality may be designated SECONDARY_CORRECTIVE only when it adds meaningful non-redundant visible benefit.",
+        "A third modality may be designated TERTIARY_CORRECTIVE only when it remains clearly additive, targeted, and justified.",
+        "HERO_CORRECTIVE must be the modality expected to contribute the greatest share of visible corrective delta.",
+        "SECONDARY_CORRECTIVE must be non-redundant and expected to contribute a smaller share of visible corrective delta than HERO_CORRECTIVE.",
+        "TERTIARY_CORRECTIVE must be non-redundant, highly targeted, and expected to contribute a smaller share of visible corrective delta than HERO_CORRECTIVE and SECONDARY_CORRECTIVE.",
+        "HERO / SECONDARY / TERTIARY describe outcome-contribution hierarchy, not mandatory chronology and not strict time duration.",
+        "Do not stack modalities purely for sophistication or comprehensiveness.",
+        "Do not stack corrective modalities that are largely redundant in mechanism or visible output.",
+        "If added incremental benefit is small, prefer fewer modalities.",
+        "Even when stacked correction is used, the session must still preserve support, recovery, and overall flow coherence."
+      ],
+      "stack_eligibility_questions": [
+        "Does the second modality address a different mechanism, zone pattern, or visible treatment objective?",
+        "Does the third modality add further targeted visible benefit beyond the first two?",
+        "Does each added modality improve one-session visible outcome beyond the higher-ranked corrective layers?",
+        "Is the added barrier, irritation, and downtime burden acceptable?",
+        "Is the same-session arrangement clinically coherent?",
+        "Can the session still preserve a proper facial flow including support/recovery steps where needed?",
+        "Would a dermatologist expect the combined session to outperform fewer-modality options for this specific case?"
+      ],
+      "allowed_structures": [
+        "one full-face hero corrective plus one zone-based secondary corrective",
+        "one pigment/glow corrective plus one carbon/oil/pore corrective",
+        "one main modality plus one lesion-directed or hotspot-directed secondary modality",
+        "one broad corrective modality plus one targeted refinement modality",
+        "hero + secondary + tertiary only when the tertiary is the least dominant and most targeted corrective layer"
+      ],
+      "disallowed_structures": [
+        "peel plus peel plus peel unless exceptionally justified",
+        "multiple modalities with overlapping purpose and no clear additive benefit",
+        "stacking that turns a focused session into a kitchen-sink protocol",
+        "secondary or tertiary corrective used only as token add-ons",
+        "stacking that crowds out essential support or recovery flow"
+      ]
+    },
+    "combination_superiority_framework": {
+      "purpose": "Force the engine to compare hero-alone against stacked options instead of assuming an either-or choice.",
+      "comparison_rule": "For each primary concern, compare the expected one-session visible improvement of HERO alone versus HERO plus one clinically relevant SECONDARY_CORRECTIVE, and where relevant versus HERO plus SECONDARY plus TERTIARY. If the larger stack is meaningfully better and remains safe and coherent, it should be preferred.",
+      "examples_of_valid_combination_logic": {
+        "superficial_pigmentation_plus_oil_pores": [
+          "Carbon Facial + pigment-supportive named peel",
+          "named peel + Carbon Facial"
+        ],
+        "post_acne_pigmentation_plus_active_lesions": [
+          "Fusion Peel-E or Combination Peel + spot salicylic lesion treatment"
+        ],
+        "glow_plus_pore_refinement": [
+          "Party Peel + Carbon Facial",
+          "Gel Based Pumpkin Peel + Carbon Facial"
+        ],
+        "mixed_acne_plus_pigmentation": [
+          "Combination Peel + Carbon Facial",
+          "Combination Peel + spot salicylic lesion treatment"
+        ],
+        "triple_stack_example_when_truly_superior": [
+          "Pigment/glow peel + Carbon Facial + spot salicylic lesion treatment"
+        ]
+      },
+      "mandatory_nonredundancy_rule": "Each added modality must add a different mechanism, zone emphasis, or visible corrective contribution. If not, do not stack.",
+      "mandatory_flow_rule": "A larger corrective stack must still preserve coherent infusion/support, calming/recovery, and overall customized facial flow.",
+      "same_session_focus_rule": "Do not avoid a superior same-session stack merely because a simpler plan is easier to write. Decline extra modalities only when they are redundant, weakly additive, poorly fitting for this session, or create disproportionate burden."
+    },
+    "active_acne_spot_treatment_rule": {
+      "purpose": "Force lesion-directed treatment whenever active acne lesions are visible.",
+      "trigger": "If any active acne lesions are visible on the face.",
+      "mandatory_action": [
+        "Include a spot salicylic peel step targeted only to lesion-bearing zones unless explicitly contraindicated.",
+        "This rule applies even if acne is not the top primary concern."
+      ],
+      "allowed_spot_sali_options": [
+        "Sali DS Peel",
+        "Salicylic Acid 30% Peel",
+        "20% Salicylic Acid Peel"
+      ],
+      "zone_behavior": [
+        "Treat lesion-bearing zones as spot_corrective zones.",
+        "Do not default to full-face salicylic application unless the broader acne plan independently justifies it.",
+        "Avoid under-eye, lips, broken skin, and explicitly flagged high-risk sensitive zones."
+      ],
+      "contraindication_override": [
+        "If patient_history_rules or barrier/safety rules explicitly block salicylic use, do not perform spot sali peel.",
+        "If blocked, the engine must document the exact blocking reason and choose the closest allowed lesion-directed alternative."
+      ],
+      "invalid_if_missing": "If active lesions are visible and no spot salicylic peel step is included despite no contraindication, the plan is invalid."
+    },
+    "regional_skin_temperature_policy": {
+      "measurement_mode": "surface",
+
+      "inputs": {
+        "forehead_surface_c": "number",
+        "left_cheek_surface_c": "number",
+        "right_cheek_surface_c": "number"
+      },
+
+      "derived_metrics": {
+        "avg_facial_surface_temp_c": {
+          "formula": "(forehead_surface_c + left_cheek_surface_c + right_cheek_surface_c) / 3"
+        },
+        "avg_cheek_surface_temp_c": {
+          "formula": "(left_cheek_surface_c + right_cheek_surface_c) / 2"
+        },
+        "left_right_delta_c": {
+          "formula": "abs(left_cheek_surface_c - right_cheek_surface_c)"
+        },
+        "forehead_minus_avg_cheek_delta_c": {
+          "formula": "forehead_surface_c - avg_cheek_surface_temp_c"
+        }
+      },
+
+      "global_session_modifiers": {
+        "deny_aggressive": {
+          "condition": "avg_facial_surface_temp_c >= 36.9",
+          "actions": [
+            "block_heat_based_devices",
+            "block_strong_exfoliation",
+            "block_high_intensity_actives",
+            "allow_only_soothing_and_barrier_repair"
+          ],
+          "reason": "Surface facial temperature extremely elevated, indicating active inflammation or high reactivity risk"
+        },
+
+        "caution": {
+          "condition": "avg_facial_surface_temp_c >= 36.4 AND avg_facial_surface_temp_c < 36.9",
+          "actions": [
+            "reduce_energy_device_intensity",
+            "shorten_exfoliation_duration",
+            "prefer_soothing_over_stimulating_actives",
+            "monitor_skin_response_during_session"
+          ],
+          "reason": "Surface facial temperature elevated, suggesting increased inflammatory reactivity"
+        }
+      },
+
+      "regional_modifiers": {
+        "cheek_asymmetry": {
+          "condition": "left_right_delta_c >= 0.4",
+          "actions": [
+            "treat_hotter_cheek_as_reactive_zone",
+            "reduce_local_intensity_on_hotter_side",
+            "avoid_aggressive_passes_on_hotter_side"
+          ],
+          "reason": "Significant unilateral surface temperature difference suggests localized irritation or inflammation"
+        },
+
+        "cheek_moderate_asymmetry": {
+          "condition": "left_right_delta_c >= 0.3 AND left_right_delta_c < 0.4",
+          "actions": [
+            "apply_mild_intensity_adjustment_on_hotter_cheek",
+            "increase_soothing_steps_on_hotter_side"
+          ],
+          "reason": "Moderate unilateral temperature difference indicating early localized reactivity"
+        },
+
+        "tzone_relative_heat": {
+          "condition": "forehead_minus_avg_cheek_delta_c >= 0.4",
+          "actions": [
+            "focus_on_sebum_and_congestion_management_in_tzone",
+            "avoid_overheating_forehead"
+          ],
+          "reason": "Forehead significantly hotter than cheeks, suggesting sebaceous congestion or metabolic heat"
+        },
+
+        "cheek_relative_heat": {
+          "condition": "forehead_minus_avg_cheek_delta_c <= -0.4",
+          "actions": [
+            "prioritize_barrier_repair_and_anti_inflammatory_steps_on_cheeks",
+            "avoid_aggressive_exfoliation_on_cheeks"
+          ],
+          "reason": "Cheeks hotter than forehead, indicating inflammatory or rosacea-prone behavior"
+        }
+      },
+
+      "operational_notes": [
+        "All temperatures must be measured using surface mode only",
+        "Measurements should be taken after 5 minutes seated indoors",
+        "Avoid face washing or wiping for 10 minutes prior to measurement",
+        "Use median of two readings per point if possible"
+      ]
+    },
+    "general_treatment_rules": [
+      {
+        "rule": "Every facial treatment must finish (last step of treatment) with Serum + Moisturizer + Sunscreen."
+      },
+      {
+        "rule": "Add a face massage and lymphatic drainage massage wherever possible."
+      },
+      {
+        "rule": "There is NO fixed or recommended sequence for treatment steps. The LLM is free to design ANY sequence or use DIFFERENT treatments for different facial zones based on scoring, diagnosis, and clinical logic."
+      }
+    ]
+  },
+  "availableResources": {
+    "machines": [
+      {
+        "name": "Hydrafacial Machine",
+        "type": "facial",
+        "probes": [
+          "Ice Probe",
+          "Ocular Ultrasound Infusion Probe",
+          "Face Ultrasound Infusion Probe",
+          "Cutin Removal Spatula (Exfoliator)",
+          "Lifting Probe (RF)",
+          "Suction Probe / Bubble Pen",
+          "Teenage Line",
+          "Oxygen Injection (Hydra spray)"
+        ]
+      },
+      {
+        "name": "Q-Switch Laser",
+        "type": "laser",
+        "configurations": {
+          "wavelengths": "532nm, 755nm, 1064nm",
+          "fluence_range": "1Hz to 10Hz",
+          "energy": "100mJ to 2000mJ"
+        }
+      },
+      {
+        "name": "Radio Frequency Machine",
+        "type": "skin tightening",
+        "configurations": {
+          "energy_range": "1 to 10"
+        }
+      },
+      {
+        "name": "HiFU Machine",
+        "type": "aesthetic skin tightening",
+        "configurations": {
+          "probe_depths": "1.5mm, 3mm, 4.5mm",
+          "number_of_probes": "3"
+        }
+      },
+      {
+        "name": "Diode Laser Machine",
+        "type": "hair removal",
+        "configurations": {
+          "wavelengths": "808nm, 755nm, 1064nm",
+          "spot_size": "15×28mm",
+          "power": "1000W"
+        }
+      },
+      {
+        "name": "Micro Needling Radio Frequency",
+        "type": "needling",
+        "configurations": {
+          "needle_depth": "1.5mm"
+        }
+      },
+      {
+        "name": "LED Light Therapy Machine",
+        "modes": ["Blue", "Red", "Green"]
+      },
+      {
+        "name": "IV Infusion Kit",
+        "type": "Nutrition therapy"
+      },
+      {
+        "name": "Micro Needling Machine"
+      },
+      {
+        "name": "Dermapen",
+        "type": "micro-needling",
+        "configurations": {
+          "needle_depth": "1.5mm"
+        }
+      },
+      {
+        "name": "Dermaroller",
+        "type": "micro-needling",
+        "configurations": {
+          "needle_depth": "1.5mm"
+        }
+      },
+      {
+        "name": "Microdermabrasion Machine",
+        "configurations": {
+          "tips_available": ["Diamond Tip", "Crystal Tip"]
+        }
+      },
+      {
+        "name": "High-Frequency Machine",
+        "type": "acne_inflammation_management",
+        "uses": ["post-extraction sanitation", "reduce inflammation", "drying active acne"]
+      }
+    ],
+    "jet_infusion_solutions": [
+      { "name": "Hyaluronic Acid", "use": "Hydration and skin plumping" },
+      { "name": "Vitamin C", "use": "Brightening and antioxidant" },
+      { "name": "TRX A (Tranexamic Acid)", "use": "Pigmentation reduction" },
+      { "name": "PDRN", "use": "Repair, regeneration, hydration" },
+      { "name": "Exosomes", "use": "Advanced regeneration + rejuvenation" },
+      { "name": "Lifting", "use": "Firming and anti-aging" },
+      { "name": "Glutathione", "use": "Skin lightening and detoxification" },
+      { "name": "Hydrafacial Serum AS1", "use": "Cleanse & Exfoliate (Normal Skin)" },
+      { "name": "Hydrafacial Serum SA2", "use": "Oil Control (Oily Skin)" },
+      { "name": "Hydrafacial Serum A03", "use": "Hydration (Dry Skin)" }
+    ],
+    "peelOffMasks": [
+      { "name": "Charcoal", "use": "Oil control and detox" },
+      { "name": "Calming", "use": "Reduce redness and irritation" },
+      { "name": "Brighten", "use": "Improve tone and radiance" },
+      { "name": "Hydrate", "use": "Deep moisturization" },
+      { "name": "Lift", "use": "Tightening and firming" }
+    ],
+    "ivInfusions": [
+      { "name": "Glutathione", "use": "Detox and brightening" },
+      { "name": "Vitamin B12", "use": "Energy and cellular metabolism" },
+      { "name": "N-Acetyl Cysteine (NAC)", "use": "Liver support, antioxidant" },
+      { "name": "Vitamin C", "use": "Immunity and skin glow" }
+    ],
+    "chemicalPeels": [
+      {
+        "name": "Party Peel",
+        "use": "Instant glow and rejuvenation",
+        "best_for": [
+          "instant glow",
+          "event readiness",
+          "quick radiance improvement",
+          "surface brightening"
+        ],
+        "relative_strength": "medium",
+        "default_rank_bucket": "glow_brightening",
+        "key_actives": {
+          "Lactic Acid": "40%",
+          "Arginine": "20%",
+          "Arbutin": "20%",
+          "Niacinamide": "10%"
+        },
+        "mechanistic_bias": ["brightening", "radiance", "surface rejuvenation", "tone support"],
+        "decision_note": "Prefer in clients where the single-session goal is immediate glow, polish, and visible radiance."
+      },
+      {
+        "name": "Whitening Peel",
+        "use": "Lightening and tone improvement",
+        "best_for": ["tone correction", "brightness", "mild pigmentation", "dullness"],
+        "relative_strength": "medium",
+        "default_rank_bucket": "pigment_brightening",
+        "key_actives": {
+          "Glycolic Acid": "15%",
+          "Lactic Acid": "10%",
+          "Kojic Acid": "10%",
+          "Arbutin": "10%",
+          "Licorice Extract": "3%",
+          "Bright Light": "2%"
+        },
+        "mechanistic_bias": ["brightening", "pigment support", "tone evening", "surface renewal"],
+        "decision_note": "Prefer when brightness and tone-evening are more important than acne control."
+      },
+      {
+        "name": "Sali DS Peel",
+        "use": "Anti-acne and deep exfoliation",
+        "best_for": ["active acne", "oily skin", "comedonal burden", "inflamed acne hotspots"],
+        "relative_strength": "medium_to_high",
+        "default_rank_bucket": "acne",
+        "key_actives": {
+          "Salicylic Acid": "present",
+          "PEG400": "present",
+          "Polyquaternium-37": "present",
+          "N0Reg": "present",
+          "AEMPS 1510-PE": "present"
+        },
+        "mechanistic_bias": [
+          "acne correction",
+          "oil control",
+          "keratolytic action",
+          "spot lesion treatment"
+        ],
+        "decision_note": "Strong candidate for lesion-directed acne treatment and acne-heavy sessions."
+      },
+      {
+        "name": "Salicylic Acid 30% Peel",
+        "use": "Acne control and oil regulation",
+        "best_for": ["active acne", "high oiliness", "congestion", "comedones"],
+        "relative_strength": "high",
+        "default_rank_bucket": "acne",
+        "key_actives": {
+          "Salicylic Acid": "30%"
+        },
+        "mechanistic_bias": ["strong acne correction", "oil control", "comedolysis"],
+        "decision_note": "Prefer when acne/oil/congestion burden is high and salicylic use is safe."
+      },
+      {
+        "name": "Gel Based Pumpkin Peel",
+        "use": "Brightening and gentle resurfacing",
+        "best_for": [
+          "gentle brightening",
+          "sensitive glow cases",
+          "light resurfacing",
+          "instant glow with tolerability"
+        ],
+        "relative_strength": "low_to_medium",
+        "default_rank_bucket": "gentle_glow",
+        "key_actives": {
+          "Pumpkin Puree": "present",
+          "Lactic Acid": "6%",
+          "Gluconic Acid": "1.5%",
+          "Salicylic Acid": "1%",
+          "Betaine": "1.5%",
+          "Resveratrol": "present",
+          "Mandelic Acid": "3%",
+          "Aloe Barbadensis": "present"
+        },
+        "mechanistic_bias": [
+          "gentle resurfacing",
+          "glow",
+          "mild exfoliation",
+          "brightness",
+          "better tolerability"
+        ],
+        "decision_note": "Often better than Mandelic when the goal is visible glow with gentler resurfacing and better cosmetic elegance."
+      },
+      {
+        "name": "Gel Based Mandelic Peel",
+        "use": "Exfoliation and brightening",
+        "best_for": ["gentle broad-spectrum exfoliation", "mild acne", "mild brightening"],
+        "relative_strength": "low_to_medium",
+        "default_rank_bucket": "gentle_generalist",
+        "key_actives": {
+          "Magnesium Aluminium Silicate": "present",
+          "Polyvinyl Alcohol": "present",
+          "Propylene Glycol": "present",
+          "Glycerine": "present",
+          "TiO2": "present",
+          "Bentonite": "present",
+          "Mandelic Acid": "present",
+          "Aloe Barbadensis": "present",
+          "Tocopherol": "present",
+          "Vitamin B3": "present",
+          "Betaine": "present"
+        },
+        "mechanistic_bias": [
+          "gentle exfoliation",
+          "clarifying",
+          "mild brightening",
+          "broad but less aggressive correction"
+        ],
+        "anti_default_rule": "Do not select unless it outranks all other clinically relevant named peels and relevant energy options for the current case.",
+        "decision_note": "Use only when a gentler broad-spectrum corrective is truly more suitable than Party, Pumpkin, Fusion, Combination, or acne-directed salicylic options."
+      },
+      {
+        "name": "Fusion Peel-E",
+        "use": "Post-acne pigmentation correction",
+        "best_for": [
+          "PIH",
+          "post-acne marks",
+          "pigment after acne",
+          "mixed resurfacing plus pigment correction"
+        ],
+        "relative_strength": "medium_to_high",
+        "default_rank_bucket": "post_acne_pigment",
+        "key_actives": {
+          "Salicylic Acid": "10%",
+          "Glycolic Acid": "30%",
+          "Lactic Acid": "10%",
+          "Pyruvic Acid": "2%"
+        },
+        "mechanistic_bias": [
+          "post-acne pigmentation",
+          "resurfacing",
+          "mixed acne-pigment correction"
+        ],
+        "decision_note": "Usually a stronger and more pathology-directed option than Mandelic for post-acne pigmentation."
+      },
+      {
+        "name": "Glyco Peel 35",
+        "use": "Skin rejuvenation + texture",
+        "best_for": [
+          "texture",
+          "roughness",
+          "surface rejuvenation",
+          "hyperpigmentation",
+          "wrinkles",
+          "fine lines"
+        ],
+        "relative_strength": "medium_to-high",
+        "default_rank_bucket": "texture",
+        "key_actives": {
+          "Glycolic Acid": "35%"
+        },
+        "mechanistic_bias": [
+          "texture correction",
+          "rejuvenation",
+          "surface renewal",
+          "pigment support"
+        ],
+        "decision_note": "Prefer when texture/rejuvenation is more central than acne control."
+      },
+      {
+        "name": "Combination Peel",
+        "use": "Acne + pigmentation",
+        "best_for": [
+          "mixed acne and pigment",
+          "darker skin tone",
+          "active acne with hyperpigmentation"
+        ],
+        "relative_strength": "medium_to_high",
+        "default_rank_bucket": "mixed_acne_pigment",
+        "key_actives": {
+          "Salicylic Acid": "20%",
+          "Mandelic Acid": "20%"
+        },
+        "mechanistic_bias": [
+          "mixed acne-pigment correction",
+          "oil/congestion support",
+          "safer mixed corrective profile for darker skin"
+        ],
+        "decision_note": "Should often outrank plain Mandelic when both acne and pigmentation are active goals."
+      },
+      {
+        "name": "20% Salicylic Acid Peel",
+        "use": "Blackheads + texture improvement",
+        "best_for": [
+          "blackheads",
+          "clogged pores",
+          "texture with oiliness",
+          "comedonal congestion"
+        ],
+        "relative_strength": "medium",
+        "default_rank_bucket": "comedonal_texture",
+        "key_actives": {
+          "Salicylic Acid": "20%"
+        },
+        "mechanistic_bias": ["comedolysis", "oil control", "pore congestion correction"],
+        "decision_note": "Prefer when blackheads/clogged pores are a meaningful visible component."
+      }
+    ],
+    "Special_ingredients_for_facials_type": [
+      { "name": "Liquid Charcoal (Carbon Facial)", "use": "Anti-acne, Oil control, Brightening" },
+      { "name": "Carbon Lotion", "use": "For Q-switch carbon facial protocol" }
+    ],
+    "consumables": [
+      { "name": "Gauze Pads" },
+      { "name": "Cotton Pads" },
+      { "name": "Alcohol Swabs" },
+      { "name": "pH Neutral Gel (for RF, Ultrasound)" },
+      { "name": "Hydrating Gel Base" },
+      { "name": "Distilled Water" },
+      { "name": "Cleansing Towels" },
+      { "name": "Extraction Tools (Comedone Extractor, Loop Extractor)" },
+      { "name": "Disposable Headbands" },
+      { "name": "Disposable Brushes" }
+    ],
+    "treatment_tools": [
+      { "name": "Manual Comedone Extractor" },
+      { "name": "Loop Extractor" },
+      { "name": "Fan Brush (for peel application)" },
+      { "name": "Mask Applicator Brush" },
+      { "name": "Spatula (non-scrubber, for product application)" }
+    ]
+  }
+}

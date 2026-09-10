@@ -1,0 +1,71 @@
+{
+  "version": "aia_facial_engine_clarifications_v3.3.0",
+  "approved_by": "Dr. Aakriti Mehra / clinic owner clarification",
+  "scope": "general_facial_treatment_engine",
+  "precedence": "These V3.3 clarifications override conflicting general-facial interpretations in sourceConstraintsV1_1.json.",
+  "q_switch": {
+    "wavelength_nm": [
+      1064
+    ],
+    "energy_mj": {
+      "min": 100,
+      "max": 2000
+    },
+    "frequency_hz": {
+      "min": 1,
+      "max": 10
+    },
+    "fixed_spot_area_cm2": 1,
+    "passes": {
+      "min": 1,
+      "max": 2
+    },
+    "excluded_from_general_facial_engine": [
+      "q_switch_532",
+      "q_switch_755",
+      "q_switch_lip_pigmentation_protocol"
+    ]
+  },
+  "simple_steps": {
+    "machine_preset_validation_required": false,
+    "examples": [
+      "hydrafacial_probes",
+      "led",
+      "microdermabrasion_or_exfoliation",
+      "infusion",
+      "extraction",
+      "masks",
+      "lymphatic_drainage",
+      "final_skincare"
+    ],
+    "ai_may_select": [
+      "duration",
+      "zones",
+      "sequence",
+      "selected_product_or_solution"
+    ]
+  },
+  "chemical_peels": {
+    "alkaline_neutralizer_when_contains": [
+      "glycolic_acid",
+      "lactic_acid"
+    ],
+    "normal_saline_ns_for_all_other_facial_peels": true
+  },
+  "image_scoring": {
+    "patient_history_used": false,
+    "treatment_context_used": false,
+    "dynamic_questions_used": false,
+    "opencv_or_external_qc_layer_used": false,
+    "low_visibility_policy": "Best visible estimate with reduced reliability/aggregation weight; do not automatically lower severity."
+  },
+  "optimizer": {
+    "modality_prior": "neutral",
+    "carbon_facial_default_or_preference": false,
+    "objective": "Maximum personalised result within constraints."
+  },
+  "pricing": {
+    "handled_by": "clinic",
+    "ai_pricing_module_used": false
+  }
+}

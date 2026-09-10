@@ -1,0 +1,73 @@
+{
+  "version": "skin_state_v3.4_clinic_step_duration_patch",
+  "status": "passed",
+  "source_base": "skin_state_v3.3_complete_general_facial_engine",
+  "runtime_replacement_files": [
+    "modalityResponseLibraryV2.js",
+    "executionProtocolLibraryV2.js",
+    "therapistSessionCompilerV2.js",
+    "adaptiveProtocolSettingsEngineV3.js",
+    "treatmentModeContractsV2.js",
+    "clinicalConstraintsV2.js"
+  ],
+  "new_runtime_file": "clinicStepDurationRulesV3_4.js",
+  "duration_rules": {
+    "cleanse_and_prepare_minutes": 2,
+    "hydrafacial_suction_extraction_minutes": [
+      2,
+      4
+    ],
+    "carbon_lotion_application_and_dry_minutes": 3,
+    "carbon_qswitch_laser_minutes": 4,
+    "infusion_one_ingredient_minutes": 3,
+    "peel_off_mask_minutes": 15,
+    "final_serum_moisturizer_sunscreen_minutes": 3,
+    "salicylic_spot_minutes": 2,
+    "chemical_peel_minutes": [
+      3,
+      4
+    ]
+  },
+  "preserved_contracts": {
+    "single_minutes": [
+      55,
+      70
+    ],
+    "express_minutes": [
+      30,
+      40
+    ],
+    "multiple_each_session_minutes": [
+      55,
+      70
+    ],
+    "lymphatic_minutes": [
+      5,
+      15
+    ],
+    "simple_steps_no_unnecessary_machine_validation": true,
+    "peel_neutralisation_rules_unchanged": true,
+    "adaptive_treatment_selection_unchanged": true,
+    "scoring_and_reports_unchanged": true
+  },
+  "syntax_check": {
+    "files_checked": 66,
+    "all_passed": true
+  },
+  "tests": {
+    "validateComponentAnchorsV2.mjs": true,
+    "smokeTestOrchestrationV2.mjs": true,
+    "smokeTestEligibilityV2.mjs": true,
+    "validateModalityResponseLibraryV2.mjs": true,
+    "validateZonalTreatmentOptimizerV2.mjs": true,
+    "validateTreatmentModeContractsV2.mjs": true,
+    "validateTherapistSessionCompilerV2.mjs": true,
+    "validateV28MinimumDurationAndLymphatic.mjs": true,
+    "validatePredictedOutcomeEngineV2.mjs": true,
+    "validateClientOutcomeReportV2.mjs": true,
+    "validateAdaptiveProtocolAndReportWorkflowV3.mjs": true,
+    "validateV33FacialEngineRevision.mjs": true,
+    "validateClinicStepDurationsV3_4.mjs": true
+  },
+  "all_tests_passed": true
+}
