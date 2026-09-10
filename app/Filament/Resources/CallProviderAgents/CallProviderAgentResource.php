@@ -38,6 +38,8 @@ class CallProviderAgentResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return CallProviderAgentForm::configure($schema);

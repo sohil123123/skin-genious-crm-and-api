@@ -39,6 +39,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
+use Filament\Tables\Enums\RecordActionsPosition;
 
 class UserPackagesTable
 {

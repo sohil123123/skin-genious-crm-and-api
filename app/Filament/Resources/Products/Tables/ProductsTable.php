@@ -74,10 +74,9 @@ class ProductsTable
                         'product' => 'Product',
                         'service' => 'Service',
                         'iv_product' => 'IV Product',
-                    ])
-                    ->searchable(),
+                    ]),
             ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(2)
+            ->filtersFormColumns(1)
             ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
                 ActionGroup::make([

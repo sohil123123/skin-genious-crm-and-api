@@ -71,11 +71,57 @@ class UsersTable
                             ->modalHeading(fn($record) => $record->clinic?->name ?? 'No Clinic Assigned')
                             ->visible(fn(User $record) => $record->clinic !== null)
                     ),
+                // Who they are and how to reach them, in one column: reception
+                // reads the three together when picking someone out of the
+                // list, and three columns cost the width the rest of the table
+                // needs.
+                //
+                // Rendered as stacked chips rather than a heading with grey
+                // subtitles. Filament resolves colour, icon, tooltip and copy
+                // behaviour per item when the state is an array, so each line
+                // can say what it is — a person, a number you can ring, an
+                // address you can write to — instead of the contact details
+                // reading as an afterthought.
+                //
+                // The two contact chips share one colour on purpose: they are
+                // the same kind of thing, and the icon already tells them
+                // apart. A third colour here would be decoration.
                 TextColumn::make('name')
                     ->label('Name')
+                    ->state(fn(User $record): array => array_values(array_filter([
+                        trim($record->first_name . ' ' . ($record->last_name ?? '')),
+                        $record->mobile,
+                        $record->email,
+                    ], fn($value): bool => filled($value))))
+                    ->badge()
+                    // Stacked, not side by side: three chips on one line push
+                    // every column after this one off the screen.
+                    ->listWithLineBreaks()
+                    ->icon(fn($state, User $record): string => match ($state) {
+                        $record->mobile => 'heroicon-m-phone',
+                        $record->email => 'heroicon-m-envelope',
+                        default => 'heroicon-m-user',
+                    })
+                    ->color(fn($state, User $record): string => match ($state) {
+                        $record->mobile, $record->email => 'info',
+                        default => 'gray',
+                    })
+                    // Only the contact details are worth copying, so only they
+                    // offer to.
+                    ->copyable(fn($state, User $record): bool => in_array(
+                        $state,
+                        array_filter([$record->mobile, $record->email]),
+                        strict: true,
+                    ))
+                    ->copyMessage(fn($state, User $record): string => $state === $record->email
+                        ? 'Email copied'
+                        : 'Mobile copied')
+                    ->tooltip(fn($state, User $record): ?string => match ($state) {
+                        $record->mobile, $record->email => 'Click to copy',
+                        default => null,
+                    })
                     ->sortable(query: fn($query, $direction) => $query->orderBy('first_name', $direction))
-                    ->searchable(['first_name', 'last_name'])
-                    ->formatStateUsing(fn($record) => trim($record->first_name . ' ' . ($record->last_name ?? ''))),
+                    ->searchable(['first_name', 'last_name', 'mobile', 'email']),
                 // TextColumn::make('state')
                 //     ->label('State')
                 //     ->state(fn(User $record) => $record->state ?? $record->clinic?->state)
@@ -85,7 +131,8 @@ class UsersTable
                 //     ->badge()
                 //     ->color('gray')
                 //     ->placeholder('-'),
-                TextColumn::make('mobile')->searchable(),
+                // Merged into the Name column above.
+                // TextColumn::make('mobile')->searchable(),
                 TextColumn::make('gender')
                     ->label('Gender')
                     ->badge()
@@ -120,7 +167,8 @@ class UsersTable
                         'user' => 'gray',
                         default => 'gray',
                     }),
-                TextColumn::make('email')->label('Email address')->searchable()->toggleable()->placeholder('-'),
+                // Merged into the Name column above.
+                // TextColumn::make('email')->label('Email')->searchable()->toggleable()->placeholder('-'),
                 ToggleColumn::make('is_active')
                     ->label('Status')
                     ->onIcon('heroicon-o-bolt')
