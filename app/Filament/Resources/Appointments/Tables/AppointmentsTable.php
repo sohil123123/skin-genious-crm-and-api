@@ -33,6 +33,8 @@ use Filament\Tables\Columns\IconColumn;
 
 use App\Filament\Resources\Clinics\Schemas\ClinicInfolist;
 
+use Filament\Tables\Enums\RecordActionsPosition;
+
 use App\Models\Clinic;
 use App\Models\User;
 use App\Models\Assessment;
@@ -41,10 +43,8 @@ use App\Models\Appointment;
 use App\Models\Setting;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
-use App\Jobs\SendTodayAppointmentsWhatsAppJob;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Placeholder;
 use Illuminate\Database\Eloquent\Collection;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -618,7 +618,7 @@ class AppointmentsTable
                         }),
                     RestoreAction::make()
                 ]),
-            ])
+            ], position: RecordActionsPosition::BeforeColumns,)
             ->groups([
                 Group::make('clinic_id')
                     ->label('Clinic')
@@ -637,43 +637,6 @@ class AppointmentsTable
                     ->getTitleFromRecordUsing(fn($record) => $record->therapist?->first_name ?? 'Unassigned'),
                 Group::make('status')->label('Status')->collapsible(),
                 Group::make('created_at')->date(),
-            ])
-            ->headerActions([
-                Action::make('send_today_whatsapp_reminders')
-                    ->label("Send Today's WhatsApp Reminders")
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('success')
-                    ->modalHeading("Send Today's Appointment WhatsApp Reminders")
-                    ->modalDescription("This will dispatch queued WhatsApp template messages for all clients with appointments scheduled for today.")
-                    ->form([
-                        Placeholder::make('today_appointments_count')
-                            ->label("Today's Appointments")
-                            ->content(function () {
-                                $count = Appointment::whereDate('start_datetime', Carbon::today())
-                                    ->where('status', '!=', 'cancelled')
-                                    ->count();
-                                return "{$count} active appointment(s) scheduled for today.";
-                            }),
-                        Toggle::make('force')
-                            ->label('Force send even if already sent today')
-                            ->default(false),
-                    ])
-                    ->action(function (array $data) {
-                        $force = (bool) ($data['force'] ?? false);
-
-                        SendTodayAppointmentsWhatsAppJob::dispatch(
-                            Carbon::today()->format('Y-m-d'),
-                            null,
-                            null,
-                            $force
-                        );
-
-                        Notification::make()
-                            ->title("WhatsApp Reminders Queued 🚀")
-                            ->body("The queue job for today's appointment WhatsApp reminders has been dispatched.")
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

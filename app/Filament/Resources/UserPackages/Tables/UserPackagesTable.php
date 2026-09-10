@@ -35,6 +35,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Enums\RecordActionsPosition;
 
 class UserPackagesTable
 {
@@ -319,7 +320,7 @@ class UserPackagesTable
                                     //     ->searchable()
                                     //     ->nullable()
                                     //     ->placeholder('None'),
-                
+
                                     Textarea::make('notes')
                                         ->label('Notes')
                                         ->nullable()
