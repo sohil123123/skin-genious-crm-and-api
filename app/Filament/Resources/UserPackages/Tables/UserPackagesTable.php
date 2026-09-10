@@ -39,6 +39,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Number;
 use Filament\Tables\Enums\RecordActionsPosition;
 
 class UserPackagesTable
@@ -92,57 +93,83 @@ class UserPackagesTable
                         )->join(', ')
                     ),
 
+                // Total, used and remaining in one column. They are three
+                // readings of the same thing and are only ever compared with
+                // each other, so three headings and three columns of padding
+                // bought nothing.
+                //
+                // Each chip carries its own word rather than a bare number.
+                // That is what lets the headings go — and it is also what makes
+                // the chips distinguishable to the icon and colour callbacks,
+                // which see one state item at a time and would otherwise have
+                // no way to tell "4 total" from "4 remaining".
                 TextColumn::make('total_sessions')
-                    ->label('Total Sessions')
-                    ->getStateUsing(fn($record) => $record->getTotalSessions())
-                    ->alignCenter()
+                    ->label('Sessions')
+                    ->getStateUsing(fn($record): array => [
+                        $record->getTotalSessions() . ' total',
+                        $record->getTotalUsedSessions() . ' used',
+                        $record->getTotalRemainingSessions() . ' left',
+                    ])
                     ->badge()
-                    ->color('primary')
-                    // ->suffix(' sessions')
+                    ->icon(fn(string $state): string => match (true) {
+                        str_ends_with($state, ' total') => 'heroicon-m-rectangle-stack',
+                        str_ends_with($state, ' used') => 'heroicon-m-check-circle',
+                        default => 'heroicon-m-clock',
+                    })
+                    ->color(fn(string $state, $record): string => match (true) {
+                        str_ends_with($state, ' total') => 'gray',
+                        str_ends_with($state, ' used') => 'warning',
+                        // A package with nothing left is the one worth
+                        // spotting from across the table.
+                        default => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger',
+                    })
                     ->sortable(
                         query: fn(Builder $query, string $direction) =>
                         $query->withSum('items', 'quantity')->orderBy('items_sum_quantity', $direction)
                     )
                     ->summarize(self::sessionsSummarizer('Total', 'quantity')),
 
-                TextColumn::make('used_sessions')
-                    ->label('Used')
-                    ->getStateUsing(fn($record) => $record->getTotalUsedSessions())
-                    ->alignCenter()
-                    ->badge()
-                    ->color('warning')
-                    ->summarize(self::sessionsSummarizer('Total Used', 'used_sessions')),
-
-                TextColumn::make('remaining_sessions')
-                    ->label('Remaining')
-                    ->getStateUsing(fn($record) => $record->getTotalRemainingSessions())
-                    ->alignCenter()
-                    ->badge()
-                    ->color(fn($record) => $record->getTotalRemainingSessions() > 0 ? 'success' : 'danger')
-                    ->summarize(self::sessionsSummarizer('Total Remaining', 'quantity - used_sessions')),
-
+                // Billed, paid and still owed in one column, for the same
+                // reason as the sessions: they are three readings of one figure
+                // and are only ever read against each other.
+                //
+                // Each chip is labelled and the amounts are formatted here
+                // rather than by ->money(), which would try to read "Paid
+                // ₹44,950.00" back as a number. The label is also what tells
+                // the callbacks apart — on a half-paid package the paid and
+                // outstanding amounts are identical, so the figure alone could
+                // not say which chip it was.
                 TextColumn::make('final_amount')
-                    ->label('Final Amount')
-                    ->money('INR')
-                    ->sortable()
-                    ->summarize(Sum::make('sum')->label('Total Amount')->money('INR')),
+                    ->label('Amount')
+                    ->getStateUsing(function ($record): array {
+                        $outstanding = $record->getOutstandingAmount();
 
-                TextColumn::make('paid_amount')
-                    ->label('Paid')
-                    ->getStateUsing(fn($record) => $record->getPaidAmount())
-                    ->money('INR')
+                        return array_values(array_filter([
+                            'Total ' . Number::currency((float) $record->final_amount, 'INR'),
+                            'Paid ' . Number::currency((float) $record->getPaidAmount(), 'INR'),
+                            // Only shown when something is actually owed: a
+                            // "Due ₹0.00" chip on every settled package would
+                            // train people to stop reading the column.
+                            $outstanding > 0
+                                ? 'Due ' . Number::currency((float) $outstanding, 'INR')
+                                : null,
+                        ]));
+                    })
                     ->badge()
-                    ->color('success')
-                    ->summarize(self::paidAmountSummarizer()),
-
-                TextColumn::make('outstanding_amount')
-                    ->label('Outstanding')
-                    ->getStateUsing(fn($record) => $record->getOutstandingAmount() > 0 ? $record->getOutstandingAmount() : null)
-                    ->placeholder('')
-                    ->money('INR')
-                    ->badge()
-                    ->color(fn($record) => $record->getOutstandingAmount() > 0 ? 'warning' : null)
-                    ->summarize(self::outstandingAmountSummarizer()),
+                    // Stacked: three money chips on one line are wider than the
+                    // three columns they replace.
+                    ->listWithLineBreaks()
+                    ->icon(fn(string $state): string => match (true) {
+                        str_starts_with($state, 'Total') => 'heroicon-m-banknotes',
+                        str_starts_with($state, 'Paid') => 'heroicon-m-check-circle',
+                        default => 'heroicon-m-exclamation-circle',
+                    })
+                    ->color(fn(string $state): string => match (true) {
+                        str_starts_with($state, 'Total') => 'gray',
+                        str_starts_with($state, 'Paid') => 'success',
+                        default => 'danger',
+                    })
+                    ->sortable(),
 
                 TextColumn::make('expired_at')
                     ->label('Expires')
