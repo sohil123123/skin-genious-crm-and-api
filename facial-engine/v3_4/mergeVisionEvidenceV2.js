@@ -118,13 +118,13 @@ function validateComponent(component, context) {
     throw new Error(`${context} must be an object`)
   }
   const grade = component.grade_0_to_5
-  if (!Number.isInteger(grade) || grade < 0 || grade > 5) {
-    throw new Error(`${context}.grade_0_to_5 must be an integer from 0 to 5`)
+  if (!Number.isFinite(grade) || grade < 0 || grade > 5) {
+    throw new Error(`${context}.grade_0_to_5 must be a finite number from 0 to 5`)
   }
 
   component.plausible_grade_range_0_to_5 ??= {
-    min: grade,
-    max: grade,
+    min: Math.floor(grade),
+    max: Math.ceil(grade),
   }
   const range = component.plausible_grade_range_0_to_5
   if (

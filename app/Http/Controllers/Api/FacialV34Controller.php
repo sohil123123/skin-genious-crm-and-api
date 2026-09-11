@@ -13,7 +13,7 @@ use Throwable;
 
 class FacialV34Controller extends Controller
 {
-    private const ENGINE_VERSION = 'facial_v3_4';
+    private const ENGINE_VERSION = 'facial_v3_6_calibrated';
 
     private const CANONICAL_MODES = [
         'red',
@@ -29,11 +29,11 @@ class FacialV34Controller extends Controller
             $result = $this->runNode('self_test', []);
             return response()->json([
                 'success' => true,
-                'message' => 'Facial V3.4 runner is available.',
+                'message' => 'Facial V3.6-calibrated runner is available.',
                 'results' => $result,
             ]);
         } catch (Throwable $e) {
-            return $this->errorResponse($e, 'Facial V3.4 self-test failed.');
+            return $this->errorResponse($e, 'Facial V3.6-calibrated self-test failed.');
         }
     }
 
@@ -74,11 +74,11 @@ class FacialV34Controller extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Facial V3.4 assessment completed.',
+                'message' => 'Facial V3.6-calibrated assessment completed.',
                 'results' => $result,
             ]);
         } catch (Throwable $e) {
-            return $this->errorResponse($e, 'Facial V3.4 assessment failed.');
+            return $this->errorResponse($e, 'Facial V3.6-calibrated assessment failed.');
         }
     }
 
@@ -135,11 +135,11 @@ class FacialV34Controller extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Facial V3.4 treatment plan generated.',
+                'message' => 'Facial V3.6-calibrated treatment plan generated.',
                 'results' => $result,
             ]);
         } catch (Throwable $e) {
-            return $this->errorResponse($e, 'Facial V3.4 treatment-plan generation failed.');
+            return $this->errorResponse($e, 'Facial V3.6-calibrated treatment-plan generation failed.');
         }
     }
 
@@ -179,6 +179,7 @@ class FacialV34Controller extends Controller
                 'baseline_run' => [
                     'skin_state' => data_get($baseline, 'skin_state'),
                     'evidence_packet' => data_get($baseline, 'feature_packet'),
+                    'imagesByMode' => $this->mediaToImagesByMode($assessment->getMedia('assessment_images')),
                 ],
                 'post_scan_id' => 'assessment-' . $assessment->id . '-' . $postScanSuffix,
                 'post_images_by_mode' => $postImagesByMode,
@@ -194,11 +195,11 @@ class FacialV34Controller extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Facial V3.4 reassessment completed.',
+                'message' => 'Facial V3.6-calibrated reassessment completed.',
                 'results' => $result,
             ]);
         } catch (Throwable $e) {
-            return $this->errorResponse($e, 'Facial V3.4 reassessment failed.');
+            return $this->errorResponse($e, 'Facial V3.6-calibrated reassessment failed.');
         }
     }
 
@@ -235,7 +236,7 @@ class FacialV34Controller extends Controller
             $message = data_get($decoded, 'error.message')
                 ?: trim($process->getErrorOutput())
                 ?: 'Unknown V3.4 runner failure.';
-            Log::error('Facial V3.4 runner failed', [
+            Log::error('Facial V3.6-calibrated runner failed', [
                 'command' => $command,
                 'assessment_id' => $payload['assessment_id'] ?? null,
                 'exit_code' => $process->getExitCode(),

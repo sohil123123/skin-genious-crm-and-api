@@ -82,11 +82,7 @@ const ZONE_LABEL = Object.freeze({
 
 // Retained for older post-treatment consumers only. New baseline diagnosis does
 // NOT collapse V3 scores to 1-5.
-function healthScoreToFive(score) {
-  const n = Number(score)
-  if (!Number.isFinite(n)) return null
-  return Math.max(1, Math.min(5, Math.round(1 + ((n - 1) / 99) * 4)))
-}
+
 
 function readableFeature(featureId) {
   return String(featureId || '').replaceAll('_', ' ')
@@ -179,7 +175,7 @@ function groundedDescription(parameterId, card, skinState) {
       const dominant = c.burden > a.burden + 5 ? 'Congestion is more prominent than active inflammatory lesions.' : a.burden > c.burden + 5 ? 'Active inflammatory lesions are the stronger acne signal.' : 'Inflammatory activity and congestion are relatively similar.'
       return `Active inflammatory acne is ${burdenBand(a.burden)} and comedonal congestion is ${burdenBand(c.burden)}. ${dominant}${where}`
     }
-    case 'skin_sebum': return `Visible oiliness is ${burdenBand(F('oiliness').burden)} overall.${where}`
+    case 'skin_sebum': return `This score reflects oil balance, considering the T-zone and cheeks separately and checking for visible dryness when shine is low.${where}`
     case 'vascularity_redness': return `Visible redness/vascular prominence is ${burdenBand(F('erythema_redness').burden)} overall.${where}`
     case 'skin_hydration': return `Visible dehydration is ${burdenBand(F('visual_dehydration').burden)}, so hydration appearance is correspondingly ${Number(card.client_health_score_1_to_100) >= 80 ? 'strong' : Number(card.client_health_score_1_to_100) >= 60 ? 'fairly good' : 'an area for improvement'}.${where}`
     case 'skin_luminosity_glow': return `Loss of luminosity/glow is ${burdenBand(F('luminosity_loss').burden)}.${where}`
@@ -205,9 +201,7 @@ function groundedDescription(parameterId, card, skinState) {
 }
 
 function scoreExplanation(parameterId, card, skinState) {
-  if (card.value_type === 'label') return groundedDescription(parameterId, card, skinState)
-  const reliability = parameterReliability(parameterId, skinState)
-  return `Health score ${card.client_health_score_1_to_100}/100, with measured concern burden ${card.concern_burden_score_1_to_100}/100. Scan evidence confidence for this parameter is ${reliability.tier} (${reliability.score}/100).`
+  return groundedDescription(parameterId, card, skinState)
 }
 
 function oldPolarity(parameterId) {
@@ -234,9 +228,11 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
       parameter_id: card.parameter_id,
       description: card.value_type === 'label'
         ? 'Five-mode assessment of current skin-type pattern.'
-        : 'Client health score from the five-mode V3.5 Skin State engine. Higher is better.',
+        : 'Client health score from the five-mode V3.6-calibrated Skin State engine. Higher is better.',
       client_description: groundedDescription(card.parameter_id, card, skinState),
       score_or_label: scoreOrLabel,
+      score_scale: card.value_type === 'label' ? 'label' : '1_to_100_client_health_higher_is_better',
+      calibration_version: skinState.scoring_execution?.calibration_version ?? null,
       score_explanation: scoreExplanation(card.parameter_id, card, skinState),
       affected_area_image: PARAMETER_IMAGE_INDEX[card.parameter_id] ?? null,
       affected_zones: dominantZones,
@@ -245,14 +241,14 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
       possible_causes: [],
       ...polarity,
       normalized_burden_0_to_1: card.value_type === 'score'
-        ? Number((card.concern_burden_score_1_to_100 / 100).toFixed(3))
+        ? Number(((card.concern_burden_score_1_to_100 - 1) / 99).toFixed(3))
         : null,
       v3_4_client_health_score_1_to_100: card.client_health_score_1_to_100 ?? null,
       v3_4_concern_burden_score_1_to_100: card.concern_burden_score_1_to_100 ?? null,
       data_quality: {
         is_estimated: reliability.tier === 'low',
         estimated_fields: reliability.tier === 'low' ? ['image_measurement_confidence'] : [],
-        estimation_basis: 'five_mode_v3_5_skin_state',
+        estimation_basis: 'five_mode_v3_6_calibrated_skin_state',
         confidence_0_1: Number((reliability.score / 100).toFixed(2)),
         reliability_score_1_to_100: reliability.score,
         reliability_tier: reliability.tier,
@@ -496,20 +492,21 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
 
     reassessment[legacyKey] = {
       parameter_name: meta?.label ?? parameterId,
-      before_treatment_score_or_label: healthScoreToFive(beforeHealth),
+      score_scale: '1_to_100_client_health_higher_is_better',
+      before_treatment_score_or_label: beforeHealth,
       before_image: null,
-      post_treatment_score_or_label: healthScoreToFive(afterHealth),
+      post_treatment_score_or_label: afterHealth,
       post_treatment_image: null,
       result: direction,
       score_semantics: 'health',
       score_polarity: 'higher_is_better',
       comparison_mode: 'direct_numeric',
       ideal_score_direction: 'increase',
-      base_post_score_or_label_internal: healthScoreToFive(afterHealth),
+      base_post_score_or_label_internal: afterHealth,
       raw_comparison_result_internal: direction,
       response_strength: responseStrength,
       patient_facing_change_points: Math.abs(
-        (healthScoreToFive(afterHealth) ?? 0) - (healthScoreToFive(beforeHealth) ?? 0),
+        (afterHealth ?? 0) - (beforeHealth ?? 0),
       ),
       transient_reactivity_note: 'See V3.4 pairwise evidence for any treatment-day reactivity.',
       score_explanation:

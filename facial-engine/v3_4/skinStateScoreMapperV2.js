@@ -1,3 +1,4 @@
+import { normalizeContinuousGradeV36, deriveCalibratedParameterV36, deriveSkinTypeV36, CALIBRATION_VERSION_V36, CALIBRATION_STATUS_V36 } from './clinicalCalibrationV36.js'
 import {
   FACE_ZONE_ATLAS_V2,
   FACE_ZONE_IDS,
@@ -9,8 +10,8 @@ import {
   VISION_EVIDENCE_SCHEMA_VERSION,
 } from './skinStateV2.schema.js'
 
-export const SCORE_MAPPER_VERSION = 'aia_skin_state_mapper_v3.3.0'
-export const FORMULA_CONFIG_VERSION = 'aia_skin_state_formulas_v3.3.0'
+export const SCORE_MAPPER_VERSION = 'aia_skin_state_mapper_v3.6.0-calibrated'
+export const FORMULA_CONFIG_VERSION = 'aia_skin_state_formulas_v3.6.0-calibrated'
 
 const FULL_SKIN_FACE = FACE_ZONE_ATLAS_V2.groups.full_skin_face
 const CHEEKS = FACE_ZONE_ATLAS_V2.groups.cheeks
@@ -47,12 +48,13 @@ export const CONTINUOUS_PRIMITIVE_ENABLED_FEATURES_V3 = new Set([
   'underlying_pigment_support',
   'luminosity_loss',
   'fine_line_visibility',
+  'peri_orbital_concern', 'lip_pigmentation', 'visible_laxity', 'firmness_appearance_loss',
 ])
 
 const PRIMITIVE_WEIGHTS_V3 = Object.freeze({
   coverage_0_to_100: 0.34,
   contrast_0_to_100: 0.34,
-  cross_mode_corroboration_0_to_100: 0.20,
+  // Corroboration affects reliability; it must not create/increase pathology.
   regional_salience_0_to_100: 0.12,
 })
 
@@ -385,15 +387,16 @@ export const DERIVED_REPORT_FORMULAS_V2 = {
       active_inflammatory_acne: 0.72,
       comedonal_congestion: 0.28,
     },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   skin_sebum: {
-    components: { oiliness: 1.0 },
-    display_polarity: 'higher_is_worse',
+    components: { oiliness: 0.5, visual_dehydration: 0.5 },
+    nonlinear_balance: true,
+    display_polarity: 'higher_is_better',
   },
   vascularity_redness: {
     components: { erythema_redness: 1.0 },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   skin_hydration: {
     components: { visual_dehydration: 1.0 },
@@ -408,30 +411,30 @@ export const DERIVED_REPORT_FORMULAS_V2 = {
       visible_pigmentation: 0.78,
       underlying_pigment_support: 0.22,
     },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   peri_orbital_health: {
     components: { peri_orbital_concern: 1.0 },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   lip_pigmentation: {
     components: { lip_pigmentation: 1.0 },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   texture_open_pores: {
     components: {
       pore_visibility: 0.56,
       texture_roughness: 0.44,
     },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   superficial_wrinkles: {
     components: { fine_line_visibility: 1.0 },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   jawline_sagging: {
     components: { visible_laxity: 1.0 },
-    display_polarity: 'higher_is_worse',
+    display_polarity: 'higher_is_better',
   },
   skin_firmness_elasticity: {
     components: { firmness_appearance_loss: 1.0 },
@@ -450,8 +453,8 @@ const clamp01 = (value) => Math.max(0, Math.min(1, value))
 const score1To100 = (normalizedBurden) => 1 + Math.round(99 * clamp01(normalizedBurden))
 
 function validateGrade(grade, context) {
-  if (!Number.isInteger(grade) || grade < 0 || grade > 5) {
-    throw new Error(`${context}: grade must be an integer from 0 to 5`)
+  if (!Number.isFinite(grade) || grade < 0 || grade > 5) {
+    throw new Error(`${context}: grade must be a finite number from 0 to 5`)
   }
 }
 
@@ -491,11 +494,11 @@ function componentBurden(zoneEvidence, formula, featureId, zoneId) {
     }
     const grade = componentEvidence.grade_0_to_5
     validateGrade(grade, `${featureId}.${zoneId}.${componentId}`)
-    const gradeBurden = GRADE_TO_NORMALIZED[grade]
+    const gradeBurden = normalizeContinuousGradeV36(grade)
     const primitiveBurden = CONTINUOUS_PRIMITIVE_ENABLED_FEATURES_V3.has(featureId)
       ? componentPrimitiveBurden(componentEvidence)
       : null
-    const blended = primitiveBurden === null
+    const blended = grade === 0 ? 0 : primitiveBurden === null
       ? gradeBurden
       : 0.70 * gradeBurden + 0.30 * primitiveBurden
     total += componentDefinition.weight * blended
@@ -678,6 +681,7 @@ export function scoreCoreFeature(featureId, featureEvidence) {
 
   const zoneValues = []
   const zoneScores = {}
+  const zoneNormalized = {}
 
   for (const zoneId of formula.applicable_zones) {
     const zoneEvidence = featureEvidence.zones?.[zoneId]
@@ -686,7 +690,10 @@ export function scoreCoreFeature(featureId, featureEvidence) {
     const burden = componentBurden(zoneEvidence, formula, featureId, zoneId)
     zoneValues.push({ zoneId, value: burden, weight: zoneAreaWeight(zoneId, zoneEvidence) })
     zoneScores[zoneId] = score1To100(burden)
+    zoneNormalized[zoneId] = burden
   }
+
+  if (!zoneValues.length) throw new Error(`Cannot assess ${featureId}: no usable zones. Recapture the relevant skin.`)
 
   const aggregationEntries = Object.entries(formula.aggregation).filter(
     ([key]) => ['mean', 'top_zones', 'extent'].includes(key),
@@ -708,8 +715,9 @@ export function scoreCoreFeature(featureId, featureEvidence) {
     feature_id: featureId,
     global_burden_score_1_to_100: score1To100(guardrailResult.normalized),
     raw_normalized_burden_0_to_1: Number(raw.toFixed(4)),
-    guarded_normalized_burden_0_to_1: Number(guardrailResult.normalized.toFixed(4)),
+    guarded_normalized_burden_0_to_1: guardrailResult.normalized,
     zone_scores_1_to_100: zoneScores,
+    zone_normalized_burdens_0_to_1: zoneNormalized,
     dominant_zones: sortedZones.slice(0, 3).map((item) => item.zoneId),
     peak_zone: sortedZones[0]?.zoneId ?? null,
     aggregation_details: {
@@ -720,7 +728,7 @@ export function scoreCoreFeature(featureId, featureEvidence) {
     guardrails_applied: guardrailResult.applied,
     score_reliability: reliabilityFromEvidence(featureEvidence, formula),
     measurement_sensitivity: CONTINUOUS_PRIMITIVE_ENABLED_FEATURES_V3.has(featureId)
-      ? 'anchored_grade_plus_continuous_primitives'
+      ? 'continuous_anchored_grade_plus_severity_primitives'
       : 'anchored_grade',
   }
 }
@@ -808,21 +816,10 @@ export function buildSkinStateV2(visionEvidencePacket) {
 
   const derivedReportParameters = {}
   for (const [parameterId, definition] of Object.entries(DERIVED_REPORT_FORMULAS_V2)) {
-    const burden = score1To100(derivedBurden(coreFeatures, definition, parameterId))
-    const displayScore =
-      definition.display_polarity === 'higher_is_better' ? 101 - burden : burden
-
-    derivedReportParameters[parameterId] = {
-      parameter_id: parameterId,
-      internal_burden_score_1_to_100: burden,
-      display_score_1_to_100: displayScore,
-      display_polarity: definition.display_polarity,
-      display_band: displayBand(displayScore, definition.display_polarity),
-      source_components: definition.components,
-    }
+    derivedReportParameters[parameterId] = deriveCalibratedParameterV36(parameterId, coreFeatures, definition, CORE_FEATURE_FORMULAS_V2)
   }
 
-  const skinType = deriveSkinType(coreFeatures)
+  const skinType = deriveSkinTypeV36(coreFeatures)
   derivedReportParameters.skin_type = {
     parameter_id: 'skin_type',
     display_polarity: 'label_only',
@@ -842,6 +839,8 @@ export function buildSkinStateV2(visionEvidencePacket) {
     },
     scoring_execution: {
       mapper_version: SCORE_MAPPER_VERSION,
+      calibration_version: CALIBRATION_VERSION_V36,
+      calibration_status: CALIBRATION_STATUS_V36,
       formula_config_version: FORMULA_CONFIG_VERSION,
       created_at_iso: new Date().toISOString(),
       immutable_assessment: true,

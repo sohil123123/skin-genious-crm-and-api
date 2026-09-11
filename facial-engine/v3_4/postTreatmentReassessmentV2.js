@@ -297,6 +297,10 @@ export async function runPostTreatmentReassessmentV2({
     throw new Error('Invalid post-treatment Skin State V2 result')
   }
 
+  const beforeVersion = baselineRun.skin_state.scoring_execution?.formula_config_version
+  const afterVersion = postRun.skin_state.scoring_execution?.formula_config_version
+  if (!beforeVersion || beforeVersion !== afterVersion) throw new Error('Cannot compare different scoring/calibration versions')
+
   const pairwiseRaw = await pairwiseCall({
     module_id: 'pairwise_outcome',
     system_prompt: SYSTEM_PROMPT_PAIRWISE_OUTCOME_EVIDENCE_V2,

@@ -10,7 +10,7 @@ import {
 } from './clientOutcomeReportV2.schema.js'
 
 export const SKIN_ANALYSIS_REPORT_VERSION =
-  'aia_skin_analysis_report_v3.1.0'
+  'aia_skin_analysis_report_v3.6.0-calibrated'
 
 function parameterCard(
   skinState,
@@ -183,6 +183,8 @@ export function buildSkinAnalysisReportV3({
         'Internal zonal scoring, treatment selection, explanation and reassessment support.',
       core_features:
         skinState.core_features,
+      calibration_version: skinState.scoring_execution?.calibration_version,
+      parameter_calibration: Object.fromEntries(Object.entries(skinState.derived_report_parameters).filter(([, p]) => p.calibration).map(([id, p]) => [id, p.calibration])),
     },
     report_rules: {
       original_15_parameters_are_primary:

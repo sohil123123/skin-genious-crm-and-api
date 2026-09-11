@@ -1,3 +1,5 @@
+import { COMPONENT_ANCHOR_SPECIFICATION_V2 } from './componentAnchorSpecificationV2.js'
+import { LEGACY_CLINICAL_ANCHORS_V36 } from './legacyClinicalAnchorsV36.js'
 import {
   CORE_FEATURE_IDS,
   IMAGE_MODES,
@@ -35,8 +37,8 @@ import {
  *  - evidence/corroboration mode name arrays (derived from formula mode roles);
  *  - per-feature artifact arrays (morphology is the single source of truth).
  */
-export const UNIFIED_VISION_WIRE_VERSION = 'aia_unified_vision_wire_v3.5.0'
-export const UNIFIED_VISION_PROMPT_VERSION = 'aia_unified_vision_prompt_v3.5.0'
+export const UNIFIED_VISION_WIRE_VERSION = 'aia_unified_vision_wire_v3.6.0-calibrated'
+export const UNIFIED_VISION_PROMPT_VERSION = 'aia_unified_vision_prompt_v3.6.0-calibrated'
 
 const STATUS = ['assessable', 'partially_assessable', 'not_assessable']
 const AGREEMENT = ['strong', 'partial', 'conflicting', 'single_mode_only']
@@ -141,7 +143,7 @@ function componentColumnSchema(zCount) {
   return {
     type: 'object',
     properties: {
-      g: boundedArray(boundedInteger(0, 5), zCount),
+      g: boundedArray({ type: 'number', minimum: 0, maximum: 5 }, zCount),
       q: boundedArray(boundedInteger(0, 100), zCount),
       c: boundedArray(boundedInteger(0, 100, 5), zCount),
       t: boundedArray(boundedInteger(0, 100, 5), zCount),
@@ -173,12 +175,12 @@ function featureSchema(featureId) {
 export function unifiedStructuredOutputFormatV35() {
   return {
     type: 'json_schema',
-    name: 'facial_v35_unified_evidence',
+    name: 'facial_v36_calibrated_evidence',
     strict: true,
     schema: {
       type: 'object',
       properties: {
-        v: { type: 'integer', enum: [5] },
+        v: { type: 'integer', enum: [6] },
         m: boundedArray(morphologyZoneSchema(), FACE_ZONE_IDS.length),
         f: keyedObject(CORE_FEATURE_IDS.map((_, i) => i), (i) => featureSchema(CORE_FEATURE_IDS[i])),
       },
@@ -194,7 +196,7 @@ function featureSpecification() {
     const componentIds = Object.keys(formula.components)
     const componentLines = componentIds.map((componentId, ci) => {
       const desc = String(formula.components[componentId]?.description ?? '').trim()
-      return `  C${ci}=${componentId}${desc ? ` — ${desc}` : ''}`
+      return `  C${ci}=${componentId}${desc ? ` — ${desc}` : ''}\n${JSON.stringify(COMPONENT_ANCHOR_SPECIFICATION_V2.features[featureId].components[componentId])}`
     })
     return [
       `F${fi}=${featureId}`,
@@ -217,7 +219,7 @@ Analyze the five supplied images together and return structured visual evidence 
 NON-NEGOTIABLE CLINICAL RULES
 - Image mode labels are authoritative: red, subsurface_polarized, surface_polarized, white, woods_uv. Never infer or rename a mode.
 - Use absolute image appearance only. No patient history, treatment history, dynamic questions or post-treatment assumptions.
-- Grade anchors are: 0 absent, 1 minimal, 2 mild, 3 moderate, 4 marked, 5 severe.
+- Grade anchors are: 0 absent, 1 minimal, 2 mild, 3 moderate, 4 marked, 5 severe. The full component-specific anchors below control the meaning of each value. Continuous grades between adjacent anchors are allowed. For borderline evidence use its best supported position; uncertainty changes confidence, not severity. These continuous-grade rules override legacy lower-integer tie-break wording.
 - Use one grounded assessment. Do not simulate panels, voting or hidden repeat passes.
 - Cross-mode differences caused by the physics of the five modes are expected and are NOT automatically a conflict. Set d=1 only when modes provide materially contradictory evidence for the same feature in the same zone.
 - A zone is assessable when enough relevant skin is visible to make a clinically useful estimate. Mild pose, ordinary facial contour, normal hairline adjacency or expected scanner-mode appearance do not by themselves make a zone partial.
@@ -251,7 +253,7 @@ f is keyed by F index. For every feature:
 - d[]: 1 only for genuine cross-mode contradiction; otherwise 0
 - c{}: component objects keyed by C index
 Each component contains aligned arrays:
-- g grade 0..5
+- g continuous anchored severity 0..5 (decimals allowed, e.g. 1.7, 2.35). Use integer anchors as reference points; interpolate only when observed severity lies between them. Do not round to an integer first.
 - q confidence 0..100
 - c coverage 0..100 in steps of 5
 - t contrast 0..100 in steps of 5
@@ -262,8 +264,21 @@ These are visual measurement primitives, not final scores. Preserve real regiona
 FEATURE SPECIFICATION
 ${featureSpecification()}
 
+LEGACY CLINICAL CONTEXT (Dr. Aakriti's supplied rubric)
+${JSON.stringify(LEGACY_CLINICAL_ANCHORS_V36)}
+These parameter-level definitions clarify what counts as mild/moderate/marked. Do not output old grades or final scores, do not force a particular patient's previous results, and do not equate a whole-face parameter grade with every component grade. The backend applies a versioned interpolation bridge.
+Do not perform or invent OpenCV, pixel statistics, tissue water percentages, collagen content, elastic recoil or mandibular angles. Describe only visible appearance through the requested evidence fields.
+For T-zone shine and lip darkness, clearly present findings are not 'absent' merely because they are mild. Normal constitutive skin/lip tone alone is not pathology.
+For jawline/firmness, beard and frontal-only limitations must be reflected in visibility/confidence; absence of visible concern is not proof of ideal anatomy.
+For c/t/r: score severity evidence only; absent component g=0 requires c=t=r=0. x measures corroboration, not severity.
+
 Return exactly one JSON object matching the supplied schema. No prose, markdown or extra keys.
 `.trim()
+}
+
+function continuousGrade(value, context) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 5) throw new Error(`${context} must be a finite number 0..5`)
+  return value
 }
 
 function integerInRange(value, min, max, context) {
@@ -306,8 +321,8 @@ function plausibleRange(grade, confidence) {
   // Audit range only; the score mapper uses grade + continuous primitives.
   const spread = confidence >= 80 ? 0 : confidence >= 50 ? 1 : 2
   return {
-    min: Math.max(0, grade - spread),
-    max: Math.min(5, grade + spread),
+    min: Math.max(0, Math.floor(grade - spread)),
+    max: Math.min(5, Math.ceil(grade + spread)),
   }
 }
 
@@ -385,7 +400,7 @@ function decodeFeature(value, featureId, fi) {
     const components = {}
 
     for (const col of columns) {
-      let grade = integerInRange(col.g[zi], 0, 5, `${featureId}.${zoneId}.${col.componentId}.g`)
+      let grade = continuousGrade(col.g[zi], `${featureId}.${zoneId}.${col.componentId}.g`)
       const confidence = integerInRange(col.q[zi], 0, 100, `${featureId}.${zoneId}.${col.componentId}.q`)
       const coverage = fiveStep(col.c[zi], `${featureId}.${zoneId}.${col.componentId}.c`)
       const contrast = fiveStep(col.t[zi], `${featureId}.${zoneId}.${col.componentId}.t`)
@@ -408,7 +423,7 @@ function decodeFeature(value, featureId, fi) {
         // strength is measured separately in the x primitive and mode_agreement.
         evidence_modes: [...(formula.lead_modes ?? [])],
         corroboration_modes: crossMode >= 40 ? [...(formula.support_modes ?? [])] : [],
-        reason: 'unified_v3_5_measurement',
+        reason: 'unified_v3_6_continuous_measurement',
       }
     }
 
@@ -438,7 +453,7 @@ export function decodeUnifiedVisionOutputV35(value, {
   modelVersion,
   createdAtIso = new Date().toISOString(),
 } = {}) {
-  if (Number(value?.v) !== 5) throw new Error(`Unified wire version must be 5; received ${value?.v}`)
+  if (Number(value?.v) !== 6) throw new Error(`Unified wire version must be 6; received ${value?.v}`)
   const morphology = decodeMorphology(value.m, scanId)
   const fObj = exactNumericKeys(value.f, CORE_FEATURE_IDS.length, 'unified.f')
   const decodedFeatures = Object.fromEntries(CORE_FEATURE_IDS.map((featureId, fi) => [
@@ -501,5 +516,5 @@ export function encodeEvidencePacketToUnifiedWireV35(evidencePacket) {
     }]
   }))
 
-  return { v: 5, m, f }
+  return { v: 6, m, f }
 }

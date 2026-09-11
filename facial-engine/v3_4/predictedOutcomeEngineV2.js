@@ -1,3 +1,4 @@
+import { deriveCalibratedParameterV36, CALIBRATION_VERSION_V36 } from './clinicalCalibrationV36.js'
 import {
   CORE_FEATURE_IDS,
 } from './skinStateV2.schema.js'
@@ -7,6 +8,7 @@ import {
 } from './faceZoneAtlasV2.js'
 import {
   DERIVED_REPORT_FORMULAS_V2,
+  CORE_FEATURE_FORMULAS_V2,
 } from './skinStateScoreMapperV2.js'
 import {
   MODALITY_RESPONSE_LIBRARY_V2,
@@ -923,6 +925,24 @@ function aggregateGlobalPrediction({
   }
 }
 
+function predictedCoreForCalibration(baseline, features, horizonId, rangeField) {
+  const out = structuredClone(baseline.core_features)
+  for (const [id, f] of Object.entries(out)) {
+    const prediction = features[id]
+    const next = prediction?.global_prediction?.horizons?.[horizonId]?.predicted_burden_score_1_to_100?.[rangeField] ?? f.global_burden_score_1_to_100
+    const delta = (next - f.global_burden_score_1_to_100) / 99
+    f.guarded_normalized_burden_0_to_1 = Math.max(0, Math.min(1, (f.guarded_normalized_burden_0_to_1 ?? (f.global_burden_score_1_to_100-1)/99) + delta))
+    f.global_burden_score_1_to_100 = next
+    f.zone_normalized_burdens_0_to_1 ??= {}
+    for (const [zoneId, before] of Object.entries(f.zone_scores_1_to_100 ?? {})) {
+      const after = prediction?.zone_predictions?.[zoneId]?.horizons?.[horizonId]?.predicted_burden_score_1_to_100?.[rangeField] ?? before
+      f.zone_normalized_burdens_0_to_1[zoneId] = Math.max(0, Math.min(1, (f.zone_normalized_burdens_0_to_1[zoneId] ?? (before-1)/99) + (after-before)/99))
+      f.zone_scores_1_to_100[zoneId] = after
+    }
+  }
+  return out
+}
+
 function deriveReportParameters({
   baselineSkinState,
   features,
@@ -934,6 +954,7 @@ function deriveReportParameters({
     definition,
   ] of Object.entries(
     DERIVED_REPORT_FORMULAS_V2,
+  CORE_FEATURE_FORMULAS_V2,
   )) {
     const parameter = {
       parameter_id: parameterId,
@@ -975,6 +996,28 @@ function deriveReportParameters({
               0,
             ),
           )
+      }
+
+      if (baselineSkinState.scoring_execution?.calibration_version === CALIBRATION_VERSION_V36) {
+        const ranges = ['best_case', 'expected', 'conservative']
+        const cores = Object.fromEntries(ranges.map(r => [r, predictedCoreForCalibration(baselineSkinState, features, horizonId, r)]))
+        const calibrated = core => deriveCalibratedParameterV36(parameterId, core, definition, CORE_FEATURE_FORMULAS_V2)
+        const samples = ranges.map(r => calibrated(cores[r]))
+        burdenByRange.expected = samples[1].internal_burden_score_1_to_100
+        if (parameterId === 'skin_sebum') {
+          // Oil balance is nonlinear. Enumerate oil/dryness corners instead of
+          // assuming that less oil is always the best case.
+          for (const oil of ranges) for (const dry of ranges) {
+            samples.push(calibrated({...cores.expected, oiliness: cores[oil].oiliness, visual_dehydration: cores[dry].visual_dehydration}))
+          }
+          const oilStates=samples.map(p=>p.calibration.oil_state_0_to_1)
+          if (Math.min(...oilStates)<=.5 && Math.max(...oilStates)>=.5) {
+            samples.push({internal_burden_score_1_to_100: 2}) // target lies inside the uncertainty envelope; capped health 99
+          }
+        }
+        burdenByRange.best_case = Math.min(...samples.map(p=>p.internal_burden_score_1_to_100))
+        burdenByRange.conservative = Math.max(...samples.map(p=>p.internal_burden_score_1_to_100))
+        parameter.calibration_version = CALIBRATION_VERSION_V36
       }
 
       const display = Object.fromEntries(

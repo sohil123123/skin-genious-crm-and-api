@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { CALIBRATION_VERSION_V36 } from './clinicalCalibrationV36.js'
 import process from 'node:process'
 import { createHash } from 'node:crypto'
 import {
@@ -242,7 +243,7 @@ function resolveImageSetHash(imagesByMode, supplied) {
   return createHash('sha256').update(material).digest('hex')
 }
 
-async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetHash, model }) {
+async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetHash, model, captureType = 'baseline', pairedBaselineScanId = null }) {
   const resolvedImageSetHash = resolveImageSetHash(imagesByMode, imageSetHash)
   const prompt = buildUnifiedVisionPromptV35()
   const maxOutputTokens = Math.max(8000, Math.min(24000, envInt('FACIAL_V35_MAX_OUTPUT_TOKENS', 18000)))
@@ -272,7 +273,7 @@ async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetH
     },
     max_output_tokens: maxOutputTokens,
     metadata: {
-      pipeline_version: 'facial_v3_5_unified',
+      pipeline_version: 'facial_v3_6_calibrated_unified',
       stage: 'unified_assessment',
       prompt_version: UNIFIED_VISION_PROMPT_VERSION,
       wire_version: UNIFIED_VISION_WIRE_VERSION,
@@ -301,8 +302,8 @@ async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetH
     scanOverride: {
       scan_id: scanId,
       image_set_hash: resolvedImageSetHash,
-      capture_type: 'baseline',
-      paired_baseline_scan_id: null,
+      capture_type: captureType,
+      paired_baseline_scan_id: pairedBaselineScanId,
     },
     modelVersion: model,
   })
@@ -323,7 +324,7 @@ async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetH
   skinState.scoring_execution.unified_wire_version = UNIFIED_VISION_WIRE_VERSION
 
   return {
-    runner_version: 'aia_skin_state_runner_v3.5.0_unified',
+    runner_version: 'aia_skin_state_runner_v3.6.0_calibrated_unified',
     evidence_packet: evidencePacket,
     skin_state: skinState,
     assessment_contract: {
@@ -332,6 +333,7 @@ async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetH
       same_assessment_must_be_reused_by_diagnosis_planning_and_reporting: true,
       patient_context_received_but_excluded_from_vision: false,
     },
+    imagesByMode,
     raw_unified_output: process.env.FACIAL_V35_INCLUDE_RAW === '1' ? parsed : undefined,
   }
 }
@@ -437,7 +439,7 @@ async function assessmentCommand(payload, model) {
     elapsed_seconds: Math.round(elapsedMs / 1000),
   })
   return {
-    engine_version: 'facial_v3_5',
+    engine_version: 'facial_v3_6_calibrated',
     command: 'assessment',
     latency_profile: {
       inference_architecture: 'single_unified_five_mode_call',
@@ -518,21 +520,32 @@ async function reassessmentCommand(payload, model) {
   if (!payload.baseline_run?.skin_state || !payload.baseline_run?.evidence_packet) {
     throw new Error('reassessment requires the stored baseline run.')
   }
-  const visionCall = createLegacyVisionCall(model)
+  const baseline = payload.baseline_run
+  if (baseline.skin_state.scoring_execution?.calibration_version !== CALIBRATION_VERSION_V36) {
+    throw new Error('Baseline uses a different calibration. Re-run the original baseline images with v3.6-calibrated before comparing; keep the original report for audit.')
+  }
+  if (baseline.evidence_packet.model_execution?.model_version !== model ||
+      baseline.evidence_packet.model_execution?.prompt_version !== UNIFIED_VISION_PROMPT_VERSION) {
+    throw new Error('Baseline model/prompt differs from v3.6 reassessment. Use the same model and re-run original baseline images before comparing.')
+  }
+  if (!baseline.imagesByMode) throw new Error('Original baseline images are required for visual pairwise verification.')
+  const postRun = await runUnifiedAbsoluteAssessmentV35({
+    scanId: String(payload.post_scan_id ?? `post-${payload.assessment_id ?? Date.now()}`),
+    imagesByMode: payload.post_images_by_mode,
+    imageSetHash: payload.post_image_set_hash ?? null,
+    model,
+    captureType: 'post_treatment',
+    pairedBaselineScanId: baseline.skin_state.scan.scan_id,
+  })
   const result = await runPostTreatmentReassessmentV2({
-    baseline: payload.baseline_run,
-    post: {
-      scanId: String(payload.post_scan_id ?? `post-${payload.assessment_id ?? Date.now()}`),
-      imagesByMode: payload.post_images_by_mode,
-      imageSetHash: payload.post_image_set_hash ?? null,
-    },
-    visionCall,
-    pairwiseCall: visionCall,
+    baseline,
+    post: postRun,
+    pairwiseCall: createLegacyVisionCall(model),
     modelVersion: model,
     includeRawPairwiseOutput: payload.include_raw_pairwise_output === true,
   })
   return {
-    engine_version: 'facial_v3_5',
+    engine_version: 'facial_v3_6_calibrated',
     command: 'reassessment',
     post_feature_packet: result.post_treatment?.skin_state ?? null,
     post_diagnosis: buildLegacyPostDiagnosisV34(result),
@@ -553,7 +566,7 @@ async function main() {
   else if (command === 'self_test') {
     result = {
       ok: true,
-      engine_version: 'facial_v3_5',
+      engine_version: 'facial_v3_6_calibrated',
       node_version: process.version,
       canonical_modes: CANONICAL_MODES,
       inference_architecture: 'single_unified_five_mode_call',
