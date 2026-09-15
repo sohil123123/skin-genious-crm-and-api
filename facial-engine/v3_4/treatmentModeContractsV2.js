@@ -3,7 +3,7 @@ import {
 } from './clinicStepDurationRulesV3_4.js'
 
 export const TREATMENT_MODE_CONTRACTS_VERSION =
-  'aia_treatment_mode_contracts_v3.4.0'
+  'aia_treatment_mode_contracts_v3.9.0'
 
 export const TREATMENT_MODE_IDS = ['single', 'express', 'multiple']
 
@@ -37,8 +37,8 @@ export const MANDATORY_SESSION_ACTIONS_V2_8 = Object.freeze({
 
 export const MINIMUM_SESSION_DURATION_COMPLETION_POLICY_V2_8 =
   Object.freeze({
-    applies_to: ['single', 'multiple'],
-    minimum_minutes: 55,
+    applies_to: ['single', 'express', 'multiple'],
+    minimum_minutes: 60,
     selection_order: [
       'highest_residual_score_improving_eligible_step',
       'extend_mandatory_lymphatic_drainage_within_5_to_15_minutes',
@@ -56,9 +56,9 @@ export const TREATMENT_MODE_CONTRACTS_V2 = Object.freeze({
       'Best possible visible and clinically appropriate outcome for the client today.',
     optimizer_objective_preset: 'immediate',
     duration: {
-      hard_minimum_minutes: 55,
+      hard_minimum_minutes: 60,
       target_minutes: 70,
-      hard_maximum_minutes: 70,
+      hard_maximum_minutes: 75,
       fixed_final_skin_protection_minutes:
         FINAL_SKIN_PROTECTION_DURATION_MINUTES,
     },
@@ -89,12 +89,12 @@ export const TREATMENT_MODE_CONTRACTS_V2 = Object.freeze({
     id: 'express',
     label: 'Express',
     business_purpose:
-      'Best possible visible outcome in 30–40 minutes using one carefully chosen hero.',
+      'Best possible visible outcome in 40 minutes using one carefully chosen hero.',
     optimizer_objective_preset: 'event_ready',
     duration: {
-      hard_minimum_minutes: 30,
+      hard_minimum_minutes: 35,
       target_minutes: 40,
-      hard_maximum_minutes: 40,
+      hard_maximum_minutes: 45,
       fixed_final_skin_protection_minutes:
         FINAL_SKIN_PROTECTION_DURATION_MINUTES,
     },
@@ -113,6 +113,7 @@ export const TREATMENT_MODE_CONTRACTS_V2 = Object.freeze({
 
     mandatory_session_actions:
       MANDATORY_SESSION_ACTIONS_V2_8,
+    minimum_duration_completion_policy: { ...MINIMUM_SESSION_DURATION_COMPLETION_POLICY_V2_8, minimum_minutes: 40 },
     output: {
       detailed_sessions_now: 1,
       reassessment_gate: false,
@@ -126,9 +127,9 @@ export const TREATMENT_MODE_CONTRACTS_V2 = Object.freeze({
       'Best achievable outcome over a dynamic course of up to eight sessions.',
     optimizer_objective_preset: 'course',
     duration: {
-      hard_minimum_minutes: 55,
+      hard_minimum_minutes: 60,
       target_minutes: 70,
-      hard_maximum_minutes: 70,
+      hard_maximum_minutes: 75,
       fixed_final_skin_protection_minutes:
         FINAL_SKIN_PROTECTION_DURATION_MINUTES,
     },
@@ -158,7 +159,7 @@ export const TREATMENT_MODE_CONTRACTS_V2 = Object.freeze({
     mandatory_session_actions:
       MANDATORY_SESSION_ACTIONS_V2_8,
     minimum_duration_completion_policy:
-      MINIMUM_SESSION_DURATION_COMPLETION_POLICY_V2_8,
+      { ...MINIMUM_SESSION_DURATION_COMPLETION_POLICY_V2_8, minimum_minutes: 60 },
     output: {
       detailed_sessions_now: 2,
       reassessment_gate: true,

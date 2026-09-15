@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { CALIBRATION_VERSION_V36 } from './clinicalCalibrationV36.js'
+import { compactResultV391, compactPlanningContextV391 } from './payloadTransportV391.js'
+import { validateWorkflowPlanV39, mergeCourseBlockV39 } from './workflowV39/workflowContractV39.js'
+import { CALIBRATION_VERSION_V37 as CALIBRATION_VERSION_V36 } from './legacyScoringV37.js'
+import { COMPACT_PAIRWISE_VERSION, COMPACT_PAIRWISE_PROMPT, compactPairwiseFormat, compactPairwiseInput, decodeCompactPairwise, runConcurrentReassessment } from './compactPairwiseV393.js'
+import {MEASUREMENT_VERSION,FORMULA_VERSION,DEVICE_PROFILE,measurementFormat,measurementPrompt,decodeMeasurements} from './regionalMeasurementV310.js'
+import {buildRegionalRun} from './regionalScoringV310.js'
+import {regionalMeasurementChanges} from './regionalReassessmentV310.js'
+import {cachedMeasurement} from './measurementCacheV310.mjs'
 import process from 'node:process'
 import { createHash } from 'node:crypto'
 import {
@@ -192,7 +199,7 @@ async function openAiResponses(payload, { moduleId = 'unknown', timeoutMsOverrid
         }
         throw new Error(errorMsg)
       }
-      if (json.status === 'incomplete') throw new Error(`OpenAI response incomplete: ${json?.incomplete_details?.reason ?? 'unknown_reason'}`)
+      if (json.status === 'incomplete') throw new Error(`OpenAI response incomplete: ${json?.incomplete_details?.reason ?? 'unknown_reason'}; module=${moduleId}; limit=${payload.max_output_tokens}; output_tokens=${json?.usage?.output_tokens ?? 'unknown'}; reasoning_tokens=${json?.usage?.output_tokens_details?.reasoning_tokens ?? 'unknown'}`)
       if (json.status === 'failed' || json.status === 'cancelled') throw new Error(json?.error?.message ?? `OpenAI response ${json.status}.`)
       logV35('facial_v35_vision_complete', {
         module_id: moduleId,
@@ -243,99 +250,29 @@ function resolveImageSetHash(imagesByMode, supplied) {
   return createHash('sha256').update(material).digest('hex')
 }
 
-async function runUnifiedAbsoluteAssessmentV35({ scanId, imagesByMode, imageSetHash, model, captureType = 'baseline', pairedBaselineScanId = null }) {
-  const resolvedImageSetHash = resolveImageSetHash(imagesByMode, imageSetHash)
-  const prompt = buildUnifiedVisionPromptV35()
-  const maxOutputTokens = Math.max(8000, Math.min(24000, envInt('FACIAL_V35_MAX_OUTPUT_TOKENS', 18000)))
-  const reasoningEffort = String(process.env.FACIAL_V35_REASONING_EFFORT ?? process.env.FACIAL_V34_REASONING_EFFORT ?? 'none')
-  const request = {
-    model,
-    input: [
-      { role: 'system', content: [{ type: 'input_text', text: prompt }] },
-      {
-        role: 'user',
-        content: buildVisionContent(imagesByMode, {
-          task: 'Produce one unified absolute five-mode Skin State evidence packet.',
-          scan_id: scanId,
-          image_set_hash: resolvedImageSetHash,
-          authoritative_mode_order: CANONICAL_MODES,
-          fixed_device_capture: true,
-          patient_history_available: false,
-          treatment_history_available: false,
-          dynamic_questions_available: false,
-        }),
-      },
-    ],
-    reasoning: { effort: reasoningEffort },
-    text: {
-      verbosity: String(process.env.FACIAL_V35_TEXT_VERBOSITY ?? 'low'),
-      format: unifiedStructuredOutputFormatV35(),
-    },
-    max_output_tokens: maxOutputTokens,
-    metadata: {
-      pipeline_version: 'facial_v3_6_calibrated_unified',
-      stage: 'unified_assessment',
-      prompt_version: UNIFIED_VISION_PROMPT_VERSION,
-      wire_version: UNIFIED_VISION_WIRE_VERSION,
-    },
-    prompt_cache_key: stableCacheKey('unified_assessment', UNIFIED_VISION_PROMPT_VERSION),
-  }
-
-  logV35('facial_v35_unified_contract', {
-    openai_call_count: 1,
-    system_prompt_chars: prompt.length,
-    max_output_tokens: maxOutputTokens,
-    reasoning_effort: reasoningEffort,
-    image_detail: String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high'),
-  })
-
-  const response = await openAiResponses(request, { moduleId: 'unified_assessment' })
-  const parsed = parseModelJson(response)
-  const decoded = decodeUnifiedVisionOutputV35(parsed, {
-    scanId,
-    imageSetHash: resolvedImageSetHash,
-    modelVersion: model,
-  })
-
-  const evidencePacket = mergeVisionEvidencePacketsV2(decoded.moduleOutputs, {
-    morphologyExclusionMap: decoded.morphology,
-    scanOverride: {
-      scan_id: scanId,
-      image_set_hash: resolvedImageSetHash,
-      capture_type: captureType,
-      paired_baseline_scan_id: pairedBaselineScanId,
-    },
-    modelVersion: model,
-  })
-  evidencePacket.model_execution.prompt_version = UNIFIED_VISION_PROMPT_VERSION
-  evidencePacket.model_execution.unified_wire_version = UNIFIED_VISION_WIRE_VERSION
-  evidencePacket.model_execution.openai_baseline_call_count = 1
-
-  const skinState = buildSkinStateV2(evidencePacket)
-  const assessmentId = createHash('sha256')
-    .update([scanId, resolvedImageSetHash, model, UNIFIED_VISION_PROMPT_VERSION, skinState.scoring_execution.formula_config_version].join('|'))
-    .digest('hex')
-  skinState.scoring_execution.assessment_id = assessmentId
-  skinState.scoring_execution.immutable_assessment = true
-  skinState.scoring_execution.history_excluded_from_image_scoring = true
-  skinState.scoring_execution.dynamic_questions_used = false
-  skinState.scoring_execution.external_qc_layer_used = false
-  skinState.scoring_execution.inference_architecture = 'single_unified_five_mode_call'
-  skinState.scoring_execution.unified_wire_version = UNIFIED_VISION_WIRE_VERSION
-
-  return {
-    runner_version: 'aia_skin_state_runner_v3.6.0_calibrated_unified',
-    evidence_packet: evidencePacket,
-    skin_state: skinState,
-    assessment_contract: {
-      assessment_id: assessmentId,
-      immutable: true,
-      same_assessment_must_be_reused_by_diagnosis_planning_and_reporting: true,
-      patient_context_received_but_excluded_from_vision: false,
-    },
-    imagesByMode,
-    raw_unified_output: process.env.FACIAL_V35_INCLUDE_RAW === '1' ? parsed : undefined,
-  }
+async function runUnifiedAbsoluteAssessmentV35({scanId,imagesByMode,imageSetHash,model,captureType='baseline',pairedBaselineScanId=null}) {
+  const hash=resolveImageSetHash(imagesByMode,imageSetHash)
+  const prompt=measurementPrompt()
+  const promptHash=createHash('sha256').update(prompt).digest('hex')
+  const detail=String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high')
+  const reasoning=String(process.env.FACIAL_V35_REASONING_EFFORT ?? process.env.FACIAL_V34_REASONING_EFFORT ?? 'none')
+  const maxTokens=Math.max(8000,Math.min(32000,envInt('FACIAL_V310_MAX_OUTPUT_TOKENS',12000)))
+  const cache=await cachedMeasurement({directory:process.env.FACIAL_V310_CACHE_DIR,
+    identity:{scope:scanId.split('-').slice(0,2).join('-'),images:CANONICAL_MODES.map(mode=>[mode,imageFileId(imagesByMode[mode])]),hash,model,detail,reasoning,maxTokens,promptHash,measurement_version:MEASUREMENT_VERSION,formula_version:FORMULA_VERSION,device_profile:DEVICE_PROFILE.id},
+    produce:async()=>{
+      const response=await openAiResponses({model,input:[
+        {role:'system',content:[{type:'input_text',text:prompt}]},
+        {role:'user',content:buildVisionContent(imagesByMode,{task:'Measure absolute regional skin appearance',authoritative_mode_order:CANONICAL_MODES})},
+      ],reasoning:{effort:reasoning},text:{verbosity:'low',format:measurementFormat()},max_output_tokens:maxTokens,prompt_cache_key:MEASUREMENT_VERSION}, {moduleId:'regional_measurement_v310'})
+      const parsed=parseModelJson(response);decodeMeasurements(parsed);return parsed
+    }})
+  const run=buildRegionalRun(decodeMeasurements(cache.value),{scanId,imageSetHash:hash,modelVersion:model,captureType,pairedBaselineScanId})
+  run.evidence_packet.model_execution.unified_wire_version=MEASUREMENT_VERSION
+  run.evidence_packet.model_execution.openai_baseline_call_count=cache.cache_hit?0:1
+  run.skin_state.scoring_execution.assessment_id=cache.key
+  run.skin_state.scoring_execution.measurement_cache_hit=cache.cache_hit
+  run.skin_state.scoring_execution.inference_architecture='one_regional_measurement_call_immutable_reuse'
+  return {...run,runner_version:MEASUREMENT_VERSION,imagesByMode,assessment_contract:{assessment_id:cache.key,immutable:true,same_assessment_must_be_reused_by_diagnosis_planning_and_reporting:true}}
 }
 
 // Legacy V3.4 compact caller retained only so existing post-treatment
@@ -349,6 +286,26 @@ function buildLegacyPromptCacheKey(moduleId, featureIndexes, promptVersion) {
 function createLegacyVisionCall(model) {
   return async ({ module_id, system_prompt, prompt_version, images, input }) => {
     const moduleId = String(module_id)
+    if (moduleId === 'pairwise_outcome') {
+      const compactInput = compactPairwiseInput(input)
+      const cached = await cachedMeasurement({directory:process.env.FACIAL_V310_CACHE_DIR,
+        identity:{kind:'pairwise',images,input:compactInput,model,prompt_version:COMPACT_PAIRWISE_VERSION,measurement_version:MEASUREMENT_VERSION,reasoning:String(process.env.FACIAL_V34_REASONING_EFFORT ?? 'none'),detail:String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high')},
+        produce:async()=>{
+        const response = await openAiResponses({
+        model,
+        input: [
+          {role:'system',content:[{type:'input_text',text:COMPACT_PAIRWISE_PROMPT}]},
+          {role:'user',content:buildVisionContent(images,compactInput)},
+        ],
+        reasoning:{effort:String(process.env.FACIAL_V34_REASONING_EFFORT ?? 'none')},
+        text:{verbosity:'low',format:compactPairwiseFormat()},
+        max_output_tokens:Math.max(6000,Math.min(32000,envInt('FACIAL_V393_PAIRWISE_MAX_OUTPUT_TOKENS',8000))),
+        prompt_cache_key:COMPACT_PAIRWISE_VERSION,
+      },{moduleId})
+        const value=parseModelJson(response);decodeCompactPairwise(value,compactInput);return value
+      }})
+      return decodeCompactPairwise(cached.value,compactInput)
+    }
     const useCompact = LEGACY_COMPACT_MODULES.has(moduleId)
     const compactInput = useCompact ? compactModelInputV34_1(moduleId, input) : input
     const reasoningEffort = String(process.env.FACIAL_V34_REASONING_EFFORT ?? 'none')
@@ -439,12 +396,12 @@ async function assessmentCommand(payload, model) {
     elapsed_seconds: Math.round(elapsedMs / 1000),
   })
   return {
-    engine_version: 'facial_v3_6_calibrated',
+    engine_version: 'facial_v3_10_regional_measurements',
     command: 'assessment',
     latency_profile: {
-      inference_architecture: 'single_unified_five_mode_call',
-      baseline_openai_call_count: 1,
-      unified_wire_version: UNIFIED_VISION_WIRE_VERSION,
+      inference_architecture: 'one_regional_measurement_call_immutable_reuse',
+      baseline_openai_call_count: run.evidence_packet.model_execution.openai_baseline_call_count,
+      unified_wire_version: MEASUREMENT_VERSION,
       elapsed_ms: elapsedMs,
     },
     feature_packet: run.evidence_packet,
@@ -459,6 +416,7 @@ async function assessmentCommand(payload, model) {
 async function treatmentPlanCommand(payload) {
   const skinState = payload.skin_state
   if (!skinState?.core_features) throw new Error('treatment_plan requires skin_state from the baseline assessment.')
+  if (skinState.scoring_execution?.calibration_version !== CALIBRATION_VERSION_V36) throw new Error('Re-run baseline images with V3.7 before generating a new treatment plan; retain old reports for audit.')
   const treatmentMode = normalizeTreatmentMode(payload.treatment_mode)
   const concerns = resolveConcernFeaturesV34(payload.selected_concerns, skinState)
   const common = {
@@ -520,35 +478,44 @@ async function reassessmentCommand(payload, model) {
   if (!payload.baseline_run?.skin_state || !payload.baseline_run?.evidence_packet) {
     throw new Error('reassessment requires the stored baseline run.')
   }
-  const baseline = payload.baseline_run
-  if (baseline.skin_state.scoring_execution?.calibration_version !== CALIBRATION_VERSION_V36) {
-    throw new Error('Baseline uses a different calibration. Re-run the original baseline images with v3.6-calibrated before comparing; keep the original report for audit.')
-  }
-  if (baseline.evidence_packet.model_execution?.model_version !== model ||
-      baseline.evidence_packet.model_execution?.prompt_version !== UNIFIED_VISION_PROMPT_VERSION) {
-    throw new Error('Baseline model/prompt differs from v3.6 reassessment. Use the same model and re-run original baseline images before comparing.')
-  }
+  let baseline = payload.baseline_run
   if (!baseline.imagesByMode) throw new Error('Original baseline images are required for visual pairwise verification.')
-  const postRun = await runUnifiedAbsoluteAssessmentV35({
-    scanId: String(payload.post_scan_id ?? `post-${payload.assessment_id ?? Date.now()}`),
+  const referenceRescored = baseline.skin_state.scoring_execution?.formula_config_version !== FORMULA_VERSION || baseline.evidence_packet.model_execution?.model_version !== model || baseline.evidence_packet.model_execution?.prompt_version !== MEASUREMENT_VERSION
+  if (referenceRescored) {
+    baseline = await runUnifiedAbsoluteAssessmentV35({scanId:baseline.skin_state.scan.scan_id,imagesByMode:baseline.imagesByMode,imageSetHash:baseline.skin_state.scan.image_set_hash,model,captureType:baseline.skin_state.scan.capture_type ?? 'baseline'})
+  }
+  const postScanId = String(payload.post_scan_id ?? `post-${payload.assessment_id ?? Date.now()}`)
+  const {postRun,pairwise,latency_profile} = await runConcurrentReassessment(
+    () => runUnifiedAbsoluteAssessmentV35({
+    scanId: postScanId,
     imagesByMode: payload.post_images_by_mode,
     imageSetHash: payload.post_image_set_hash ?? null,
     model,
     captureType: 'post_treatment',
     pairedBaselineScanId: baseline.skin_state.scan.scan_id,
-  })
+  }),
+    () => createLegacyVisionCall(model)({module_id:'pairwise_outcome',
+      images:{baseline:baseline.imagesByMode,post_treatment:payload.post_images_by_mode},
+      input:{baseline_scan_id:baseline.skin_state.scan.scan_id,post_scan_id:postScanId}
+    }),
+  )
   const result = await runPostTreatmentReassessmentV2({
     baseline,
     post: postRun,
-    pairwiseCall: createLegacyVisionCall(model),
+    pairwiseCall: async () => pairwise,
     modelVersion: model,
     includeRawPairwiseOutput: payload.include_raw_pairwise_output === true,
   })
   return {
-    engine_version: 'facial_v3_6_calibrated',
+    engine_version: 'facial_v3_10_regional_measurements',
     command: 'reassessment',
-    post_feature_packet: result.post_treatment?.skin_state ?? null,
-    post_diagnosis: buildLegacyPostDiagnosisV34(result),
+    latency_profile,
+    post_feature_packet: postRun.evidence_packet,
+    post_run: { skin_state: postRun.skin_state, evidence_packet: postRun.evidence_packet },
+    post_diagnosis: {...buildLegacyPostDiagnosisV34(result),metadata:{...buildLegacyPostDiagnosisV34(result).metadata,reference_rescored:referenceRescored,reference_measurement_version:MEASUREMENT_VERSION}},
+    reference_rescored:referenceRescored,
+    reference_run:referenceRescored?{skin_state:baseline.skin_state,evidence_packet:baseline.evidence_packet}:null,
+    regional_measurement_changes:regionalMeasurementChanges(baseline.skin_state.regional_measurements,postRun.skin_state.regional_measurements),
     reassessment_result: result,
     outcome_report: null,
     outcome_report_status: 'not_generated_until_verified_execution_record_is_persisted',
@@ -558,21 +525,33 @@ async function reassessmentCommand(payload, model) {
 async function main() {
   const command = process.argv[2]
   const payload = command === 'self_test' ? {} : await readStdin()
-  const model = String(payload.model ?? process.env.FACIAL_V35_MODEL ?? process.env.FACIAL_V34_MODEL ?? process.env.FACIAL_V34_OPENAI_MODEL ?? 'gpt-5.2')
+  const requestedModel = String(payload.model ?? process.env.FACIAL_V35_MODEL ?? process.env.FACIAL_V34_MODEL ?? process.env.FACIAL_V34_OPENAI_MODEL ?? 'gpt-5.2')
+  const model = requestedModel === 'gpt-5.2' ? 'gpt-5.2-2025-12-11' : requestedModel
   let result
   if (command === 'assessment') result = await assessmentCommand(payload, model)
   else if (command === 'treatment_plan') result = await treatmentPlanCommand(payload)
   else if (command === 'reassessment') result = await reassessmentCommand(payload, model)
+  else if (command === 'validate_course_block') {
+    const check = validateWorkflowPlanV39(payload.plan, payload.mode, payload.selected_concerns, payload.course_context)
+    if (!check.valid) throw new Error(check.errors.join(' '))
+    result = { ...check, merged_plan: payload.existing_plan ? mergeCourseBlockV39(payload.existing_plan, payload.plan) : payload.plan }
+  }
+  else if (command === 'project_transport') result = compactResultV391(payload.result, payload.assessment_id)
+  else if (command === 'refresh_concern_preview') {
+    const saved = payload.result
+    result = {...saved, diagnosis:buildLegacyDiagnosisV34({skinAnalysisReport:saved.skin_analysis_report,skinState:saved.skin_state})}
+  }
+  else if (command === 'project_planning_context') result = compactPlanningContextV391(payload.context)
   else if (command === 'self_test') {
     result = {
       ok: true,
-      engine_version: 'facial_v3_6_calibrated',
+      engine_version: 'facial_v3_10_regional_measurements',
       node_version: process.version,
       canonical_modes: CANONICAL_MODES,
-      inference_architecture: 'single_unified_five_mode_call',
+      inference_architecture: 'one_regional_measurement_call_immutable_reuse',
       baseline_openai_call_count: 1,
-      unified_wire_version: UNIFIED_VISION_WIRE_VERSION,
-      unified_prompt_version: UNIFIED_VISION_PROMPT_VERSION,
+      unified_wire_version: MEASUREMENT_VERSION,
+      unified_prompt_version: MEASUREMENT_VERSION,
       default_reasoning_effort: process.env.FACIAL_V35_REASONING_EFFORT ?? process.env.FACIAL_V34_REASONING_EFFORT ?? 'none',
       default_image_detail: process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high',
     }

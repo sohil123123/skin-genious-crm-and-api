@@ -1,5 +1,5 @@
+import { legacyMeasurementSchemaV37, legacyMeasurementPromptV37, validateLegacyMeasurementsV37 } from './legacyMeasurementContractV37.js'
 import { COMPONENT_ANCHOR_SPECIFICATION_V2 } from './componentAnchorSpecificationV2.js'
-import { LEGACY_CLINICAL_ANCHORS_V36 } from './legacyClinicalAnchorsV36.js'
 import {
   CORE_FEATURE_IDS,
   IMAGE_MODES,
@@ -37,8 +37,8 @@ import {
  *  - evidence/corroboration mode name arrays (derived from formula mode roles);
  *  - per-feature artifact arrays (morphology is the single source of truth).
  */
-export const UNIFIED_VISION_WIRE_VERSION = 'aia_unified_vision_wire_v3.6.0-calibrated'
-export const UNIFIED_VISION_PROMPT_VERSION = 'aia_unified_vision_prompt_v3.6.0-calibrated'
+export const UNIFIED_VISION_WIRE_VERSION = 'aia_unified_vision_wire_v3.7.0-legacy-measurements'
+export const UNIFIED_VISION_PROMPT_VERSION = 'aia_unified_vision_prompt_v3.7.0-legacy-measurements'
 
 const STATUS = ['assessable', 'partially_assessable', 'not_assessable']
 const AGREEMENT = ['strong', 'partial', 'conflicting', 'single_mode_only']
@@ -175,16 +175,17 @@ function featureSchema(featureId) {
 export function unifiedStructuredOutputFormatV35() {
   return {
     type: 'json_schema',
-    name: 'facial_v36_calibrated_evidence',
+    name: 'facial_v37_legacy_evidence',
     strict: true,
     schema: {
       type: 'object',
       properties: {
-        v: { type: 'integer', enum: [6] },
+        v: { type: 'integer', enum: [7] },
+        l: legacyMeasurementSchemaV37(),
         m: boundedArray(morphologyZoneSchema(), FACE_ZONE_IDS.length),
         f: keyedObject(CORE_FEATURE_IDS.map((_, i) => i), (i) => featureSchema(CORE_FEATURE_IDS[i])),
       },
-      required: ['v', 'm', 'f'],
+      required: ['v', 'm', 'f', 'l'],
       additionalProperties: false,
     },
   }
@@ -264,14 +265,14 @@ These are visual measurement primitives, not final scores. Preserve real regiona
 FEATURE SPECIFICATION
 ${featureSpecification()}
 
-LEGACY CLINICAL CONTEXT (Dr. Aakriti's supplied rubric)
-${JSON.stringify(LEGACY_CLINICAL_ANCHORS_V36)}
-These parameter-level definitions clarify what counts as mild/moderate/marked. Do not output old grades or final scores, do not force a particular patient's previous results, and do not equate a whole-face parameter grade with every component grade. The backend applies a versioned interpolation bridge.
-Do not perform or invent OpenCV, pixel statistics, tissue water percentages, collagen content, elastic recoil or mandibular angles. Describe only visible appearance through the requested evidence fields.
+SCORING NAMESPACES
+The f fields use regional 0-5 feature anchors. The l fields use the original legacy metric definitions below. Do not confuse these scales. Backend applies legacy equations, not a new-feature interpolation bridge.
+Do not claim to perform OpenCV or direct physiological measurements. Required legacy angle/reflectance/recoil fields are supported visual estimates where not directly measurable, with explicit lower confidence.
 For T-zone shine and lip darkness, clearly present findings are not 'absent' merely because they are mild. Normal constitutive skin/lip tone alone is not pathology.
 For jawline/firmness, beard and frontal-only limitations must be reflected in visibility/confidence; absence of visible concern is not proof of ideal anatomy.
 For c/t/r: score severity evidence only; absent component g=0 requires c=t=r=0. x measures corroboration, not severity.
 
+${legacyMeasurementPromptV37()}
 Return exactly one JSON object matching the supplied schema. No prose, markdown or extra keys.
 `.trim()
 }
@@ -423,7 +424,7 @@ function decodeFeature(value, featureId, fi) {
         // strength is measured separately in the x primitive and mode_agreement.
         evidence_modes: [...(formula.lead_modes ?? [])],
         corroboration_modes: crossMode >= 40 ? [...(formula.support_modes ?? [])] : [],
-        reason: 'unified_v3_6_continuous_measurement',
+        reason: 'unified_v3_7_continuous_measurement',
       }
     }
 
@@ -453,7 +454,7 @@ export function decodeUnifiedVisionOutputV35(value, {
   modelVersion,
   createdAtIso = new Date().toISOString(),
 } = {}) {
-  if (Number(value?.v) !== 6) throw new Error(`Unified wire version must be 6; received ${value?.v}`)
+  if (Number(value?.v) !== 7) throw new Error(`Unified wire version must be 7; received ${value?.v}`)
   const morphology = decodeMorphology(value.m, scanId)
   const fObj = exactNumericKeys(value.f, CORE_FEATURE_IDS.length, 'unified.f')
   const decodedFeatures = Object.fromEntries(CORE_FEATURE_IDS.map((featureId, fi) => [
@@ -480,7 +481,7 @@ export function decodeUnifiedVisionOutputV35(value, {
     }
   }
 
-  return { morphology, moduleOutputs, decodedFeatures }
+  return { morphology, moduleOutputs, decodedFeatures, legacyMeasurements: validateLegacyMeasurementsV37(value.l) }
 }
 
 // Test helper: encode an existing valid V3 evidence packet into the V3.5 wire.
@@ -516,5 +517,5 @@ export function encodeEvidencePacketToUnifiedWireV35(evidencePacket) {
     }]
   }))
 
-  return { v: 6, m, f }
+  return { v: 7, m, f, l: validateLegacyMeasurementsV37(evidencePacket.legacy_measurements) }
 }

@@ -154,35 +154,19 @@ export function buildFeaturePriorityMapV2({
 function globalFeatureScore(skinState, featureId) {
   const value =
     skinState?.core_features?.[featureId]?.global_burden_score_1_to_100
-  return Number.isFinite(Number(value)) ? Number(value) : null
+  return value != null && Number.isFinite(Number(value)) ? Number(value) : null
 }
 
 function zoneFeatureScore(skinState, featureId, zoneId) {
   const value =
     skinState?.core_features?.[featureId]?.zone_scores_1_to_100?.[zoneId]
-  return Number.isFinite(Number(value)) ? Number(value) : null
+  return value != null && Number.isFinite(Number(value)) ? Number(value) : null
 }
 
-function reliabilityMultiplier(skinState, featureId) {
-  const reliability = skinState?.core_features?.[featureId]?.score_reliability
-  if (!reliability) return 0.82
-
-  const numeric =
-    reliability.score_1_to_100 ??
-    reliability.score ??
-    reliability.reliability_score_1_to_100
-
-  if (Number.isFinite(Number(numeric))) {
-    return clamp(Number(numeric) / 100, 0.45, 1)
-  }
-
-  const tier = String(reliability.tier ?? '').toLowerCase()
-  return {
-    high: 1,
-    medium: 0.82,
-    low: 0.58,
-    unreliable: 0.4,
-  }[tier] ?? 0.78
+function reliabilityMultiplier() {
+  // Image scoring confidence is audit metadata, not a treatment-priority weight.
+  // Eligibility, actual regional observations and modality response evidence still apply.
+  return 1
 }
 
 function responseStrengthForObjective(response, objective) {

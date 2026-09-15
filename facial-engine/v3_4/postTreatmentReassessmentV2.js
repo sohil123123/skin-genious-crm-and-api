@@ -116,9 +116,10 @@ function buildCoreFeatureOutcomes(
     const afterFeature = postState.core_features[featureId]
     const before = beforeFeature.global_burden_score_1_to_100
     const after = afterFeature.global_burden_score_1_to_100
-    const improvementPoints = before - after
+    const hasMeasurement = Number.isFinite(before) && Number.isFinite(after)
+    const improvementPoints = hasMeasurement ? before - after : null
     const threshold = thresholds[featureId] ?? 5
-    const numeric = numericDirection(improvementPoints, threshold)
+    const numeric = hasMeasurement ? numericDirection(improvementPoints, threshold) : 'insufficient_evidence'
     const pairwiseComparison = pairwise?.feature_comparisons?.[featureId] ?? null
     const pairwiseDirection =
       pairwiseComparison?.global_change_direction ?? null
@@ -148,11 +149,11 @@ function buildCoreFeatureOutcomes(
       before_burden_score_1_to_100: before,
       after_burden_score_1_to_100: after,
       improvement_points: improvementPoints,
-      absolute_change_points: Math.abs(improvementPoints),
+      absolute_change_points: hasMeasurement ? Math.abs(improvementPoints) : null,
       numeric_change_direction: numeric,
       minimum_detectable_change_points: threshold,
       treatable_gap_closed_percent:
-        before <= 1
+        !hasMeasurement || before <= 1
           ? 0
           : Math.round(clamp((improvementPoints / (before - 1)) * 100, -100, 100)),
       pairwise_change_direction: pairwiseDirection,
@@ -160,7 +161,7 @@ function buildCoreFeatureOutcomes(
         pairwiseComparison?.global_change_confidence ?? null,
       pairwise_validation_status: validation,
       score_reliability_tier: reliabilityTier(beforeFeature, afterFeature),
-      display_numeric_change: shouldDisplayNumericChange({
+      display_numeric_change: hasMeasurement && shouldDisplayNumericChange({
         improvementPoints,
         threshold,
         validation,
@@ -225,6 +226,8 @@ function buildDerivedParameterOutcomes(baselineState, postState, coreOutcomes) {
             ? 'worsened'
             : 'stable',
       validation_status: validation,
+      confidence_0_1: Math.min(beforeParameter.data_quality?.confidence_0_1 ?? 1, afterParameter.data_quality?.confidence_0_1 ?? 1),
+      estimated_comparison: !!(beforeParameter.data_quality?.is_estimated || afterParameter.data_quality?.is_estimated),
       source_feature_ids: sourceFeatureIds,
     }
   }

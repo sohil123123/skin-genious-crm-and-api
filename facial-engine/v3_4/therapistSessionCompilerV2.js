@@ -762,7 +762,7 @@ function buildPreparationChecklist({
   }
   if (treatmentMode === 'express') {
     checklist.push(
-      'Confirm the compiled session fits the 30–40 minute Express contract before the first step begins.',
+      'Confirm the compiled session fits the 40-minute Express contract before the first step begins.',
     )
   }
 

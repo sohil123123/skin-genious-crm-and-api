@@ -1,3 +1,4 @@
+import { recommendConcernsV38 } from './concernRecommendationsV38.js'
 import {
   CLIENT_REPORT_PARAMETER_IDS,
   CORE_FEATURE_IDS,
@@ -123,6 +124,9 @@ function featureData(skinState, featureId) {
 }
 
 function parameterReliability(parameterId, skinState) {
+  const q = parameterId === 'skin_type' ? skinState.skin_type?.data_quality : skinState.derived_report_parameters?.[parameterId]?.data_quality
+  if (q) { const score = Math.round(q.confidence_0_1 * 100); return {score, tier:score>=85?'high':score>=70?'moderate':'low', reasons:q.is_estimated?[q.estimation_reason||'Supported image estimate']:[]} }
+
   if (parameterId === 'skin_type') {
     const ids = ['oiliness', 'visual_dehydration', 'barrier_stress']
     const values = ids.map((id) => Number(skinState?.core_features?.[id]?.score_reliability?.score_1_to_100 ?? 0)).filter(Number.isFinite)
@@ -157,6 +161,9 @@ function parameterDominantZones(parameterId, skinState) {
 }
 
 function groundedDescription(parameterId, card, skinState) {
+  const observation = skinState.derived_report_parameters?.[parameterId]?.client_observation
+  if (observation) return observation
+
   if (card.value_type === 'label') {
     const modifiers = card.modifiers?.length ? ` (${card.modifiers.join(', ')})` : ''
     return `Your current five-mode pattern is ${card.display_label}${modifiers}.`
@@ -228,12 +235,13 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
       parameter_id: card.parameter_id,
       description: card.value_type === 'label'
         ? 'Five-mode assessment of current skin-type pattern.'
-        : 'Client health score from the five-mode V3.6-calibrated Skin State engine. Higher is better.',
+        : 'Client health score from the five-mode V3.7 legacy-measurement Skin State engine. Higher is better.',
       client_description: groundedDescription(card.parameter_id, card, skinState),
       score_or_label: scoreOrLabel,
       score_scale: card.value_type === 'label' ? 'label' : '1_to_100_client_health_higher_is_better',
       calibration_version: skinState.scoring_execution?.calibration_version ?? null,
       score_explanation: scoreExplanation(card.parameter_id, card, skinState),
+      calibration_audit: skinState.derived_report_parameters?.[card.parameter_id]?.calibration ?? null,
       affected_area_image: PARAMETER_IMAGE_INDEX[card.parameter_id] ?? null,
       affected_zones: dominantZones,
       // Image-only analysis should not invent etiological causes. History enters
@@ -248,45 +256,33 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
       data_quality: {
         is_estimated: reliability.tier === 'low',
         estimated_fields: reliability.tier === 'low' ? ['image_measurement_confidence'] : [],
-        estimation_basis: 'five_mode_v3_6_calibrated_skin_state',
+        estimation_basis: 'five_mode_v3_7_legacy_measurements',
         confidence_0_1: Number((reliability.score / 100).toFixed(2)),
         reliability_score_1_to_100: reliability.score,
         reliability_tier: reliability.tier,
         reliability_reasons: reliability.reasons,
+        ...(skinState.derived_report_parameters?.[card.parameter_id]?.data_quality ?? skinState.skin_type?.data_quality ?? {}),
       },
     }
   }
 
-  const numericCards = cards
-    .filter((card) => card.value_type === 'score')
-    .sort((a, b) => b.concern_burden_score_1_to_100 - a.concern_burden_score_1_to_100)
-
-  const treatable = numericCards
-    .filter((card) => Number(card.concern_burden_score_1_to_100) >= 30)
-    .map((card, index) => {
-      const meta = PARAMETER_META[card.parameter_id]
-      const currentHealth = Number(card.client_health_score_1_to_100)
-      const targetHealth = Math.min(100, currentHealth + 8)
-      return {
-        parameter: meta?.label ?? card.label,
-        parameter_id: card.parameter_id,
-        current_score: currentHealth,
-        target_single_session_score: targetHealth,
-        score_scale: '1_to_100_client_health_higher_is_better',
-        is_primary_concern: index < 3,
-        reason_for_selection: `Measured concern burden is ${card.concern_burden_score_1_to_100}/100.`,
-        short_description: groundedDescription(card.parameter_id, card, skinState),
-        score_semantics: 'health',
-        score_polarity: 'higher_is_better',
-        ideal_score_direction: 'increase',
-        comparison_mode: 'direct_numeric',
-      }
-    })
+  const suggestions = recommendConcernsV38(skinState)
+  const treatable = suggestions.map(suggestion => {
+    const card=cards.find(c=>c.parameter_id===suggestion.parameter_id)
+    const meta=PARAMETER_META[suggestion.parameter_id]
+    return {...suggestion,parameter:meta?.label??card?.label,
+      score_scale:'1_to_100_client_health_higher_is_better',
+      reason_for_selection:'Selected for expected visible improvement with an appropriate same-day treatment; you can change the primary concerns.',
+      short_description:groundedDescription(suggestion.parameter_id,card,skinState),
+      score_semantics:'health',score_polarity:'higher_is_better',ideal_score_direction:'increase',comparison_mode:'direct_numeric',
+      treatment_data_quality:skinState.derived_report_parameters[suggestion.parameter_id]?.data_quality??null,
+    }
+  })
 
   return {
     diagnosis_report: diagnosisReport,
     treatable_concerns_summary: {
-      description: 'Parameters showing measurable deviations and their expected improvement after a single treatment session.',
+      description: 'Concerns ranked by expected visible improvement. Suggested primary concerns can be changed by the client.',
       parameters_with_abnormal_scores: treatable,
     },
     v3_4_report: skinAnalysisReport,
@@ -329,23 +325,18 @@ export function resolveConcernFeaturesV34(selectedConcerns, skinState) {
     const parameterId = selectedParameterId(item)
     if (!parameterId) continue
     const features = featuresForParameter(parameterId)
-    const isPrimary = typeof item === 'object' && item?.is_primary_concern === true
+    const isPrimary = typeof item === 'string' || (typeof item === 'object' && item?.is_primary_concern === true)
     for (const featureId of features) {
       const target = isPrimary ? primary : secondary
       if (!target.includes(featureId)) target.push(featureId)
     }
   }
 
-  if (!primary.length) {
-    const ranked = CORE_FEATURE_IDS
-      .map((featureId) => ({
-        featureId,
-        burden: Number(skinState?.core_features?.[featureId]?.global_burden_score_1_to_100 ?? 0),
-      }))
-      .sort((a, b) => b.burden - a.burden)
-      .filter((item) => item.burden >= 25)
-    for (const item of ranked.slice(0, 3)) primary.push(item.featureId)
-    for (const item of ranked.slice(3, 6)) secondary.push(item.featureId)
+  if (!Array.isArray(selectedConcerns) || selectedConcerns.length === 0) {
+    for (const item of recommendConcernsV38(skinState)) {
+      const target=item.is_primary_concern?primary:secondary
+      for(const featureId of featuresForParameter(item.parameter_id))if(!target.includes(featureId))target.push(featureId)
+    }
   }
 
   return {
@@ -459,9 +450,9 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
       reassessment[legacyKey] = {
         parameter_name: meta?.label ?? 'Skin Type',
         before_treatment_score_or_label: before,
-        before_image: null,
+        before_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
         post_treatment_score_or_label: after,
-        post_treatment_image: null,
+        post_treatment_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
         result: before === after ? 'stable' : 'changed',
         score_semantics: 'label',
         score_polarity: 'label_only',
@@ -481,8 +472,11 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
 
     const before = baselineState?.derived_report_parameters?.[parameterId]
     const after = postState?.derived_report_parameters?.[parameterId]
-    const beforeBurden = Number(before?.internal_burden_score_1_to_100 ?? 0)
-    const afterBurden = Number(after?.internal_burden_score_1_to_100 ?? 0)
+    if (!Number.isFinite(before?.internal_burden_score_1_to_100) || !Number.isFinite(after?.internal_burden_score_1_to_100)) {
+      throw new Error(`Missing supported reassessment score for ${parameterId}; retry the assessment.`)
+    }
+    const beforeBurden = before.internal_burden_score_1_to_100
+    const afterBurden = after.internal_burden_score_1_to_100
     const beforeHealth = 101 - beforeBurden
     const afterHealth = 101 - afterBurden
     const delta = afterHealth - beforeHealth
@@ -493,10 +487,10 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
     reassessment[legacyKey] = {
       parameter_name: meta?.label ?? parameterId,
       score_scale: '1_to_100_client_health_higher_is_better',
-      before_treatment_score_or_label: beforeHealth,
-      before_image: null,
-      post_treatment_score_or_label: afterHealth,
-      post_treatment_image: null,
+      before_treatment_score_or_label: Math.round(beforeHealth),
+      before_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
+      post_treatment_score_or_label: Math.round(afterHealth),
+      post_treatment_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
       result: direction,
       score_semantics: 'health',
       score_polarity: 'higher_is_better',
@@ -522,6 +516,7 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
   }
 
   return {
+    metadata: { phase: 'reassessment', evaluation_type: 'post_treatment' },
     reassessment,
     v3_4_reassessment: reassessmentResult,
   }

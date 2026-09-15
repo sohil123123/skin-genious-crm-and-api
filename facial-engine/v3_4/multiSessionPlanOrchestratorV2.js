@@ -336,7 +336,7 @@ export function createMultiSessionPlanV2({
 
   const contract = getTreatmentModeContractV2('multiple')
   const cappedMaximumSessions = Math.max(
-    2,
+    5,
     Math.min(
       contract.course.maximum_sessions,
       Number(maximumSessions) || 8,

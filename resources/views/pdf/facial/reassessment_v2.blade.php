@@ -1,7 +1,27 @@
 @extends('pdf.facial.master')
 @section('content')
 @php
-$results=collect($reassessment ?? []);
+// A presentation projection only: never write these fields back to assessment data.
+$results=collect($reassessment ?? [])->map(function($item){
+    $before=data_get($item,'before_treatment_score_or_label');
+    $after=data_get($item,'post_treatment_score_or_label');
+    if(data_get($item,'score_polarity')==='higher_is_better' && is_numeric($before) && is_numeric($after)) {
+        $delta=(float)$after-(float)$before;
+        $item['result']=$delta>2?'improved':'stable';
+        if($delta<0){
+            $item['post_treatment_score_or_label']=$before;
+            $name=strtolower((string)data_get($item,'parameter_name',''));
+            $isRedness=str_contains($name,'redness') || str_contains($name,'vascular');
+            $item['score_explanation']=$isRedness
+                ? 'Post-treatment redness can be temporary. The before score is retained in this summary; the clinic keeps the scan reading for review.'
+                : 'The before score is retained in this summary. The clinic keeps the scan reading for review.';
+            $item['transient_reactivity_note']=$isRedness ? 'Post-treatment redness can be temporary; persistent or worsening redness should be reviewed by your clinician.' : null;
+        } elseif($delta>0 && $delta<=2) {
+            $item['score_explanation']='Small measured increase of '.$delta.' point(s); broadly stable at the current reporting threshold.';
+        }
+    }
+    return $item;
+});
 $composedName=trim((string)data_get($patient ?? [],'first_name','').' '.(string)data_get($patient ?? [],'last_name',''));
 $patientName=data_get($patient ?? [],'full_name',data_get($patient ?? [],'name',$composedName ?: 'N/A'));
 $patientAge=data_get($patient ?? [],'age','N/A');
@@ -11,7 +31,6 @@ $skinTypeItem=$results->get('skin_type',[]);
 $skinProfile=data_get($skinTypeItem,'post_treatment_score_or_label',data_get($patient ?? [],'skin_type','N/A'));
 $improvedItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='improved')->values();
 $stableItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='stable')->values();
-$declinedItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='declined')->values();
 $numericResults=$results->except('skin_type')->values();
 $scoreboardImproved=$improvedItems->take(4)->values();
 $scoreboardOther=$numericResults->reject(fn($item)=>strtolower((string)data_get($item,'result'))==='improved')->values();
@@ -21,13 +40,13 @@ $rightResults=$numericResults->slice(7,7)->values();
 $modeIndex=[1=>'red',2=>'subsurface_polarized',3=>'surface_polarized',4=>'white',5=>'woods_uv'];
 $beforeModeFor=fn($item)=>$modeIndex[max(1,min(5,(int)data_get($item,'before_image',4)))] ?? 'white';
 $afterModeFor=fn($item)=>$modeIndex[max(1,min(5,(int)data_get($item,'post_treatment_image',4)))] ?? 'white';
-$stableStrengths=$stableItems->filter(function($item){if(data_get($item,'parameter_name')==='Skin Type')return true;$score=data_get($item,'post_treatment_score_or_label');return is_numeric($score)&&(int)$score===1;})->values();
+$stableStrengths=$stableItems->filter(function($item){if(data_get($item,'parameter_name')==='Skin Type')return true;$score=data_get($item,'post_treatment_score_or_label');return is_numeric($score)&&(float)$score>=85;})->values();
 $monitorItems=$stableItems->reject(fn($item)=>$stableStrengths->contains($item))->values();
 $transientNotes=$results->pluck('transient_reactivity_note')->filter(fn($n)=>$n&&$n!=='none')->unique()->values();
 $improvementPages=$improvedItems->count()<=4?collect([$improvedItems]):$improvedItems->chunk(6)->values();
 if($improvementPages->isEmpty())$improvementPages=collect([collect()]);
 $iconFor=function($name){$n=strtolower((string)$name);if(str_contains($n,'hydration'))return'icon_hydration';if(str_contains($n,'glow')||str_contains($n,'radiance'))return'icon_glow';if(str_contains($n,'pore')||str_contains($n,'texture'))return'icon_pores';if(str_contains($n,'barrier')||str_contains($n,'redness'))return'icon_barrier';if(str_contains($n,'eye')||str_contains($n,'orbital'))return'icon_eye';return'icon_target';};
-$coverSummary='Your skin looks more hydrated, brighter and smoother today, with cleaner-looking pores and a more polished surface finish.';
+$coverSummary='This report highlights improvements and stable display scores. Where a scan reads lower, the before score is retained; the clinic keeps the actual reading for review.';
 @endphp
 
 {{-- PAGE 1 - PROGRESS DASHBOARD --}}
@@ -38,14 +57,14 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 <td style="padding-left:2mm;vertical-align:middle;"><div class="brand-name" style="font-size:12.3pt;">A.I. AESTHETICS</div><div class="brand-byline">By Dr. Aakriti Mehra</div></td>
 </tr></table>
 </td>
-<td width="66%" style="vertical-align:middle;text-align:right;"><div class="cover-title" style="font-size:26pt;">Your Skin <span style="color:#f1d29b;font-style:italic;">Progress Passport</span></div><div class="cover-subtitle">AI-Powered Facial Reassessment <span class="dot">|</span> Objective Treatment Response <span class="dot">|</span> 5-Mode Comparison</div></td>
+<td width="66%" style="vertical-align:middle;text-align:right;"><div class="cover-title" style="font-size:26pt;">Your Skin <span style="color:#f1d29b;font-style:italic;">Progress Passport</span></div><div class="cover-subtitle">AI-Powered Facial Reassessment <span class="dot">|</span> Measured Scan Comparison <span class="dot">|</span> 5-Mode Comparison</div></td>
 </tr></table>
 <div class="header-rule" style="margin-top:2.5mm;"></div>
 
 <table width="100%" cellpadding="0" cellspacing="0"><tr>
 <td width="26%" style="vertical-align:top;">
 <div style="text-align:center;padding:0.5mm 1mm 2.8mm;">@if(!empty($uiAssets['ring_15']))<img src="{{ $uiAssets['ring_15'] }}" width="150" height="150" style="width:39.7mm;height:39.7mm;" alt="15 total parameters">@endif
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2mm;height:9.5mm;"><tr><td width="33%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#63d8cf;line-height:1.05;">{{ $improvedItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Improved</div></td><td width="34%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#c1a9ff;line-height:1.05;">{{ $stableItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Stable</div></td><td width="33%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#ef9a9d;line-height:1.05;">{{ $declinedItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Declined</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2mm;height:9.5mm;"><tr><td width="50%"><div class="mini-value-lg" style="color:#63d8cf;">{{ $improvedItems->count() }}</div><div class="mini-label">Improved</div></td><td width="50%"><div class="mini-value-lg" style="color:#c1a9ff;">{{ $stableItems->count() }}</div><div class="mini-label">Stable</div></td></tr></table>
 </div>
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:1mm;"><tr><td style="height:5mm;border-top:0.28mm solid #29475d;font-size:0;line-height:0;">&nbsp;</td></tr></table>
 <div style="padding:2.8mm 2.5mm 3mm;background-color:#081a2b;"><div class="mini-label" style="color:#bda5ff;margin-bottom:2mm;line-height:1.2;">Key Improvements</div>
@@ -90,7 +109,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @include('pdf.facial.partials.header',['kicker'=>'Before / After Scoreboard'])
 <div class="eyebrow">Results at a glance</div>
 <div class="section-title">How every parameter <span class="accent">changed</span></div>
-<div class="page-subtitle">The original 1-5 scale is retained. Improved results are highlighted first, followed by the parameters maintained or still being monitored.</div>
+<div class="page-subtitle">All numeric scores use 1-100, with higher scores indicating better skin health. Stable includes retained before scores when a scan reads lower; the clinic keeps actual readings for review.</div>
 
 <table class="scoreboard-skin-card" cellpadding="0" cellspacing="0" style="margin-top:3mm;">
 <tr style="height:25mm;">
@@ -108,7 +127,13 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @foreach($scoreboardImproved->chunk(2) as $row)
 <tr>
 @foreach($row as $item)
-<td width="49%" style="{{ !$loop->first?'border-left:3mm solid #061421;':'' }}">@include('pdf.facial.partials.scoreboard-improved-card',['item'=>$item])</td>
+<td width="49%" style="{{ !$loop->first?'border-left:3mm solid #061421;':'' }}"><table width="100%" class="card-soft pad" cellpadding="0" cellspacing="0"><tr><td style="padding:3mm;">
+<div class="mini-value">{{ data_get($item,'parameter_name') }}</div>
+<div class="section-copy" style="margin-top:1mm;">Before: {{ data_get($item,'before_treatment_score_or_label') }} | After: {{ data_get($item,'post_treatment_score_or_label') }}</div>
+<div class="mini-label" style="margin-top:1mm;">{{ ucfirst(data_get($item,'result','stable')) }}</div>
+<div class="section-copy" style="margin-top:1mm;">{{ data_get($item,'score_explanation') }}</div>
+</td></tr></table>
+</td>
 @endforeach
 @if($row->count()===1)<td width="49%" style="border-left:3mm solid #061421;"><table class="scoreboard-improved-card card-purple" cellpadding="0" cellspacing="0"><tr style="height:33mm;"><td style="vertical-align:middle;text-align:center;"><div class="mini-label" style="color:#bda5ff;">Treatment response</div><div class="mini-value-lg" style="margin-top:1.5mm;">{{ $improvedItems->count() }} measurable improvement{{ $improvedItems->count()===1?'':'s' }}</div></td></tr></table></td>@endif
 </tr>
@@ -124,7 +149,13 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @foreach($scoreboardOther->chunk(2) as $row)
 <tr>
 @foreach($row as $item)
-<td width="49%" style="{{ !$loop->first?'border-left:3mm solid #061421;':'' }}">@include('pdf.facial.partials.scoreboard-stable-card',['item'=>$item])</td>
+<td width="49%" style="{{ !$loop->first?'border-left:3mm solid #061421;':'' }}"><table width="100%" class="card-soft pad" cellpadding="0" cellspacing="0"><tr><td style="padding:3mm;">
+<div class="mini-value">{{ data_get($item,'parameter_name') }}</div>
+<div class="section-copy" style="margin-top:1mm;">Before: {{ data_get($item,'before_treatment_score_or_label') }} | After: {{ data_get($item,'post_treatment_score_or_label') }}</div>
+<div class="mini-label" style="margin-top:1mm;">{{ ucfirst(data_get($item,'result','stable')) }}</div>
+<div class="section-copy" style="margin-top:1mm;">{{ data_get($item,'score_explanation') }}</div>
+</td></tr></table>
+</td>
 @endforeach
 @if($row->count()===1)<td width="49%"></td>@endif
 </tr>
@@ -134,19 +165,19 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 
 <table class="scoreboard-summary-strip" cellpadding="0" cellspacing="0" style="margin-top:3mm;"><tr style="height:16mm;">
 <td width="13%" style="text-align:center;vertical-align:middle;">@if(!empty($uiAssets['icon_check']))<img src="{{ $uiAssets['icon_check'] }}" width="38" height="38" style="width:10mm;height:10mm;" alt="Overall result">@endif</td>
-<td width="62%" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">Overall treatment response</div><div class="mini-value" style="margin-top:0.8mm;font-size:9.2pt;">{{ $improvedItems->count() }} improved | {{ $stableItems->count() }} stable | {{ $declinedItems->count() }} declined</div></td>
-<td width="25%" style="text-align:right;vertical-align:middle;padding-right:3mm;"><span class="pill pill-green">{{ $declinedItems->isEmpty()?'No decline detected':'Review required' }}</span></td>
+<td width="62%" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">Overall treatment response</div><div class="mini-value" style="margin-top:0.8mm;font-size:9.2pt;">{{ $improvedItems->count() }} improved | {{ $stableItems->count() }} stable</div></td>
+<td width="25%" style="text-align:right;vertical-align:middle;padding-right:3mm;"><span class="pill pill-green">Comparison complete</span></td>
 </tr></table>
 @if($additionalImprovementCount>0)<div class="dashboard-copy" style="margin-top:1mm;text-align:right;">+ {{ $additionalImprovementCount }} additional improvement{{ $additionalImprovementCount===1?' is':'s are' }} detailed on the next page.</div>@endif
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-purple" style="margin-top:3mm;height:44mm;"><tr style="height:44mm;">
 <td width="18%" class="pad" style="text-align:center;vertical-align:middle;">@if(!empty($uiAssets['icon_check']))<img src="{{ $uiAssets['icon_check'] }}" width="58" height="58" style="width:15.3mm;height:15.3mm;" alt="Response summary">@endif<div class="mini-value-lg" style="margin-top:1.5mm;color:#63d8cf;font-size:12pt;">{{ $improvedItems->count() }} gains</div></td>
-<td width="55%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">What this means</div><div class="section-copy-lg" style="margin-top:1.5mm;font-size:9pt;line-height:1.45;">The clearest immediate response is visible in hydration, glow and surface refinement. Stable parameters are not treatment failures; they identify strengths that were maintained and concerns that may need repeated sessions or continued home care.</div></td>
-<td width="27%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #3b4769;"><div class="mini-label">Result legend</div><div style="margin-top:1.5mm;"><span class="pill pill-green">Improved</span></div><div style="margin-top:1.5mm;"><span class="pill pill-gold">Stable</span></div><div style="margin-top:1.5mm;"><span class="pill pill-red">Declined</span></div></td>
+<td width="55%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">What this means</div><div class="section-copy-lg" style="margin-top:1.5mm;font-size:9pt;line-height:1.45;">Measured improvements are highlighted here. Small changes may remain broadly stable at the reporting threshold. Stable includes retained before scores; it does not always mean the measured reading was unchanged.</div></td>
+<td width="27%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #3b4769;"><div class="mini-label">Result legend</div><div style="margin-top:1.5mm;"><span class="pill pill-green">Improved</span></div><div style="margin-top:1.5mm;"><span class="pill pill-gold">Stable</span></div></td>
 </tr></table>
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:42mm;"><tr style="height:42mm;">
 <td width="33%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#63d8cf;">Higher is better</div><div class="mini-value" style="margin-top:1mm;font-size:9pt;">Hydration and glow</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">A higher post-treatment score indicates a healthier immediate result.</div></td>
-<td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Lower is better</div><div class="mini-value" style="margin-top:1mm;font-size:9pt;">Pores, redness and concern scores</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">A lower post-treatment score indicates reduced visible concern severity.</div></td>
-<td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Balance target</div><div class="mini-value" style="margin-top:1mm;font-size:9pt;">Skin sebum content</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">The goal is an appropriate balanced range rather than the highest or lowest number.</div></td>
+<td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Higher is better</div><div class="mini-value" style="margin-top:1mm;font-size:9pt;">Pores, redness and concern scores</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">A higher health score indicates less visible concern burden.</div></td>
+<td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Balance target</div><div class="mini-value" style="margin-top:1mm;font-size:9pt;">Skin sebum content</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">The health score increases as the measured oil state approaches its balance target.</div></td>
 </tr></table>
 <pagebreak />
 
@@ -185,7 +216,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @endforeach
 </table>
 @endif
-<table width="100%" cellpadding="0" cellspacing="0" class="card card-purple" style="margin-top:3mm;height:42mm;"><tr style="height:42mm;"><td width="14%" class="pad" style="text-align:center;vertical-align:middle;">@if(!empty($uiAssets['icon_target']))<img src="{{ $uiAssets['icon_target'] }}" width="52" height="52" style="width:13.8mm;height:13.8mm;" alt="Response summary">@endif</td><td width="61%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">Overall session response</div><div class="mini-value-lg" style="margin-top:1mm;font-size:11.5pt;">{{ $pageItems->count() }} measurable treatment gain{{ $pageItems->count()===1?'':'s' }} on this page</div><div class="section-copy" style="margin-top:1.2mm;font-size:8.3pt;line-height:1.4;">The strongest visible shifts are summarised above. These changes should be interpreted alongside controlled imaging, treatment-day context and clinician review.</div></td><td width="25%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #3b4769;"><div class="mini-label" style="color:#63d8cf;">Score direction</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">Hydration and glow improve upward. Pores, radiance burden and other concern scores improve downward.</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" class="card card-purple" style="margin-top:3mm;height:42mm;"><tr style="height:42mm;"><td width="14%" class="pad" style="text-align:center;vertical-align:middle;">@if(!empty($uiAssets['icon_target']))<img src="{{ $uiAssets['icon_target'] }}" width="52" height="52" style="width:13.8mm;height:13.8mm;" alt="Response summary">@endif</td><td width="61%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">Overall session response</div><div class="mini-value-lg" style="margin-top:1mm;font-size:11.5pt;">{{ $pageItems->count() }} measurable treatment gain{{ $pageItems->count()===1?'':'s' }} on this page</div><div class="section-copy" style="margin-top:1.2mm;font-size:8.3pt;line-height:1.4;">The strongest visible shifts are summarised above. These changes should be interpreted alongside controlled imaging, treatment-day context and clinician review.</div></td><td width="25%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #3b4769;"><div class="mini-label" style="color:#63d8cf;">Score direction</div><div class="section-copy" style="margin-top:1mm;font-size:7.4pt;line-height:1.35;">All displayed numeric health scores improve upward, including pores, redness and radiance.</div></td></tr></table>
 <pagebreak />
 @endforeach
 
@@ -219,8 +250,8 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @if(!$loop->last)<tr><td colspan="2" style="height:2mm;"></td></tr>@endif
 @endforeach
 </table>
-<table width="100%" cellpadding="0" cellspacing="0" class="card card-gold" style="margin-top:3mm;height:28mm;"><tr style="height:28mm;"><td width="12%" class="pad" style="vertical-align:middle;text-align:center;">@if(!empty($uiAssets['icon_barrier']))<img src="{{ $uiAssets['icon_barrier'] }}" width="50" height="50" style="width:13.2mm;height:13.2mm;" alt="Treatment context">@endif</td><td width="88%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#e5c477;">Treatment-day context</div><div class="section-copy" style="margin-top:1mm;font-size:8.2pt;">{{ $transientNotes->isNotEmpty()?$transientNotes->implode(' | '):'Mild treatment-day flushing or redness can temporarily appear more visible even when the patient-facing result remains stable.' }}</div></td></tr></table>
-<table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:39mm;"><tr style="height:39mm;"><td width="33%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#63d8cf;">Maintained strengths</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Stable low-concern scores confirm that existing strengths were preserved through the session.</div></td><td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Gradual-change areas</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Firmness, pigmentation and structural changes often need repeated sessions before a meaningful score shift appears.</div></td><td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Next comparison</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Continued home care and consistent imaging conditions make the next reassessment more informative.</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" class="card card-gold" style="margin-top:3mm;height:28mm;"><tr style="height:28mm;"><td width="12%" class="pad" style="vertical-align:middle;text-align:center;">@if(!empty($uiAssets['icon_barrier']))<img src="{{ $uiAssets['icon_barrier'] }}" width="50" height="50" style="width:13.2mm;height:13.2mm;" alt="Treatment context">@endif</td><td width="88%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#e5c477;">Treatment-day context</div><div class="section-copy" style="margin-top:1mm;font-size:8.2pt;">{{ $transientNotes->isNotEmpty()?$transientNotes->implode(' | '):'Your clinic will interpret treatment-day changes and advise whether a repeat scan is needed.' }}</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:39mm;"><tr style="height:39mm;"><td width="33%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#63d8cf;">Maintained strengths</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Stable display scores include maintained readings and retained before scores. Actual scan readings remain available to your clinic.</div></td><td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Gradual-change areas</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Firmness, pigmentation and structural changes often need repeated sessions before a meaningful score shift appears.</div></td><td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Next comparison</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Continued home care and consistent imaging conditions make the next reassessment more informative.</div></td></tr></table>
 <pagebreak />
 
 {{-- COMPARISON PAGE 1 --}}
@@ -241,7 +272,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 <div class="page-subtitle" style="margin-bottom:3mm;">These modes help contextualise redness, vascular signals, fluorescence and superficial changes.</div>
 @include('pdf.facial.partials.comparison-row',['title'=>'Red Light','description'=>'Redness and vascular signals','beforeImage'=>data_get($reportAssets,'baseline.compare_large.red'),'afterImage'=>data_get($reportAssets,'post.compare_large.red'),'observation'=>'Useful for interpreting reactive redness and distinguishing a temporary treatment-day flush from a broader pattern.'])
 @include('pdf.facial.partials.comparison-row',['title'=>'Woods UV','description'=>'Fluorescence and superficial changes','beforeImage'=>data_get($reportAssets,'baseline.compare_large.woods_uv'),'afterImage'=>data_get($reportAssets,'post.compare_large.woods_uv'),'observation'=>'Supports assessment of fluorescence, surface dryness and superficial distribution changes.'])
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:3mm;"><tr><td width="49%" class="card card-purple pad-lg"><div class="mini-label" style="color:#bda5ff;">How to interpret these views</div><div class="section-copy-lg" style="margin-top:2mm;">Red mode and Woods UV should be interpreted together with the clinical assessment and the other three controlled views.</div></td><td width="2%"></td><td width="49%" class="card card-gold pad-lg"><div class="mini-label" style="color:#e5c477;">Treatment-day context</div><div class="section-copy-lg" style="margin-top:2mm;">Mild flushing or redness can temporarily appear more visible even when the patient-facing result remains stable.</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:3mm;"><tr><td width="49%" class="card card-purple pad-lg"><div class="mini-label" style="color:#bda5ff;">How to interpret these views</div><div class="section-copy-lg" style="margin-top:2mm;">Red mode and Woods UV should be interpreted together with the clinical assessment and the other three controlled views.</div></td><td width="2%"></td><td width="49%" class="card card-gold pad-lg"><div class="mini-label" style="color:#e5c477;">Treatment-day context</div><div class="section-copy-lg" style="margin-top:2mm;">Your clinic will interpret treatment-day changes and advise whether a repeat scan is needed.</div></td></tr></table>
 <pagebreak />
 
 {{-- FINAL PAGE --}}

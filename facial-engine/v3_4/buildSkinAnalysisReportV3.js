@@ -10,7 +10,7 @@ import {
 } from './clientOutcomeReportV2.schema.js'
 
 export const SKIN_ANALYSIS_REPORT_VERSION =
-  'aia_skin_analysis_report_v3.6.0-calibrated'
+  'aia_skin_analysis_report_v3.7.0-legacy-measurements'
 
 function parameterCard(
   skinState,

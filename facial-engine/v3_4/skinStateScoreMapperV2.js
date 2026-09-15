@@ -1,4 +1,5 @@
-import { normalizeContinuousGradeV36, deriveCalibratedParameterV36, deriveSkinTypeV36, CALIBRATION_VERSION_V36, CALIBRATION_STATUS_V36 } from './clinicalCalibrationV36.js'
+import { normalizeContinuousGradeV36 } from './clinicalCalibrationV36.js'
+import { scoreLegacyMeasurementsV37, legacySkinTypeV37, attachPlanningConfidenceV37, CALIBRATION_VERSION_V37, CALIBRATION_STATUS_V37 } from './legacyScoringV37.js'
 import {
   FACE_ZONE_ATLAS_V2,
   FACE_ZONE_IDS,
@@ -10,8 +11,8 @@ import {
   VISION_EVIDENCE_SCHEMA_VERSION,
 } from './skinStateV2.schema.js'
 
-export const SCORE_MAPPER_VERSION = 'aia_skin_state_mapper_v3.6.0-calibrated'
-export const FORMULA_CONFIG_VERSION = 'aia_skin_state_formulas_v3.6.0-calibrated'
+export const SCORE_MAPPER_VERSION = 'aia_skin_state_mapper_v3.7.0-legacy-measurements'
+export const FORMULA_CONFIG_VERSION = 'aia_skin_state_formulas_v3.7.0-legacy-measurements'
 
 const FULL_SKIN_FACE = FACE_ZONE_ATLAS_V2.groups.full_skin_face
 const CHEEKS = FACE_ZONE_ATLAS_V2.groups.cheeks
@@ -686,6 +687,7 @@ export function scoreCoreFeature(featureId, featureEvidence) {
   for (const zoneId of formula.applicable_zones) {
     const zoneEvidence = featureEvidence.zones?.[zoneId]
     if (!zoneEvidence || zoneEvidence.assessment_status === 'not_assessable') continue
+    if (!Object.values(zoneEvidence.components ?? {}).some(c => c.assessment_confidence_0_to_100 > 0)) continue
 
     const burden = componentBurden(zoneEvidence, formula, featureId, zoneId)
     zoneValues.push({ zoneId, value: burden, weight: zoneAreaWeight(zoneId, zoneEvidence) })
@@ -693,7 +695,13 @@ export function scoreCoreFeature(featureId, featureEvidence) {
     zoneNormalized[zoneId] = burden
   }
 
-  if (!zoneValues.length) throw new Error(`Cannot assess ${featureId}: no usable zones. Recapture the relevant skin.`)
+  if (!zoneValues.length) return {
+    feature_id:featureId, assessment_status:'no_direct_regional_evidence',
+    global_burden_score_1_to_100:null,raw_normalized_burden_0_to_1:null,guarded_normalized_burden_0_to_1:null,
+    zone_scores_1_to_100:{},zone_normalized_burdens_0_to_1:{},dominant_zones:[],peak_zone:null,
+    aggregation_details:{},guardrails_applied:[],measurement_sensitivity:'no_direct_regional_evidence',
+    score_reliability:{score_1_to_100:0,tier:'low',reasons:['No usable regional components; client estimate comes separately from supported legacy measurements'],audit:{mean_component_confidence_0_to_100:0,usable_area_fraction_0_to_1:0}},
+  }
 
   const aggregationEntries = Object.entries(formula.aggregation).filter(
     ([key]) => ['mean', 'top_zones', 'extent'].includes(key),
@@ -814,12 +822,9 @@ export function buildSkinStateV2(visionEvidencePacket) {
     )
   }
 
-  const derivedReportParameters = {}
-  for (const [parameterId, definition] of Object.entries(DERIVED_REPORT_FORMULAS_V2)) {
-    derivedReportParameters[parameterId] = deriveCalibratedParameterV36(parameterId, coreFeatures, definition, CORE_FEATURE_FORMULAS_V2)
-  }
-
-  const skinType = deriveSkinTypeV36(coreFeatures)
+  const derivedReportParameters = scoreLegacyMeasurementsV37(visionEvidencePacket.legacy_measurements, DERIVED_REPORT_FORMULAS_V2)
+  attachPlanningConfidenceV37(coreFeatures, derivedReportParameters)
+  const skinType = legacySkinTypeV37(visionEvidencePacket.legacy_measurements)
   derivedReportParameters.skin_type = {
     parameter_id: 'skin_type',
     display_polarity: 'label_only',
@@ -839,8 +844,8 @@ export function buildSkinStateV2(visionEvidencePacket) {
     },
     scoring_execution: {
       mapper_version: SCORE_MAPPER_VERSION,
-      calibration_version: CALIBRATION_VERSION_V36,
-      calibration_status: CALIBRATION_STATUS_V36,
+      calibration_version: CALIBRATION_VERSION_V37,
+      calibration_status: CALIBRATION_STATUS_V37,
       formula_config_version: FORMULA_CONFIG_VERSION,
       created_at_iso: new Date().toISOString(),
       immutable_assessment: true,
@@ -855,6 +860,7 @@ export function buildSkinStateV2(visionEvidencePacket) {
       reconciliation_audit:
         visionEvidencePacket.reconciliation_audit ?? [],
     },
+    legacy_measurements: visionEvidencePacket.legacy_measurements,
     core_features: coreFeatures,
     derived_report_parameters: derivedReportParameters,
     skin_type: skinType,

@@ -1,3 +1,4 @@
+import { buildUnifiedVisionPromptV35, unifiedStructuredOutputFormatV35, decodeUnifiedVisionOutputV35, UNIFIED_VISION_PROMPT_VERSION } from './unifiedVisionAdapterV35.js'
 import { createHash } from 'node:crypto'
 import {
   IMAGE_MODES,
@@ -37,7 +38,7 @@ import {
 } from './visionEvidenceStructureV2.js'
 
 export const SKIN_STATE_RUNNER_VERSION =
-  'aia_skin_state_runner_v3.3.0'
+  'aia_skin_state_runner_v3.7.0-legacy-measurements'
 
 export const VISION_MODULES_V2 = Object.freeze({
   surface: {
@@ -96,7 +97,7 @@ export function buildSkinStateCacheKeyV2({ imageSetHash, modelVersion }) {
   const parts = scanCacheKeyParts({
     imageSetHash,
     modelVersion,
-    promptVersion: VISION_PROMPT_SUITE_VERSION,
+    promptVersion: UNIFIED_VISION_PROMPT_VERSION,
   })
   return createHash('sha256')
     .update([SKIN_STATE_RUNNER_VERSION, ...parts].join('|'))
@@ -213,54 +214,15 @@ export async function runSkinStateV2({
     paired_baseline_scan_id: pairedBaselineScanId,
   }
 
-  const morphologyRaw = await visionCall({
-    module_id: 'morphology',
-    system_prompt: SYSTEM_PROMPT_MORPHOLOGY_EXCLUSION_MAP_V3,
-    prompt_version: MORPHOLOGY_EXCLUSION_PROMPT_VERSION,
-    images: imagesByMode,
-    input: {
-      ...buildAbsoluteImageInput(authoritativeScan),
-      task:
-        'Create the shared morphology and exclusion map before specialist feature scoring.',
-    },
+  const unifiedRaw = await visionCall({
+    module_id:'unified_assessment',system_prompt:buildUnifiedVisionPromptV35(),
+    prompt_version:UNIFIED_VISION_PROMPT_VERSION,images:imagesByMode,
+    input:buildAbsoluteImageInput(authoritativeScan),response_format:unifiedStructuredOutputFormatV35(),
   })
-  const morphologyExclusionMap = parseStrictJsonOutput(
-    morphologyRaw,
-    'morphology vision output',
-  )
-
-  const moduleInput = buildAbsoluteImageInput(
-    authoritativeScan,
-    morphologyExclusionMap,
-  )
-
-  const runModule = async ([moduleId, definition]) => {
-    const output = await visionCall({
-      module_id: moduleId,
-      system_prompt: definition.systemPrompt,
-      prompt_version: definition.promptVersion,
-      images: imagesByMode,
-      input: moduleInput,
-    })
-    return [moduleId, output]
-  }
-
-  const entries = Object.entries(VISION_MODULES_V2)
-  const moduleResults =
-    concurrency === 'sequential'
-      ? await entries.reduce(async (promise, entry) => {
-          const accumulated = await promise
-          accumulated.push(await runModule(entry))
-          return accumulated
-        }, Promise.resolve([]))
-      : await Promise.all(entries.map(runModule))
-
-  const moduleOutputs = Object.fromEntries(moduleResults)
-  const evidencePacket = mergeVisionEvidencePacketsV2(moduleOutputs, {
-    morphologyExclusionMap,
-    scanOverride: authoritativeScan,
-    modelVersion,
-  })
+  const decoded=decodeUnifiedVisionOutputV35(parseStrictJsonOutput(unifiedRaw,'unified assessment'),{scanId,imageSetHash:resolvedImageSetHash,modelVersion})
+  const evidencePacket=mergeVisionEvidencePacketsV2(decoded.moduleOutputs,{morphologyExclusionMap:decoded.morphology,scanOverride:authoritativeScan,modelVersion})
+  evidencePacket.legacy_measurements=decoded.legacyMeasurements
+  evidencePacket.model_execution.prompt_version=UNIFIED_VISION_PROMPT_VERSION
   const skinState = buildSkinStateV2(evidencePacket)
 
   const assessmentId = createHash('sha256')
@@ -269,7 +231,7 @@ export async function runSkinStateV2({
         scanId,
         resolvedImageSetHash,
         modelVersion,
-        VISION_PROMPT_SUITE_VERSION,
+        UNIFIED_VISION_PROMPT_VERSION,
         skinState.scoring_execution.formula_config_version,
       ].join('|'),
     )
@@ -297,8 +259,7 @@ export async function runSkinStateV2({
 
   if (includeRawModuleOutputs) {
     result.raw_module_outputs = {
-      morphology: morphologyRaw,
-      ...moduleOutputs,
+      unified: unifiedRaw,
     }
   }
 

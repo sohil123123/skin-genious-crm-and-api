@@ -86,8 +86,11 @@ Route::
                 Route::prefix('facial-v34')->group(function () {
                     Route::get('/self-test', [FacialV34Controller::class, 'selfTest']);
                     Route::post('/assessment/{assessment}', [FacialV34Controller::class, 'assessment']);
+                    Route::get('/assessment/{assessment}', [FacialV34Controller::class, 'assessmentResult']);
                     Route::post('/treatment-plan/{assessment}', [FacialV34Controller::class, 'treatmentPlan']);
                     Route::post('/reassessment/{assessment}', [FacialV34Controller::class, 'reassessment']);
+                    Route::post('/planning-context/{assessment}', [FacialV34Controller::class, 'planningContext']);
+                    Route::post('/course-block/{assessment}', [FacialV34Controller::class, 'saveCourseBlock']);
                 });
 
                 Route::post('/treatment-sessions/{treatmentSession}/iv-prep-data', [TreatmentSessionController::class, 'saveIvPrepData']);
