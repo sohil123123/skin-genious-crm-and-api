@@ -2,22 +2,45 @@
 @section('content')
 @php
 // A presentation projection only: never write these fields back to assessment data.
+// V3.12: the engine decides the result (improved / stable / declined / not_assessed_this_interval)
+// using its minimum-detectable-change and pairwise checks. This template no longer recomputes
+// the result with its own threshold. Patient-facing floor (business rule): a confirmed decline is
+// shown as "no change shown" with the baseline retained and a transient-reactivity note; the
+// clinic's raw reading stays in the stored JSON (see the `raw` block on each parameter).
 $results=collect($reassessment ?? [])->map(function($item){
     $before=data_get($item,'before_treatment_score_or_label');
     $after=data_get($item,'post_treatment_score_or_label');
+    $engineResult=strtolower((string)data_get($item,'result','stable'));
     if(data_get($item,'score_polarity')==='higher_is_better' && is_numeric($before) && is_numeric($after)) {
-        $delta=(float)$after-(float)$before;
-        $item['result']=$delta>2?'improved':'stable';
-        if($delta<0){
+        $name=strtolower((string)data_get($item,'parameter_name',''));
+        $isRedness=str_contains($name,'redness') || str_contains($name,'vascular');
+        $isBarrier=str_contains($name,'barrier');
+        if($engineResult==='declined'){
+            $item['result']='stable';
             $item['post_treatment_score_or_label']=$before;
-            $name=strtolower((string)data_get($item,'parameter_name',''));
-            $isRedness=str_contains($name,'redness') || str_contains($name,'vascular');
+            $note=data_get($item,'transient_reactivity_note');
+            $note=($note && $note!=='none') ? $note : null;
             $item['score_explanation']=$isRedness
-                ? 'Post-treatment redness can be temporary. The before score is retained in this summary; the clinic keeps the scan reading for review.'
-                : 'The before score is retained in this summary. The clinic keeps the scan reading for review.';
-            $item['transient_reactivity_note']=$isRedness ? 'Post-treatment redness can be temporary; persistent or worsening redness should be reviewed by your clinician.' : null;
-        } elseif($delta>0 && $delta<=2) {
-            $item['score_explanation']='Small measured increase of '.$delta.' point(s); broadly stable at the current reporting threshold.';
+                ? 'Post-treatment redness can be temporary. No change is shown today; the clinic keeps the scan reading for review.'
+                : ($isBarrier
+                    ? 'Barrier comfort can dip briefly after active treatment. No change is shown today; the clinic keeps the scan reading for review.'
+                    : 'No change is shown today; the clinic keeps the scan reading for review.');
+            $item['transient_reactivity_note']=$note ?? ($isRedness
+                ? 'Post-treatment redness can be temporary; persistent or worsening redness should be reviewed by your clinician.'
+                : ($isBarrier ? 'Barrier comfort can dip briefly after treatment; persistent stinging or flaking should be reviewed by your clinician.' : null));
+        } elseif($engineResult==='not_assessed_this_interval'){
+            $item['result']='stable';
+            $item['post_treatment_score_or_label']=$before;
+            $item['display_tag']='Assessed at course end';
+        } elseif($engineResult==='improved'){
+            $item['result']='improved';
+        } else {
+            $item['result']='stable';
+            // Legacy (pre-V3.12) records may carry a small unconfirmed rise; keep the score the
+            // engine chose to display but describe it honestly.
+            if(!data_get($item,'raw') && (float)$after>(float)$before){
+                $item['score_explanation']='Small measured increase of '.((float)$after-(float)$before).' point(s); broadly stable at the reporting threshold.';
+            }
         }
     }
     return $item;
@@ -40,13 +63,13 @@ $rightResults=$numericResults->slice(7,7)->values();
 $modeIndex=[1=>'red',2=>'subsurface_polarized',3=>'surface_polarized',4=>'white',5=>'woods_uv'];
 $beforeModeFor=fn($item)=>$modeIndex[max(1,min(5,(int)data_get($item,'before_image',4)))] ?? 'white';
 $afterModeFor=fn($item)=>$modeIndex[max(1,min(5,(int)data_get($item,'post_treatment_image',4)))] ?? 'white';
-$stableStrengths=$stableItems->filter(function($item){if(data_get($item,'parameter_name')==='Skin Type')return true;$score=data_get($item,'post_treatment_score_or_label');return is_numeric($score)&&(float)$score>=85;})->values();
+$stableStrengths=$stableItems->filter(function($item){if(data_get($item,'parameter_name')==='Skin Type')return true;$score=data_get($item,'post_treatment_score_or_label');return is_numeric($score)&&(float)$score>=75;})->values();
 $monitorItems=$stableItems->reject(fn($item)=>$stableStrengths->contains($item))->values();
 $transientNotes=$results->pluck('transient_reactivity_note')->filter(fn($n)=>$n&&$n!=='none')->unique()->values();
 $improvementPages=$improvedItems->count()<=4?collect([$improvedItems]):$improvedItems->chunk(6)->values();
 if($improvementPages->isEmpty())$improvementPages=collect([collect()]);
 $iconFor=function($name){$n=strtolower((string)$name);if(str_contains($n,'hydration'))return'icon_hydration';if(str_contains($n,'glow')||str_contains($n,'radiance'))return'icon_glow';if(str_contains($n,'pore')||str_contains($n,'texture'))return'icon_pores';if(str_contains($n,'barrier')||str_contains($n,'redness'))return'icon_barrier';if(str_contains($n,'eye')||str_contains($n,'orbital'))return'icon_eye';return'icon_target';};
-$coverSummary='This report highlights improvements and stable display scores. Where a scan reads lower, the before score is retained; the clinic keeps the actual reading for review.';
+$coverSummary='Improvements shown here were measured above the scan-to-scan noise threshold and confirmed visually. Where no confirmed change was seen, or a reading is temporarily lower after treatment, no change is shown and the clinic keeps the reading for review.';
 @endphp
 
 {{-- PAGE 1 - PROGRESS DASHBOARD --}}
@@ -109,7 +132,7 @@ $coverSummary='This report highlights improvements and stable display scores. Wh
 @include('pdf.facial.partials.header',['kicker'=>'Before / After Scoreboard'])
 <div class="eyebrow">Results at a glance</div>
 <div class="section-title">How every parameter <span class="accent">changed</span></div>
-<div class="page-subtitle">All numeric scores use 1-100, with higher scores indicating better skin health. Stable includes retained before scores when a scan reads lower; the clinic keeps actual readings for review.</div>
+<div class="page-subtitle">All numeric scores use 1-100, with higher scores indicating better skin health. Stable means no confirmed change was shown today; the clinic keeps every scan reading for review.</div>
 
 <table class="scoreboard-skin-card" cellpadding="0" cellspacing="0" style="margin-top:3mm;">
 <tr style="height:25mm;">
@@ -171,7 +194,7 @@ $coverSummary='This report highlights improvements and stable display scores. Wh
 @if($additionalImprovementCount>0)<div class="dashboard-copy" style="margin-top:1mm;text-align:right;">+ {{ $additionalImprovementCount }} additional improvement{{ $additionalImprovementCount===1?' is':'s are' }} detailed on the next page.</div>@endif
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-purple" style="margin-top:3mm;height:44mm;"><tr style="height:44mm;">
 <td width="18%" class="pad" style="text-align:center;vertical-align:middle;">@if(!empty($uiAssets['icon_check']))<img src="{{ $uiAssets['icon_check'] }}" width="58" height="58" style="width:15.3mm;height:15.3mm;" alt="Response summary">@endif<div class="mini-value-lg" style="margin-top:1.5mm;color:#63d8cf;font-size:12pt;">{{ $improvedItems->count() }} gains</div></td>
-<td width="55%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">What this means</div><div class="section-copy-lg" style="margin-top:1.5mm;font-size:9pt;line-height:1.45;">Measured improvements are highlighted here. Small changes may remain broadly stable at the reporting threshold. Stable includes retained before scores; it does not always mean the measured reading was unchanged.</div></td>
+<td width="55%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#bda5ff;">What this means</div><div class="section-copy-lg" style="margin-top:1.5mm;font-size:9pt;line-height:1.45;">Improvements are shown only when they exceed the measurement threshold and are confirmed in the before/after images. Stable means no confirmed change was shown today.</div></td>
 <td width="27%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #3b4769;"><div class="mini-label">Result legend</div><div style="margin-top:1.5mm;"><span class="pill pill-green">Improved</span></div><div style="margin-top:1.5mm;"><span class="pill pill-gold">Stable</span></div></td>
 </tr></table>
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:42mm;"><tr style="height:42mm;">
@@ -251,7 +274,7 @@ $coverSummary='This report highlights improvements and stable display scores. Wh
 @endforeach
 </table>
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-gold" style="margin-top:3mm;height:28mm;"><tr style="height:28mm;"><td width="12%" class="pad" style="vertical-align:middle;text-align:center;">@if(!empty($uiAssets['icon_barrier']))<img src="{{ $uiAssets['icon_barrier'] }}" width="50" height="50" style="width:13.2mm;height:13.2mm;" alt="Treatment context">@endif</td><td width="88%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#e5c477;">Treatment-day context</div><div class="section-copy" style="margin-top:1mm;font-size:8.2pt;">{{ $transientNotes->isNotEmpty()?$transientNotes->implode(' | '):'Your clinic will interpret treatment-day changes and advise whether a repeat scan is needed.' }}</div></td></tr></table>
-<table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:39mm;"><tr style="height:39mm;"><td width="33%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#63d8cf;">Maintained strengths</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Stable display scores include maintained readings and retained before scores. Actual scan readings remain available to your clinic.</div></td><td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Gradual-change areas</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Firmness, pigmentation and structural changes often need repeated sessions before a meaningful score shift appears.</div></td><td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Next comparison</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Continued home care and consistent imaging conditions make the next reassessment more informative.</div></td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0" class="card card-teal" style="margin-top:3mm;height:39mm;"><tr style="height:39mm;"><td width="33%" class="pad" style="vertical-align:middle;"><div class="mini-label" style="color:#63d8cf;">Maintained strengths</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Stable scores are maintained readings or changes not yet confirmed. Actual scan readings remain available to your clinic.</div></td><td width="34%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#bda5ff;">Gradual-change areas</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Firmness, pigmentation and structural changes often need repeated sessions before a meaningful score shift appears.</div></td><td width="33%" class="pad" style="vertical-align:middle;border-left:0.25mm solid #29475d;"><div class="mini-label" style="color:#e5c477;">Next comparison</div><div class="section-copy" style="margin-top:1mm;font-size:7.7pt;line-height:1.38;">Continued home care and consistent imaging conditions make the next reassessment more informative.</div></td></tr></table>
 <pagebreak />
 
 {{-- COMPARISON PAGE 1 --}}

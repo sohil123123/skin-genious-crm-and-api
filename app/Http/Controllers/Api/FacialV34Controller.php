@@ -208,6 +208,13 @@ class FacialV34Controller extends Controller
                 ? 'session-' . $treatmentSession->id
                 : 'assessment-post';
 
+            // V3.12: days between the reference scan and this post scan. The engine uses it
+            // to decide whether structural parameters (jawline, firmness) may be rescored.
+            $referenceMedia = ($treatmentSession && $treatmentSession->session_number > 1 && isset($previous))
+                ? $previous->getMedia('post_treatment_images')
+                : $assessment->getMedia('assessment_images');
+            $intervalDays = $this->scanIntervalDays($referenceMedia, $postMedia);
+
             $payload = [
                 'assessment_id' => $assessment->id,
                 'baseline_run' => $reference,
@@ -215,6 +222,7 @@ class FacialV34Controller extends Controller
                 'post_images_by_mode' => $postImagesByMode,
                 'post_image_set_hash' => $this->imageSetHash($postImagesByMode),
                 'model' => $this->model($request),
+                'interval_days' => $intervalDays,
             ];
 
             $result = $this->runNode('reassessment', $payload);
@@ -460,6 +468,24 @@ class FacialV34Controller extends Controller
         }
 
         return $decoded['result'];
+    }
+
+    /**
+     * Days between the earliest reference capture and the earliest post capture,
+     * rounded to one decimal. Returns null when either side has no timestamp.
+     */
+    private function scanIntervalDays($referenceMedia, $postMedia): ?float
+    {
+        $first = static function ($collection) {
+            $timestamps = collect($collection)->map(fn ($m) => $m->created_at)->filter()->sort()->values();
+            return $timestamps->first();
+        };
+        $from = $first($referenceMedia);
+        $to = $first($postMedia);
+        if (!$from || !$to) {
+            return null;
+        }
+        return round(max(0, $from->diffInMinutes($to)) / 1440, 1);
     }
 
     private function mediaToImagesByMode($mediaCollection): array

@@ -159,6 +159,7 @@ function buildCoreFeatureOutcomes(
       pairwise_change_direction: pairwiseDirection,
       pairwise_change_confidence:
         pairwiseComparison?.global_change_confidence ?? null,
+      pairwise_change_magnitude: pairwiseComparison?.visible_change_magnitude ?? null,
       pairwise_validation_status: validation,
       score_reliability_tier: reliabilityTier(beforeFeature, afterFeature),
       display_numeric_change: hasMeasurement && shouldDisplayNumericChange({
@@ -181,7 +182,7 @@ function buildCoreFeatureOutcomes(
   return outcomes
 }
 
-function buildDerivedParameterOutcomes(baselineState, postState, coreOutcomes) {
+function buildDerivedParameterOutcomes(baselineState, postState, coreOutcomes, pairQuality = null) {
   const outcomes = {}
   const baselineParameters = baselineState.derived_report_parameters
   const postParameters = postState.derived_report_parameters
@@ -193,22 +194,39 @@ function buildDerivedParameterOutcomes(baselineState, postState, coreOutcomes) {
     const beforeBurden = beforeParameter.internal_burden_score_1_to_100
     const afterBurden = afterParameter.internal_burden_score_1_to_100
     const improvementPoints = beforeBurden - afterBurden
-    const sourceFeatureIds = Object.keys(beforeParameter.source_components ?? {})
-    const sourceValidations = sourceFeatureIds
-      .map((featureId) => coreOutcomes[featureId]?.pairwise_validation_status)
-      .filter(Boolean)
-
+    // V3.12: source_components is empty on the regional (V3.10+) path, which left every
+    // derived parameter 'not_pairwise_checked'. Fall back to the core features whose
+    // aggregation links point at this parameter so pairwise validation actually applies.
+    const linkedFeatureIds = Object.entries(baselineState.core_features ?? {})
+      .filter(([, feature]) => feature?.aggregation_details?.source_parameter === parameterId)
+      .map(([featureId]) => featureId)
+    const componentFeatureIds = Object.keys(beforeParameter.source_components ?? {})
+      .filter((featureId) => coreOutcomes[featureId])
+    const sourceFeatureIds = componentFeatureIds.length ? componentFeatureIds : linkedFeatureIds
+    const sourceOutcomes = sourceFeatureIds.map((featureId) => coreOutcomes[featureId]).filter(Boolean)
+    // V3.12: validate the derived parameter's OWN measured direction against the pairwise
+    // evidence of its source features. Inheriting the core-feature validation was wrong for
+    // balance parameters (skin_sebum): health can rise while the oiliness burden falls, or
+    // fall when skin is over-stripped past balance.
+    const mdc = sourceOutcomes.length
+      ? Math.max(...sourceOutcomes.map((outcome) => outcome.minimum_detectable_change_points ?? 5))
+      : 5
+    const derivedDirection = numericDirection(improvementPoints, mdc)
+    const pairwiseDirections = sourceOutcomes.map((outcome) => outcome.pairwise_change_direction).filter(Boolean)
     let validation = 'not_pairwise_checked'
-    if (sourceValidations.includes('contradicted')) validation = 'contradicted'
-    else if (
-      sourceValidations.includes('pairwise_inconclusive') ||
-      sourceValidations.includes('numeric_change_not_visually_confirmed')
-    ) {
-      validation = 'inconclusive'
-    } else if (sourceValidations.length && sourceValidations.every((value) => value === 'confirmed')) {
-      validation = 'confirmed'
-    } else if (sourceValidations.length) {
-      validation = 'partially_supported'
+    if (pairwiseDirections.length) {
+      const set = new Set(pairwiseDirections)
+      if (set.has('not_reliably_measurable')) validation = 'inconclusive'
+      else if (set.has('mixed') || (set.has('improved') && set.has('worsened'))) {
+        validation = derivedDirection === 'stable' ? 'pairwise_mixed' : 'partially_supported'
+      } else if (set.size === 1 && set.has('stable')) {
+        validation = derivedDirection === 'stable' ? 'confirmed' : 'inconclusive'
+      } else {
+        const visual = set.has('improved') ? 'improved' : 'worsened'
+        if (derivedDirection === visual) validation = 'confirmed'
+        else if (derivedDirection === 'stable') validation = 'weak_pairwise_only_change'
+        else validation = 'contradicted'
+      }
     }
 
     outcomes[parameterId] = {
@@ -229,6 +247,21 @@ function buildDerivedParameterOutcomes(baselineState, postState, coreOutcomes) {
       confidence_0_1: Math.min(beforeParameter.data_quality?.confidence_0_1 ?? 1, afterParameter.data_quality?.confidence_0_1 ?? 1),
       estimated_comparison: !!(beforeParameter.data_quality?.is_estimated || afterParameter.data_quality?.is_estimated),
       source_feature_ids: sourceFeatureIds,
+      // V3.12 display support (all derived from the validated core outcomes above).
+      minimum_detectable_change_points: mdc,
+      numeric_change_direction: derivedDirection,
+      pairwise_change_directions: pairwiseDirections,
+      pairwise_change_magnitudes: sourceOutcomes.map((outcome) => outcome.pairwise_change_magnitude).filter(Boolean),
+      display_numeric_change:
+        derivedDirection !== 'stable' &&
+        pairQuality !== 'poor' &&
+        ['confirmed', 'partially_supported'].includes(validation),
+      zones_visibly_improved: [...new Set(sourceOutcomes.flatMap((outcome) => outcome.zones_visibly_improved ?? []))],
+      zones_visibly_worsened: [...new Set(sourceOutcomes.flatMap((outcome) => outcome.zones_visibly_worsened ?? []))],
+      transient_reactivity_notes: sourceOutcomes
+        .map((outcome) => String(outcome.transient_reactivity_note ?? '').trim())
+        .filter(Boolean),
+      pairwise_summaries: sourceOutcomes.map((outcome) => String(outcome.pairwise_summary ?? '').trim()).filter(Boolean),
     }
   }
 
@@ -268,6 +301,7 @@ export async function runPostTreatmentReassessmentV2({
   patientContext = null,
   minimumDetectableChange = DEFAULT_MIN_DETECTABLE_CHANGE_V2,
   includeRawPairwiseOutput = false,
+  intervalDays = null,
 }) {
   if (!baseline || !post) throw new Error('baseline and post inputs are required')
   if (typeof pairwiseCall !== 'function') {
@@ -332,6 +366,7 @@ export async function runPostTreatmentReassessmentV2({
     baselineRun.skin_state,
     postRun.skin_state,
     coreFeatureOutcomes,
+    pairwise?.comparison_meta?.pair_quality ?? null,
   )
 
   const result = {
@@ -348,6 +383,13 @@ export async function runPostTreatmentReassessmentV2({
     pairwise_evidence: pairwise,
     core_feature_outcomes: coreFeatureOutcomes,
     derived_parameter_outcomes: derivedParameterOutcomes,
+    comparison_context: {
+      // Days between the reference scan and this post scan. null = unknown (treated as same-day
+      // by the report adapter, i.e. structural parameters are carried forward, not rescored).
+      interval_days: Number.isFinite(intervalDays) ? intervalDays : null,
+      pair_quality: pairwise?.comparison_meta?.pair_quality ?? null,
+      pair_quality_issues: pairwise?.comparison_meta?.pair_quality_issues ?? [],
+    },
     generated_at_iso: new Date().toISOString(),
   }
 

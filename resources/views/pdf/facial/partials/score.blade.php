@@ -9,7 +9,7 @@
     // Direction must be explicit. "higher_is_worse" contains the word "higher",
     // so broad substring matching incorrectly labelled every severity score as higher-is-better.
     $isBalance = in_array($polarity, ['depends_on_target', 'target_based'], true)
-        || in_array($direction, ['move_toward_target', 'maintain_target', 'target'], true)
+        || in_array($direction, ['move_toward_target', 'maintain_target', 'target', 'balance'], true)
         || str_contains($comparison, 'target_distance')
         || str_contains($semantics, 'state_spectrum');
 
@@ -34,7 +34,9 @@
 
     $directionLabel = $isBalance ? 'Balance target' : ($isHigher ? 'Higher is better' : 'Lower is better');
     $dotClass = $isBalance ? 'score-dot-on-balance' : ($isHigher ? 'score-dot-on-health' : 'score-dot-on-severity');
-    $numericScore = is_numeric($score) ? max(0, min(5, (int)$score)) : 0;
+    // V3.12: scores are 1-100. Fill the five segments proportionally instead of clamping to 5,
+    // which lit every segment for any score above 5.
+    $numericScore = is_numeric($score) ? ((float)$score > 5 ? max(0, min(5, (int)round((float)$score / 20))) : max(0, min(5, (int)$score))) : 0;
 @endphp
 <div class="score-number">{{ $score }}/100</div>
 <table cellpadding="0" cellspacing="0" style="margin:1.3mm auto 0;">

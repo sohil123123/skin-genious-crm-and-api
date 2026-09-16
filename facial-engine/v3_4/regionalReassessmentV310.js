@@ -1,19 +1,10 @@
-import {CONTRACT,MEASUREMENT_VERSION} from './regionalMeasurementV310.js'
-// Signed regional evidence stays internal; no bonus, floor or weighted-best-region selection.
+// Schema compatibility only. This is NOT the forthcoming comparative image-scoring algorithm.
+import {MEASUREMENT_VERSION} from './regionalMeasurementV310.js'
+import {impactToHealth} from './visibleImpactRubricV315.js'
 export function regionalMeasurementChanges(before,after){
- if(before?.version!==MEASUREMENT_VERSION||after?.version!==MEASUREMENT_VERSION)throw Error('Regional measurement versions must match')
- return Object.fromEntries(Object.entries(CONTRACT).map(([id,c])=>[id,Object.fromEntries(c.regions.map(g=>{
-  const br=before.parameters[id].regions[g],ar=after.parameters[id].regions[g],b=br.metrics,a=ar.metrics
-  const delta=Object.fromEntries(Object.keys(b).map(n=>[n,a[n]-b[n]]))
-  const visibilityChanged=Math.abs(before.regions[g].visible_fraction-after.regions[g].visible_fraction)>.1
-  const issues=[]
-  if(visibilityChanged)issues.push('visible_region_changed')
-  if(id==='superficial_pigmentation'){
-   // Review flags, not diagnostic cutoffs. They do not change the score.
-   if(Math.abs(a.white_patch_contrast-a.subsurface_patch_contrast)>.15||Math.abs(b.white_patch_contrast-b.subsurface_patch_contrast)>.15)issues.push('mode_contrast_disagreement')
-   if(delta.white_patch_contrast*delta.subsurface_patch_contrast<0 && Math.abs(delta.white_patch_contrast-delta.subsurface_patch_contrast)>.08)issues.push('opposite_mode_change')
-   if(Math.abs(delta.coverage_area_percent)>=5)issues.push('coverage_change_requires_patch_identity_check')
-  }
-  return[g,{after_minus_before:delta,score_adjustment_from_pairwise:0,visibility_changed:visibilityChanged,pigment_landmark_before:br.landmark_reference??null,pigment_landmark_after:ar.landmark_reference??null,review_flags:issues,review_status:issues.length?'review_requested_no_automatic_score_override':'no_rule_triggered',review_thresholds_are_engineering_only:true}]
- }))]))
+ if(before?.version!==MEASUREMENT_VERSION||after?.version!==MEASUREMENT_VERSION)throw Error('Matching V3.15 measurement versions required')
+ const diff=(b,a)=>b===null||a===null?null:a-b
+ return {comparison_method:'absolute_impact_differences_only_not_registered_pairwise_measurement',score_adjustment_from_pairwise:0,
+  parameters:Object.fromEntries(Object.keys(before.parameters).map(id=>{const b=before.parameters[id],a=after.parameters[id];return[id,{before_impact:b.impact_level,after_impact:a.impact_level,after_minus_before_impact:diff(b.impact_level,a.impact_level),after_minus_before_health:b.impact_level===null||a.impact_level===null?null:impactToHealth(a.impact_level)-impactToHealth(b.impact_level),before_state:b.state,after_state:a.state}]})),
+  features:Object.fromEntries(Object.keys(before.features).map(id=>{const b=before.features[id],a=after.features[id];return[id,{before_impact:b.impact_level,after_impact:a.impact_level,after_minus_before_impact:diff(b.impact_level,a.impact_level),regions_before:b.regions,regions_after:a.regions,before_state:b.state,after_state:a.state}]}))}
 }

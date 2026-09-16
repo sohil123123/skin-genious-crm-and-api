@@ -1,4 +1,5 @@
 import { recommendConcernsV38 } from './concernRecommendationsV38.js'
+import { APPEARANCE_PAIRWISE_SOURCES_V313, PAIRWISE_POINTS_TABLE_V313, PAIRWISE_NUMERIC_MARGIN_V313, APPEARANCE_VERSION_V313 } from './appearanceScoringV313.js'
 import {
   CLIENT_REPORT_PARAMETER_IDS,
   CORE_FEATURE_IDS,
@@ -213,7 +214,8 @@ function scoreExplanation(parameterId, card, skinState) {
 
 function oldPolarity(parameterId) {
   if (parameterId === 'skin_type') return { score_semantics: 'label', score_polarity: 'label_only', ideal_score_direction: 'maintain', comparison_mode: 'label_mapping' }
-  return { score_semantics: 'health', score_polarity: 'higher_is_better', ideal_score_direction: 'increase', comparison_mode: 'direct_numeric' }
+  // Sebum health is scored against a balance target, not ever-lower oil.
+  return { score_semantics: 'health', score_polarity: 'higher_is_better', ideal_score_direction: parameterId === 'skin_sebum' ? 'balance' : 'increase', comparison_mode: 'direct_numeric' }
 }
 
 export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
@@ -226,9 +228,11 @@ export function buildLegacyDiagnosisV34({ skinAnalysisReport, skinState }) {
     const polarity = oldPolarity(card.parameter_id)
     const reliability = parameterReliability(card.parameter_id, skinState)
     const dominantZones = parameterDominantZones(card.parameter_id, skinState)
+    // V3.13: the client sees the appearance score when the engine produced one.
+    const appearance = skinState.appearance_report_parameters?.[card.parameter_id]
     const scoreOrLabel = card.value_type === 'label'
       ? card.display_label
-      : Number(card.client_health_score_1_to_100)
+      : Number.isFinite(appearance?.display_score_1_to_100) ? appearance.display_score_1_to_100 : Number(card.client_health_score_1_to_100)
 
     diagnosisReport[meta.legacy_key] = {
       parameter_name: meta.label,
@@ -435,10 +439,79 @@ export function buildLegacyTreatmentPlanV34({
   }
 }
 
-export function buildLegacyPostDiagnosisV34(reassessmentResult) {
+// ---------------------------------------------------------------------------
+// V3.12 post-diagnosis display policy.
+//
+// The reassessment engine already validates every measured change against the
+// minimum detectable change and the pairwise vision comparison. Until V3.12 this
+// adapter ignored that validation and rebuilt the patient-facing result from the
+// raw numeric delta with a fixed +/-2 threshold. It now consumes the validated
+// outcomes, keeps the raw reading in the data, and computes all display numbers
+// from the rounded scores the patient actually sees.
+// ---------------------------------------------------------------------------
+export const POST_DIAGNOSIS_DISPLAY_POLICY_V312 = Object.freeze({
+  version: 'aia_post_diagnosis_display_v3.13.0',
+  // Structural appearance parameters are not rescored inside a treatment course.
+  // They are carried forward until at least this many days separate the scans.
+  structural_parameter_ids: Object.freeze(['jawline_sagging', 'skin_firmness_elasticity']),
+  structural_min_interval_days: 21,
+  // Parameters where a same-day decline is expected to be transient reactivity.
+  transient_reactivity_parameter_ids: Object.freeze(['vascularity_redness', 'barrier_health_sensitivity']),
+  // Fallback minimum detectable change when the engine did not supply one.
+  default_minimum_detectable_change_points: 5,
+  response_strength_bands: Object.freeze({ mild: 5, moderate: 9, strong: 15 }),
+})
+
+function validateDirectionV313(numericDirection, pairwiseDirections) {
+  if (!pairwiseDirections.length) return 'not_pairwise_checked'
+  const set = new Set(pairwiseDirections)
+  if (set.has('not_reliably_measurable')) return 'inconclusive'
+  if (set.has('mixed') || (set.has('improved') && set.has('worsened'))) return numericDirection === 'stable' ? 'pairwise_mixed' : 'partially_supported'
+  if (set.size === 1 && set.has('stable')) return numericDirection === 'stable' ? 'confirmed' : 'inconclusive'
+  const visual = set.has('improved') ? 'improved' : 'worsened'
+  if (numericDirection === visual) return 'confirmed'
+  if (numericDirection === 'stable') return 'weak_pairwise_only_change'
+  return 'contradicted'
+}
+
+function responseStrengthV312(points, bands = POST_DIAGNOSIS_DISPLAY_POLICY_V312.response_strength_bands) {
+  if (points < bands.mild) return 'none'
+  if (points < bands.moderate) return 'mild'
+  if (points < bands.strong) return 'moderate'
+  return 'strong'
+}
+
+function transientNoteV312(parameterId, outcome, policy) {
+  const engineNotes = outcome?.transient_reactivity_notes ?? []
+  if (engineNotes.length) return engineNotes.join(' ')
+  if (policy.transient_reactivity_parameter_ids.includes(parameterId)) {
+    return parameterId === 'vascularity_redness'
+      ? 'Post-treatment redness can be temporary; persistent or worsening redness should be reviewed by your clinician.'
+      : 'Barrier comfort can dip briefly after active treatment; persistent stinging, flaking or redness should be reviewed by your clinician.'
+  }
+  return 'none'
+}
+
+/**
+ * @param {object} reassessmentResult output of runPostTreatmentReassessmentV2
+ * @param {object} [options]
+ * @param {number|null} [options.intervalDays] days between reference and post scan; defaults to
+ *   reassessmentResult.comparison_context.interval_days, then null (treated as same-day).
+ * @param {object} [options.policy] override of POST_DIAGNOSIS_DISPLAY_POLICY_V312
+ */
+export function buildLegacyPostDiagnosisV34(reassessmentResult, options = {}) {
   const postState = reassessmentResult?.post_treatment?.skin_state
   const baselineState = reassessmentResult?.baseline?.skin_state
   if (!postState) return { v3_4_reassessment: reassessmentResult }
+
+  const policy = { ...POST_DIAGNOSIS_DISPLAY_POLICY_V312, ...(options.policy ?? {}) }
+  const derivedOutcomes = reassessmentResult?.derived_parameter_outcomes ?? {}
+  const context = reassessmentResult?.comparison_context ?? {}
+  const intervalDays = Number.isFinite(options.intervalDays)
+    ? options.intervalDays
+    : Number.isFinite(context.interval_days) ? context.interval_days : null
+  const pairQuality = context.pair_quality ?? reassessmentResult?.pairwise_evidence?.comparison_meta?.pair_quality ?? null
+  const structuralAssessed = intervalDays !== null && intervalDays >= policy.structural_min_interval_days
 
   const reassessment = {}
   for (const parameterId of CLIENT_REPORT_PARAMETER_IDS) {
@@ -470,53 +543,168 @@ export function buildLegacyPostDiagnosisV34(reassessmentResult) {
       continue
     }
 
-    const before = baselineState?.derived_report_parameters?.[parameterId]
-    const after = postState?.derived_report_parameters?.[parameterId]
+    const useAppearance = Number.isFinite(baselineState?.appearance_report_parameters?.[parameterId]?.internal_burden_score_1_to_100)
+      && Number.isFinite(postState?.appearance_report_parameters?.[parameterId]?.internal_burden_score_1_to_100)
+    const before = useAppearance ? baselineState.appearance_report_parameters[parameterId] : baselineState?.derived_report_parameters?.[parameterId]
+    const after = useAppearance ? postState.appearance_report_parameters[parameterId] : postState?.derived_report_parameters?.[parameterId]
     if (!Number.isFinite(before?.internal_burden_score_1_to_100) || !Number.isFinite(after?.internal_burden_score_1_to_100)) {
       throw new Error(`Missing supported reassessment score for ${parameterId}; retry the assessment.`)
     }
-    const beforeBurden = before.internal_burden_score_1_to_100
-    const afterBurden = after.internal_burden_score_1_to_100
-    const beforeHealth = 101 - beforeBurden
-    const afterHealth = 101 - afterBurden
-    const delta = afterHealth - beforeHealth
-    const direction = delta > 2 ? 'improved' : delta < -2 ? 'declined' : 'stable'
-    const magnitude = Math.abs(delta)
-    const responseStrength = magnitude < 3 ? 'none' : magnitude < 7 ? 'mild' : magnitude < 13 ? 'moderate' : 'strong'
+    const beforeHealth = 101 - before.internal_burden_score_1_to_100
+    const afterHealth = 101 - after.internal_burden_score_1_to_100
+    // Display arithmetic uses the rounded values the patient sees, so "improved by N"
+    // always equals (after shown) - (before shown).
+    const beforeShown = Math.round(beforeHealth)
+    const afterShown = Math.round(afterHealth)
+    const shownDelta = afterShown - beforeShown
+    const rawDelta = afterHealth - beforeHealth
+    const rawDirection = rawDelta > 0 ? 'improved' : rawDelta < 0 ? 'declined' : 'stable'
+
+    const outcome = derivedOutcomes[parameterId] ?? null
+    const mdc = outcome?.minimum_detectable_change_points ?? policy.default_minimum_detectable_change_points
+    const pairwiseDirections = outcome?.pairwise_change_directions ?? []
+    // When the client score is the appearance score, validate ITS direction against the pairwise
+    // verdict (the engine's own validation is against the burden direction, which differs for
+    // balance parameters such as sebum).
+    const validation = useAppearance
+      ? validateDirectionV313(Math.abs(shownDelta) >= mdc ? (shownDelta > 0 ? 'improved' : 'worsened') : 'stable', pairwiseDirections)
+      : (outcome?.validation_status ?? 'not_pairwise_checked')
+    const isStructural = policy.structural_parameter_ids.includes(parameterId)
+
+    // V3.13 pairwise-first path for appearance parameters: the before/after visual comparison
+    // gives direction and size band; points come from a fixed table, bounded by the measured
+    // appearance delta plus a margin. Falls back to the numeric ladder below when the pairwise
+    // model supplied no magnitude (older results, mocks).
+    const coreOutcomes = reassessmentResult?.core_feature_outcomes ?? {}
+    const pwSources = APPEARANCE_PAIRWISE_SOURCES_V313[parameterId]
+      ? APPEARANCE_PAIRWISE_SOURCES_V313[parameterId].map((id) => coreOutcomes[id]).filter(Boolean)
+      : []
+    const bandRank = { none: 0, slight: 1, clear: 2, strong: 3 }
+    const pwMagnitudes = pwSources.map((o) => o.pairwise_change_magnitude).filter((m) => m && bandRank[m] !== undefined)
+    const pairwiseFirst = useAppearance && !isStructural && pwSources.length > 0 && pwMagnitudes.length > 0 && pairQuality !== 'poor'
+    let pairwisePoints = null, pairwiseBand = null, pairwiseDirection = null
+    if (pairwiseFirst) {
+      const dirs = new Set(pwSources.map((o) => o.pairwise_change_direction).filter(Boolean))
+      pairwiseDirection = dirs.has('not_reliably_measurable') || dirs.has('mixed') || (dirs.has('improved') && dirs.has('worsened'))
+        ? 'unclear'
+        : dirs.has('improved') ? 'improved' : dirs.has('worsened') ? 'worsened' : 'stable'
+      pairwiseBand = pwMagnitudes.reduce((best, m) => (bandRank[m] > bandRank[best] ? m : best), 'none')
+      const table = PAIRWISE_POINTS_TABLE_V313[parameterId] ?? [3, 5, 8]
+      const raw = pairwiseBand === 'none' || pairwiseDirection === 'stable' || pairwiseDirection === 'unclear' ? 0 : table[bandRank[pairwiseBand] - 1]
+      const numericSupport = pairwiseDirection === 'improved' ? Math.max(0, rawDelta) : pairwiseDirection === 'worsened' ? Math.max(0, -rawDelta) : 0
+      pairwisePoints = Math.round(Math.min(raw, numericSupport + PAIRWISE_NUMERIC_MARGIN_V313)) * (pairwiseDirection === 'worsened' ? -1 : 1)
+    }
+
+    let result, displayedAfter, explanation, blockedReason = null
+    if (pairwiseFirst) {
+      if (pairwisePoints > 0) {
+        result = 'improved'
+        displayedAfter = Math.min(100, beforeShown + pairwisePoints)
+        explanation = `A ${pairwiseBand} visible improvement was seen in the before/after comparison (+${pairwisePoints} points).`
+      } else if (pairwisePoints < 0) {
+        result = 'declined'
+        displayedAfter = Math.max(1, beforeShown + pairwisePoints)
+        explanation = `The before/after comparison shows the area reads ${Math.abs(pairwisePoints)} points lower today.`
+        if (policy.transient_reactivity_parameter_ids.includes(parameterId)) explanation += ' Temporary treatment-day reactivity may contribute.'
+      } else {
+        result = 'stable'
+        displayedAfter = beforeShown
+        blockedReason = pairwiseDirection === 'unclear' ? 'pairwise_unclear' : 'no_visible_change'
+        explanation = 'No visible change was seen in the before/after comparison today.'
+      }
+    } else if (isStructural && !structuralAssessed) {
+      // Structural appearance is not rescored inside the course; carry the baseline forward.
+      result = 'not_assessed_this_interval'
+      displayedAfter = beforeShown
+      blockedReason = 'structural_parameter_carried_forward'
+      explanation = intervalDays === null
+        ? 'Structural changes are assessed at the end of the treatment course, not on the same day. Your baseline score is carried forward.'
+        : `Structural changes are assessed after at least ${policy.structural_min_interval_days} days. Your baseline score is carried forward.`
+    } else if (Math.abs(shownDelta) < mdc) {
+      // V3.12.1: carry the baseline forward. Showing 59 -> 62 next to "no change" was
+      // contradictory and let downstream layers classify it as improved.
+      result = 'stable'
+      displayedAfter = beforeShown
+      blockedReason = 'below_minimum_detectable_change'
+      explanation = 'No change beyond the measurement threshold was seen today.'
+    } else if (pairQuality === 'poor') {
+      result = 'stable'
+      displayedAfter = beforeShown
+      blockedReason = 'pair_quality_poor'
+      explanation = 'The two scans could not be compared reliably (framing, lighting or positioning differed). Your baseline score is carried forward; a repeat scan is recommended.'
+    } else if (validation === 'contradicted' || validation === 'inconclusive') {
+      result = 'stable'
+      displayedAfter = beforeShown
+      blockedReason = `pairwise_${validation}`
+      explanation = 'A numeric change was measured but could not be confirmed visually, so no change is shown today.'
+    } else if (shownDelta > 0) {
+      result = 'improved'
+      displayedAfter = afterShown
+      explanation = `The measured post-treatment health score improved by ${shownDelta} points.`
+    } else {
+      result = 'declined'
+      displayedAfter = afterShown
+      explanation = `The measured post-treatment health score is ${Math.abs(shownDelta)} points lower today.`
+      if (policy.transient_reactivity_parameter_ids.includes(parameterId)) {
+        explanation += ' Temporary treatment-day reactivity may contribute.'
+      }
+    }
+
+    const magnitude = result === 'improved' || result === 'declined' ? Math.abs(displayedAfter - beforeShown) : 0
 
     reassessment[legacyKey] = {
       parameter_name: meta?.label ?? parameterId,
       score_scale: '1_to_100_client_health_higher_is_better',
-      before_treatment_score_or_label: Math.round(beforeHealth),
+      before_treatment_score_or_label: beforeShown,
       before_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
-      post_treatment_score_or_label: Math.round(afterHealth),
+      // Patient-facing post score: the confirmed value, or the carried-forward baseline.
+      post_treatment_score_or_label: displayedAfter,
       post_treatment_image: PARAMETER_IMAGE_INDEX[parameterId] ?? null,
-      result: direction,
+      result,
       score_semantics: 'health',
       score_polarity: 'higher_is_better',
       comparison_mode: 'direct_numeric',
-      ideal_score_direction: 'increase',
+      ideal_score_direction: parameterId === 'skin_sebum' ? 'balance' : 'increase',
       base_post_score_or_label_internal: afterHealth,
-      raw_comparison_result_internal: direction,
-      response_strength: responseStrength,
-      patient_facing_change_points: Math.abs(
-        (afterHealth ?? 0) - (beforeHealth ?? 0),
-      ),
-      transient_reactivity_note: 'See V3.4 pairwise evidence for any treatment-day reactivity.',
-      score_explanation:
-        direction === 'improved'
-          ? `The measured post-treatment health score improved by ${Math.round(delta)} points.`
-          : direction === 'declined'
-            ? `The measured post-treatment health score is ${Math.round(Math.abs(delta))} points lower today; temporary treatment-day reactivity may contribute and is reported separately in V3.4.`
-            : 'The measured post-treatment score is broadly stable today.',
+      raw_comparison_result_internal: rawDirection,
+      response_strength: responseStrengthV312(magnitude, policy.response_strength_bands),
+      patient_facing_change_points: magnitude,
+      transient_reactivity_note: result === 'declined' ? transientNoteV312(parameterId, outcome, policy) : 'none',
+      score_explanation: explanation,
       v3_4_before_health_score_1_to_100: beforeHealth,
       v3_4_after_health_score_1_to_100: afterHealth,
-      v3_4_health_change_1_to_100: delta,
+      v3_4_health_change_1_to_100: rawDelta,
+      // V3.12 clinician record. Never altered by presentation layers.
+      raw: {
+        after_health_score_1_to_100: afterHealth,
+        after_shown_if_unfiltered: afterShown,
+        shown_delta: shownDelta,
+        raw_direction: rawDirection,
+        minimum_detectable_change_points: mdc,
+        pairwise_validation_status: validation,
+        pairwise_change_directions: pairwiseDirections,
+        pair_quality: pairQuality,
+        display_blocked_reason: blockedReason,
+        scoring_path: pairwiseFirst ? 'pairwise_first_v3_13' : 'numeric_ladder_v3_12',
+        score_source: useAppearance ? APPEARANCE_VERSION_V313 : 'derived_report_parameters',
+        pairwise_band: pairwiseBand,
+        pairwise_points: pairwisePoints,
+        zones_visibly_improved: outcome?.zones_visibly_improved ?? [],
+        zones_visibly_worsened: outcome?.zones_visibly_worsened ?? [],
+        pairwise_summary: (outcome?.pairwise_summaries ?? []).join(' ') || null,
+      },
     }
   }
 
   return {
-    metadata: { phase: 'reassessment', evaluation_type: 'post_treatment' },
+    metadata: {
+      phase: 'reassessment',
+      evaluation_type: 'post_treatment',
+      display_policy_version: policy.version,
+      interval_days: intervalDays,
+      structural_parameters_assessed: structuralAssessed,
+      pair_quality: pairQuality,
+    },
     reassessment,
     v3_4_reassessment: reassessmentResult,
   }

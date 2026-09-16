@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {VERSION as COMPARISON_VERSION_V316,baselineContext as baselineContextV316,comparisonPrompt as comparisonPromptV316,comparisonFormat as comparisonFormatV316,stableComparison as stableComparisonV316,applyComparison as applyComparisonV316} from './comparativeReassessmentV316.js'
 import { compactResultV391, compactPlanningContextV391 } from './payloadTransportV391.js'
 import { validateWorkflowPlanV39, mergeCourseBlockV39 } from './workflowV39/workflowContractV39.js'
 import { CALIBRATION_VERSION_V37 as CALIBRATION_VERSION_V36 } from './legacyScoringV37.js'
@@ -264,7 +265,9 @@ async function runUnifiedAbsoluteAssessmentV35({scanId,imagesByMode,imageSetHash
         {role:'system',content:[{type:'input_text',text:prompt}]},
         {role:'user',content:buildVisionContent(imagesByMode,{task:'Measure absolute regional skin appearance',authoritative_mode_order:CANONICAL_MODES})},
       ],reasoning:{effort:reasoning},text:{verbosity:'low',format:measurementFormat()},max_output_tokens:maxTokens,prompt_cache_key:MEASUREMENT_VERSION}, {moduleId:'regional_measurement_v310'})
-      const parsed=parseModelJson(response);decodeMeasurements(parsed);return parsed
+      const parsed=parseModelJson(response);
+      decodeMeasurements(parsed);
+      return parsed
     }})
   const run=buildRegionalRun(decodeMeasurements(cache.value),{scanId,imageSetHash:hash,modelVersion:model,captureType,pairedBaselineScanId})
   run.evidence_packet.model_execution.unified_wire_version=MEASUREMENT_VERSION
@@ -396,7 +399,7 @@ async function assessmentCommand(payload, model) {
     elapsed_seconds: Math.round(elapsedMs / 1000),
   })
   return {
-    engine_version: 'facial_v3_10_regional_measurements',
+    engine_version: 'facial_v3_17_visible_appearance',
     command: 'assessment',
     latency_profile: {
       inference_architecture: 'one_regional_measurement_call_immutable_reuse',
@@ -416,7 +419,7 @@ async function assessmentCommand(payload, model) {
 async function treatmentPlanCommand(payload) {
   const skinState = payload.skin_state
   if (!skinState?.core_features) throw new Error('treatment_plan requires skin_state from the baseline assessment.')
-  if (skinState.scoring_execution?.calibration_version !== CALIBRATION_VERSION_V36) throw new Error('Re-run baseline images with V3.7 before generating a new treatment plan; retain old reports for audit.')
+  if (![CALIBRATION_VERSION_V36,FORMULA_VERSION].includes(skinState.scoring_execution?.calibration_version)) throw new Error('Treatment planning requires a supported saved baseline calibration (current appearance baseline or legacy V3.7). Retain old reports for audit.')
   const treatmentMode = normalizeTreatmentMode(payload.treatment_mode)
   const concerns = resolveConcernFeaturesV34(payload.selected_concerns, skinState)
   const common = {
@@ -475,51 +478,30 @@ async function treatmentPlanCommand(payload) {
 }
 
 async function reassessmentCommand(payload, model) {
-  if (!payload.baseline_run?.skin_state || !payload.baseline_run?.evidence_packet) {
-    throw new Error('reassessment requires the stored baseline run.')
-  }
-  let baseline = payload.baseline_run
-  if (!baseline.imagesByMode) throw new Error('Original baseline images are required for visual pairwise verification.')
-  const referenceRescored = baseline.skin_state.scoring_execution?.formula_config_version !== FORMULA_VERSION || baseline.evidence_packet.model_execution?.model_version !== model || baseline.evidence_packet.model_execution?.prompt_version !== MEASUREMENT_VERSION
-  if (referenceRescored) {
-    baseline = await runUnifiedAbsoluteAssessmentV35({scanId:baseline.skin_state.scan.scan_id,imagesByMode:baseline.imagesByMode,imageSetHash:baseline.skin_state.scan.image_set_hash,model,captureType:baseline.skin_state.scan.capture_type ?? 'baseline'})
-  }
-  const postScanId = String(payload.post_scan_id ?? `post-${payload.assessment_id ?? Date.now()}`)
-  const {postRun,pairwise,latency_profile} = await runConcurrentReassessment(
-    () => runUnifiedAbsoluteAssessmentV35({
-    scanId: postScanId,
-    imagesByMode: payload.post_images_by_mode,
-    imageSetHash: payload.post_image_set_hash ?? null,
-    model,
-    captureType: 'post_treatment',
-    pairedBaselineScanId: baseline.skin_state.scan.scan_id,
-  }),
-    () => createLegacyVisionCall(model)({module_id:'pairwise_outcome',
-      images:{baseline:baseline.imagesByMode,post_treatment:payload.post_images_by_mode},
-      input:{baseline_scan_id:baseline.skin_state.scan.scan_id,post_scan_id:postScanId}
-    }),
-  )
-  const result = await runPostTreatmentReassessmentV2({
-    baseline,
-    post: postRun,
-    pairwiseCall: async () => pairwise,
-    modelVersion: model,
-    includeRawPairwiseOutput: payload.include_raw_pairwise_output === true,
-  })
-  return {
-    engine_version: 'facial_v3_10_regional_measurements',
-    command: 'reassessment',
-    latency_profile,
-    post_feature_packet: postRun.evidence_packet,
-    post_run: { skin_state: postRun.skin_state, evidence_packet: postRun.evidence_packet },
-    post_diagnosis: {...buildLegacyPostDiagnosisV34(result),metadata:{...buildLegacyPostDiagnosisV34(result).metadata,reference_rescored:referenceRescored,reference_measurement_version:MEASUREMENT_VERSION}},
-    reference_rescored:referenceRescored,
-    reference_run:referenceRescored?{skin_state:baseline.skin_state,evidence_packet:baseline.evidence_packet}:null,
-    regional_measurement_changes:regionalMeasurementChanges(baseline.skin_state.regional_measurements,postRun.skin_state.regional_measurements),
-    reassessment_result: result,
-    outcome_report: null,
-    outcome_report_status: 'not_generated_until_verified_execution_record_is_persisted',
-  }
+  const start=Date.now(), baseline=payload.baseline_run
+  if(!baseline?.skin_state||!baseline?.evidence_packet)throw Error('Stored baseline run required')
+  const context=baselineContextV316(baseline.skin_state)
+  const before=baseline.imagesByMode,after=payload.post_images_by_mode
+  const ids=images=>CANONICAL_MODES.map(mode=>{const id=imageFileId(images?.[mode]);if(!id)throw Error(`Missing paired capture ${mode}`);return [mode,id]})
+  const beforeIds=ids(before),afterIds=ids(after)
+  const identical=JSON.stringify(beforeIds)===JSON.stringify(afterIds)
+  const prompt=comparisonPromptV316(),detail=String(process.env.FACIAL_V35_IMAGE_DETAIL??process.env.FACIAL_V34_IMAGE_DETAIL??'high')
+  const reasoning=String(process.env.FACIAL_V316_REASONING_EFFORT??'none')
+  const maxTokens=Math.max(6000,Math.min(16000,envInt('FACIAL_V316_MAX_OUTPUT_TOKENS',12000)))
+  const options={scanId:String(payload.post_scan_id??`assessment-${payload.assessment_id}-post`),imageSetHash:resolveImageSetHash(after,payload.post_image_set_hash),modelVersion:model,captureType:'post_treatment',pairedBaselineScanId:baseline.skin_state.scan.scan_id}
+  const cached=identical?{value:stableComparisonV316(baseline.skin_state),cache_hit:true,key:null}:await cachedMeasurement({directory:process.env.FACIAL_V310_CACHE_DIR,waitMs:20000,
+    identity:{version:COMPARISON_VERSION_V316,assessment_id:payload.assessment_id,reference:context,client_display_state:baseline.skin_state.client_display_state??null,before:beforeIds,after:afterIds,model,prompt,detail,reasoning,maxTokens},
+    produce:async()=>{
+      const response=await openAiResponses({model,input:[{role:'system',content:[{type:'input_text',text:prompt}]},{role:'user',content:buildVisionContent({baseline:before,post_treatment:after},context)}],reasoning:{effort:reasoning},text:{verbosity:'low',format:comparisonFormatV316()},max_output_tokens:maxTokens,prompt_cache_key:COMPARISON_VERSION_V316},{moduleId:'comparative_reassessment_v316'})
+      const wire=parseModelJson(response)
+      applyComparisonV316(baseline,wire,options) // Reject malformed/inconsistent output before caching.
+      return wire
+    }})
+  const result=applyComparisonV316(baseline,cached.value,options)
+  result.post_run.skin_state.scoring_execution.measurement_cache_hit=cached.cache_hit
+  result.post_run.skin_state.scoring_execution.assessment_id=cached.key
+  return {engine_version:'facial_v3_17_comparative',command:'reassessment',...result,post_feature_packet:result.post_run.evidence_packet,
+    reference_rescored:false,reference_run:null,latency_profile:{elapsed_ms:Date.now()-start,vision_calls:cached.cache_hit?0:1,cache_hit:cached.cache_hit,identical_capture_shortcut:identical,architecture:'one_paired_comparison_no_absolute_rescore'},outcome_report:null,outcome_report_status:'not_generated_until_verified_execution_record_is_persisted'}
 }
 
 async function main() {
@@ -545,7 +527,7 @@ async function main() {
   else if (command === 'self_test') {
     result = {
       ok: true,
-      engine_version: 'facial_v3_10_regional_measurements',
+      engine_version: 'facial_v3_17_visible_appearance',
       node_version: process.version,
       canonical_modes: CANONICAL_MODES,
       inference_architecture: 'one_regional_measurement_call_immutable_reuse',

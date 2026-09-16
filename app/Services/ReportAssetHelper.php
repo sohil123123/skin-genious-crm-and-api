@@ -350,6 +350,13 @@ class ReportAssetHelper
             if (isset($baselineDiagnosis[$key])) {
                 $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;
             }
+            // V3.12: engine-produced items (they carry a `raw` block) already hold the correct
+            // reference score and a validated result. Overwriting the before score with the
+            // original baseline diagnosis is wrong for session N vs session N-1, and recomputing
+            // result from after != before re-labelled below-threshold changes as improved.
+            if (isset($item['raw']) && is_array($item['raw'])) {
+                continue;
+            }
             if ($baselineScore !== null) {
                 $item['before_treatment_score_or_label'] = $baselineScore;
 
