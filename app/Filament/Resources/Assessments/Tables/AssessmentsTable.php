@@ -188,6 +188,44 @@ class AssessmentsTable
             )
             ->recordActions([
                 ActionGroup::make([
+                    Action::make('download_assessment_images')
+                        ->label('Before & After Images (ZIP)')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Download baseline and latest completed session images')
+                        ->authorize('view')
+                        ->visible(fn (Assessment $record) => in_array($record->assessment_type, ['normal', 'instant-normal', 'pigmentation']))
+                        ->modalHeading('Download Before & After Images')
+                        ->modalDescription('Choose the image types to include in both the before and after folders. Only available images will be downloaded.')
+                        ->modalSubmitActionLabel('Download ZIP')
+                        ->form([
+                            \Filament\Forms\Components\CheckboxList::make('image_types')
+                                ->label('Image types')
+                                ->options(\App\Services\AssessmentImageDownloadService::IMAGE_TYPES)
+                                ->default(array_keys(\App\Services\AssessmentImageDownloadService::IMAGE_TYPES))
+                                ->bulkToggleable()
+                                ->required()
+                                ->minItems(1)
+                                ->columns(2),
+                        ])
+                        ->action(function (Assessment $record, array $data) {
+                            try {
+                                return app(\App\Services\AssessmentImageDownloadService::class)->download($record, $data['image_types']);
+                            } catch (\Illuminate\Validation\ValidationException $exception) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('No assessment images available')
+                                    ->body($exception->getMessage())
+                                    ->warning()
+                                    ->send();
+                            } catch (\Throwable $exception) {
+                                report($exception);
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Unable to download assessment images')
+                                    ->body('The image archive could not be created. Please try again or contact support.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
                     // --- Facial Reports (Normal Type) ---
                     Action::make('diagnosis_pdf')
                         ->label('Facial Skin Analysis Report')
