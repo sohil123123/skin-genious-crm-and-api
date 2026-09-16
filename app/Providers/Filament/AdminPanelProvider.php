@@ -278,7 +278,7 @@ class AdminPanelProvider extends PanelProvider
                                                     currentAudio.pause();
                                                     currentAudio.currentTime = 0;
                                                 }
-                                                currentAudio = new Audio('/audio/old_telephone.mp3');
+                                                currentAudio = new Audio('/audio/doorbell.mp3');
                                                 currentAudio.play().then(() => {
                                                     stopBtn.style.display = 'block';
                                                 }).catch(e => console.error("Error playing sound:", e));
