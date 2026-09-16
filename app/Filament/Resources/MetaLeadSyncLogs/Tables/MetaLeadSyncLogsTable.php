@@ -37,6 +37,13 @@ class MetaLeadSyncLogsTable
             ->defaultSort('created_at', 'desc')
             ->poll('30s')
             ->columns([
+                TextColumn::make('metaPage.clinic.name')
+                    ->label('Clinic')
+                    ->badge()
+                    ->color('info')
+                    ->toggleable()
+                    ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
+
                 TextColumn::make('created_at')
                     ->label('Received')
                     ->dateTime(app_datetime_format())
@@ -49,13 +56,6 @@ class MetaLeadSyncLogsTable
                     ->color('info')
                     ->placeholder('Unknown page')
                     ->toggleable(),
-
-                TextColumn::make('metaPage.clinic.name')
-                    ->label('Clinic')
-                    ->badge()
-                    ->color('info')
-                    ->toggleable()
-                    ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
 
                 TextColumn::make('status')
                     ->badge()

@@ -7,7 +7,9 @@ namespace App\Filament\Resources\Calls\Pages;
 use App\Enums\Call\CallProvider;
 use App\Filament\Resources\Calls\CallResource;
 use App\Filament\Widgets\CallStatsOverview;
+use App\Filament\Widgets\CallVolumeOverview;
 use App\Jobs\Call\SyncCallyzerCallsJob;
+use App\Jobs\Call\SyncExotelCallsJob;
 use App\Models\CallSyncRun;
 use App\Services\Call\CallProviderManager;
 use Filament\Actions\Action;
@@ -31,14 +33,36 @@ class ListCalls extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            // Re-runs the page's own queries. The badges above the table are
-            // live counts of work queues, and this is the cheapest way to see
-            // whether anything arrived while the page sat open.
+            // Where the auto-refresh is announced. A table that rewrites
+            // itself mid-read looks like a glitch until you know it is
+            // deliberate, and staff who do not know keep pressing Refresh to be
+            // sure the rows are not stale.
+            //
+            // Rendered as a badge rather than as a badge *on* the Refresh
+            // button: this panel compiles no Tailwind of its own, and the
+            // corner badge on a button came out as bare floating text. The
+            // badge view is the same chip the table already draws for
+            // "Unmatched" and "Completed", so it lands styled and reads as the
+            // status marker it is. It stays pressable — somebody who takes it
+            // for a refresh control is not wrong.
+            Action::make('autoRefresh')
+                ->badge()
+                ->label('Auto-refresh every 10s')
+                ->icon('heroicon-m-bolt')
+                ->color('info')
+                ->tooltip('New calls appear on their own. Nothing here needs pressing.')
+                ->action(function (): void {}),
+
+            // Re-runs the page's own queries. The table polls on its own, so
+            // this is for the moment somebody cannot wait ten seconds.
             Action::make('refresh')
                 ->label('Refresh')
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
+                ->tooltip('See the latest calls now, without waiting for the next refresh.')
                 ->action(function (): void {}),
+
+            $this->syncExotelAction(),
 
             $this->syncCallyzerAction(),
         ];
@@ -47,7 +71,11 @@ class ListCalls extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            CallStatsOverview::class,
+            // Volume first: "is the phone busier than yesterday" is the
+            // question somebody opens this page with, and the thirty-day
+            // summary below it is the context for the answer.
+            CallVolumeOverview::class,
+            // CallStatsOverview::class,
         ];
     }
 
@@ -179,6 +207,70 @@ class ListCalls extends ListRecords
                 }
 
                 SyncCallyzerCallsJob::dispatch(
+                    from: $data['from'] ?? null,
+                    to: $data['to'] ?? null,
+                    trigger: 'manual',
+                    triggeredBy: auth()->id(),
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Sync started')
+                    ->body('Progress appears on the Call Integration Health page.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Pull Exotel history now rather than waiting for a webhook that may never
+     * come.
+     *
+     * A backstop, not the usual path: Exotel pushes every call as it happens,
+     * and this exists for the gaps in that push — a call whose Passthru was
+     * lost, and the common case of a recording Exotel had not finalised when
+     * the last webhook fired. Queued rather than run inline because a wide
+     * window is many paged API calls, which would time out a web request and
+     * leave a half-finished run behind.
+     */
+    protected function syncExotelAction(): Action
+    {
+        return Action::make('syncExotel')
+            ->label('Sync Exotel now')
+            ->icon('heroicon-o-arrow-path')
+            ->color('gray')
+            ->visible(fn (): bool => app(CallProviderManager::class)
+                ->syncable(CallProvider::Exotel)
+                ?->isSyncEnabled() === true)
+            ->schema([
+                DatePicker::make('from')
+                    ->label('From')
+                    // Narrower than the Callyzer default: Exotel is already
+                    // delivering these calls live, so a wide window is mostly
+                    // re-reading calls the CRM has.
+                    ->default(now()->subDay())
+                    ->maxDate(now())
+                    ->placeholder('Continue from the last sync'),
+                DatePicker::make('to')
+                    ->label('To')
+                    ->default(now())
+                    ->maxDate(now())
+                    ->placeholder('Up to now'),
+            ])
+            ->modalHeading('Sync Exotel call history')
+            ->modalDescription('Runs in the background. Calls already received by webhook are updated, never duplicated.')
+            ->modalSubmitActionLabel('Start sync')
+            ->action(function (array $data): void {
+                if (CallSyncRun::isRunning(CallProvider::Exotel)) {
+                    Notification::make()
+                        ->warning()
+                        ->title('A sync is already running')
+                        ->body('Wait for it to finish — two at once would fetch every call twice.')
+                        ->send();
+
+                    return;
+                }
+
+                SyncExotelCallsJob::dispatch(
                     from: $data['from'] ?? null,
                     to: $data['to'] ?? null,
                     trigger: 'manual',

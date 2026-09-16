@@ -51,7 +51,12 @@ class LeadActionQueue extends TableWidget
 
                 $query = LeadActionLog::query()
                     ->forToday()
-                    ->with(['lead.fieldValues.customField', 'clinic', 'matchedUser'])
+                    ->with([
+                        'lead.fieldValues.customField', 'clinic', 'matchedUser',
+                        // Same reason as the patient queue: the analysis is on
+                        // the card, so it is loaded with the page.
+                        'relatedCall.currentAnalysis',
+                    ])
                     ->orderByDesc('priority_score');
 
                 if ($user && ! $user->hasRole('super_admin') && $user->clinic_id) {

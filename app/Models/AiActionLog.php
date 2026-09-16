@@ -30,6 +30,8 @@ class AiActionLog extends Model
         'slots_to_offer',
         'avoid_notes',
         'assigned_to',
+        'related_call_id',
+        'call_signals',
         'related_appointment_id',
         'related_package_id',
         'related_assessment_id',
@@ -43,6 +45,7 @@ class AiActionLog extends Model
     ];
 
     protected $casts = [
+        'call_signals' => 'array',
         'slots_to_offer' => 'array',
         'expires_at' => 'datetime',
         'outcome_at' => 'datetime',
@@ -218,6 +221,20 @@ class AiActionLog extends Model
     public function clinic(): BelongsTo
     {
         return $this->belongsTo(Clinic::class);
+    }
+
+    /**
+     * The call that raised this action, where one did.
+     *
+     * Loaded with its current analysis because the card shows what the model
+     * made of the conversation, not just that a call happened: a staff member
+     * about to ring somebody back needs the summary and the objection, and
+     * sending them to the call page to read it is a page load in the middle of
+     * a queue they are working through.
+     */
+    public function relatedCall(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Call::class, 'related_call_id');
     }
 
     public function client(): BelongsTo

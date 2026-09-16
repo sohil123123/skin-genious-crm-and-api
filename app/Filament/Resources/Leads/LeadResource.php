@@ -104,19 +104,30 @@ class LeadResource extends Resource
     }
 
     /**
-     * Show how many leads still need a first response.
+     * How many leads arrived today.
      */
     public static function getNavigationBadge(): ?string
     {
         // getEloquentQuery() no longer excludes deleted leads, and a deleted
         // lead must not keep a badge lit in the sidebar.
-        $new = static::getEloquentQuery()->whereNull('deleted_at')->ofStatus(\App\Enums\LeadStatus::New)->count();
+        $today = static::getEloquentQuery()
+            ->whereNull('deleted_at')
+            // created_at rather than fb_created_time: this counts what landed
+            // in the CRM today, so a batch imported this morning still reads as
+            // today's work even when Facebook collected it yesterday.
+            ->whereDate('created_at', now()->toDateString())
+            ->count();
 
-        return $new > 0 ? (string) $new : null;
+        return $today > 0 ? (string) $today : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
         return 'info';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Leads received today';
     }
 }

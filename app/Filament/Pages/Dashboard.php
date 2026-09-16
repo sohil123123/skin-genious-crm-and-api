@@ -42,6 +42,9 @@ class Dashboard extends BaseDashboard
         \App\Filament\Widgets\ExpenseTrendChart::class,              // Daily Expense Trend
         \App\Filament\Widgets\LeadMorningSummary::class,             // Morning Summary — Today's Opportunity
         \App\Filament\Widgets\LeadActionQueue::class,                // Lead Action Queue
+        \App\Filament\Widgets\CallStatsOverview::class,              // Call Stats Overview
+        \App\Filament\Widgets\LatestClients::class,                  // Latest Clients
+        \App\Filament\Widgets\LatestCompletedSessions::class,        // Latest Completed Sessions
     ];
 
     public function getWidgets(): array

@@ -7,6 +7,7 @@ namespace App\Services\Call\Providers\Exotel;
 use App\Models\Setting;
 use App\Services\Call\Exceptions\CallProviderException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -51,6 +52,73 @@ class ExotelClient
 
         // Exotel wraps the record in a "Call" key on this endpoint.
         return (array) ($json['Call'] ?? $json) ?: null;
+    }
+
+    /**
+     * One page of calls created inside a window.
+     *
+     * Exotel's bulk endpoint filters on DateCreated with a "gte:...;lte:..."
+     * expression rather than two parameters, and compares it in the account's
+     * own timezone — which is why the window is formatted here in that zone
+     * rather than passed as UTC.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array{records: array<int, array<string, mixed>>, has_more: bool, total: ?int, status: int}
+     */
+    public function calls(Carbon $from, Carbon $to, int $page = 0, array $filters = []): array
+    {
+        $format = (string) config('calls.exotel.sync.date_format', 'Y-m-d H:i:s');
+        $timezone = (string) config('calls.exotel.timezone', 'Asia/Kolkata');
+        $pageSize = min((int) config('calls.exotel.sync.page_size', 100), 100);
+
+        $query = array_filter([
+            'DateCreated' => sprintf(
+                'gte:%s;lte:%s',
+                $from->copy()->timezone($timezone)->format($format),
+                $to->copy()->timezone($timezone)->format($format),
+            ),
+            'PageSize' => $pageSize,
+            'Page' => $page,
+            // Ascending so the pages walk forward through the window. With the
+            // default descending order, a call that arrives mid-sync shifts
+            // every later page along and one gets skipped.
+            'SortBy' => 'DateCreated:asc',
+            'Status' => $filters['status'] ?? null,
+            'To' => $filters['to'] ?? null,
+            'From' => $filters['from'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+
+        $response = $this->http()->get(
+            $this->url((string) config('calls.exotel.sync.endpoint', 'Calls.json')),
+            $query,
+        );
+
+        // An empty page past the end of the results is not an error.
+        if ($response->status() === 404) {
+            return ['records' => [], 'has_more' => false, 'total' => null, 'status' => 404];
+        }
+
+        if ($response->failed()) {
+            $this->throwForStatus($response->status(), $response->body());
+        }
+
+        $json = (array) $response->json();
+        $records = (array) ($json['Calls'] ?? []);
+        $records = array_is_list($records) ? $records : [$records];
+
+        $meta = (array) ($json['Metadata'] ?? []);
+        $total = isset($meta['Total']) ? (int) $meta['Total'] : null;
+
+        return [
+            'records' => $records,
+            // NextUri is the documented signal, but it has been absent from
+            // responses that plainly had more pages, so a full page asks for
+            // another one regardless. Over-asking costs one empty request;
+            // under-asking silently truncates the sync.
+            'has_more' => filled($meta['NextUri'] ?? null) || count($records) >= $pageSize,
+            'total' => $total,
+            'status' => $response->status(),
+        ];
     }
 
     /**

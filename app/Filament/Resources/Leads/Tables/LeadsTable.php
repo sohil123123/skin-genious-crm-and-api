@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Leads\Tables;
 
 use App\Actions\Lead\AssignLeadsAction;
+use App\Enums\LeadClientStatus;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Enums\PhoneStatus;
@@ -13,6 +14,7 @@ use App\Models\Lead;
 use App\Models\LeadCustomField;
 use App\Models\LeadImport;
 use App\Models\User;
+use App\Services\Lead\LeadConversionService;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -38,13 +40,46 @@ use Illuminate\Support\Collection;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Tables\Enums\RecordActionsPosition;
 
 class LeadsTable
 {
+    /**
+     * The clinic the conversion lookup should be scoped to.
+     *
+     * Null for a super admin, who sees every clinic's leads and must therefore
+     * be matched against every clinic's clients — scoping them to their own
+     * would leave another clinic's converted leads showing as never converted.
+     */
+    protected static function conversionClinicId(): ?int
+    {
+        return check_role(config('project.roles.super_admin'))
+            ? null
+            : auth()->user()?->clinic_id;
+    }
+
     public static function configure(Table $table): Table
     {
+        // Named once because the row tint, the badge, its tooltip and its link
+        // all ask the same question, and a clinic id that differed between them
+        // would tint a row the badge disagreed with.
         return $table
             ->defaultSort('created_at', 'desc')
+            // An enquiry that turned into a client is tinted, so the ads that
+            // are working are visible down the list without reading a column.
+            //
+            // Derived rather than stored: matched_user_id only ever marks
+            // people who were already clients when the ad reached them. See
+            // LeadConversionService for why, and for why the lookup is one
+            // memoised pass per request rather than a query per row.
+            //
+            // Deliberately not a Tailwind utility: this panel ships no compiled
+            // Tailwind, so those class names resolve to nothing. The rule for
+            // `fi-row-lead-converted` is injected in AdminPanelProvider.
+            ->recordClasses(fn (Lead $record): ?string => app(LeadConversionService::class)
+                ->leadBecameClient($record, static::conversionClinicId())
+                    ? 'fi-row-lead-converted'
+                    : null)
             ->columns([
                 TextColumn::make('clinic.name')
                     ->label('Clinic')
@@ -53,17 +88,22 @@ class LeadsTable
                     ->toggleable()
                     ->visible(fn(): bool => check_role(config('project.roles.super_admin'))),
 
+                // Name and phone share one column: they are always read
+                // together when a caller works the list, and keeping them apart
+                // cost a column's width for no extra meaning.
                 TextColumn::make('full_name')
                     ->label('Name')
-                    ->description(fn(Lead $record): ?string => $record->city)
-                    ->searchable(['full_name', 'first_name', 'last_name'])
+                    ->description(fn(Lead $record): ?string => collect([$record->phone, $record->city])
+                        ->filter()
+                        ->implode(" \u{00B7} ") ?: null)
+                    ->searchable(['full_name', 'first_name', 'last_name', 'phone'])
                     ->sortable()
-                    ->weight('medium'),
-
-                TextColumn::make('phone')
-                    ->label('Phone')
-                    ->searchable()
+                    ->weight('medium')
+                    // The phone is the actionable half of the cell, so that is
+                    // what the copy button hands over.
                     ->copyable()
+                    ->copyableState(fn(Lead $record): ?string => $record->phone)
+                    ->copyMessage('Phone copied')
                     ->icon(fn(Lead $record): ?string => $record->phone_status === PhoneStatus::NeedsReview
                         ? 'heroicon-o-exclamation-triangle'
                         : null)
@@ -75,23 +115,40 @@ class LeadsTable
                         ? 'Repaired from: ' . $record->phone_raw
                         : null),
 
-                TextColumn::make('status')
-                    ->badge()
-                    ->sortable(),
+                // TextColumn::make('status')
+                //     ->badge()
+                //     ->sortable(),
 
-                TextColumn::make('matched_user_id')
-                    ->label('Patient')
+                // Two outcomes, not one.
+                //
+                // This read matched_user_id and could therefore only ever say
+                // "Existing": that column is written at import, when the
+                // matcher looks for a client who already exists, so a lead who
+                // enquired and then came in never had it set. The population
+                // the clinic is paying to create was the one the column could
+                // not show.
+                //
+                // The state is derived per row from the phone number and the
+                // order the two records were created in — see
+                // LeadConversionService, which does it in one memoised pass per
+                // request rather than a query per row. The enum carries the
+                // label, colour and icon.
+                TextColumn::make('client_status')
+                    ->label('Client')
                     ->badge()
-                    ->color('warning')
-                    ->icon('heroicon-o-identification')
-                    ->formatStateUsing(fn(): string => 'Existing')
+                    ->state(fn(Lead $record): ?LeadClientStatus => app(LeadConversionService::class)
+                        ->statusFor($record, static::conversionClinicId()))
                     ->placeholder('—')
-                    ->tooltip(fn(Lead $record): ?string => $record->matchedUser
-                        ? 'Matches patient: ' . $record->matchedUser->name
-                        : null)
-                    ->url(fn(Lead $record): ?string => $record->matched_user_id
-                        ? \App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $record->matched_user_id])
-                        : null),
+                    ->tooltip(fn(Lead $record): ?string => app(LeadConversionService::class)
+                        ->statusFor($record, static::conversionClinicId())?->getDescription())
+                    ->url(function (Lead $record): ?string {
+                        $client = app(LeadConversionService::class)
+                            ->clientFor($record, static::conversionClinicId());
+
+                        return $client === null
+                            ? null
+                            : \App\Filament\Resources\Users\UserResource::getUrl('edit', ['record' => $client['id']]);
+                    }),
 
                 TextColumn::make('campaign_name')
                     ->label('Campaign')
@@ -102,12 +159,12 @@ class LeadsTable
                     ->searchable()
                     ->toggleable(),
 
-                TextColumn::make('form_name')
-                    ->label('Form')
-                    ->limit(30)
-                    ->tooltip(fn(Lead $record): ?string => $record->form_name)
-                    ->searchable()
-                    ->toggleable(),
+                // TextColumn::make('form_name')
+                //     ->label('Form')
+                //     ->limit(30)
+                //     ->tooltip(fn(Lead $record): ?string => $record->form_name)
+                //     ->searchable()
+                //     ->toggleable(),
 
                 TextColumn::make('adset_name')
                     ->label('Ad set')
@@ -130,19 +187,19 @@ class LeadsTable
                 //     ->placeholder('Unassigned')
                 //     ->toggleable(),
 
-                TextColumn::make('fb_created_time')
-                    ->label('Submitted')
-                    ->dateTime(app_datetime_format())
-                    ->timezone(app_timezone())
-                    ->sortable()
-                    ->toggleable(),
+                // TextColumn::make('fb_created_time')
+                //     ->label('Submitted')
+                //     ->dateTime(app_datetime_format())
+                //     ->timezone(app_timezone())
+                //     ->sortable()
+                //     ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Imported')
                     ->dateTime(app_datetime_format())
                     ->timezone(app_timezone())
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
 
 
             ])
@@ -166,8 +223,14 @@ class LeadsTable
                         // Answers to the imported questions hang off the lead
                         // with a cascading key, so they go with it.
                         ->modalDescription('The lead and its answers to every lead-form question are destroyed. This cannot be undone.'),
-                ])
-            ])
+                ]),
+            ],
+                // Belongs to recordActions(), not to ActionGroup::make() — the
+                // group takes only the list of actions, so a named argument
+                // inside its brackets is an unknown parameter and every page
+                // that renders this table throws.
+                position: RecordActionsPosition::BeforeColumns,
+            )
             ->toolbarActions([
                 BulkActionGroup::make([
                     // BulkAction::make('assign')

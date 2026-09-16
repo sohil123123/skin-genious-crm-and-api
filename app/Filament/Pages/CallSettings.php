@@ -64,6 +64,7 @@ class CallSettings extends Page
         'exotel_api_token',
         'exotel_subdomain',
         'exotel_webhook_secret',
+        'exotel_sync_enabled',
         'callyzer_enabled',
         'callyzer_sync_enabled',
         'callyzer_base_url',
@@ -126,8 +127,16 @@ class CallSettings extends Page
                     ->schema([
                         Grid::make(2)->schema([
                             Toggle::make('exotel_enabled')
-                                ->label('Accept Exotel calls')
-                                ->columnSpanFull(),
+                                ->label('Accept Exotel calls'),
+
+                            // Separate from the toggle above because the two
+                            // are independent capabilities: the Passthru needs
+                            // no credentials, pulling does. Off by default —
+                            // an installation whose webhooks arrive needs
+                            // nothing here.
+                            Toggle::make('exotel_sync_enabled')
+                                ->label('Allow pulling call history')
+                                ->helperText('Enables the "Sync Exotel now" button on the Calls list. Recovers calls whose Passthru never arrived, and recordings that were not ready when it did.'),
 
                             TextInput::make('exotel_account_sid')
                                 ->label('Account SID')

@@ -278,7 +278,7 @@ class AdminPanelProvider extends PanelProvider
                                                     currentAudio.pause();
                                                     currentAudio.currentTime = 0;
                                                 }
-                                                currentAudio = new Audio('/audio/old_telephone.mp3');
+                                                currentAudio = new Audio('/audio/doorbell.mp3');
                                                 currentAudio.play().then(() => {
                                                     stopBtn.style.display = 'block';
                                                 }).catch(e => console.error("Error playing sound:", e));
@@ -492,6 +492,23 @@ class AdminPanelProvider extends PanelProvider
                            column. */
                         .fi-row-call-unmatched { background-color: rgba(251, 191, 36, 0.07) !important; }
                         .dark .fi-row-call-unmatched { background-color: rgba(180, 83, 9, 0.12) !important; }
+
+                        /* An enquiry that turned into a client. Green, and kept
+                           faint on purpose: this is the good outcome and wants
+                           to be countable down the page, not to shout over the
+                           rows that still need working. The left edge does the
+                           work — a tint alone is easy to miss against the
+                           zebra striping, and easy to mistake for a hover
+                           state. */
+                        .fi-row-lead-converted {
+                            background-color: rgba(16, 185, 129, 0.06) !important;
+                            box-shadow: inset 3px 0 0 0 rgba(16, 185, 129, 0.55);
+                        }
+
+                        .dark .fi-row-lead-converted {
+                            background-color: rgba(16, 185, 129, 0.10) !important;
+                            box-shadow: inset 3px 0 0 0 rgba(52, 211, 153, 0.5);
+                        }
 
                         /* Recording column: one button, one shared player. */
                         .sgc-rec { display: inline-flex; align-items: center; gap: 0.5rem; }

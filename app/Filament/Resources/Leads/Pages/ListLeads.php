@@ -16,16 +16,16 @@ class ListLeads extends ListRecords
 {
     protected static string $resource = LeadResource::class;
 
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('import')
-                ->label('Import leads')
-                ->icon('heroicon-o-arrow-up-tray')
-                ->url(LeadImportWizard::getUrl())
-                ->visible(fn (): bool => LeadImportWizard::canAccess()),
-        ];
-    }
+    // protected function getHeaderActions(): array
+    // {
+    //     return [
+    //         Action::make('import')
+    //             ->label('Import leads')
+    //             ->icon('heroicon-o-arrow-up-tray')
+    //             ->url(LeadImportWizard::getUrl())
+    //             ->visible(fn (): bool => LeadImportWizard::canAccess()),
+    //     ];
+    // }
 
     protected function getHeaderWidgets(): array
     {

@@ -41,7 +41,13 @@ class AiActionQueue extends TableWidget
 
                 $query = AiActionLog::query()
                     ->forToday()
-                    ->with(['client', 'clinic', 'relatedAppointment', 'relatedPackage', 'relatedAssessment'])
+                    ->with([
+                        'client', 'clinic', 'relatedAppointment', 'relatedPackage', 'relatedAssessment',
+                        // The card shows what the AI made of the call that
+                        // raised the action; without this it is a query per
+                        // card, on the widget staff open first every morning.
+                        'relatedCall.currentAnalysis',
+                    ])
                     ->orderByDesc('priority_score');
 
                 // Clinic scope: super_admin sees all, others see only their clinic

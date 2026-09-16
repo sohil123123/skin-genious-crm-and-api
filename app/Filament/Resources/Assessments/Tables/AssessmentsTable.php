@@ -188,6 +188,44 @@ class AssessmentsTable
             )
             ->recordActions([
                 ActionGroup::make([
+                    Action::make('download_assessment_images')
+                        ->label('Before & After Images (ZIP)')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->color('primary')
+                        ->tooltip('Download baseline and latest completed session images')
+                        ->authorize('view')
+                        ->visible(fn (Assessment $record) => in_array($record->assessment_type, ['normal', 'instant-normal', 'pigmentation']))
+                        ->modalHeading('Download Before & After Images')
+                        ->modalDescription('Choose the image types to include in both the before and after folders. Only available images will be downloaded.')
+                        ->modalSubmitActionLabel('Download ZIP')
+                        ->form([
+                            \Filament\Forms\Components\CheckboxList::make('image_types')
+                                ->label('Image types')
+                                ->options(\App\Services\AssessmentImageDownloadService::IMAGE_TYPES)
+                                ->default(array_keys(\App\Services\AssessmentImageDownloadService::IMAGE_TYPES))
+                                ->bulkToggleable()
+                                ->required()
+                                ->minItems(1)
+                                ->columns(2),
+                        ])
+                        ->action(function (Assessment $record, array $data) {
+                            try {
+                                return app(\App\Services\AssessmentImageDownloadService::class)->download($record, $data['image_types']);
+                            } catch (\Illuminate\Validation\ValidationException $exception) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('No assessment images available')
+                                    ->body($exception->getMessage())
+                                    ->warning()
+                                    ->send();
+                            } catch (\Throwable $exception) {
+                                report($exception);
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Unable to download assessment images')
+                                    ->body('The image archive could not be created. Please try again or contact support.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
                     // --- Facial Reports (Normal Type) ---
                     Action::make('diagnosis_pdf')
                         ->label('Facial Skin Analysis Report')
@@ -708,74 +746,6 @@ class AssessmentsTable
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),
-            ])
-            ->headerActions([
-                // Action::make('download_all_clients_reassessment_zip')
-                //     ->label('Download Reassessment Reports (Facial)')
-                //     ->icon('heroicon-o-archive-box')
-                //     ->color('success')
-                //     ->tooltip('Download all available facial reassessment reports for filtered clients as a ZIP file')
-                //     ->action(function ($livewire) {
-                //         $query = $livewire->getFilteredTableQuery();
-
-                //         // We only want normal and instant-normal assessments with completed reassessments (either direct post_diagnosis or completed treatment sessions with post_diagnosis)
-                //         $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])
-                //             ->where(function ($q) {
-                //                 $q->whereNotNull('post_diagnosis')
-                //                   ->orWhereHas('treatmentSessions', function ($sq) {
-                //                       $sq->where('status', 'completed')
-                //                         ->whereNotNull('post_diagnosis');
-                //                   });
-                //             })
-                //             ->get();
-
-                //         if ($assessments->isEmpty()) {
-                //             \Filament\Notifications\Notification::make()
-                //                 ->title('No completed reassessment sessions found for matching clients.')
-                //                 ->warning()
-                //                 ->send();
-                //             return;
-                //         }
-
-                //         $assessmentIds = $assessments->pluck('id')->toArray();
-
-                //         \App\Jobs\GenerateBulkReassessmentReportsJob::dispatch($assessmentIds, auth()->id());
-
-                //         \Filament\Notifications\Notification::make()
-                //             ->title('ZIP Generation Started')
-                //             ->body('Generating reports for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
-                //             ->success()
-                //             ->send();
-                //     }),
-                 Action::make('download_all_clients_treatment_plans_json_zip')
-                    ->label('Download Facial Treatment Plans (JSON)')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('primary')
-                    ->tooltip('Download all available facial treatment plans for filtered clients as a ZIP of JSON files')
-                    ->action(function ($livewire) {
-                        $query = $livewire->getFilteredTableQuery();
-
-                        // Filter for normal and instant-normal assessments
-                        $assessments = $query->whereIn('assessment_type', ['normal', 'instant-normal'])->get();
-
-                        if ($assessments->isEmpty()) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('No facial assessments found for matching clients.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-
-                        $assessmentIds = $assessments->pluck('id')->toArray();
-
-                        \App\Jobs\GenerateBulkTreatmentPlansJsonJob::dispatch($assessmentIds, auth()->id());
-
-                        \Filament\Notifications\Notification::make()
-                            ->title('ZIP Generation Started')
-                            ->body('Generating ZIP of treatment plans for ' . count($assessmentIds) . ' clients in the background. You will receive a notification with a download link when ready.')
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->emptyStateDescription('Once you create your first assessment, it will appear here.');
     }

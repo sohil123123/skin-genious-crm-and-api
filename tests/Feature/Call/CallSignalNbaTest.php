@@ -1,0 +1,703 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\Call\CallSignalKey;
+use App\Models\{AiActionLog, Call, CallAnalysis, CallInsightSignal, Clinic, LeadActionLog, Setting, User};
+use App\Services\AiActionService;
+use App\Services\Lead\LeadActionService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+
+/**
+ * Call insight reaching the two Next Best Action engines.
+ *
+ * The governing constraint, from the brief: this must improve the queues
+ * without changing what they already do. So the first test here is that an
+ * engine with no call insight behaves exactly as before — everything else is
+ * only safe if that holds.
+ */
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    Setting::flushRuntimeCache();
+
+    $this->clinic = Clinic::create([
+        'name' => 'Jaipur', 'address_line1' => '1', 'city' => 'J', 'pincode' => '302001', 'is_active' => true,
+    ]);
+
+    $this->patient = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Test', 'last_name' => 'Patient',
+        'mobile' => '9829000001', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    $this->patient->assignRole(\App\Models\Role::firstOrCreate([
+        'name' => config('project.roles.client'), 'guard_name' => 'web',
+    ]));
+
+    $this->lead = \App\Models\Lead::create([
+        'clinic_id' => $this->clinic->getKey(),
+        'first_name' => 'Sohil',
+        'phone' => '9829000002',
+        'status' => \App\Enums\LeadStatus::New->value,
+        'source' => \App\Enums\LeadSource::Manual->value,
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $attributes
+ */
+function nbaCall(array $attributes = []): Call
+{
+    return Call::create(array_merge([
+        'uuid' => (string) Str::uuid(),
+        'clinic_id' => test()->clinic->getKey(),
+        'provider' => 'callyzer',
+        'provider_call_id' => 'nba-' . Str::random(8),
+        'source' => 'webhook',
+        'direction' => 'outgoing',
+        'call_status' => 'completed',
+        'started_at' => now()->subDays(2),
+    ], $attributes));
+}
+
+/**
+ * @param  array<int, string>  $keys
+ */
+function nbaSignals(Call $call, array $keys, ?int $userId = null, ?int $leadId = null, float $confidence = 0.9): void
+{
+    $analysis = CallAnalysis::create(['call_id' => $call->getKey(), 'is_current' => true]);
+
+    foreach ($keys as $key) {
+        CallInsightSignal::create([
+            'call_analysis_id' => $analysis->getKey(),
+            'call_id' => $call->getKey(),
+            'clinic_id' => $call->clinic_id,
+            'customer_user_id' => $userId,
+            'lead_id' => $leadId,
+            'signal_type' => CallSignalKey::from($key)->type()->value,
+            'signal_key' => $key,
+            'confidence' => $confidence,
+            'occurred_at' => $call->started_at,
+        ]);
+    }
+}
+
+// ──────────────── The constraint that matters most ────────────────
+
+/**
+ * An engine that hears nothing must behave exactly as it did before this
+ * feature existed. Every other behaviour here is only safe if this holds.
+ */
+it('leaves the patient queue untouched when no call has been analysed', function (): void {
+    $before = AiActionLog::count();
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::whereNotNull('related_call_id')->count())->toBe(0)
+        ->and(AiActionLog::count())->toBe($before + AiActionLog::count() - $before);
+});
+
+it('leaves the lead queue untouched when no call has been analysed', function (): void {
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::whereNotNull('related_call_id')->count())->toBe(0);
+});
+
+// ──────────────── Scenario 1: your "test" patient ────────────────
+
+/**
+ * A patient asked for something on the phone and has not had it. Nothing in the
+ * CRM's dates says to ring them — no cancellation, no unused package — so
+ * before this, they simply did not appear.
+ */
+it('queues a patient who asked for information on a call', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'direction' => 'incoming']);
+    nbaSignals($call, ['information_requested', 'price_objection'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    $action = AiActionLog::where('user_id', $this->patient->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->action_trigger)->toBe('call_commitment_open')
+        // Asked for information means send it, not ring back to read it aloud.
+        ->and($action->recommended_channel)->toBe('whatsapp')
+        ->and($action->related_call_id)->toBe($call->getKey())
+        // The basis is stored structurally, not only as prose.
+        ->and(collect($action->call_signals)->pluck('key'))->toContain('information_requested');
+});
+
+it('explains itself in the reason a staff member reads', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey()]);
+    nbaSignals($call, ['information_requested', 'price_objection'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::first()->reason)
+        ->toContain('raised the cost')
+        ->toContain('asked for more information');
+});
+
+/**
+ * Your first example: the clinic rang the patient and booked an appointment.
+ * Nothing should chase them about it — including in the hours before the
+ * booking reaches the diary, which is the window the existing
+ * hasFutureAppointment() check cannot see.
+ */
+it('does not chase a patient who booked on the call', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey()]);
+    nbaSignals($call, ['appointment_booked', 'information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+it('does not chase a patient who said they are not interested', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey()]);
+    nbaSignals($call, ['not_interested', 'callback_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+/**
+ * §23: a model that is unsure must not put somebody in a work queue.
+ */
+it('ignores a call it was not confident about', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey()]);
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey(), confidence: 0.2);
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+/**
+ * §22: an objection from months ago is history, not a reason to act today.
+ */
+it('ignores a call older than the signal window', function (): void {
+    $call = nbaCall([
+        'customer_user_id' => $this->patient->getKey(),
+        'started_at' => now()->subDays(200),
+    ]);
+
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+/**
+ * A promise made minutes ago belongs to the person who took the call. Queueing
+ * it immediately asks a colleague to duplicate work already in hand.
+ */
+it('leaves a promise with whoever took the call for a couple of hours', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subMinutes(20)]);
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(0);
+});
+
+/**
+ * The bug this replaced: the cool-off was a calendar day measured against
+ * midnight, so a call at 10:29 yesterday morning read as zero days old in this
+ * morning's 07:00 run and was skipped — and so was every call, until it was
+ * nearly two days old. The queue is built once a day, so a rule that cannot see
+ * yesterday cannot see anything.
+ */
+it('queues a promise from yesterday morning in this morning run', function (): void {
+    $call = nbaCall([
+        'customer_user_id' => $this->patient->getKey(),
+        'started_at' => now()->subDay()->setTime(10, 29),
+    ]);
+
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->count())->toBe(1);
+});
+
+/**
+ * Rohit's call, exactly as it came out of the analyser: an appointment
+ * discussed but not confirmed, the customer objecting to the timing, and the
+ * model saying in as many words that staff must follow up.
+ *
+ * It produced nothing. Neither engine listened for `staff_followup_required` or
+ * `appointment_intent` — both engines hand-listed the keys they cared about and
+ * both lists missed these — so the queue kept showing the lead's original
+ * "never contacted" action hours after somebody had, in fact, contacted them.
+ */
+it('queues the call that produced nothing: intent, an objection, and staff follow-up', function (): void {
+    $call = nbaCall([
+        'customer_user_id' => $this->patient->getKey(),
+        'started_at' => now()->subHours(6),
+    ]);
+
+    nbaSignals(
+        $call,
+        ['appointment_intent', 'timing_objection', 'neutral_sentiment', 'staff_followup_required'],
+        userId: $this->patient->getKey(),
+    );
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    $action = AiActionLog::where('user_id', $this->patient->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->action_trigger)->toBe('call_commitment_open')
+        ->and($action->related_call_id)->toBe($call->getKey())
+        // Said in hours, because "0 day(s) ago" was what the old wording gave
+        // a call from this morning.
+        ->and($action->reason)->toContain('hours ago')
+        ->and($action->reason)->not->toContain('day(s)');
+});
+
+it('queues the same call for a lead', function (): void {
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(6)]);
+
+    nbaSignals(
+        $call,
+        ['appointment_intent', 'timing_objection', 'neutral_sentiment', 'staff_followup_required'],
+        leadId: $this->lead->getKey(),
+    );
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        // Outranks "never contacted", so the queue stops claiming nobody has
+        // spoken to somebody who was called this morning.
+        ->and($action->action_trigger)->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT)
+        ->and($action->reason)->not->toContain('never been contacted');
+});
+
+/**
+ * Both engines must fire on the same signals. They did not, and nothing caught
+ * it because each was tested against its own list.
+ */
+it('agrees between the two engines about which signals demand follow-up', function (): void {
+    foreach (['appointment_intent', 'staff_followup_required', 'high_intent', 'unresolved_issue'] as $key) {
+        expect(CallSignalKey::from($key)->demandsFollowUp())->toBeTrue();
+    }
+
+    // An objection is a reason to prepare for a conversation, not a promise to
+    // keep. Chasing "sounded hesitant" fills a queue with work nobody can
+    // finish.
+    foreach (['timing_objection', 'neutral_sentiment', 'price_objection', 'appointment_booked'] as $key) {
+        expect(CallSignalKey::from($key)->demandsFollowUp())->toBeFalse();
+    }
+});
+
+// ──────────────── Scenario 2: your "sohil" lead ────────────────
+
+it('queues a lead who asked for something on a call', function (): void {
+    $call = nbaCall(['lead_id' => $this->lead->getKey()]);
+    nbaSignals($call, ['information_requested', 'high_intent'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->action_trigger)->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT)
+        ->and($action->related_call_id)->toBe($call->getKey())
+        // Outranks the form-driven triggers: a form says what somebody wanted
+        // when they filled it in, a call is them saying it now.
+        ->and($action->priority_score)->toBeGreaterThan(LeadActionService::HIGH_PRIORITY_THRESHOLD);
+});
+
+it('does not chase a lead who booked on the call', function (): void {
+    $call = nbaCall(['lead_id' => $this->lead->getKey()]);
+    nbaSignals($call, ['appointment_booked'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+it('does not chase a lead who declined', function (): void {
+    $call = nbaCall(['lead_id' => $this->lead->getKey()]);
+    nbaSignals($call, ['not_interested'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+/**
+ * A lead the clinic has already finished with stays finished, whatever the last
+ * call sounded like.
+ */
+it('leaves a closed lead closed however warm the call was', function (): void {
+    $this->lead->forceFill(['status' => \App\Enums\LeadStatus::Won->value])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey()]);
+    nbaSignals($call, ['high_intent', 'buying_signal'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+// ──────────── Why today and the script, once a call has happened ────────────
+
+/**
+ * The form-driven card, after the clinic has been on the phone.
+ *
+ * Before this, the reason still read only "asked to visit on Monday and
+ * enquired yesterday" and the script still opened "thank you for your enquiry"
+ * — to somebody the clinic had already spoken to that morning. Both are built
+ * from the lead's form answers, and neither knew a conversation had happened.
+ */
+it('folds the call into why today and the script on a form-driven lead card', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['family_approval_objection', 'high_intent'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        // Why today now carries what was said, not only what was submitted.
+        ->and($action->reason)->toContain('On the call')
+        ->and($action->reason)->toContain('discuss it at home')
+        // And the script opens from the conversation.
+        ->and($action->suggested_message)->toContain('following up on our call')
+        ->and($action->suggested_message)->toContain('talk it over at home')
+        ->and($action->suggested_message)->not->toContain('thank you for your enquiry');
+});
+
+/**
+ * §41's setting is about scores, not about explanations. Moving a score changes
+ * which patient a clinic rings first and must be switched on deliberately;
+ * telling a staff member what was said changes no ordering at all, and
+ * withholding it leaves a card asserting something the CRM can disprove.
+ */
+it('explains the call even with the score modifier switched off', function (): void {
+    expect((bool) Setting::getConfigured('call_signal_modifier_enabled', config('calls.signals.modifier_enabled')))
+        ->toBeFalse();
+
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['price_objection'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action->reason)->toContain('raised the cost')
+        // The structured basis is stored too, which is what draws the badges on
+        // the card. Withholding it left the analysis block on the dashboard
+        // with a summary and no signals.
+        ->and(collect($action->call_signals)->pluck('key'))->toContain('price_objection');
+});
+
+/**
+ * A call that established only sentiment gives a staff member nothing to say.
+ * Replacing a specific form-driven script with a vague call-driven one would
+ * make the suggestion worse, and a script staff stop trusting is a script staff
+ * stop reading.
+ */
+it('leaves the script alone when the call gave nothing to open with', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['neutral_sentiment'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->suggested_message)
+        ->not->toContain('following up on our call');
+});
+
+it('opens a patient script from the call too', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['price_objection', 'appointment_intent'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->first()->suggested_message)
+        ->toContain('following up on our call');
+});
+
+// ──────────────── Not claiming somebody was never contacted ────────────────
+
+/**
+ * The card that started this: "Enquired yesterday and has never been
+ * contacted", nine hours after the clinic rang them.
+ *
+ * The lead and the patient are the same human with the same number, and the
+ * call matcher attached to the patient — so nothing on the lead itself said a
+ * call had happened. The trigger now asks the phone, which is what a person
+ * would ask.
+ */
+it('does not claim a lead was never contacted when the clinic has rung them', function (): void {
+    // Three days old: findNeverContacted skips anything under a day, and it
+    // measures age to midnight, so "yesterday evening" still reads as zero.
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    nbaCall([
+        'lead_id' => null,
+        'customer_user_id' => null,
+        'client_phone_key' => '9829000002',
+        'is_connected' => true,
+        'started_at' => now()->subHours(9),
+    ]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action)->not->toBeNull()
+        ->and($action->reason)->not->toContain('never been contacted')
+        ->and($action->reason)->toContain('the outcome was never recorded')
+        ->and($action->avoid_notes)->toContain('already been spoken to');
+});
+
+/**
+ * A phone that rang out is not a conversation. Suppressing the first real call
+ * because nobody answered would be worse than the falsehood it replaced.
+ */
+it('still calls a lead whose phone only rang out', function (): void {
+    // Three days old: findNeverContacted skips anything under a day, and it
+    // measures age to midnight, so "yesterday evening" still reads as zero.
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    nbaCall([
+        'lead_id' => null,
+        'customer_user_id' => null,
+        'client_phone_key' => '9829000002',
+        'is_connected' => false,
+        'call_status' => 'missed',
+        'started_at' => now()->subHours(9),
+    ]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->reason)
+        ->toContain('never been contacted');
+});
+
+// ──────────────── The modifier, which is off by default ────────────────
+
+/**
+ * §41: the modifier changes the ranking of actions the engines have been
+ * producing in production, so it stays off until somebody switches it on.
+ */
+it('does not move existing scores while the modifier is off', function (): void {
+    expect((bool) Setting::getConfigured('call_signal_modifier_enabled', config('calls.signals.modifier_enabled')))
+        ->toBeFalse();
+});
+
+it('can be switched on from settings', function (): void {
+    Setting::setValue('call_signal_modifier_enabled', '1');
+    Setting::flushRuntimeCache();
+
+    expect((bool) Setting::getConfigured('call_signal_modifier_enabled', false))->toBeTrue();
+});
+
+/**
+ * "Staff follow-up required" says a call is owed and nothing about what to say.
+ * Ranked at its family's level it beat every signal that carries content, and a
+ * call where the customer asked about a named treatment produced a script that
+ * mentioned no treatment.
+ */
+it('opens with what was discussed rather than a bare promise to follow up', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(20)]);
+
+    $analysis = CallAnalysis::create(['call_id' => $call->getKey(), 'is_current' => true]);
+
+    foreach ([
+        ['staff_followup_required', null],
+        ['treatment_interest', 'AI Customized Facial'],
+    ] as [$key, $value]) {
+        CallInsightSignal::create([
+            'call_analysis_id' => $analysis->getKey(),
+            'call_id' => $call->getKey(),
+            'clinic_id' => $call->clinic_id,
+            'customer_user_id' => $this->patient->getKey(),
+            'signal_type' => CallSignalKey::from($key)->type()->value,
+            'signal_key' => $key,
+            'value' => $value,
+            'confidence' => 0.9,
+            'occurred_at' => $call->started_at,
+        ]);
+    }
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(AiActionLog::where('user_id', $this->patient->getKey())->first()->suggested_message)
+        ->toContain('AI Customized Facial')
+        ->not->toContain('Just following up as promised');
+});
+
+// ──────────── Leads who have already booked ────────────
+
+/**
+ * @param  array<string, mixed>  $attributes
+ */
+function nbaAppointment(User $patient, array $attributes = []): \App\Models\Appointment
+{
+    return \App\Models\Appointment::create(array_merge([
+        'type' => \App\Enums\AppointmentType::Consult->value,
+        'clinic_id' => test()->clinic->getKey(),
+        'user_id' => $patient->getKey(),
+        'therapist_id' => test()->patient->getKey(),
+        'start_datetime' => now()->addHours(5),
+        'end_datetime' => now()->addHours(6),
+        'duration_minutes' => 60,
+        'status' => \App\Enums\AppointmentStatus::Confirmed->value,
+        'created_by' => test()->patient->getKey(),
+    ], $attributes));
+}
+
+/**
+ * Neha Gaur: a lead marked New, a confirmed appointment at four this afternoon
+ * under a patient record with the same number, and a queue telling staff to
+ * ring her and make first contact.
+ *
+ * Nothing linked the two records — Lead::matched_user_id was null, as it is for
+ * most leads who book — so the lead engine had no way to know. It asks the
+ * phone number now, which is the same thing a person would do.
+ */
+it('does not chase a lead to book when they already have an appointment', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(0);
+});
+
+/**
+ * A cancelled appointment is not a booking. That lead is exactly who the queue
+ * should be chasing, so the suppression must not swallow them.
+ */
+it('still chases a lead whose appointment was cancelled', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['status' => \App\Enums\AppointmentStatus::Cancelled->value]);
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->count())->toBe(1);
+});
+
+/**
+ * An appointment does not discharge a promise. A lead who is coming in on
+ * Friday and asked for a price list on the phone still has not had the price
+ * list, and the patient engine draws the same line.
+ */
+it('keeps a promise made on a call even when the lead has booked', function (): void {
+    $this->lead->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked);
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(20)]);
+    nbaSignals($call, ['information_requested'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()?->action_trigger)
+        ->toBe(LeadActionLog::TRIGGER_CALL_COMMITMENT);
+});
+
+/**
+ * The reason was being written twice.
+ *
+ * The call-driven trigger builds its own reason from these signals, then the
+ * decorate pass appended the same sentence again — invisible while the score
+ * modifier was off, because that path returned no sentence at all. Ungating the
+ * explanation exposed it: "on the call 3 hours ago they asked for more
+ * information..." printed twice in one card.
+ */
+it('says what was discussed once, not twice', function (): void {
+    $call = nbaCall(['customer_user_id' => $this->patient->getKey(), 'started_at' => now()->subHours(6)]);
+    nbaSignals($call, ['information_requested'], userId: $this->patient->getKey());
+
+    app(AiActionService::class)->generateForClinic($this->clinic);
+
+    expect(substr_count(
+        AiActionLog::where('user_id', $this->patient->getKey())->first()->reason,
+        'asked for more information',
+    ))->toBe(1);
+});
+
+/**
+ * Gaurav: promised treatment details on a call, then booked a consultation for
+ * the 14th. The clinic still owes him the details, so the card stays — but it
+ * was telling staff to move him to a consultation he had already booked.
+ */
+it('says the lead is already booked rather than selling them a consultation', function (): void {
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['start_datetime' => now()->addDays(5), 'end_datetime' => now()->addDays(5)->addHour()]);
+
+    $call = nbaCall(['lead_id' => $this->lead->getKey(), 'started_at' => now()->subHours(6)]);
+    nbaSignals($call, ['information_requested'], leadId: $this->lead->getKey());
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    $action = LeadActionLog::where('lead_id', $this->lead->getKey())->first();
+
+    expect($action->reason)->toContain('already booked in for')
+        ->and($action->goal)->toBe('Send what was promised before they come in')
+        ->and($action->avoid_notes)->toContain('already booked');
+});
+
+it('ranks a promise to somebody already booked below one to somebody who is not', function (): void {
+    $other = \App\Models\Lead::create([
+        'clinic_id' => $this->clinic->getKey(),
+        'first_name' => 'Unbooked',
+        'phone' => '9829000003',
+        'status' => \App\Enums\LeadStatus::New->value,
+        'source' => \App\Enums\LeadSource::Manual->value,
+    ]);
+
+    $booked = User::create([
+        'clinic_id' => $this->clinic->getKey(), 'first_name' => 'Sohil', 'last_name' => 'M',
+        'mobile' => '9829000002', 'password' => bcrypt('x'), 'is_active' => true,
+    ]);
+
+    nbaAppointment($booked, ['start_datetime' => now()->addDays(5), 'end_datetime' => now()->addDays(5)->addHour()]);
+
+    foreach ([$this->lead, $other] as $subject) {
+        $call = nbaCall(['lead_id' => $subject->getKey(), 'started_at' => now()->subHours(6)]);
+        nbaSignals($call, ['information_requested'], leadId: $subject->getKey());
+    }
+
+    app(LeadActionService::class)->generateForClinic($this->clinic);
+
+    expect(LeadActionLog::where('lead_id', $this->lead->getKey())->first()->priority_score)
+        ->toBeLessThan(LeadActionLog::where('lead_id', $other->getKey())->first()->priority_score);
+});

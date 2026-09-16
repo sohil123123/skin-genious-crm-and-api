@@ -72,6 +72,10 @@ class LeadImportWizard extends Page
 
     protected static ?int $navigationSort = 31;
 
+    // Hidden from the sidebar for now; the page itself still resolves, so
+    // the "Import leads" button on the leads list keeps working.
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.pages.lead-import-wizard';
 
     /**

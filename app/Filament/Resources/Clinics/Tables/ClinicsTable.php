@@ -93,7 +93,7 @@ class ClinicsTable
                 //             ->modalSubmitAction(false)
                 //             ->modalCancelActionLabel('Close')
                 //     ),
-                TextColumn::make('manager.name')->label('Manager')->badge()->color('primary')->sortable()->placeholder('Not Assigned'),
+                TextColumn::make('manager.name')->label('Manager')->badge()->color('info')->sortable()->placeholder('Not Assigned'),
                 TextColumn::make('name')->weight(FontWeight::Bold)->wrap()->searchable()->sortable(),
                 TextColumn::make('state')
                     ->label('State')
@@ -196,41 +196,43 @@ class ClinicsTable
             ->filtersFormColumns(2)
             ->filtersTriggerAction(fn(Action $action) => $action->button()->label('Filters')->color('primary')->icon('heroicon-o-funnel'))
             ->recordActions([
-                Action::make('clients')
-                    ->icon('heroicon-o-users')
-                    ->iconButton()
-                    ->color('info')
-                    ->tooltip('Manage Clients')
-                    ->url(fn($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
+                // One menu rather than five controls per row. Six columns of
+                // clinic data were competing with a strip of icons whose
+                // meaning only a tooltip could explain; in a menu each item
+                // carries its own label and says what it does.
+                ActionGroup::make([
+                    Action::make('clients')
+                        ->label('Manage clients')
+                        ->icon('heroicon-o-users')
+                        ->url(fn($record) => route('filament.admin.resources.clinics.clients', ['record' => $record])),
 
-                Action::make('holiday')
-                    ->icon('heroicon-o-no-symbol')
-                    ->iconButton()
-                    ->color('danger')
-                    ->tooltip('Manage Holidays')
-                    ->url(fn($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
-                // ActionGroup::make([
-                ViewAction::make(),
-                // Action::make('view')
-                //     ->iconButton()
-                //     ->color('info')
-                //     ->icon('heroicon-m-eye'),
-                EditAction::make(),
-                RestoreAction::make()
-                    ->successNotification(
-                        Notification::make()
-                            ->title('Clinic Restored 🎉')
-                            ->body('The selected clinics have been restored successfully.')
-                            ->success()
-                    ),
-                DeleteAction::make()
-                    ->successNotification(function ($record) {
-                        return Notification::make()
-                            ->title('Clinic Deleted 🎉')
-                            ->body("The User **{$record->name}** has been removed successfully.")
-                            ->success();
-                    }),
-                // ]),
+                    Action::make('holiday')
+                        ->label('Manage holidays')
+                        ->icon('heroicon-o-no-symbol')
+                        // No longer red: inside a menu, colour reads as
+                        // consequence, and managing holidays destroys nothing.
+                        ->url(fn($record) => route('filament.admin.resources.clinics.holidays', ['record' => $record])),
+
+                    ViewAction::make(),
+
+                    EditAction::make(),
+
+                    RestoreAction::make()
+                        ->successNotification(
+                            Notification::make()
+                                ->title('Clinic Restored 🎉')
+                                ->body('The selected clinics have been restored successfully.')
+                                ->success()
+                        ),
+
+                    DeleteAction::make()
+                        ->successNotification(function ($record) {
+                            return Notification::make()
+                                ->title('Clinic Deleted 🎉')
+                                ->body("The User **{$record->name}** has been removed successfully.")
+                                ->success();
+                        }),
+                ]),
             ])
             ->emptyStateDescription('Once you create your first clinic, it will appear here.');
     }

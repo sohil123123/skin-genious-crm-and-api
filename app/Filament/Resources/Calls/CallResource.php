@@ -116,18 +116,16 @@ class CallResource extends Resource
     }
 
     /**
-     * How many calls the CRM could not attribute to anybody.
-     *
-     * Chosen over "calls today" deliberately: a call count is interesting, but
-     * an unattributed call is work — a conversation sitting outside the
-     * patient's history until somebody resolves it — and the badge should point
-     * at the thing that needs doing.
+     * How many calls happened today.
      */
     public static function getNavigationBadge(): ?string
     {
         $count = static::getEloquentQuery()
             ->whereNull('deleted_at')
-            ->needsMatching()
+            // started_at is when the conversation actually happened, and it is
+            // what the list sorts by, so the badge and the first page of the
+            // table agree with each other.
+            ->whereDate('started_at', now()->toDateString())
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -135,11 +133,11 @@ class CallResource extends Resource
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return 'warning';
+        return 'info';
     }
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Calls that could not be matched to a patient or lead';
+        return 'Calls today';
     }
 }

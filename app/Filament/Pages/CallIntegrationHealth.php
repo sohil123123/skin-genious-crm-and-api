@@ -44,6 +44,8 @@ class CallIntegrationHealth extends Page
 
     protected string $view = 'filament.pages.call-integration-health';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     /**
      * Refreshed on a timer because this is a page people leave open while
      * waiting for a sync they just started to finish.

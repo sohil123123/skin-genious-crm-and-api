@@ -7,6 +7,7 @@ namespace App\Jobs\Call;
 use App\Enums\Call\CallAnalysisStatus;
 use App\Models\Call;
 use App\Models\CallAnalysis;
+use App\Models\CallInsightSignal;
 use App\Models\Setting;
 use App\Services\Call\Contracts\CallAnalysisServiceInterface;
 use Illuminate\Support\Facades\DB;
@@ -136,6 +137,8 @@ class AnalyzeCallJob implements ShouldBeUnique, ShouldQueue
             // two versions finish close together.
             $analysis->makeCurrent();
 
+            $this->recordSignals($call, $analysis, $result->signals);
+
             // Only ai_summary and the status. The call's own crm_outcome,
             // crm_note and follow_up_* belong to whoever typed them, and a
             // model must never overwrite a staff member's judgement — that
@@ -176,4 +179,48 @@ class AnalyzeCallJob implements ShouldBeUnique, ShouldQueue
             ),
         ])->saveQuietly();
     }
+    /**
+     * Fan the analysis out into rows the action engines can query.
+     *
+     * The subject and the clinic are copied down from the call rather than
+     * joined through it. Both Next Best Action engines filter by subject on
+     * every scoring pass, and a join to calls in that path turns a lookup into
+     * a scan across every conversation the clinic has ever had.
+     *
+     * occurred_at is the call's own start time, not now(). A backfill analysing
+     * six months of history in an afternoon must not produce six months of
+     * signals that all look like they happened this afternoon — the engines
+     * decay on this column, and that would make every old objection urgent.
+     *
+     * @param  array<int, array{key: string, type: string, confidence: ?float, value: ?string}>  $signals
+     */
+    protected function recordSignals(Call $call, CallAnalysis $analysis, array $signals): void
+    {
+        if ($signals === []) {
+            return;
+        }
+
+        $now = now();
+
+        $rows = array_map(fn (array $signal): array => [
+            'call_analysis_id' => $analysis->getKey(),
+            'call_id' => $call->getKey(),
+            'clinic_id' => $call->clinic_id,
+            'customer_user_id' => $call->customer_user_id,
+            'lead_id' => $call->lead_id,
+            'signal_type' => $signal['type'],
+            'signal_key' => $signal['key'],
+            'value' => $signal['value'],
+            'confidence' => $signal['confidence'],
+            'occurred_at' => $call->started_at ?? $call->created_at ?? $now,
+            'metadata' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $signals);
+
+        // Inserted in one statement: a call routinely produces half a dozen
+        // signals, and this runs inside the same transaction as the analysis.
+        CallInsightSignal::insert($rows);
+    }
+
 }

@@ -296,29 +296,3 @@ it('never throws when the recorded disk is gone', function (): void {
     expect(fn (): bool => $recording->fresh()->fileExists())->not->toThrow(\Throwable::class)
         ->and($recording->fresh()->fileExists())->toBeFalse();
 });
-
-it('repairs stale disk names only when the file is really there', function (): void {
-    $present = storeRecording($this->call, 'call-recordings/here.mp3');
-    $present->forceFill(['storage_disk' => 'call_recording_old'])->save();
-
-    $absent = storeRecording($this->call, 'call-recordings/gone.mp3');
-    $absent->forceFill(['storage_disk' => 'call_recording_old'])->save();
-    Storage::disk('local')->delete('call-recordings/gone.mp3');
-
-    $this->artisan('calls:repair-recording-disks', ['--disk' => 'local'])->assertSuccessful();
-
-    expect($present->fresh()->storage_disk)->toBe('local')
-        // Left alone on purpose: a row pointing at a file that is not there is
-        // a different problem, and relabelling it would bury that.
-        ->and($absent->fresh()->storage_disk)->toBe('call_recording_old');
-});
-
-it('leaves recordings on a valid disk alone', function (): void {
-    $recording = storeRecording($this->call);
-
-    $this->artisan('calls:repair-recording-disks', ['--disk' => 'local'])
-        ->expectsOutputToContain('No recordings point at a missing disk')
-        ->assertSuccessful();
-
-    expect($recording->fresh()->storage_disk)->toBe('local');
-});

@@ -13,9 +13,31 @@ use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
 
 class LeaveStatsWidget extends StatsOverviewWidget
 {
-    use InteractsWithPageFilters, HasWidgetShield;
+    use InteractsWithPageFilters;
+    // Aliased rather than replaced: the override below adds to the Shield
+    // check, it does not stand in for it.
+    use HasWidgetShield {
+        canView as protected canViewViaShield;
+    }
 
     protected ?string $heading = 'Leave Summary';
+
+    /**
+     * Hidden from super admins.
+     *
+     * These cards report the signed-in user's own leave balance, and a super
+     * admin holds no entitlement rows — so the widget rendered four zeroes on
+     * their dashboard, which reads as broken data rather than "does not apply
+     * to you".
+     */
+    public static function canView(): bool
+    {
+        if (check_role(config('project.roles.super_admin'))) {
+            return false;
+        }
+
+        return static::canViewViaShield();
+    }
 
     protected function getStats(): array
     {

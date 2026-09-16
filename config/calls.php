@@ -181,6 +181,48 @@ return [
     |
     */
 
+    /*
+    |---------------------------------------------------------------------------
+    | Call signals
+    |---------------------------------------------------------------------------
+    |
+    | How call insights reach the Next Best Action engines.
+    |
+    | The window is how long a conversation still says something true about
+    | somebody. A price objection from yesterday is the reason to send a payment
+    | plan; the same objection from six months ago is history, and treating them
+    | alike is how a queue starts recommending things that read as absurd.
+    |
+    | The confidence floor is what the engines will act on. Signals below it are
+    | still stored and still shown on the call — they are evidence — but they do
+    | not move a score, because the output here is an instruction to telephone a
+    | patient and a model that is guessing should not be issuing those.
+    |
+    | The modifier is off by default. It changes the ranking of actions the
+    | engines already produce, which is a change to behaviour that has been
+    | running in production, so it is switched on deliberately after somebody
+    | has watched what it does. The new call-driven triggers are unaffected and
+    | run regardless.
+    |
+    */
+
+    'signals' => [
+        'window_days' => (int) env('CALL_SIGNAL_WINDOW_DAYS', 45),
+        'min_confidence' => (float) env('CALL_SIGNAL_MIN_CONFIDENCE', 0.65),
+        'modifier_enabled' => (bool) env('CALL_SIGNAL_MODIFIER_ENABLED', false),
+
+        // How long a promise is left with the person who took the call before
+        // it counts as outstanding work for the queue. Hours, not days: the
+        // queue is built once each morning, so anything longer than a few
+        // hours means yesterday's calls are invisible in it.
+        'cooloff_hours' => (int) env('CALL_SIGNAL_COOLOFF_HOURS', 2),
+
+        // Ceiling on how far a conversation may move a score, in either
+        // direction, as a fraction. Bounded so call insight tilts the ranking
+        // rather than replacing the arithmetic the engines already do.
+        'max_influence' => (float) env('CALL_SIGNAL_MAX_INFLUENCE', 0.40),
+    ],
+
     'retry' => [
         'recordings' => (bool) env('CALL_RETRY_RECORDINGS', true),
         'transcriptions' => (bool) env('CALL_RETRY_TRANSCRIPTIONS', true),
@@ -367,6 +409,23 @@ return [
             'connect_timeout' => (int) env('EXOTEL_CONNECT_TIMEOUT', 10),
             'retry_times' => (int) env('EXOTEL_RETRY_TIMES', 2),
             'retry_sleep_ms' => (int) env('EXOTEL_RETRY_SLEEP', 1000),
+        ],
+        // Exotel is push-first, so pulling is a backstop rather than the main
+        // path: it collects calls whose Passthru never arrived and recordings
+        // that were not final when the last one did. Off by default for that
+        // reason — an installation whose webhooks work needs nothing here.
+        'sync' => [
+            'enabled' => (bool) env('EXOTEL_SYNC_ENABLED', false),
+            'endpoint' => env('EXOTEL_CALLS_PATH', 'Calls.json'),
+            // Exotel caps PageSize at 100 on this endpoint and answers a larger
+            // value with a 400 rather than a clamp.
+            'page_size' => (int) env('EXOTEL_PAGE_SIZE', 100),
+            'max_pages' => (int) env('EXOTEL_MAX_PAGES', 200),
+            'lookback_hours' => (int) env('EXOTEL_LOOKBACK_HOURS', 24),
+            // The DateCreated filter is compared in the account's own timezone,
+            // not UTC, so the window is formatted in that zone before it is
+            // sent. Sending UTC silently shifts the window by the offset.
+            'date_format' => env('EXOTEL_DATE_FORMAT', 'Y-m-d H:i:s'),
         ],
         // Exotel's CallStatus / DialCallStatus vocabulary, mapped to the
         // unified statuses.

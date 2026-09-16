@@ -40,7 +40,7 @@ class LeadsByConcernChart extends ChartWidget
      */
     protected function getFilters(): ?array
     {
-        $fields = $this->chartableFields();
+        $fields = static::chartableFields();
 
         if ($fields->isEmpty()) {
             return null;
@@ -57,7 +57,7 @@ class LeadsByConcernChart extends ChartWidget
     {
         $fieldId = $this->filter !== null
             ? (int) $this->filter
-            : (int) ($this->chartableFields()->first()?->getKey() ?? 0);
+            : (int) (static::chartableFields()->first()?->getKey() ?? 0);
 
         if ($fieldId === 0) {
             return ['datasets' => [], 'labels' => []];
@@ -129,24 +129,95 @@ class LeadsByConcernChart extends ChartWidget
     }
 
     /**
-     * Questions with a fixed answer set, which are the only ones worth charting.
+     * The largest number of distinct answers still worth drawing as slices.
+     *
+     * Above this the question is free text or a date, and a doughnut of it is
+     * a hundred one-lead slices rather than a distribution.
+     */
+    protected const MAX_DISTINCT_ANSWERS = 25;
+
+    /**
+     * Questions whose answers actually repeat.
+     *
+     * Chosen by how the answers behave, not by the type the field was imported
+     * as. The previous rule was `type IN ('select', 'multiselect')`, and on
+     * real Meta forms nothing is either: the questions arrive as `boolean`
+     * ("Have you visited us before?" — yes or no, the most chartable shape
+     * there is) and as `date`. So the widget looked for a kind of question this
+     * CRM never receives, found none, and drew an empty card.
+     *
+     * Declared select and multiselect are still trusted outright — their
+     * answers come from a fixed list, and a multiselect stores the combination
+     * pipe-joined in one cell, so counting distinct raw values would
+     * over-count. Everything else earns its place by having between two and
+     * MAX_DISTINCT_ANSWERS distinct answers, which admits the yes/no questions
+     * and excludes the timestamps without either being named here.
      *
      * @return \Illuminate\Support\Collection<int, LeadCustomField>
      */
-    protected function chartableFields()
+    protected static function chartableFields()
     {
-        return LeadCustomField::query()
+        $fields = LeadCustomField::query()
             ->where('is_active', true)
-            ->whereIn('type', ['select', 'multiselect'])
             ->where('usage_count', '>', 0)
             ->when(! check_role(config('project.roles.super_admin')), fn (Builder $query) => $query->forCurrentClinic())
             ->orderByDesc('usage_count')
-            ->limit(10)
             ->get();
+
+        if ($fields->isEmpty()) {
+            return $fields;
+        }
+
+        // One aggregate for every candidate rather than a count per field.
+        $spread = LeadFieldValue::query()
+            ->whereIn('lead_custom_field_id', $fields->modelKeys())
+            ->whereHas('lead', fn (Builder $query) => $query
+                ->when(! check_role(config('project.roles.super_admin')), fn (Builder $inner) => $inner->forCurrentClinic()))
+            ->selectRaw('lead_custom_field_id, COUNT(*) as responses, COUNT(DISTINCT value) as distinct_answers')
+            ->groupBy('lead_custom_field_id')
+            ->get()
+            ->keyBy('lead_custom_field_id');
+
+        return $fields
+            ->filter(function (LeadCustomField $field) use ($spread): bool {
+                $type = $field->type instanceof \BackedEnum ? $field->type->value : $field->type;
+
+                if (in_array($type, ['select', 'multiselect'], true)) {
+                    return true;
+                }
+
+                $stats = $spread->get($field->getKey());
+
+                if ($stats === null) {
+                    return false;
+                }
+
+                $distinct = (int) $stats->distinct_answers;
+                $responses = (int) $stats->responses;
+
+                // One answer is not a distribution and too many is not a chart,
+                // but the test that matters is whether answers repeat at all.
+                // A "what is your name?" field has few distinct answers when
+                // few people have answered it, and charting it would draw one
+                // slice per lead — so an answer has to have been given twice,
+                // on average, before the question counts as categorical.
+                return $distinct >= 2
+                    && $distinct <= self::MAX_DISTINCT_ANSWERS
+                    && $distinct * 2 <= $responses;
+            })
+            ->take(10)
+            ->values();
     }
 
+    /**
+     * Hidden when there is nothing to draw.
+     *
+     * Asked with the same question getFilters() and getData() ask, which is the
+     * bug this replaced: canView() only checked that some active field existed,
+     * so the card appeared, announced itself, and rendered blank.
+     */
     public static function canView(): bool
     {
-        return LeadCustomField::query()->where('is_active', true)->where('usage_count', '>', 0)->exists();
+        return static::chartableFields()->isNotEmpty();
     }
 }
