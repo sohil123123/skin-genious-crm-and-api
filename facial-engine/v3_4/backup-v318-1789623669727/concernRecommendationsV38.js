@@ -7,7 +7,7 @@ export function recommendConcernsV38(skinState, {treatmentMode='single', patient
  const suggestions=[]
  for(const [id,definition] of Object.entries(DERIVED_REPORT_FORMULAS_V2)) {
   const parameter=skinState.derived_report_parameters[id]
-  if(!parameter || !Number.isFinite(parameter.internal_burden_score_1_to_100) || parameter.internal_burden_score_1_to_100<=1)continue
+  if(!parameter || parameter.internal_burden_score_1_to_100<=1)continue
   const features=Object.keys(definition.components)
   const preview=optimizeZonalTreatmentV2({skinState,treatmentMode,primaryConcerns:features,patientHistory,regionalTemperaturesC,capabilities})
   const prediction=buildPreSessionPredictionV2({baselineSkinState:skinState,optimizerResult:preview})

@@ -1,8 +1,4 @@
-import {readFileSync} from 'node:fs'
-import {DEFAULT_CALIBRATION} from './componentContractV318.js'
-import {validateCalibration,calibrationIdentity} from './componentScoringV318.js'
-import {appendCropPanels,cropIdentity,imageInput,imageIdentity} from './cropInputsV318.js'
-import {buildLegacyDiagnosisV34} from './componentReportV318.js'
+#!/usr/bin/env node
 import {VERSION as COMPARISON_VERSION_V316,baselineContext as baselineContextV316,comparisonPrompt as comparisonPromptV316,comparisonFormat as comparisonFormatV316,stableComparison as stableComparisonV316,applyComparison as applyComparisonV316} from './comparativeReassessmentV316.js'
 import { compactResultV391, compactPlanningContextV391 } from './payloadTransportV391.js'
 import { validateWorkflowPlanV39, mergeCourseBlockV39 } from './workflowV39/workflowContractV39.js'
@@ -22,7 +18,7 @@ import {
 } from './mergeVisionEvidenceV2.js'
 import {
   buildSkinAnalysisReportV3,
-} from './componentReportV318.js'
+} from './buildSkinAnalysisReportV3.js'
 import {
   optimizeZonalTreatmentV2,
 } from './zonalTreatmentOptimizerV2.js'
@@ -39,6 +35,7 @@ import {
   runPostTreatmentReassessmentV2,
 } from './postTreatmentReassessmentV2.js'
 import {
+  buildLegacyDiagnosisV34,
   resolveConcernFeaturesV34,
   compiledSessionToLegacyTreatmentV34,
   buildLegacyTreatmentPlanV34,
@@ -125,15 +122,22 @@ function parseModelJson(response) {
   catch (error) { throw new Error(`OpenAI returned non-JSON output: ${error.message}; preview=${text.slice(0, 300)}`) }
 }
 
-function imageFileId(value) { return imageIdentity(value) }
+function imageFileId(value) {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') return value.file_id ?? value.fileId ?? value.openai_file_id ?? null
+  return null
+}
 
 function appendModeImages(content, imagesByMode, prefix = '') {
   for (const mode of CANONICAL_MODES) {
     const fileId = imageFileId(imagesByMode?.[mode])
     if (!fileId) throw new Error(`Missing OpenAI file_id for ${prefix}${mode}`)
     content.push({ type: 'input_text', text: `${prefix ? `${prefix} ` : ''}authoritative image mode: ${mode}` })
-    content.push(imageInput(imagesByMode[mode], String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high')))
-
+    content.push({
+      type: 'input_image',
+      file_id: fileId,
+      detail: String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high'),
+    })
   }
 }
 
@@ -142,9 +146,7 @@ function buildVisionContent(images, input) {
   if (images?.baseline || images?.post_treatment) {
     appendModeImages(content, images.baseline, 'baseline')
     appendModeImages(content, images.post_treatment, 'post_treatment')
-    appendCropPanels(content, images.baseline?.crop_panels, 'baseline', images.baseline)
-    appendCropPanels(content, images.post_treatment?.crop_panels, 'post_treatment', images.post_treatment)
-  } else { appendModeImages(content, images); appendCropPanels(content, images?.crop_panels, '', images) }
+  } else appendModeImages(content, images)
   return content
 }
 
@@ -243,35 +245,31 @@ function stableCacheKey(label, version) {
 }
 
 function resolveImageSetHash(imagesByMode, supplied) {
-  // Always derive identity from actual image references; supplied hashes are metadata only.
+  if (supplied) return supplied
   const material = CANONICAL_MODES.map((mode) => `${mode}:${imageFileId(imagesByMode?.[mode]) ?? ''}`).join('|')
   if (material.includes(':|') || material.endsWith(':')) throw new Error('Unable to build image-set identity; missing image file_id.')
-  return createHash('sha256').update(material+'|'+cropIdentity(imagesByMode?.crop_panels)).digest('hex')
+  return createHash('sha256').update(material).digest('hex')
 }
 
 async function runUnifiedAbsoluteAssessmentV35({scanId,imagesByMode,imageSetHash,model,captureType='baseline',pairedBaselineScanId=null}) {
   const hash=resolveImageSetHash(imagesByMode,imageSetHash)
-  const calibration=process.env.FACIAL_V318_CALIBRATION_FILE?validateCalibration(JSON.parse(readFileSync(process.env.FACIAL_V318_CALIBRATION_FILE,'utf8'))):DEFAULT_CALIBRATION
-  let responseId=null
   const prompt=measurementPrompt()
   const promptHash=createHash('sha256').update(prompt).digest('hex')
   const detail=String(process.env.FACIAL_V35_IMAGE_DETAIL ?? process.env.FACIAL_V34_IMAGE_DETAIL ?? 'high')
   const reasoning=String(process.env.FACIAL_V35_REASONING_EFFORT ?? process.env.FACIAL_V34_REASONING_EFFORT ?? 'none')
-  const maxTokens=Math.max(8000,Math.min(32000,envInt('FACIAL_V310_MAX_OUTPUT_TOKENS',16000)))
+  const maxTokens=Math.max(8000,Math.min(32000,envInt('FACIAL_V310_MAX_OUTPUT_TOKENS',12000)))
   const cache=await cachedMeasurement({directory:process.env.FACIAL_V310_CACHE_DIR,
-    identity:{scope:scanId.split('-').slice(0,2).join('-'),images:CANONICAL_MODES.map(mode=>[mode,imageFileId(imagesByMode[mode])]),crops:cropIdentity(imagesByMode?.crop_panels),hash,model,detail,reasoning,maxTokens,promptHash,measurement_version:MEASUREMENT_VERSION,formula_version:FORMULA_VERSION,device_profile:DEVICE_PROFILE.id,calibration_configuration_hash:calibrationIdentity(calibration)},
+    identity:{scope:scanId.split('-').slice(0,2).join('-'),images:CANONICAL_MODES.map(mode=>[mode,imageFileId(imagesByMode[mode])]),hash,model,detail,reasoning,maxTokens,promptHash,measurement_version:MEASUREMENT_VERSION,formula_version:FORMULA_VERSION,device_profile:DEVICE_PROFILE.id},
     produce:async()=>{
       const response=await openAiResponses({model,input:[
         {role:'system',content:[{type:'input_text',text:prompt}]},
         {role:'user',content:buildVisionContent(imagesByMode,{task:'Measure absolute regional skin appearance',authoritative_mode_order:CANONICAL_MODES})},
       ],reasoning:{effort:reasoning},text:{verbosity:'low',format:measurementFormat()},max_output_tokens:maxTokens,prompt_cache_key:MEASUREMENT_VERSION}, {moduleId:'regional_measurement_v310'})
-      responseId=response.id??null
       const parsed=parseModelJson(response);
       decodeMeasurements(parsed);
       return parsed
     }})
-  const run=buildRegionalRun(decodeMeasurements(cache.value),{scanId,imageSetHash:hash,modelVersion:model,captureType,pairedBaselineScanId,modesReceived:CANONICAL_MODES,calibration})
-  run.evidence_packet.model_execution.response_id=responseId
+  const run=buildRegionalRun(decodeMeasurements(cache.value),{scanId,imageSetHash:hash,modelVersion:model,captureType,pairedBaselineScanId})
   run.evidence_packet.model_execution.unified_wire_version=MEASUREMENT_VERSION
   run.evidence_packet.model_execution.openai_baseline_call_count=cache.cache_hit?0:1
   run.skin_state.scoring_execution.assessment_id=cache.key
@@ -401,7 +399,7 @@ async function assessmentCommand(payload, model) {
     elapsed_seconds: Math.round(elapsedMs / 1000),
   })
   return {
-    engine_version: 'facial_v3_18_component_candidate',
+    engine_version: 'facial_v3_17_visible_appearance',
     command: 'assessment',
     latency_profile: {
       inference_architecture: 'one_regional_measurement_call_immutable_reuse',
@@ -480,40 +478,36 @@ async function treatmentPlanCommand(payload) {
 }
 
 async function reassessmentCommand(payload, model) {
-  let comparisonResponseId=null
   const start=Date.now(), baseline=payload.baseline_run
   if(!baseline?.skin_state||!baseline?.evidence_packet)throw Error('Stored baseline run required')
   const context=baselineContextV316(baseline.skin_state)
   const before=baseline.imagesByMode,after=payload.post_images_by_mode
   const ids=images=>CANONICAL_MODES.map(mode=>{const id=imageFileId(images?.[mode]);if(!id)throw Error(`Missing paired capture ${mode}`);return [mode,id]})
   const beforeIds=ids(before),afterIds=ids(after)
-  const identical=JSON.stringify(beforeIds)===JSON.stringify(afterIds)&&cropIdentity(before?.crop_panels)===cropIdentity(after?.crop_panels)
+  const identical=JSON.stringify(beforeIds)===JSON.stringify(afterIds)
   const prompt=comparisonPromptV316(),detail=String(process.env.FACIAL_V35_IMAGE_DETAIL??process.env.FACIAL_V34_IMAGE_DETAIL??'high')
   const reasoning=String(process.env.FACIAL_V316_REASONING_EFFORT??'none')
-  const maxTokens=Math.max(6000,Math.min(24000,envInt('FACIAL_V316_MAX_OUTPUT_TOKENS',20000)))
-  const options={scanId:String(payload.post_scan_id??`assessment-${payload.assessment_id}-post`),imageSetHash:resolveImageSetHash(after,payload.post_image_set_hash),modelVersion:model,captureType:'post_treatment',pairedBaselineScanId:baseline.skin_state.scan.scan_id,modesReceived:CANONICAL_MODES}
+  const maxTokens=Math.max(6000,Math.min(16000,envInt('FACIAL_V316_MAX_OUTPUT_TOKENS',12000)))
+  const options={scanId:String(payload.post_scan_id??`assessment-${payload.assessment_id}-post`),imageSetHash:resolveImageSetHash(after,payload.post_image_set_hash),modelVersion:model,captureType:'post_treatment',pairedBaselineScanId:baseline.skin_state.scan.scan_id}
   const cached=identical?{value:stableComparisonV316(baseline.skin_state),cache_hit:true,key:null}:await cachedMeasurement({directory:process.env.FACIAL_V310_CACHE_DIR,waitMs:20000,
-    identity:{version:COMPARISON_VERSION_V316,assessment_id:payload.assessment_id,reference:context,client_display_state:baseline.skin_state.client_display_state??null,before:beforeIds,after:afterIds,before_crops:cropIdentity(before?.crop_panels),after_crops:cropIdentity(after?.crop_panels),model,prompt,detail,reasoning,maxTokens},
+    identity:{version:COMPARISON_VERSION_V316,assessment_id:payload.assessment_id,reference:context,client_display_state:baseline.skin_state.client_display_state??null,before:beforeIds,after:afterIds,model,prompt,detail,reasoning,maxTokens},
     produce:async()=>{
       const response=await openAiResponses({model,input:[{role:'system',content:[{type:'input_text',text:prompt}]},{role:'user',content:buildVisionContent({baseline:before,post_treatment:after},context)}],reasoning:{effort:reasoning},text:{verbosity:'low',format:comparisonFormatV316()},max_output_tokens:maxTokens,prompt_cache_key:COMPARISON_VERSION_V316},{moduleId:'comparative_reassessment_v316'})
-      comparisonResponseId=response.id??null
       const wire=parseModelJson(response)
       applyComparisonV316(baseline,wire,options) // Reject malformed/inconsistent output before caching.
       return wire
     }})
   const result=applyComparisonV316(baseline,cached.value,options)
-  result.post_run.evidence_packet.model_execution.response_id=comparisonResponseId
-  result.post_run.imagesByMode=after
   result.post_run.skin_state.scoring_execution.measurement_cache_hit=cached.cache_hit
   result.post_run.skin_state.scoring_execution.assessment_id=cached.key
-  return {engine_version:'facial_v3_18_component_comparative_candidate',command:'reassessment',...result,post_feature_packet:result.post_run.evidence_packet,
+  return {engine_version:'facial_v3_17_comparative',command:'reassessment',...result,post_feature_packet:result.post_run.evidence_packet,
     reference_rescored:false,reference_run:null,latency_profile:{elapsed_ms:Date.now()-start,vision_calls:cached.cache_hit?0:1,cache_hit:cached.cache_hit,identical_capture_shortcut:identical,architecture:'one_paired_comparison_no_absolute_rescore'},outcome_report:null,outcome_report_status:'not_generated_until_verified_execution_record_is_persisted'}
 }
 
 async function main() {
   const command = process.argv[2]
   const payload = command === 'self_test' ? {} : await readStdin()
-  const requestedModel = String(payload.model ?? process.env.FACIAL_V35_MODEL ?? process.env.FACIAL_V34_MODEL ?? process.env.FACIAL_V34_OPENAI_MODEL ?? 'gpt-5.4')
+  const requestedModel = String(payload.model ?? process.env.FACIAL_V35_MODEL ?? process.env.FACIAL_V34_MODEL ?? process.env.FACIAL_V34_OPENAI_MODEL ?? 'gpt-5.2')
   const model = requestedModel === 'gpt-5.2' ? 'gpt-5.2-2025-12-11' : requestedModel
   let result
   if (command === 'assessment') result = await assessmentCommand(payload, model)
@@ -533,7 +527,7 @@ async function main() {
   else if (command === 'self_test') {
     result = {
       ok: true,
-      engine_version: 'facial_v3_18_component_candidate',
+      engine_version: 'facial_v3_17_visible_appearance',
       node_version: process.version,
       canonical_modes: CANONICAL_MODES,
       inference_architecture: 'one_regional_measurement_call_immutable_reuse',

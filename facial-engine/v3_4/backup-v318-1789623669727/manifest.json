@@ -1,0 +1,60 @@
+{
+  "version": "3.18.0-candidate",
+  "files": [
+    {
+      "path": "comparativeReassessmentV316.js",
+      "before_sha256": "2d08d40ef4685549d32f431af2eca7cf84521a93e3012359b417ce106885d1d6",
+      "after_sha256": "c8b4c7544e9a1cf47ec46091e3481341f7b1a784cdaf7a95f7b63b846d15c4da"
+    },
+    {
+      "path": "componentComparisonV318.js",
+      "before_sha256": null,
+      "after_sha256": "9f018ba8671c4b7eb7233530218e054f82b4656bc45e32e2f4bcca7e56f814f4"
+    },
+    {
+      "path": "componentContractV318.js",
+      "before_sha256": null,
+      "after_sha256": "19ecdc0740c71e325d82f04fda34f66e80cddb7c4963db5307a2b8f4b6a77c6e"
+    },
+    {
+      "path": "componentMeasurementV318.js",
+      "before_sha256": null,
+      "after_sha256": "9e3343f89cf430897913363c6e974e759b497a82ba3301a22618cf392ae70a25"
+    },
+    {
+      "path": "componentReportV318.js",
+      "before_sha256": null,
+      "after_sha256": "262cd58d5b339be3ca621177f611316a35a762c08ead233b265e8c52ea6f6b22"
+    },
+    {
+      "path": "componentScoringV318.js",
+      "before_sha256": null,
+      "after_sha256": "83f94cfff65e898d848842b6bac4712d181e729198e69b0d1142f24c7f489382"
+    },
+    {
+      "path": "concernRecommendationsV38.js",
+      "before_sha256": "8e751d10b41407d34cdc58c3fe06546fc5cd36b4fd93c55716469c76376a7e48",
+      "after_sha256": "ad5fbc2db66499d7b1b9abf16adbadc43bd49d382dae31be2d4e32e2f9658788"
+    },
+    {
+      "path": "cropInputsV318.js",
+      "before_sha256": null,
+      "after_sha256": "da9c3107b3219a3f78e3deb8981bcc0d7f84f816c25cbf92a17dd425a8bc99c6"
+    },
+    {
+      "path": "facialV34Runner.mjs",
+      "before_sha256": "fa39ca9460deea8df50d8b56ae6c546234db147c8c09e8d3745d0388feb81b38",
+      "after_sha256": "cd71ee8eeacfcbadd80569444b564f6d9066659d7fa56a990653b0ba452c5e8f"
+    },
+    {
+      "path": "regionalMeasurementV310.js",
+      "before_sha256": "3c5570f302c240226b768e263f36bf14937dd9a73d604a6a842abcdc8a4021e7",
+      "after_sha256": "85592850b2c1eccd39c03cdff48c1261d1c3c90f27bf4a850ea9038422b8f638"
+    },
+    {
+      "path": "regionalScoringV310.js",
+      "before_sha256": "d08e8a39c3e524f5e83de2f300603c04b2b7f3eea8a8c59432ff83ecdbae0f6d",
+      "after_sha256": "1ea84aefa56530e0ba7e8ff1feef395bd5a3b1f25408bcb618b3dad90f009808"
+    }
+  ]
+}
