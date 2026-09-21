@@ -183,19 +183,26 @@
                              event reaching the anchor, and stop the browser
                              following the href. wire:click still fires — these
                              are separate listeners on the same element. --}}
-                        <button
-                            type="button"
+                        {{-- A span with a button role, not a <button>: where the
+                             row opens a modal (the patient page's Calls tab),
+                             Filament wraps every cell in a <button>, and a
+                             button inside a button makes the browser close the
+                             outer one early — throwing these badges out of the
+                             card to the far edge of the row. --}}
+                        <span
+                            role="button"
+                            tabindex="0"
                             class="sgc-badge-button"
                             onmousedown="event.preventDefault(); event.stopPropagation();"
                             onclick="event.preventDefault(); event.stopPropagation();"
+                            onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); this.click(); }"
                             wire:click="mountAction('viewTranscript', {}, { table: true, recordKey: '{{ $record->getKey() }}' })"
-                            wire:loading.attr="disabled"
                             title="Read the transcript"
                         >
                             <x-filament::badge color="info" icon="heroicon-m-document-text">
                                 Text
                             </x-filament::badge>
-                        </button>
+                        </span>
                     @else
                         <x-filament::badge color="info" icon="heroicon-m-document-text" title="Transcribed">
                             Text
@@ -204,19 +211,21 @@
                 @endif
 
                 @if ($record->analysis_status === \App\Enums\Call\CallAnalysisStatus::Completed)
-                    <button
-                        type="button"
+                    {{-- A span, not a <button>: see the Text badge above. --}}
+                    <span
+                        role="button"
+                        tabindex="0"
                         class="sgc-badge-button"
                         onmousedown="event.preventDefault(); event.stopPropagation();"
                         onclick="event.preventDefault(); event.stopPropagation();"
+                        onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); this.click(); }"
                         wire:click="mountAction('viewAnalysis', {}, { table: true, recordKey: '{{ $record->getKey() }}' })"
-                        wire:loading.attr="disabled"
                         title="Read the AI analysis"
                     >
                         <x-filament::badge color="info" icon="heroicon-m-sparkles">
                             AI
                         </x-filament::badge>
-                    </button>
+                    </span>
                 @endif
 
                 @if ($record->follow_up_required && $record->follow_up_completed_at === null)

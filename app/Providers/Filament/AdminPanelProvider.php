@@ -419,6 +419,7 @@ class AdminPanelProvider extends PanelProvider
                             is carried by the cursor and a lift on hover.
                         */
                         .sgc-badge-button {
+                            display: inline-flex;
                             padding: 0; border: 0; background: none; cursor: pointer;
                             line-height: 0; border-radius: 999px;
                             transition: transform .12s ease, filter .12s ease;
@@ -426,7 +427,6 @@ class AdminPanelProvider extends PanelProvider
 
                         .sgc-badge-button:hover { transform: translateY(-1px); filter: brightness(1.08); }
                         .sgc-badge-button:focus-visible { outline: 2px solid var(--primary-500, #16a34a); outline-offset: 2px; }
-                        .sgc-badge-button:disabled { opacity: .5; cursor: progress; }
 
                         /* Handled by */
                         .sgc-own { display: flex; align-items: flex-start; gap: 0.625rem; padding: 0.5rem 0.25rem; }
