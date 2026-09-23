@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Section;
 use App\Models\User;
 use App\Models\Clinic;
 use App\Models\Invoice;
+use App\Filament\Resources\Invoices\InvoiceResource;
 
 use App\Filament\Resources\Users\RelationManagers\InvoicesRelationManager;
 
@@ -45,7 +46,7 @@ class InvoicePaymentsTable
                     ->label('Invoice #')
                     ->searchable(['invoice_number'])
                     ->sortable()
-                    ->url(fn($record) => "/admin/invoices/{$record->invoice_id}/edit"),
+                    ->url(fn($record) => InvoiceResource::getUrl('edit', ['record' => $record->invoice_id])),
 
                 TextColumn::make('invoice.invoice_type')
                     ->label('Type')

@@ -322,6 +322,17 @@ class AdminPanelProvider extends PanelProvider
                             background-color: rgba(127, 29, 29, 0.2) !important;
                         }
 
+                        /* Invoices table: replace a cell's content with a dash (package invoice amount due / status) */
+                        .fi-ta-cell.cell-dash > * {
+                            display: none !important;
+                        }
+                        .fi-ta-cell.cell-dash::before {
+                            content: '-';
+                            display: block;
+                            padding: 0 0.75rem;
+                            color: #9ca3af;
+                        }
+
                         /*
                          * Calls table: the two card cells.
                          *

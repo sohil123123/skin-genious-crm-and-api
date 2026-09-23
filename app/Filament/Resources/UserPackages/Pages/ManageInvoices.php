@@ -30,6 +30,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -83,35 +84,28 @@ class ManageInvoices extends Page implements HasForms, HasInfolists, HasTable
                     ->date()
                     ->sortable(),
 
+                TextColumn::make('taxable_value')
+                    ->label('Taxable Total')
+                    ->money('INR')
+                    ->badge()
+                    ->color('info')
+                    ->summarize(Sum::make()->label('Total Taxable')->money('INR'))
+                    ->sortable(),
+
+                TextColumn::make('gst_total')
+                    ->label('GST Total')
+                    ->money('INR')
+                    ->badge()
+                    ->color('warning')
+                    ->summarize(Sum::make()->label('Total GST')->money('INR'))
+                    ->sortable(),
+
                 TextColumn::make('grand_total')
                     ->label('Invoice Amount')
                     ->money('INR')
-                    ->sortable(),
-
-                TextColumn::make('amount_paid')
-                    ->label('Paid')
-                    ->money('INR')
-                    ->sortable()
                     ->badge()
-                    ->color('success'),
-
-                TextColumn::make('amount_due')
-                    ->label('Balance Due')
-                    ->money('INR')
-                    ->sortable()
-                    ->badge()
-                    ->color(fn($record) => $record->amount_due > 0 ? 'warning' : 'success'),
-
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'draft' => 'gray',
-                        'pending' => 'warning',
-                        'cancelled' => 'danger',
-                        default => 'info',
-                    })
+                    ->color('success')
+                    ->summarize(Sum::make()->label('Total Amount')->money('INR'))
                     ->sortable(),
             ])
             ->actions([
