@@ -22,18 +22,22 @@ class AvailabilityService
     private const ERR_PENDING_LIMIT         = 'PENDING_LIMIT_EXCEEDED';
     private const WARN_BED_CAPACITY         = 'BED_CAPACITY_EXCEEDED';
 
+    // Permission that lets a role / user override availability rules (emergency booking).
+    // Assign it from Shield (Roles → Custom Permissions) or per user (Users → Manage Permissions).
+    public const EMERGENCY_OVERRIDE_PERMISSION = 'EmergencyOverride:Appointment';
+
     public function assertBookable(int $clinicId, int $therapistId, Carbon $start, Carbon $end, string $status = null, ?int $ignoreAppointmentId = null): array
     {
         $warning = [];
-        $isSuperAdmin = check_role('super_admin');
+        $canOverride = $this->canEmergencyOverride();
 
         // 1️⃣ Weekly schedule
         if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
             $this->throwAvailabilityError(self::ERR_OUTSIDE_WORKING_HOURS, 'Outside working hours.');
         }
 
-        // 2️⃣ Blocking exceptions (unless super admin)
-        if (!$isSuperAdmin && ($ex = $this->findBlockingException($clinicId, $therapistId, $start, $end))) {
+        // 2️⃣ Blocking exceptions (unless user can emergency override)
+        if (!$canOverride && ($ex = $this->findBlockingException($clinicId, $therapistId, $start, $end))) {
             $this->throwAvailabilityError(strtoupper($ex['category']), 'Slot unavailable.', $ex);
         }
 
@@ -58,8 +62,8 @@ class AvailabilityService
         // 🔴 Confirmed appointment already consuming all beds
         if ($bed['confirmed'] >= $bed['capacity']) {
 
-            // Therapist → BLOCK
-            if (!$isSuperAdmin) {
+            // No emergency override permission → BLOCK
+            if (!$canOverride) {
                 $this->throwAvailabilityError(
                     self::ERR_NO_BED_AVAILABLE,
                     'Clinic bed capacity is fully occupied.',
@@ -73,7 +77,7 @@ class AvailabilityService
                 );
             }
 
-            // Super admin → WARN
+            // Emergency override permission → WARN
             $warning[] = [
                 'code'    => self::ERR_NO_BED_AVAILABLE,
                 'message' => $status == 'confirmed' ? 'Clinic bed capacity exceeded. Emergency override applied.' : 'Clinic bed capacity exceeded.',
@@ -106,13 +110,13 @@ class AvailabilityService
             ->where(fn ($q) => $q->where('start_datetime', '<', $end)->where('end_datetime', '>', $start))
             ->exists();
 
-        if (!$isSuperAdmin) {
+        if (!$canOverride) {
             if ($overlap) {
                 $this->throwAvailabilityError(self::ERR_ALREADY_BOOKED, 'Therapist already booked.');
             }
         }
 
-        // Super admin → WARN
+        // Emergency override permission → WARN
         if ($overlap) {
             $warning[] = [
                 'code'    => self::ERR_ALREADY_BOOKED,
@@ -135,15 +139,15 @@ class AvailabilityService
         $clinicId    = $appointment->clinic_id;
         $therapistId = $appointment->therapist_id;
 
-        $isSuperAdmin = check_role('super_admin');
+        $canOverride = $this->canEmergencyOverride();
         $emergency = [];
 
         /*
         |--------------------------------------------------------------------------
-        | NORMAL USERS (Therapist / Staff)
+        | USERS WITHOUT EMERGENCY OVERRIDE PERMISSION
         |--------------------------------------------------------------------------
         */
-        if (!$isSuperAdmin) {
+        if (!$canOverride) {
 
             // 1️⃣ Working hours
             if (!$this->isWithinEffectiveAvailability($clinicId, $therapistId, $start, $end)) {
@@ -191,7 +195,7 @@ class AvailabilityService
 
         /*
         |--------------------------------------------------------------------------
-        | SUPER ADMIN → EMERGENCY OVERRIDE
+        | SUPER ADMIN / EMERGENCY OVERRIDE PERMISSION → EMERGENCY OVERRIDE
         |--------------------------------------------------------------------------
         */
 
@@ -499,6 +503,24 @@ class AvailabilityService
         }
 
         return $result;
+    }
+
+    /**
+     * Can the logged-in user override availability rules (emergency booking)?
+     *
+     * super_admin always can (unchanged behaviour); any other role or user can
+     * when granted the EmergencyOverride:Appointment permission.
+     */
+    public function canEmergencyOverride(): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasRole(config('project.roles.super_admin', 'super_admin'))
+            || $user->can(self::EMERGENCY_OVERRIDE_PERMISSION);
     }
 
     private function throwAvailabilityError(string $code, string $message, array $details = []): void {
