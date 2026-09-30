@@ -34,12 +34,12 @@
 
     $directionLabel = $isBalance ? 'Balance target' : ($isHigher ? 'Higher is better' : 'Lower is better');
     $dotClass = $isBalance ? 'score-dot-on-balance' : ($isHigher ? 'score-dot-on-health' : 'score-dot-on-severity');
-    $numericScore = is_numeric($score) ? max(0, min(5, (int)$score)) : 0;
+    $numericScore = is_numeric($score) ? max(0, min(100, (float)$score)) : 0;
 @endphp
-<div class="score-number">{{ $score }}/5</div>
+<div class="score-number">{{ $score }}<span style="font-size:7pt;">/100</span></div>
 <table cellpadding="0" cellspacing="0" style="margin:1.3mm auto 0;">
 <tr>
-@for($i=1;$i<=5;$i++)<td class="score-dot {{ $i <= $numericScore ? $dotClass : '' }}" style="{{ $i>1?'border-left:1mm solid #0b2033;':'' }}"></td>@endfor
+@for($i=1;$i<=5;$i++)<td class="score-dot {{ $i * 20 <= $numericScore ? $dotClass : '' }}" style="{{ $i>1?'border-left:1mm solid #0b2033;':'' }}"></td>@endfor
 </tr>
 </table>
 @if($caption)<div class="score-caption">{{ $caption }}</div>@endif

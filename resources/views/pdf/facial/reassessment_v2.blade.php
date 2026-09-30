@@ -10,6 +10,9 @@ $reportDateFormatted=!empty($report_date)?date('d/m/Y',strtotime($report_date)):
 $skinTypeItem=$results->get('skin_type',[]);
 $skinProfile=data_get($skinTypeItem,'post_treatment_score_or_label',data_get($patient ?? [],'skin_type','N/A'));
 $improvedItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='improved')->values();
+// Keep the original ring artwork; cover only its baked-in text with dynamic report text.
+$improvedRingArtwork=base64_encode(file_get_contents($uiAssets['ring_15'] ?? public_path('images/v5/ring_15.png')));
+$improvedRingSvg='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="360" height="360" viewBox="0 0 360 360"><image x="0" y="0" width="360" height="360" xlink:href="data:image/png;base64,'.$improvedRingArtwork.'"/><rect x="102" y="96" width="156" height="90" fill="#061421"/><rect x="68" y="213" width="224" height="29" fill="#061421"/><rect x="106" y="245" width="148" height="28" fill="#061421"/><text x="180" y="180" text-anchor="middle" font-family="DejaVu Sans" font-size="108" font-weight="bold" fill="#e5f7ff">'.$improvedItems->count().'</text><text x="180" y="238" text-anchor="middle" font-family="DejaVu Sans" font-size="26" fill="#c2d0d8">Skin Parameters</text><text x="180" y="268" text-anchor="middle" font-family="DejaVu Sans" font-size="26" fill="#c2d0d8">Improved</text></svg>';
 $stableItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='stable')->values();
 $declinedItems=$results->filter(fn($item)=>strtolower((string)data_get($item,'result'))==='declined')->values();
 $numericResults=$results->except('skin_type')->values();
@@ -44,7 +47,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 
 <table width="100%" cellpadding="0" cellspacing="0"><tr>
 <td width="26%" style="vertical-align:top;">
-<div style="text-align:center;padding:0.5mm 1mm 2.8mm;">@if(!empty($uiAssets['ring_15']))<img src="{{ $uiAssets['ring_15'] }}" width="150" height="150" style="width:39.7mm;height:39.7mm;" alt="15 total parameters">@endif
+<div style="text-align:center;padding:0.5mm 1mm 2.8mm;"><img src="data:image/svg+xml;base64,{{ base64_encode($improvedRingSvg) }}" width="150" height="150" style="width:39.7mm;height:39.7mm;" alt="{{ $improvedItems->count() }} skin parameters improved">
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:2mm;height:9.5mm;"><tr><td width="33%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#63d8cf;line-height:1.05;">{{ $improvedItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Improved</div></td><td width="34%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#c1a9ff;line-height:1.05;">{{ $stableItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Stable</div></td><td width="33%" style="vertical-align:top;"><div class="mini-value-lg" style="color:#ef9a9d;line-height:1.05;">{{ $declinedItems->count() }}</div><div class="mini-label" style="margin-top:0.7mm;line-height:1.15;">Declined</div></td></tr></table>
 </div>
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:1mm;"><tr><td style="height:5mm;border-top:0.28mm solid #29475d;font-size:0;line-height:0;">&nbsp;</td></tr></table>
@@ -90,7 +93,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @include('pdf.facial.partials.header',['kicker'=>'Before / After Scoreboard'])
 <div class="eyebrow">Results at a glance</div>
 <div class="section-title">How every parameter <span class="accent">changed</span></div>
-<div class="page-subtitle">The original 1-5 scale is retained. Improved results are highlighted first, followed by the parameters maintained or still being monitored.</div>
+<div class="page-subtitle">Before and after scores are shown out of 100. Improved results are highlighted first, followed by the parameters maintained or still being monitored.</div>
 
 <table class="scoreboard-skin-card" cellpadding="0" cellspacing="0" style="margin-top:3mm;">
 <tr style="height:25mm;">
@@ -211,7 +214,7 @@ $coverSummary='Your skin looks more hydrated, brighter and smoother today, with 
 @foreach($row as $item)
 @php $copy=(string)data_get($item,'score_explanation','');if(strlen($copy)>155){$cut=substr($copy,0,152);$copy=rtrim(substr($cut,0,strrpos($cut,' ') ?: 152)).'...';} @endphp
 <td width="49%" style="{{ !$loop->first?'border-left:3mm solid #061421;':'' }}">
-<table class="monitor-card-v54" cellpadding="0" cellspacing="0"><tr style="height:30mm;"><td width="15%" style="text-align:center;vertical-align:middle;"><div class="change-number" style="font-size:18pt;color:#c1a9ff;">{{ data_get($item,'post_treatment_score_or_label') }}</div></td><td width="85%" style="vertical-align:middle;"><div class="monitor-title-v54">{{ data_get($item,'parameter_name') }}</div><div class="monitor-copy-v54">{{ $copy }}</div></td></tr></table>
+<table class="monitor-card-v54" cellpadding="0" cellspacing="0"><tr style="height:30mm;"><td width="24%" style="text-align:center;vertical-align:middle;"><div class="change-number" style="font-size:14pt;color:#c1a9ff;">{{ data_get($item,'post_treatment_score_or_label') }}</div></td><td width="76%" style="vertical-align:middle;"><div class="monitor-title-v54">{{ data_get($item,'parameter_name') }}</div><div class="monitor-copy-v54">{{ $copy }}</div></td></tr></table>
 </td>
 @endforeach
 @if($row->count()===1)<td width="49%"></td>@endif

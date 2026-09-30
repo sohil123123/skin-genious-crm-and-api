@@ -114,9 +114,10 @@ td { vertical-align: top; }
 .scoreboard-skin-card { width:100%; height:25mm; background-color:#0b2033; border:0.3mm solid #31847f; }
 .scoreboard-skin-card td { padding:3mm; }
 .scoreboard-improved-card { width:100%; height:33mm; background-color:#0b2033; border:0.3mm solid #2f817c; }
-.scoreboard-improved-card td { padding:2.6mm; }
+.scoreboard-improved-card td { padding:3.2mm; }
+.scoreboard-improved-card .scoreboard-comparison td { padding:0; }
 .scoreboard-improved-name { font-size:9.5pt; line-height:1.16; color:#ffffff; font-weight:bold; }
-.scoreboard-improved-copy { margin-top:0.7mm; font-size:6.8pt; line-height:1.28; color:#aebfca; }
+.scoreboard-improved-copy { margin-top:1mm; font-size:8pt; line-height:1.42; color:#aebfca; }
 .scoreboard-stable-card { width:100%; height:18.5mm; background-color:#0a1e31; border:0.26mm solid #29495f; }
 .scoreboard-stable-card td { padding:1.8mm 2.2mm; }
 .scoreboard-stable-name { font-size:7.7pt; line-height:1.12; color:#ffffff; font-weight:bold; }
@@ -125,9 +126,9 @@ td { vertical-align: top; }
 .stable-strength-card-v54 { width:100%; height:31mm; background-color:#0b2033; border:0.3mm solid #31847f; }
 .stable-strength-card-v54 td { padding:3mm; }
 .monitor-card-v54 { width:100%; height:30mm; background-color:#0b2033; border:0.28mm solid #2b4a60; }
-.monitor-card-v54 td { padding:3mm; }
-.monitor-title-v54 { font-size:8.8pt; line-height:1.14; color:#ffffff; font-weight:bold; }
-.monitor-copy-v54 { margin-top:0.7mm; font-size:7.05pt; line-height:1.28; color:#afc0ca; }
+.monitor-card-v54 td { padding:3.2mm; }
+.monitor-title-v54 { font-size:9.5pt; line-height:1.25; color:#ffffff; font-weight:bold; }
+.monitor-copy-v54 { margin-top:1mm; font-size:8pt; line-height:1.42; color:#afc0ca; }
 .maintenance-card-v54 { width:100%; height:72mm; background-color:#0b2033; border:0.3mm solid #2b4a60; }
 .maintenance-card-v54 td { padding:4mm; }
 .footer-table { width: 100%; border-top: 0.24mm solid #29465b; }

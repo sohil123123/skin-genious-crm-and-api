@@ -181,7 +181,7 @@ $groups=[
 @include('pdf.facial.partials.header',['kicker'=>'Skin at a Glance'])
 <div class="eyebrow">Your current profile</div>
 <div class="section-title">Every score, <span class="accent">in one clear view</span></div>
-<div class="page-subtitle">Scores remain on the engine's original 1-5 scale. Each card clearly states whether higher, lower or a balanced range is preferred.</div>
+<div class="page-subtitle">Scores are shown out of 100. Each card clearly states whether higher, lower or a balanced range is preferred.</div>
 <table width="100%" cellpadding="0" cellspacing="0" class="card card-purple" style="margin-top:3mm;height:19mm;"><tr><td width="40%" class="pad-sm"><div class="mini-label">Skin Type</div><div class="mini-value-lg">{{ $skinProfile }}</div></td><td width="30%" class="pad-sm" style="border-left:0.25mm solid #29475d;"><div class="mini-label">Priority Areas</div><div class="mini-value-lg">{{ $primaryConcerns->count() }} high priority</div></td><td width="30%" class="pad-sm" style="border-left:0.25mm solid #29475d;"><div class="mini-label">Evidence Modes</div><div class="mini-value-lg">5 imaging views</div></td></tr></table>
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:3mm;"><tr><td width="49%">
 @foreach($leftDashboard as $item) @include('pdf.facial.partials.dashboard-card',['item'=>$item]) @endforeach
