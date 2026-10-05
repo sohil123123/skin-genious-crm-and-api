@@ -87,10 +87,26 @@ class Assessment extends Model implements HasMedia
         if($sessions->isEmpty())
             return [];
 
+        // The complete plan is already persisted as JSON by AssessmentController.
+        // Keep v5 metadata there without rewriting historical session records.
+        $planFile = 'treatment-plans/treatment_plans_#' . $this->id . '.json';
+        $savedPlan = [];
+        if (\Illuminate\Support\Facades\Storage::disk('files')->exists($planFile)) {
+            $savedPlan = json_decode(\Illuminate\Support\Facades\Storage::disk('files')->get($planFile), true)['treatment_plan'] ?? [];
+        }
+        $sessionMetadata = collect($savedPlan['treatments'] ?? [])->keyBy('session_number');
+
         return [
             "total_time" => $this->total_time,
-            "treatments" => $sessions->map(function ($s) {
-                return [
+            "course_outline" => $savedPlan['course_outline'] ?? [],
+            "modality_omission_explanation" => $savedPlan['modality_omission_explanation'] ?? [],
+            "treatments" => $sessions->map(function ($s) use ($sessionMetadata) {
+                $metadata = \Illuminate\Support\Arr::only($sessionMetadata->get($s->session_number, []), [
+                    'why_today', 'primary_strategy', 'stack_comparison', 'personalisation_evidence',
+                    'signature_moment', 'expectation_card', 'continuity', 'lip_pigmentation_rule',
+                    'step_duration_total', 'timing_validation',
+                ]);
+                return array_merge($metadata, [
                     "id" => $s->id,
                     "session_number" => $s->session_number,
                     "title" => $s->title,
@@ -105,7 +121,7 @@ class Assessment extends Model implements HasMedia
                     "post_images" => $s->post_images ?? [],
                     "post_feature_packet" => $s->post_feature_packet ?? null,
                     "post_diagnosis" => $s->post_diagnosis ?? null,
-                ];
+                ]);
             })
         ];
     }

@@ -51,6 +51,7 @@ class ReportController extends BaseApiController
         $data['patient']['age'] = $record->user->date_of_birth ? \Carbon\Carbon::parse($record->user->date_of_birth)->age : 'N/A';
         $data['report_date'] = $record->created_at;
         $data['sessions'] = $record->treatmentSessions['treatments'];
+        $data['course_outline'] = $record->treatmentSessions['course_outline'] ?? [];
         $data['treatment_goals'] = collect($record->treatmentSessions['treatments'])
             ->pluck('concerns_addressed')
             ->flatten(1)
