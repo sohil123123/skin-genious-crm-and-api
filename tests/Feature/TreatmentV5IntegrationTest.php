@@ -37,12 +37,16 @@ it('forwards v5 instructions and stateless structured output without timeout con
         'timeout_ms' => 65000,
         'service_tier' => 'auto',
         'max_output_tokens' => 14000,
+        'prompt_cache_key' => 'ai-aesthetics-treatment-v5.6:fixture',
+        'prompt_cache_retention' => '24h',
     ]);
     $response = (new AiController())->responses($request);
     expect($response->getStatusCode())->toBe(200);
     Http::assertSent(fn ($upstream) => $upstream['instructions'] === 'Static v5 instructions'
         && $upstream['service_tier'] === 'auto'
         && $upstream['max_output_tokens'] === 14000
+        && $upstream['prompt_cache_key'] === 'ai-aesthetics-treatment-v5.6:fixture'
+        && $upstream['prompt_cache_retention'] === '24h'
         && !isset($upstream['timeout_ms'])
         && !isset($upstream['conversation'])
         && !isset($upstream['previous_response_id']));
