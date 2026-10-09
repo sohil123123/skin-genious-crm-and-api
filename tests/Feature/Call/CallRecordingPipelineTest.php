@@ -314,3 +314,45 @@ it('reports no retention deletions while no policy is configured', function (): 
         ->expectsOutputToContain('No retention periods are configured')
         ->assertSuccessful();
 });
+
+// ──────────────── Retry sweep ────────────────
+
+/**
+ * A recording left Pending — its job never dispatched because whatever ran
+ * before it threw — must be swept up once it is stale, or nothing ever
+ * revisits it. A fresh Pending is a job still on its way and is left alone.
+ */
+it('re-queues stored recordings stuck pending transcription once stale', function (): void {
+    Queue::fake();
+
+    $recording = callWithRecording()->recordings()->first();
+    $recording->markDownloaded([
+        'storage_disk' => 'local',
+        'storage_path' => 'call-recordings/test.mp3',
+    ]);
+
+    $this->artisan('calls:retry', ['--transcriptions' => true])
+        ->expectsOutputToContain('Transcriptions: re-queued 0')
+        ->assertSuccessful();
+
+    $recording->forceFill(['updated_at' => now()->subHours(2)])->saveQuietly();
+
+    $this->artisan('calls:retry', ['--transcriptions' => true])
+        ->expectsOutputToContain('Transcriptions: re-queued 1')
+        ->assertSuccessful();
+
+    Queue::assertPushed(TranscribeCallRecordingJob::class);
+});
+
+it('re-queues recordings whose download was never started', function (): void {
+    Queue::fake();
+
+    $recording = callWithRecording()->recordings()->first();
+    $recording->forceFill(['updated_at' => now()->subHours(2)])->saveQuietly();
+
+    $this->artisan('calls:retry', ['--recordings' => true])
+        ->expectsOutputToContain('Recordings: re-queued 1')
+        ->assertSuccessful();
+
+    Queue::assertPushed(DownloadCallRecordingJob::class);
+});
