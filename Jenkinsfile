@@ -135,6 +135,12 @@ php artisan route:cache || true
 echo "Caching Views..."
 php artisan view:cache
 
+echo "Restarting Queue Workers..."
+# Long-running workers keep the code and config they started with. Without
+# this they never pick up a deploy, and keep creating each new daily log file
+# with the old permissions.
+php artisan queue:restart
+
 echo "Creating Storage Link..."
 php artisan storage:link || true
 
