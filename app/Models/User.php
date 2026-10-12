@@ -231,6 +231,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(UserPackage::class);
     }
 
+    public function treatmentSessions(): HasMany
+    {
+        return $this->hasMany(TreatmentSession::class);
+    }
+
     public function holidays(): MorphMany
     {
         return $this->morphMany(AvailabilityException::class, 'exceptionable');

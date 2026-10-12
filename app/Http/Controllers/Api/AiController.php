@@ -147,6 +147,9 @@ class AiController extends Controller
         $validated = $request->validate([
             'model' => ['required', 'string', 'max:255'],
             'input' => ['required', 'array', 'min:1'],
+            'instructions' => ['sometimes', 'string'],
+            'service_tier' => ['sometimes', 'in:auto,default,flex,priority'],
+            'timeout_ms' => ['sometimes', 'integer', 'min:0', 'max:2147483647'],
             'max_output_tokens' => ['sometimes', 'integer', 'min:1'],
             'reasoning' => ['sometimes', 'array'],
             'text' => ['sometimes', 'array'],
@@ -168,6 +171,16 @@ class AiController extends Controller
         );
 
         $stage = (string) data_get($payload, 'metadata.stage', 'unknown');
+        $isTreatmentV5 = $stage === 'facial_treatment_v5';
+        // V5 treatment generation waits without an application timeout by
+        // default. Explicit positive timeouts remain available to callers.
+        $timeoutSeconds = $isTreatmentV5
+            ? (($validated['timeout_ms'] ?? 0) > 0
+                ? max(1, (int) floor($validated['timeout_ms'] / 1000)) : 0)
+            : 600;
+        if ($isTreatmentV5 && $timeoutSeconds === 0) {
+            set_time_limit(0);
+        }
         $attempt = data_get($payload, 'metadata.attempt');
 
         $isPigmentationPipeline = $this->isPigmentationPipeline(
@@ -175,7 +188,7 @@ class AiController extends Controller
             stage: $stage,
         );
 
-        if ($isPigmentationPipeline) {
+        if ($isPigmentationPipeline || $isTreatmentV5) {
             if (
                 array_key_exists('conversation', $payload)
                 || array_key_exists('previous_response_id', $payload)
@@ -230,7 +243,7 @@ class AiController extends Controller
             $response = $this->openAiClient(
                 apiKey: $apiKey,
                 clientRequestId: $clientRequestId,
-                timeoutSeconds: 600,
+                timeoutSeconds: $timeoutSeconds,
             )->post(self::OPENAI_BASE_URL . '/responses', $payload);
         } catch (ConnectionException $exception) {
             Log::error('OpenAI Responses API connection error', [
@@ -350,6 +363,8 @@ class AiController extends Controller
         $allowedKeys = [
             'model',
             'input',
+            'instructions',
+            'service_tier',
             'max_output_tokens',
             'reasoning',
             'text',

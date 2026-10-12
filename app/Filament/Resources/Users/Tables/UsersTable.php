@@ -37,6 +37,8 @@ use Filament\Schemas\Schema;
 
 use App\Models\User;
 use App\Models\Clinic;
+use App\Filament\Resources\Users\Actions\DownloadReportActions;
+use App\Services\UserReportPdfService;
 
 class UsersTable
 {
@@ -44,6 +46,9 @@ class UsersTable
     {
         return $table
             ->deferLoading()
+            // Record counts for the "Download PDF" menu, so it can hide empty
+            // reports without a query per row.
+            ->modifyQueryUsing(fn(Builder $query) => $query->withCount(UserReportPdfService::countRelations()))
             // ->placeholder(fn () => view('custom-table-placeholder', [
             //     'thead' => $table->renderHeader(), // Or manually render if needed
             //     'rows' => 5,
@@ -297,6 +302,15 @@ class UsersTable
                     ->button()
                     ->visible(fn($record) => $record->hasRole('client')),
 
+                // Only reports with something in them are offered; the counts
+                // come from the table query (see modifyQueryUsing above).
+                ActionGroup::make(DownloadReportActions::make())
+                    ->label('Download PDF')
+                    ->tooltip('Download PDF')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->visible(fn(User $record) => DownloadReportActions::offered($record, 'all')),
 
                 ActionGroup::make([
                     ViewAction::make(),

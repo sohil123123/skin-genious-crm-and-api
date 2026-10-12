@@ -251,6 +251,15 @@ return [
          */
         'PlayRecording:Call' => 'Play Call Recording',
         'ViewTranscript:Call' => 'View Call Transcript',
+
+        /*
+         * Lets a role / user book or confirm an appointment that breaks the
+         * availability rules (outside working hours, leave / blocked hours,
+         * bed capacity full, therapist already booked). The appointment is
+         * flagged is_emergency and logged as an Emergency Override.
+         * super_admin always has it. Checked in AvailabilityService.
+         */
+        'EmergencyOverride:Appointment' => 'Emergency Override (Appointment)',
     ],
 
     /*

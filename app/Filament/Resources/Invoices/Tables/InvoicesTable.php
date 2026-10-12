@@ -107,9 +107,13 @@ class InvoicesTable
                     ->badge()
                     ->color('danger')
                     ->summarize(Sum::make()->label('Total Due')->money('INR'))
+                    // Package invoices are generated per payment, so there is never a due amount to show
+                    ->extraCellAttributes(fn($record) => $record?->invoice_type === 'package' ? ['class' => 'cell-dash'] : [])
                     ->sortable(),
                 TextColumn::make('grand_total')
                     ->money('INR')
+                    ->badge()
+                    ->color('info')
                     ->summarize(Sum::make()->label('Total Amount')->money('INR'))
                     ->sortable(),
                 // TextColumn::make('payment_mode')
@@ -123,6 +127,9 @@ class InvoicesTable
                         'pending' => 'Pending',
                         'cancelled' => 'Cancelled',
                     ])
+                    // Package invoice status is driven by package payments, not changed manually
+                    ->disabled(fn($record) => $record?->invoice_type === 'package')
+                    ->extraCellAttributes(fn($record) => $record?->invoice_type === 'package' ? ['class' => 'cell-dash'] : [])
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()

@@ -204,6 +204,21 @@
                         <div class="session-name">{{ $session['title'] }}</div>
                         <div class="session-meta">Duration: {{ $session['treatment_time'] }} Mins</div>
                         <div class="session-focus">Focus: {{ collect($session['concerns_addressed'])->pluck('concern')->implode(', ') }}</div>
+                        @if (!empty($session['why_today']))
+                            <p>{{ $session['why_today'] }}</p>
+                            @foreach ($session['personalisation_evidence'] ?? [] as $finding)
+                                <p>{{ $finding }}</p>
+                            @endforeach
+                            @foreach ($session['expectation_card'] ?? [] as $label => $expectation)
+                                <p><strong>{{ ucfirst(str_replace('_', ' ', $label)) }}:</strong> {{ $expectation }}</p>
+                            @endforeach
+                            @foreach ($session['continuity'] ?? [] as $continuity)
+                                <p>{{ $continuity }}</p>
+                            @endforeach
+                            @if (!empty($session['signature_moment']))
+                                <p>Step {{ $session['signature_moment']['step_number'] }}: {{ $session['signature_moment']['what'] }}</p>
+                            @endif
+                        @endif
                     </td>
                     @endforeach
                 </tr>
@@ -212,6 +227,19 @@
         </td>
     </tr>
 </table>
+
+@if (!empty($course_outline))
+    <h3>Course outline</h3>
+    @foreach ($course_outline as $slot)
+        <p><strong>Session {{ $slot['session_number'] }} — Week {{ $slot['week'] }}:</strong> {{ $slot['clinical_goal'] }}</p>
+        @if ($slot['session_number'] >= 3 || $slot['reassessment_required'])
+            <p>Provisional — reassessment required before treatment.</p>
+        @endif
+        @if (!empty($slot['escalation_condition']))
+            <p>{{ $slot['escalation_condition'] }}</p>
+        @endif
+    @endforeach
+@endif
 
 <div class="generated-note">Generated via AI Aesthetics Treatment Planning System</div>
 

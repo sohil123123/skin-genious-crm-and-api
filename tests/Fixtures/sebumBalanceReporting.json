@@ -1,0 +1,20 @@
+[
+  {"name":"dry side moves up toward target","before":25,"after":40,"reference":{"target":50},"result":"improved","status":"toward_existing_target","gain":15},
+  {"name":"oily side moves down toward target","before":80,"after":60,"reference":{"target":50},"result":"improved","status":"toward_existing_target","gain":20},
+  {"name":"crossing target remains closer","before":80,"after":45,"reference":{"target":50},"result":"improved","status":"toward_existing_target","gain":25},
+  {"name":"crossing target moves farther","before":40,"after":70,"reference":{"target":50},"result":"stable","status":"review_required","gain":0},
+  {"name":"same distance on opposite sides","before":40,"after":60,"reference":{"target":50},"result":"stable","status":"unchanged_balance","gain":0},
+  {"name":"leaves target","before":50,"after":65,"reference":{"target":50},"result":"stable","status":"review_required","gain":0},
+  {"name":"remains at target","before":50,"after":50,"reference":{"target":50},"result":"stable","status":"balanced","gain":0},
+  {"name":"decimal gain despite identical displayed scores","before":40.1,"after":40.4,"reference":{"target":50},"result":"improved","status":"toward_existing_target","gain":0.3},
+  {"name":"unchanged outside target","before":40,"after":40,"reference":{"target":50},"result":"stable","status":"unchanged_balance","gain":0},
+  {"name":"moves into established range","before":25,"after":45,"reference":{"range":[40,60]},"result":"improved","status":"toward_existing_target","gain":15},
+  {"name":"remains inside range","before":42,"after":58,"reference":{"range":[40,60]},"result":"stable","status":"balanced","gain":0},
+  {"name":"crosses entire range but gets closer","before":90,"after":35,"reference":{"range":[40,60]},"result":"improved","status":"toward_existing_target","gain":25},
+  {"name":"leaves range","before":45,"after":70,"reference":{"range":[40,60]},"result":"stable","status":"review_required","gain":0},
+  {"name":"missing target","before":80,"after":60,"reference":null,"result":"stable","status":"review_required","gain":0},
+  {"name":"conflicting target","before":25,"after":40,"reference":{"status":"review_required"},"result":"stable","status":"review_required","gain":0},
+  {"name":"invalid range","before":25,"after":40,"reference":{"range":[60,40]},"result":"stable","status":"review_required","gain":0},
+  {"name":"backend proxy cannot be a score range","before":25,"after":40,"reference":{"range":[0.4,0.65]},"result":"stable","status":"review_required","gain":0},
+  {"name":"non-numeric measurement","before":"unknown","after":40,"reference":{"target":50},"result":"stable","status":"review_required","gain":0}
+]

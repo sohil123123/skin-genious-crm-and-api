@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Users\Pages;
 
+use App\Filament\Resources\Users\Actions\DownloadReportActions;
 use App\Filament\Resources\Users\UserResource;
+use App\Services\UserReportPdfService;
 
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Contracts\Support\Htmlable;
@@ -29,7 +31,14 @@ class ViewUser extends ViewRecord
 
     public function getHeaderActions(): array
     {
+        // One query for all four counts, rather than one per download button.
+        $this->getRecord()->loadCount(UserReportPdfService::countRelations());
+
         return [
+            // Every report shown as its own button, not tucked into a menu;
+            // each hides itself when the client has nothing in it.
+            ...DownloadReportActions::make(),
+
             Action::make('back')
                 ->label('Back to List')
                 ->icon('heroicon-o-arrow-left')

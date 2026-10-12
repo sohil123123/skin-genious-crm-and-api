@@ -205,8 +205,14 @@
                             $resultClass = 'score-stable';
                             $postDiag = $session->post_diagnosis;
                             if (isset($postDiag['reassessment'][$key])) {
-                                $sessVal = $postDiag['reassessment'][$key]['post_treatment_score_or_label'] ?? '—';
-                                $res = strtolower($postDiag['reassessment'][$key]['result'] ?? '');
+                                $row = $postDiag['reassessment'][$key];
+                                if (\App\Services\SebumBalanceReporting::isSebum($row, (string) $key)) {
+                                    $row = \App\Services\SebumBalanceReporting::forReportRows(
+                                        [$key => $row], $assessment->diagnosis ?? []
+                                    )[$key];
+                                }
+                                $sessVal = $row['post_treatment_score_or_label'] ?? '—';
+                                $res = strtolower($row['result'] ?? '');
                                 if ($res === 'improved') {
                                     $resultClass = 'score-improved';
                                 } elseif ($res === 'declined') {
