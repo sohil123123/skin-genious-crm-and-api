@@ -6,6 +6,7 @@
     $tabs = [
         AiDashboard::TAB_PATIENTS => ['label' => 'Patients', 'icon' => 'heroicon-m-users'],
         AiDashboard::TAB_LEADS => ['label' => 'Meta Leads', 'icon' => 'heroicon-m-megaphone'],
+        AiDashboard::TAB_SINGLE_SESSION => ['label' => 'Single Session', 'icon' => 'heroicon-m-user-minus'],
     ];
 
     $hairline = 'color-mix(in srgb, currentColor 14%, transparent)';
