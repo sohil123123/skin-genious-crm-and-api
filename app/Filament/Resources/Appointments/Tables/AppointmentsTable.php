@@ -252,6 +252,23 @@ class AppointmentsTable
                         return $indicators;
                     }),
 
+                // Single day, set from the calendar dropdown beside the Filters
+                // button (resources/views/filament/tables/appointments-calendar-filter.blade.php).
+                Filter::make('calendar_date')
+                    ->label('Appointment Date')
+                    ->form([
+                        DatePicker::make('date')
+                            ->label('Appointment Date')
+                            ->placeholder('Select date')
+                            ->closeOnDateSelection()
+                            ->native(false),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['date'] ?? null, fn (Builder $q, $date) => $q->whereDate('start_datetime', $date)))
+                    ->indicateUsing(fn (array $data): array => ($data['date'] ?? null)
+                        ? [Indicator::make('Date: ' . Carbon::parse($data['date'])->format('d M Y'))->removeField('date')]
+                        : []),
+
                 // 1) Quick Filters: Enhanced with better layout and indicators
                 Filter::make('quick')
                     ->label('Quick Date Filters')

@@ -44,6 +44,7 @@ class Dashboard extends BaseDashboard
         \App\Filament\Widgets\LeadActionQueue::class,                // Lead Action Queue
         \App\Filament\Widgets\CallStatsOverview::class,              // Call Stats Overview
         \App\Filament\Widgets\LatestClients::class,                  // Latest Clients
+        \App\Filament\Widgets\SingleSessionClients::class,           // Single Session — shown on Best Action Dashboard only
         // \App\Filament\Widgets\LatestCompletedSessions::class,        // Latest Completed Sessions
     ];
 
