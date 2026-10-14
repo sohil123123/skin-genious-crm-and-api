@@ -70,7 +70,8 @@ class Invoice extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        // withTrashed: an invoice keeps showing its client after the user is deleted
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function package(): BelongsTo

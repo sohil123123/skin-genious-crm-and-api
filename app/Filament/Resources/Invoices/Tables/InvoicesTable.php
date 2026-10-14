@@ -64,6 +64,16 @@ class InvoicesTable
                     ->sortable()
                     ->copyable()
                     ->weight('bold'),
+                // Number on the original bill for invoices imported from the old CRM (searchable,
+                // so staff can find an invoice from a client's old receipt).
+                TextColumn::make('old_invoice_number')
+                    ->label('Old Bill No.')
+                    ->state(fn ($record) => $record->invoice_type === config('legacy_import.invoice_type', 'legacy') ? $record->old_invoice_number : null)
+                    ->placeholder('-')
+                    ->searchable(query: fn ($query, string $search) => $query
+                        ->where('invoice_type', config('legacy_import.invoice_type', 'legacy'))
+                        ->where('old_invoice_number', 'like', "%{$search}%"), isIndividual: false)
+                    ->toggleable(),
                 // TextColumn::make('state_code')
                 //     ->label('State')
                 //     ->badge()
