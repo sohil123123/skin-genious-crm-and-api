@@ -20,12 +20,16 @@ class Assessment extends Model implements HasMedia
 {
     use HasFactory, SoftDeletes, InteractsWithMedia;
 
-    protected $fillable = ['parent_id', 'conversation_id', 'ai_summary', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'pigmentation_inputs', 'assessment_type', 'feature_packet', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'nurse_run_sheet', 'status', 'therapist_notes', 'created_by'];
+    protected $fillable = ['parent_id', 'conversation_id', 'ai_summary', 'assessment_id', 'clinic_id', 'user_id', 'name', 'age', 'daily_sun_exposure_hours', 'social_event', 'upcoming_travel', 'medical_history', 'allergies', 'skin_temp_for_head', 'left_cheek_temp', 'right_cheek_temp', 'recent_peel_or_laser', 'retinol_used_last_night', 'is_pregnant', 'breastfeeding', 'iv_inputs', 'pigmentation_inputs', 'assessment_type', 'feature_packet', 'post_feature_packet', 'diagnosis', 'post_diagnosis', 'parameters_with_abnormal_scores', 'selected_plan_type', 'total_time', 'recommended_full_plan', 'iv_treatment_plan', 'iv_selected_option', 'nurse_run_sheet', 'status', 'therapist_notes', 'created_by'];
+
+    protected $hidden = ['facial_course_progress'];
 
     protected $casts = [
+        'facial_course_progress' => 'array',
         'medical_history' => 'array',
         'allergies' => 'array',
         'feature_packet' => 'array',
+        'post_feature_packet' => 'array',
         'diagnosis' => 'array',
         'post_diagnosis' => 'array',
         'parameters_with_abnormal_scores' => 'array',
@@ -87,15 +91,45 @@ class Assessment extends Model implements HasMedia
         if($sessions->isEmpty())
             return [];
 
+        // The complete plan is already persisted as JSON by AssessmentController.
+        // Keep v5 metadata there without rewriting historical session records.
+        $planFile = 'treatment-plans/treatment_plans_#' . $this->id . '.json';
+        $savedPlan = [];
+        if (\Illuminate\Support\Facades\Storage::disk('files')->exists($planFile)) {
+            $savedPlan = json_decode(\Illuminate\Support\Facades\Storage::disk('files')->get($planFile), true)['treatment_plan'] ?? [];
+        }
+        $progress = $this->facial_course_progress;
+        if (($progress['version'] ?? null) === 'reassessment_pairs_v1' && !empty($progress['plan'])) {
+            $savedPlan = $progress['plan'];
+        }
+        $sessionMetadata = collect($savedPlan['treatments'] ?? [])->keyBy('session_number');
+
         return [
             "total_time" => $this->total_time,
-            "treatments" => $sessions->map(function ($s) {
-                return [
+            ...(($progress['version'] ?? null) === 'reassessment_pairs_v1' ? [
+                "continuation_mode" => "reassessment_pairs_v1",
+                "planned_session_count" => count($savedPlan['course_outline'] ?? []),
+            ] : []),
+            "course_outline" => $savedPlan['course_outline'] ?? [],
+            "modality_omission_explanation" => $savedPlan['modality_omission_explanation'] ?? [],
+            "treatments" => $sessions->map(function ($s) use ($sessionMetadata, $progress) {
+                $metadata = \Illuminate\Support\Arr::only($sessionMetadata->get($s->session_number, []), [
+                    'why_today', 'primary_strategy', 'stack_comparison', 'personalisation_evidence',
+                    'signature_moment', 'expectation_card', 'continuity', 'lip_pigmentation_rule',
+                    'step_duration_total', 'timing_validation',
+                ]);
+                return array_merge($metadata, [
+                    ...(($progress['plan']['course_outline'][$s->session_number - 1]['session_kind'] ?? null) === 'separate_clinician_session' ? [
+                        'session_kind' => 'separate_clinician_session',
+                        'doctor_confirmation' => hash_equals($progress['doctor_confirmations'][(string) $s->id]['steps_hash'] ?? '', hash('sha256', json_encode($s->steps, JSON_THROW_ON_ERROR)))
+                            ? $progress['doctor_confirmations'][(string) $s->id] : null,
+                    ] : []),
                     "id" => $s->id,
                     "session_number" => $s->session_number,
                     "title" => $s->title,
                     "treatment_time" => $s->treatment_time,
-                    "week" => $s->week,
+                    "week" => $s->session_number > 2 && ($progress['version'] ?? null) === 'reassessment_pairs_v1'
+                        ? ($sessionMetadata->get($s->session_number, [])['week'] ?? $s->week) : $s->week,
                     "preparations_checklist_for_therapist" => $s->preparations_checklist_for_therapist ?? [],
                     "concerns_addressed" => $s->concerns_addressed ?? [],
                     "steps" => $s->steps ?? [],
@@ -105,7 +139,7 @@ class Assessment extends Model implements HasMedia
                     "post_images" => $s->post_images ?? [],
                     "post_feature_packet" => $s->post_feature_packet ?? null,
                     "post_diagnosis" => $s->post_diagnosis ?? null,
-                ];
+                ]);
             })
         ];
     }

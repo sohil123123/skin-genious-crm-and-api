@@ -345,7 +345,12 @@ class ReportAssetHelper
 
         // We only compare to baseline as requested by the user
         $baselineDiagnosis = $record->diagnosis['diagnosis_report'] ?? [];
+        $sebumRows = SebumBalanceReporting::forReportRows($reassessment, $record->diagnosis ?? []);
         foreach ($reassessment as $key => &$item) {
+            if (SebumBalanceReporting::isSebum($item, (string) $key)) {
+                $item = $sebumRows[$key];
+                continue;
+            }
             $baselineScore = null;
             if (isset($baselineDiagnosis[$key])) {
                 $baselineScore = $baselineDiagnosis[$key]['score_or_label'] ?? null;

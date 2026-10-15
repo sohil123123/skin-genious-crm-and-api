@@ -102,6 +102,11 @@ Route::
                 Route::delete('/treatment-sessions/{treatmentSession}/images/{media}', [TreatmentSessionController::class, 'deleteImage']);
                 Route::delete('/treatment-sessions/{treatmentSession}/images', [TreatmentSessionController::class, 'deleteAllImage']);
                 Route::post('/treatment-sessions/{treatmentSession}/post-assessment', [TreatmentSessionController::class, 'savePostAssessment']);
+                Route::get('/treatment-sessions/{treatmentSession}/course-continuation', [TreatmentSessionController::class, 'getCourseContinuation']);
+                Route::post('/treatment-sessions/{treatmentSession}/doctor-confirmation', [TreatmentSessionController::class, 'confirmStandaloneDoctor']);
+                Route::post('/treatment-sessions/{treatmentSession}/course-continuation/claim', [TreatmentSessionController::class, 'claimCourseContinuation']);
+                Route::post('/treatment-sessions/{treatmentSession}/course-continuation/complete', [TreatmentSessionController::class, 'completeCourseContinuation']);
+                Route::post('/treatment-sessions/{treatmentSession}/course-continuation/release', [TreatmentSessionController::class, 'releaseCourseContinuation']);
 
                 // INFO: Download Report
                 Route::get('download-facial-report/{type}/{assessment_id}', [ReportController::class, 'downloadFacialReport'])->name('download-facial-report');

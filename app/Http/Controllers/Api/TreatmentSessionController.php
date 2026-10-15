@@ -33,6 +33,10 @@ class TreatmentSessionController extends Controller
             'status' => 'required|string',
         ]);
 
+        if (in_array($request->status, ['in_progress', 'completed'], true)) {
+            app(\App\Services\FacialCourseContinuation::class)->requireDoctorConfirmation($treatmentSession);
+        }
+
         $treatmentSession->update([
             'status' => $request->status,
         ]);
@@ -154,20 +158,83 @@ class TreatmentSessionController extends Controller
 
     public function savePostAssessment(Request $request, TreatmentSession $treatmentSession)
     {
-        $request->validate([
+        $validated = $request->validate([
             'post_feature_packet' => 'nullable|array',
             'post_diagnosis' => 'nullable|array',
         ]);
 
-        $treatmentSession->update([
-            'post_feature_packet' => $request->post_feature_packet,
-            'post_diagnosis' => $request->post_diagnosis,
-        ]);
+        // A failed save must never be treated as a completed checkpoint.
+        // Partial feature updates must not clear an already saved reassessment.
+        if (array_key_exists('post_diagnosis', $validated) && !array_key_exists('post_feature_packet', $validated)) {
+            $validated['post_feature_packet'] = null;
+        }
+        $treatmentSession->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Post-assessment saved successfully.',
             'results' => $treatmentSession
         ]);
+    }
+
+    private function courseContinuationResponse(TreatmentSession $session, array $result)
+    {
+        if (($result['status'] ?? null) === 'ready') {
+            app(\App\Services\FacialCourseContinuation::class)->syncLegacyPlan((int) $session->assessment_id);
+            $result['assessment'] = new \App\Http\Resources\AssessmentResource($session->assessment()->firstOrFail());
+        }
+        return response()->json(['success' => true, 'results' => $result]);
+    }
+
+    public function getCourseContinuation(TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        return $this->courseContinuationResponse($treatmentSession, $continuation->inspect($treatmentSession));
+    }
+
+    public function claimCourseContinuation(TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        return $this->courseContinuationResponse($treatmentSession, $continuation->claim($treatmentSession));
+    }
+
+    public function completeCourseContinuation(Request $request, TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        $data = $request->validate([
+            'token' => 'required|uuid',
+            'generated_plan' => 'required|array',
+            'generated_plan.treatment_plan' => 'required|array',
+            'generated_plan.treatment_plan.course_outline' => 'required|array|min:5|max:8',
+            'generated_plan.treatment_plan.treatments' => 'required|array|min:1|max:2',
+            'generated_plan.treatment_plan.treatments.*.session_number' => 'required|integer|min:3|max:8',
+            'generated_plan.treatment_plan.treatments.*.title' => 'required|string',
+            'generated_plan.treatment_plan.treatments.*.week' => 'required|numeric|min:1',
+            'generated_plan.treatment_plan.treatments.*.treatment_time' => 'required|numeric|gt:0',
+            'generated_plan.treatment_plan.treatments.*.preparations_checklist_for_therapist' => 'present|array',
+            'generated_plan.treatment_plan.treatments.*.concerns_addressed' => 'present|array',
+            'generated_plan.treatment_plan.treatments.*.steps' => 'required|array|min:1',
+            'generated_plan.treatment_plan.treatments.*.steps.*.step_number' => 'required|integer|min:1',
+            'generated_plan.treatment_plan.treatments.*.steps.*.ingredients_equipments' => 'present|array',
+            'generated_plan.treatment_plan.treatments.*.steps.*.how_to_do' => 'required|string',
+            'generated_plan.treatment_plan.treatments.*.steps.*.step_id' => 'required|string',
+            'generated_plan.treatment_plan.treatments.*.steps.*.duration' => 'required|numeric|gt:0',
+            'post_feature_packet' => 'required|array',
+        ]);
+        // Nested validation checks admission, but validated() omits unlisted keys.
+        // Keep the complete planner output, as the initial plan save does.
+        return $this->courseContinuationResponse($treatmentSession, $continuation->complete(
+            $treatmentSession, $data['token'], $request->input('generated_plan'), $data['post_feature_packet']
+        ));
+    }
+
+    public function confirmStandaloneDoctor(Request $request, TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        $data = $request->validate(['doctor_name' => 'required|string|max:160', 'confirmed' => 'required|accepted']);
+        $result = $continuation->recordDoctorConfirmation($treatmentSession, $data['doctor_name'], (int) $request->user()->id);
+        return response()->json(['success' => true, 'results' => $result]);
+    }
+
+    public function releaseCourseContinuation(Request $request, TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        $data = $request->validate(['token' => 'required|uuid', 'message' => 'required|string|max:800']);
+        return $this->courseContinuationResponse($treatmentSession, $continuation->release($treatmentSession, $data['token'], $data['message']));
     }
 }
