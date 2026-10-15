@@ -304,6 +304,13 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn(): string => view('filament.incoming-call-popup')->render(),
             )
+            // Calendar dropdown beside the Filters button on the appointments
+            // list; picking a day sets the table's `calendar_date` filter.
+            ->renderHook(
+                \Filament\Tables\View\TablesRenderHook::TOOLBAR_SEARCH_AFTER,
+                fn(): string => view('filament.tables.appointments-calendar-filter')->render(),
+                scopes: \App\Filament\Resources\Appointments\Pages\ListAppointments::class,
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn(): string => \Illuminate\Support\Facades\Blade::render(<<<'HTML'

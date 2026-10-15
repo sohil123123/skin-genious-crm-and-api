@@ -9,6 +9,7 @@ use App\Filament\Widgets\AiActionQueue;
 use App\Filament\Widgets\AiCapacityGaps;
 use App\Filament\Widgets\LeadActionQueue;
 use App\Filament\Widgets\LeadMorningSummary;
+use App\Filament\Widgets\SingleSessionClients;
 use App\Models\Lead;
 use App\Models\LeadActionLog;
 use Livewire\Attributes\Url;
@@ -19,6 +20,8 @@ class AiDashboard extends Page
 
     public const TAB_LEADS = 'leads';
 
+    public const TAB_SINGLE_SESSION = 'single-session';
+
     /**
      * Persisted in the query string so a staff member working the lead queue
      * stays on it across a refresh or a returned-to bookmark.
@@ -28,7 +31,7 @@ class AiDashboard extends Page
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = in_array($tab, [self::TAB_PATIENTS, self::TAB_LEADS], true)
+        $this->activeTab = in_array($tab, [self::TAB_PATIENTS, self::TAB_LEADS, self::TAB_SINGLE_SESSION], true)
             ? $tab
             : self::TAB_PATIENTS;
     }
@@ -36,6 +39,11 @@ class AiDashboard extends Page
     public function isLeadsTab(): bool
     {
         return $this->activeTab === self::TAB_LEADS;
+    }
+
+    public function isSingleSessionTab(): bool
+    {
+        return $this->activeTab === self::TAB_SINGLE_SESSION;
     }
 
     /**
@@ -59,6 +67,8 @@ class AiDashboard extends Page
                 ->forToday()->active()->pending()
                 ->when($clinicId, fn ($q) => $q->forClinic($clinicId))
                 ->count(),
+
+            self::TAB_SINGLE_SESSION => SingleSessionClients::pendingCount(),
         ];
     }
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-sparkles';
@@ -94,9 +104,11 @@ class AiDashboard extends Page
      */
     protected function getHeaderWidgets(): array
     {
-        return $this->isLeadsTab()
-            ? [LeadMorningSummary::class]
-            : [AiMorningSummary::class];
+        return match (true) {
+            $this->isLeadsTab() => [LeadMorningSummary::class],
+            $this->isSingleSessionTab() => [],
+            default => [AiMorningSummary::class],
+        };
     }
 
     /**
@@ -104,9 +116,11 @@ class AiDashboard extends Page
      */
     public function getMiddleWidgets(): array
     {
-        return $this->isLeadsTab()
-            ? [LeadActionQueue::class]
-            : [AiActionQueue::class];
+        return match (true) {
+            $this->isLeadsTab() => [LeadActionQueue::class],
+            $this->isSingleSessionTab() => [SingleSessionClients::class],
+            default => [AiActionQueue::class],
+        };
     }
 
     public function getMiddleWidgetsColumns(): int|array
