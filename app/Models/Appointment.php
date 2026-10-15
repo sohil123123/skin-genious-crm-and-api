@@ -176,12 +176,13 @@ class Appointment extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        // withTrashed: a past appointment still shows who it was for after the user is deleted
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function therapist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'therapist_id');
+        return $this->belongsTo(User::class, 'therapist_id')->withTrashed();
     }
 
     public function clinic(): BelongsTo

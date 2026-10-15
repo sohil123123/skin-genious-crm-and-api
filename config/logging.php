@@ -5,6 +5,14 @@ use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
 
+// Log files are written by more than one OS user: PHP-FPM (webhooks, the
+// panel) and the CLI (scheduler, queue workers). Whichever process opens a
+// daily file first owns it, and with the default 0644 every other user is then
+// refused with "Permission denied" — which throws, failing the webhook or job
+// that was only trying to log. Creating the file group/world-writable lets
+// every process append to it regardless of who made it.
+$logFilePermission = octdec((string) env('LOG_FILE_PERMISSION', '0666'));
+
 return [
 
     /*
@@ -61,6 +69,7 @@ return [
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
+            'permission' => $logFilePermission,
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
         ],
@@ -68,6 +77,7 @@ return [
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
+            'permission' => $logFilePermission,
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
@@ -76,6 +86,7 @@ return [
         'lead_imports' => [
             'driver' => 'daily',
             'path' => storage_path('logs/lead-imports.log'),
+            'permission' => $logFilePermission,
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_LEAD_IMPORT_DAYS', 30),
             'replace_placeholders' => true,
@@ -84,6 +95,7 @@ return [
         'meta_leads' => [
             'driver' => 'daily',
             'path' => storage_path('logs/meta-leads.log'),
+            'permission' => $logFilePermission,
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_META_LEAD_DAYS', 30),
             'replace_placeholders' => true,
@@ -98,6 +110,7 @@ return [
         'calls' => [
             'driver' => 'daily',
             'path' => storage_path('logs/calls.log'),
+            'permission' => $logFilePermission,
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_CALL_DAYS', 30),
             'replace_placeholders' => true,

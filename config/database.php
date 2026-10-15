@@ -83,6 +83,29 @@ return [
             ]) : [],
         ],
 
+        // Read-only source for `php artisan legacy:import` (old Lumen CRM dump).
+        // Must point at a SEPARATE database restored from production_backup.sql.
+        'legacy' => [
+            'driver' => 'mysql',
+            'host' => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port' => env('LEGACY_DB_PORT', '3306'),
+            'database' => env('LEGACY_DB_DATABASE', 'skingenious_legacy'),
+            'username' => env('LEGACY_DB_USERNAME', 'root'),
+            'password' => env('LEGACY_DB_PASSWORD', ''),
+            'unix_socket' => env('LEGACY_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+            // The old app wrote Asia/Kolkata wall-clock times into TIMESTAMP columns on a UTC
+            // MySQL server, and the dump restores them with TIME_ZONE='+00:00'. Reading with
+            // +00:00 returns those values unchanged; the server's own zone (e.g. IST) would
+            // shift every created_at / updated_at by +5:30.
+            'timezone' => '+00:00',
+        ],
+
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),

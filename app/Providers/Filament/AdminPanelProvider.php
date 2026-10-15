@@ -521,6 +521,19 @@ class AdminPanelProvider extends PanelProvider
                             box-shadow: inset 3px 0 0 0 rgba(52, 211, 153, 0.5);
                         }
 
+                        /* A client with enough loyalty points to be worth a
+                           personal call. Amber edge plus tint so the rows to
+                           act on stand out down the page. */
+                        .fi-row-loyalty-high {
+                            background-color: rgba(245, 158, 11, 0.08) !important;
+                            box-shadow: inset 3px 0 0 0 rgba(245, 158, 11, 0.7);
+                        }
+
+                        .dark .fi-row-loyalty-high {
+                            background-color: rgba(245, 158, 11, 0.12) !important;
+                            box-shadow: inset 3px 0 0 0 rgba(251, 191, 36, 0.6);
+                        }
+
                         /* Recording column: one button, one shared player. */
                         .sgc-rec { display: inline-flex; align-items: center; gap: 0.5rem; }
 

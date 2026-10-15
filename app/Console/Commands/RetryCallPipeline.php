@@ -129,12 +129,21 @@ class RetryCallPipeline extends Command
     protected function retryDownloads(int $limit): void
     {
         $recordings = CallRecording::query()
-            ->where('download_status', RecordingDownloadStatus::Failed->value)
+            ->whereIn('download_status', [
+                RecordingDownloadStatus::Failed->value,
+                // Pending that has sat untouched means the download job was
+                // never dispatched or never ran � a webhook that crashed after
+                // creating the row, or a worker lost mid-queue. Downloading
+                // that has gone stale is a worker that died holding it.
+                RecordingDownloadStatus::Pending->value,
+                RecordingDownloadStatus::Downloading->value,
+            ])
             // A recording tried this many times is failing for a reason a retry
             // will not fix — usually a URL the provider has expired — and
             // retrying it forever crowds out work that can still succeed.
             ->where('download_attempts', '<', $this->maxAttempts())
             ->where('storage_status', '!=', RecordingStorageStatus::Purged->value)
+            ->where('updated_at', '<', now()->subMinutes($this->staleMinutes()))
             ->limit($limit)
             ->get();
 
@@ -171,6 +180,10 @@ class RetryCallPipeline extends Command
             ->where('transcription_status', TranscriptionStatus::Completed->value)
             ->whereIn('analysis_status', [
                 CallAnalysisStatus::Failed->value,
+                // A completed transcript whose analysis was never started: the
+                // transcription job dispatches analysis last, so anything that
+                // throws after the transcript is saved leaves it here.
+                CallAnalysisStatus::Pending->value,
                 CallAnalysisStatus::Processing->value,
             ])
             ->where('updated_at', '<', now()->subMinutes($this->staleMinutes()))
@@ -198,6 +211,12 @@ class RetryCallPipeline extends Command
             ->where('storage_status', RecordingStorageStatus::Stored->value)
             ->whereIn('transcription_status', [
                 TranscriptionStatus::Failed->value,
+                // Stored audio still waiting after the stale window was never
+                // handed to a worker: the download finished but the dispatch
+                // that follows it did not happen. Without this those calls are
+                // invisible to every sweep. The job is unique, so one that is
+                // genuinely still queued is not doubled.
+                TranscriptionStatus::Pending->value,
                 // Also picks up anything left mid-flight by a worker that was
                 // restarted, which would otherwise sit on "processing" forever.
                 TranscriptionStatus::Processing->value,

@@ -8,11 +8,13 @@ use App\Enums\Call\CallProvider;
 use App\Filament\Resources\Calls\CallResource;
 use App\Filament\Widgets\CallStatsOverview;
 use App\Filament\Widgets\CallVolumeOverview;
+use App\Jobs\Call\RetryCallPipelineJob;
 use App\Jobs\Call\SyncCallyzerCallsJob;
 use App\Jobs\Call\SyncExotelCallsJob;
 use App\Models\CallSyncRun;
 use App\Services\Call\CallProviderManager;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -65,6 +67,8 @@ class ListCalls extends ListRecords
             $this->syncExotelAction(),
 
             $this->syncCallyzerAction(),
+
+            $this->retryPipelineAction(),
         ];
     }
 
@@ -281,6 +285,57 @@ class ListCalls extends ListRecords
                     ->success()
                     ->title('Sync started')
                     ->body('Progress appears on the Call Integration Health page.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Run the calls:retry sweep now rather than waiting for the half-hourly
+     * schedule.
+     *
+     * For the moment somebody can see a call with no transcript and does not
+     * want to wait. Every stage starts ticked; unticking narrows the sweep the
+     * same way the command's flags do.
+     */
+    protected function retryPipelineAction(): Action
+    {
+        return Action::make('retryPipeline')
+            ->label('Retry stalled calls')
+            ->icon('heroicon-o-arrow-path-rounded-square')
+            ->color('gray')
+            ->schema([
+                CheckboxList::make('stages')
+                    ->label('What to retry')
+                    ->options([
+                        'recordings' => 'Recording downloads',
+                        'transcriptions' => 'Transcriptions',
+                        'analyses' => 'AI analyses',
+                        'matching' => 'Customer matching',
+                    ])
+                    ->default(['recordings', 'transcriptions', 'analyses', 'matching'])
+                    ->required(),
+            ])
+            ->modalHeading('Retry stalled calls')
+            ->modalDescription('Re-queues recordings, transcriptions, analyses and customer matches that did not finish. Runs in the background; work already completed is never repeated.')
+            ->modalSubmitActionLabel('Start retry')
+            ->action(function (array $data): void {
+                $job = new RetryCallPipelineJob(
+                    stages: array_values($data['stages'] ?? []),
+                    triggeredBy: auth()->id(),
+                );
+
+                $connection = config('calls.queue.connection') ?: config('queue.default');
+
+                // A sync queue would run the whole sweep inside this request,
+                // so it is deferred until the response has been sent instead.
+                $connection === 'sync'
+                    ? dispatch($job)->afterResponse()
+                    : dispatch($job);
+
+                Notification::make()
+                    ->success()
+                    ->title('Retry started')
+                    ->body('Transcripts and analyses appear on each call as the sweep reaches them.')
                     ->send();
             });
     }

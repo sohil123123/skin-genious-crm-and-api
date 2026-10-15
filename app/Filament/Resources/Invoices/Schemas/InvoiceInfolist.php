@@ -44,6 +44,12 @@ class InvoiceInfolist
                             }),
                         TextEntry::make('invoice_date')->dateTime()->label('Date and Time'),
                         TextEntry::make('source_note')->label('Note')->placeholder('-'),
+                        // Number printed on the original bill, for invoices imported from the old CRM.
+                        TextEntry::make('old_invoice_number')
+                            ->label('Old Bill No.')
+                            ->weight(FontWeight::Bold)
+                            ->copyable()
+                            ->visible(fn ($record) => $record?->invoice_type === config('legacy_import.invoice_type', 'legacy') && filled($record?->old_invoice_number)),
                     ])
                     ->columns(4),
 
@@ -63,7 +69,7 @@ class InvoiceInfolist
                         RepeatableEntry::make('items')
                             ->schema([
                                 Grid::make(5)->schema([
-                                    TextEntry::make('product.name')->label('Product'),
+                                    TextEntry::make('display_name')->label('Product'), // name when invoiced (product_snapshot)
                                     TextEntry::make('quantity')
                                         ->label('Qty')
                                         ->hidden(fn($record) => $record && $record->invoice?->invoice_type === 'package'),

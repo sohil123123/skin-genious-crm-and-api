@@ -198,7 +198,7 @@ class Assessment extends Model implements HasMedia
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed(); // still shown after the user is deleted
     }
 
     public function clinic()
@@ -208,7 +208,7 @@ class Assessment extends Model implements HasMedia
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
     public function children()

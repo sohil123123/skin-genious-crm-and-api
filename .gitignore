@@ -23,3 +23,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Old CRM production dump used by legacy:import (patient data, never commit)
+/old_crm_production_backup.sql

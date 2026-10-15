@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Product;
 use App\Models\StockTransaction;
+use App\Support\ProductSku;
 
 class ProductObserver
 {
@@ -12,17 +13,21 @@ class ProductObserver
      */
     public function creating(Product $product): void
     {
-        if (empty($product->sku)) {
-            $product->sku = 'SKU-' . strtoupper(\Illuminate\Support\Str::random(8));
-        }
+        //
     }
 
     /**
      * Handle the Product "created" event.
+     *
+     * The SKU is built from the name and the new id (e.g. DDHGS-P-0006), so it is set
+     * right after the insert; saveQuietly() keeps it to one activity-log entry.
      */
     public function created(Product $product): void
     {
-        //
+        if (empty($product->sku)) {
+            $product->sku = ProductSku::make($product->name, $product->type, (int) $product->id);
+            $product->saveQuietly();
+        }
     }
 
     /**

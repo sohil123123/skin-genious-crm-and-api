@@ -253,7 +253,7 @@
             <tr>
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>
-                    <span class="font-bold">{{ $item->product->name }}</span>
+                    <span class="font-bold">{{ $item->display_name }}</span>
                 </td>
                 <td class="text-center">{{ $item->quantity }}</td>
                 <td class="text-right">₹{{ number_format($item->unit_price, 2) }}</td>

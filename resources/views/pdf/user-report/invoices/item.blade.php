@@ -61,7 +61,7 @@
                 <tbody>
                     @foreach ($invoice->items as $i => $item)
                         <tr class="{{ $i % 2 ? 'alt' : '' }}">
-                            <td class="bold">{{ $item->product?->name ?? 'Item #' . $item->product_id }}</td>
+                            <td class="bold">{{ $item->display_name }}</td>
                             <td class="small">{{ $item->hsn_sac_code ?: '—' }}</td>
                             <td class="text-center">{{ $item->quantity }}</td>
                             <td class="text-right nowrap">{{ Report::money($item->unit_price) }}</td>

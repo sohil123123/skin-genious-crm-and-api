@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ClinicInventory;
@@ -11,6 +12,7 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'product_id',
+        'product_snapshot',
         'hsn_sac_code',
         'quantity',
         'unit_price',
@@ -24,6 +26,7 @@ class InvoiceItem extends Model
     ];
 
     protected $casts = [
+        'product_snapshot' => 'array',
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
         'discount_value' => 'decimal:2',
@@ -44,8 +47,51 @@ class InvoiceItem extends Model
         return $this->belongsTo(Product::class);
     }
 
+    /**
+     * The product as it was when this line was invoiced — same shape as
+     * UserPackageItem::$service_snapshot — so the invoice keeps its original name / price
+     * even if the product is renamed or repriced later.
+     */
+    public static function snapshotOf(?Product $product): ?array
+    {
+        if (! $product) {
+            return null;
+        }
+
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'type' => $product->type,
+            'hsn_sac_code' => $product->hsn_sac_code,
+            'sell_price' => $product->sell_price,
+            'gst' => $product->gst,
+            'description' => $product->description,
+            'captured_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * Name to print on the invoice: the product's name when it was invoiced (snapshot),
+     * falling back to the current product for lines saved before snapshots existed.
+     */
+    protected function displayName(): Attribute
+    {
+        return Attribute::get(fn () => ($this->product_snapshot['name'] ?? null)
+            ?: $this->product?->name
+            ?: 'Item #' . $this->product_id);
+    }
+
     protected static function booted()
     {
+        // Every way of creating a line (invoice form repeater, package invoices, ...) gets a
+        // snapshot; changing the product on an existing line takes a fresh one.
+        static::saving(function ($item) {
+            if ($item->product_id && (empty($item->product_snapshot) || $item->isDirty('product_id'))) {
+                $item->product_snapshot = self::snapshotOf(Product::find($item->product_id));
+            }
+        });
+
         static::created(function ($item) {
             $product = $item->product;
             if ($product && $product->type !== 'service') {
