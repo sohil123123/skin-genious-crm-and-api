@@ -127,6 +127,11 @@ class Assessment extends Model implements HasMedia
                     'timing_validation',
                 ]);
                 return array_merge($metadata, [
+                    ...(($progress['plan']['course_outline'][$s->session_number - 1]['session_kind'] ?? null) === 'separate_clinician_session' ? [
+                        'session_kind' => 'separate_clinician_session',
+                        'doctor_confirmation' => hash_equals($progress['doctor_confirmations'][(string) $s->id]['steps_hash'] ?? '', hash('sha256', json_encode($s->steps, JSON_THROW_ON_ERROR)))
+                            ? $progress['doctor_confirmations'][(string) $s->id] : null,
+                    ] : []),
                     "id" => $s->id,
                     "session_number" => $s->session_number,
                     "title" => $s->title,
