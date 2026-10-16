@@ -31,7 +31,7 @@ class InvoiceForm
                             ->schema([
                                 // Grid::make(4)->schema([
                                 Select::make('clinic_id')
-                                    ->relationship('clinic', 'name')
+                                    ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                                     ->required(fn() => check_role(config('project.roles.super_admin')))
                                     ->visible(fn() => check_role(config('project.roles.super_admin')))
                                     ->live()

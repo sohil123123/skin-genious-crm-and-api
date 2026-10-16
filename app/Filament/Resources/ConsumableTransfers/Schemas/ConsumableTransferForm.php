@@ -29,7 +29,7 @@ class ConsumableTransferForm
                             ->schema([
                                 auth()->user()->hasRole('super_admin')
                                     ? Select::make('clinic_id')
-                                        ->relationship('clinic', 'name')
+                                        ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                                         ->required()
                                         // ->searchable()
                                         ->native(false)

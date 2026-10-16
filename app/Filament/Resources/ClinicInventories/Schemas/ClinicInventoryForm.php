@@ -11,7 +11,7 @@ class ClinicInventoryForm
         return $schema
             ->components([
                 \Filament\Forms\Components\Select::make('clinic_id')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                     ->required()
                     ->searchable(),
                 \Filament\Forms\Components\Select::make('product_id')

@@ -33,7 +33,7 @@ class PurchaseForm
                                 Grid::make(auth()->user()->hasRole('super_admin') ? 5 : 4)->schema([
                                     auth()->user()->hasRole('super_admin')
                                     ? Select::make('clinic_id')
-                                        ->relationship('clinic', 'name', fn ($query) => $query->active()->orderBy('name'))
+                                        ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                                         ->placeholder('Select clinic')
                                         ->required()
                                         // ->searchable()

@@ -50,7 +50,7 @@ class MetaPageForm
                 ->schema([
                     Select::make('clinic_id')
                         ->label('Clinic')
-                        ->relationship('clinic', 'name', fn ($query) => $query->orderBy('name'))
+                        ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                         ->searchable()
                         ->preload()
                         ->placeholder('Use the default clinic')
