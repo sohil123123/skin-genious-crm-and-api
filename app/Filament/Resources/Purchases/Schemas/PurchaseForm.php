@@ -29,7 +29,8 @@ class PurchaseForm
                     ->schema([
                         Section::make('Purchase Details')
                             ->schema([
-                                Grid::make(4)->schema([
+                                // One row of details (clinic only for super admin), invoice below.
+                                Grid::make(auth()->user()->hasRole('super_admin') ? 5 : 4)->schema([
                                     auth()->user()->hasRole('super_admin')
                                     ? Select::make('clinic_id')
                                         ->relationship('clinic', 'name', fn ($query) => $query->active()->orderBy('name'))
@@ -75,7 +76,7 @@ class PurchaseForm
                                         ->downloadable()
                                         ->placeholder('Upload invoice image or PDF')
                                         ->helperText('Optional. JPG, PNG, WEBP or PDF, max 5MB.')
-                                        ->columnSpan(3),
+                                        ->columnSpanFull(),
                                 ]),
                                 // Grid::make(4)->schema([
                                 //     TextInput::make('supplier_name')
