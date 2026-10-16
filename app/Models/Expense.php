@@ -13,10 +13,22 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Expense extends Model
+class Expense extends Model implements HasMedia
 {
-    use HasAuditColumns, SoftDeletes, LogsActivity;
+    use HasAuditColumns, SoftDeletes, LogsActivity, InteractsWithMedia;
+
+    public const INVOICE_COLLECTION = 'invoice';
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::INVOICE_COLLECTION)
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+    }
+
 
     public function getActivitylogOptions(): LogOptions
     {

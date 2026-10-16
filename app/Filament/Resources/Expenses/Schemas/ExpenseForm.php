@@ -4,7 +4,9 @@ namespace App\Filament\Resources\Expenses\Schemas;
 
 use App\Enums\ExpensePaymentMethod;
 use App\Enums\ExpenseReferenceType;
+use App\Models\Expense;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -106,6 +108,18 @@ class ExpenseForm
                         Textarea::make('description')
                             ->rows(4)
                             ->placeholder('Add notes about this expense')
+                            ->columnSpanFull(),
+
+                        SpatieMediaLibraryFileUpload::make('invoice')
+                            ->label('Invoice')
+                            ->collection(Expense::INVOICE_COLLECTION)
+                            ->disk('public')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                            ->maxSize(5120)
+                            ->openable()
+                            ->downloadable()
+                            ->placeholder('Upload invoice image or PDF')
+                            ->helperText('Optional. JPG, PNG, WEBP or PDF, max 5MB.')
                             ->columnSpanFull(),
                     ]),
                 ])

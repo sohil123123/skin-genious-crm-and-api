@@ -22,6 +22,11 @@ class CreatePurchase extends CreateRecord
         ];
     }
 
+    protected function afterCreate(): void
+    {
+        $this->record->syncInvoiceToExpense();
+    }
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');

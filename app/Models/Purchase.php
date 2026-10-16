@@ -9,10 +9,63 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\FileAdder;
+use App\Enums\ExpenseReferenceType;
 
-class Purchase extends Model
+class Purchase extends Model implements HasMedia
 {
-    use HasAuditColumns, LogsActivity;
+    use HasAuditColumns, LogsActivity, InteractsWithMedia;
+
+    public const INVOICE_COLLECTION = 'invoice';
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::INVOICE_COLLECTION)
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+    }
+
+    /**
+     * Mirror this purchase's invoice onto the expense generated from it, so the
+     * expense shows the same file. Call after media is saved (the Filament
+     * upload field saves media after the record, so the observer is too early).
+     */
+    public function syncInvoiceToExpense(): void
+    {
+        $expense = Expense::query()
+            ->where('reference_type', ExpenseReferenceType::Purchase->value)
+            ->where('reference_id', $this->getKey())
+            ->first();
+
+        if (! $expense) {
+            return;
+        }
+
+        $invoice = $this->load('media')->getFirstMedia(self::INVOICE_COLLECTION);
+        $current = $expense->getFirstMedia(Expense::INVOICE_COLLECTION);
+        $currentSourceId = $current?->getCustomProperty('purchase_media_id');
+
+        if (! $invoice) {
+            // Only remove a copy that came from this purchase, never an own upload.
+            if ($current && $currentSourceId) {
+                $current->delete();
+            }
+
+            return;
+        }
+
+        if ($current && $currentSourceId === $invoice->getKey()) {
+            return;
+        }
+
+        $invoice->copy(
+            $expense,
+            Expense::INVOICE_COLLECTION,
+            fileAdderCallback: fn (FileAdder $adder) => $adder->withCustomProperties(['purchase_media_id' => $invoice->getKey()]),
+        );
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
