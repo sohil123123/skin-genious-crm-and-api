@@ -31,7 +31,7 @@ class ExpenseCategoryForm
                             ->required()
                             ->maxLength(255)
                             ->prefixIcon('heroicon-o-tag')
-                            ->placeholder('Inventory Purchase'),
+                            ->placeholder('Enter category name, e.g. Inventory Purchase'),
 
                         // TextInput::make('slug')
                         //     ->maxLength(255)
@@ -44,6 +44,7 @@ class ExpenseCategoryForm
                             ->default(ExpenseCategoryType::Variable->value)
                             ->required()
                             ->native(false)
+                            ->placeholder('Select category type')
                             ->prefixIcon('heroicon-o-adjustments-horizontal'),
 
                         // TextInput::make('sort_order')
