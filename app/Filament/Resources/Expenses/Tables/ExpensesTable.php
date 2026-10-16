@@ -24,11 +24,14 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use App\Filament\Traits\HasInvoiceFileColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class ExpensesTable
 {
+    use HasInvoiceFileColumn;
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -81,6 +84,8 @@ class ExpensesTable
                     ->searchable()
                     ->toggleable(),
 
+
+
                 TextColumn::make('creator.name')
                     ->label('Created By')
                     ->searchable(['first_name', 'last_name'])
@@ -113,6 +118,8 @@ class ExpensesTable
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                static::invoiceFileColumn('expenses'),
             ])
             ->filters([
                 SelectFilter::make('clinic_id')

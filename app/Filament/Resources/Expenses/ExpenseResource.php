@@ -50,7 +50,7 @@ class ExpenseResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['category', 'clinic', 'creator', 'approver'])
+            ->with(['category', 'clinic', 'creator', 'approver', 'media'])
             ->when(!check_role(config('project.roles.super_admin')), function ($query) {
                 $query->forCurrentClinic();
             });

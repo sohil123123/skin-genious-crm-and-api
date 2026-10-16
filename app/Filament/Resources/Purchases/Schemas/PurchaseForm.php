@@ -7,9 +7,11 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use App\Models\Purchase;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Schemas\Components\Group;
@@ -27,10 +29,12 @@ class PurchaseForm
                     ->schema([
                         Section::make('Purchase Details')
                             ->schema([
-                                Grid::make(4)->schema([
+                                // One row of details (clinic only for super admin), invoice below.
+                                Grid::make(auth()->user()->hasRole('super_admin') ? 5 : 4)->schema([
                                     auth()->user()->hasRole('super_admin')
                                     ? Select::make('clinic_id')
-                                        ->relationship('clinic', 'name')
+                                        ->relationship('clinic', 'name', fn ($query) => $query->active()->orderBy('name'))
+                                        ->placeholder('Select clinic')
                                         ->required()
                                         // ->searchable()
                                         ->native(false)
@@ -62,6 +66,17 @@ class PurchaseForm
                                         ->placeholder('e.g. ABC Pharma')
                                         ->maxLength(255)
                                         ->columnSpan(1),
+                                    SpatieMediaLibraryFileUpload::make('invoice')
+                                        ->label('Invoice')
+                                        ->collection(Purchase::INVOICE_COLLECTION)
+                                        ->disk('public')
+                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                                        ->maxSize(5120)
+                                        ->openable()
+                                        ->downloadable()
+                                        ->placeholder('Upload invoice image or PDF')
+                                        ->helperText('Optional. JPG, PNG, WEBP or PDF, max 5MB.')
+                                        ->columnSpanFull(),
                                 ]),
                                 // Grid::make(4)->schema([
                                 //     TextInput::make('supplier_name')
