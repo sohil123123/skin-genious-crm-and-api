@@ -118,8 +118,8 @@ class FacialCourseContinuation
             return $result + ['status' => 'awaiting_reassessment'];
         }
         foreach ($scope['session_numbers'] as $number) {
-            if (($scope['course_outline'][$number - 1]['session_kind'] ?? null) !== 'facial') {
-                return $result + ['status' => 'blocked', 'message' => 'This course includes a separately assessed clinician session in the next batch. Use that assessment pathway before releasing it.'];
+            if (!in_array($scope['course_outline'][$number - 1]['session_kind'] ?? null, ['facial', 'separate_clinician_session'], true)) {
+                return $result + ['status' => 'blocked', 'message' => 'The next course slot has an invalid session kind. Review the saved outline.'];
             }
         }
         $batch = $progress['batches'][(string) $source->session_number] ?? [];
@@ -208,10 +208,16 @@ class FacialCourseContinuation
                 $slot = $scope['course_outline'][$session['session_number'] - 1];
                 $steps = $session['steps'] ?? [];
                 $sum = array_sum(array_column($steps, 'duration'));
-                if ($slot['session_kind'] !== 'facial' || ($session['week'] ?? null) != $slot['week'] || !$steps ||
-                    $sum < 60 || $sum > 75 || abs($sum - ($session['treatment_time'] ?? 0)) > 0.000001 ||
+                $standalone = ($slot['session_kind'] ?? null) === 'separate_clinician_session';
+                if (($session['week'] ?? null) != $slot['week'] || !$steps || $sum <= 0 ||
+                    abs($sum - ($session['treatment_time'] ?? 0)) > 0.000001) {
+                    $this->reject('Each appended session must retain its original week and actual positive step total.');
+                }
+                if ($standalone) {
+                    $this->validateStandalone($slot, $session);
+                } elseif (($slot['session_kind'] ?? null) !== 'facial' || $sum < 60 || $sum > 75 ||
                     ($steps[count($steps) - 1]['step_id'] ?? null) !== 'FINISH.SMS') {
-                    $this->reject('Each appended facial must retain its original week, actual steps and validated 60–75 minute total.');
+                    $this->reject('Each appended facial must retain its validated 60-75 minute total and finish.');
                 }
                 if ($assessment->treatmentSessions()->where('session_number', $session['session_number'])->exists()) {
                     abort(409, 'A requested session already exists; it will not be overwritten.');
@@ -241,6 +247,57 @@ class FacialCourseContinuation
             $assessment->forceFill(['total_time' => $progress['plan']['total_time'], 'facial_course_progress' => $progress])->saveQuietly();
             // DB owns the commit; legacy JSON consumers are refreshed only afterwards.
             return ['status' => 'ready', 'course_continuation' => $scope];
+        });
+    }
+
+    private const STANDALONE_IDS = ['ENERGY.HIFU', 'ENERGY.MNRF', 'ENERGY.NEEDLE.PEN', 'ENERGY.NEEDLE.ROLLER'];
+
+    private function validateStandalone(array $slot, array $session): void
+    {
+        $steps = $session['steps'];
+        $procedures = array_values(array_filter($steps, fn ($step) => in_array($step['step_id'] ?? null, self::STANDALONE_IDS, true)));
+        $core = $procedures[0]['step_id'] ?? null;
+        $allowed = [$core, 'PREP.CLEANSE', 'COOL.ICE', 'FINISH.SMS'];
+        if ($core !== 'ENERGY.HIFU') $allowed = array_merge($allowed, ['INFUSE.PDRN', 'INFUSE.EXO', 'LED.RED']);
+        if (count($procedures) !== 1 || !in_array($core, $slot['candidate_step_ids'] ?? [], true) ||
+            !str_starts_with($session['title'] ?? '', 'Dr. Supervised session') ||
+            empty($session['preparations_checklist_for_therapist']) ||
+            !str_contains($procedures[0]['settings_note'] ?? '', 'Doctor must select and document all device settings')) {
+            $this->reject('Standalone drafts require one outlined procedure, doctor supervision and manual device settings.');
+        }
+        foreach ($steps as $step) {
+            if (!in_array($step['step_id'] ?? null, $allowed, true) || !is_numeric($step['duration'] ?? null) || $step['duration'] <= 0 || empty($step['how_to_do'])) {
+                $this->reject('A standalone session contains an unrelated procedure or incomplete step.');
+            }
+        }
+    }
+
+    public function recordDoctorConfirmation(TreatmentSession $source, string $doctorName, int $recordedBy): array
+    {
+        return $this->locked($source, function ($assessment, $session) use ($doctorName, $recordedBy) {
+            $progress = $this->progress($assessment);
+            $slot = $progress['plan']['course_outline'][$session->session_number - 1] ?? [];
+            if (($slot['session_kind'] ?? null) !== 'separate_clinician_session' || $session->status !== 'pending') {
+                $this->reject('Doctor confirmation is only recorded for a pending standalone session.');
+            }
+            $confirmation = ['doctor_name' => $doctorName, 'recorded_by' => $recordedBy,
+                'recorded_at' => now()->toIso8601String(),
+                'steps_hash' => hash('sha256', json_encode($session->steps, JSON_THROW_ON_ERROR))];
+            $progress['doctor_confirmations'][(string) $session->id] = $confirmation;
+            $this->saveProgress($assessment, $progress);
+            return $confirmation;
+        });
+    }
+
+    public function requireDoctorConfirmation(TreatmentSession $source): void
+    {
+        $this->locked($source, function ($assessment, $session) {
+            $progress = $this->progress($assessment);
+            if (($progress['plan']['course_outline'][$session->session_number - 1]['session_kind'] ?? null) !== 'separate_clinician_session') return;
+            $confirmation = $progress['doctor_confirmations'][(string) $session->id] ?? [];
+            if (empty($confirmation['doctor_name']) || !hash_equals($confirmation['steps_hash'] ?? '', hash('sha256', json_encode($session->steps, JSON_THROW_ON_ERROR)))) {
+                $this->reject('Dr. Supervised session: record doctor review, consent and manual settings confirmation before starting.');
+            }
         });
     }
 

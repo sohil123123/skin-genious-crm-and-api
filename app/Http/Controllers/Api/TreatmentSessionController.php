@@ -33,6 +33,10 @@ class TreatmentSessionController extends Controller
             'status' => 'required|string',
         ]);
 
+        if (in_array($request->status, ['in_progress', 'completed'], true)) {
+            app(\App\Services\FacialCourseContinuation::class)->requireDoctorConfirmation($treatmentSession);
+        }
+
         $treatmentSession->update([
             'status' => $request->status,
         ]);
@@ -203,7 +207,7 @@ class TreatmentSessionController extends Controller
             'generated_plan.treatment_plan.treatments.*.session_number' => 'required|integer|min:3|max:8',
             'generated_plan.treatment_plan.treatments.*.title' => 'required|string',
             'generated_plan.treatment_plan.treatments.*.week' => 'required|numeric|min:1',
-            'generated_plan.treatment_plan.treatments.*.treatment_time' => 'required|numeric|min:60|max:75',
+            'generated_plan.treatment_plan.treatments.*.treatment_time' => 'required|numeric|gt:0',
             'generated_plan.treatment_plan.treatments.*.preparations_checklist_for_therapist' => 'present|array',
             'generated_plan.treatment_plan.treatments.*.concerns_addressed' => 'present|array',
             'generated_plan.treatment_plan.treatments.*.steps' => 'required|array|min:1',
@@ -219,6 +223,13 @@ class TreatmentSessionController extends Controller
         return $this->courseContinuationResponse($treatmentSession, $continuation->complete(
             $treatmentSession, $data['token'], $request->input('generated_plan'), $data['post_feature_packet']
         ));
+    }
+
+    public function confirmStandaloneDoctor(Request $request, TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
+    {
+        $data = $request->validate(['doctor_name' => 'required|string|max:160', 'confirmed' => 'required|accepted']);
+        $result = $continuation->recordDoctorConfirmation($treatmentSession, $data['doctor_name'], (int) $request->user()->id);
+        return response()->json(['success' => true, 'results' => $result]);
     }
 
     public function releaseCourseContinuation(Request $request, TreatmentSession $treatmentSession, \App\Services\FacialCourseContinuation $continuation)
