@@ -20,11 +20,14 @@ use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use App\Filament\Traits\HasInvoiceFileColumn;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class PurchasesTable
 {
+    use HasInvoiceFileColumn;
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -92,6 +95,7 @@ class PurchasesTable
                         'Unpaid' => 'danger',
                         default => 'gray',
                     }),
+                static::invoiceFileColumn('purchases'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

@@ -57,6 +57,7 @@ class PurchaseResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
+            ->with('media')
             ->when(!check_role(config('project.roles.super_admin')), function ($query) {
                 $query->where('clinic_id', auth()->user()->clinic_id);
             });

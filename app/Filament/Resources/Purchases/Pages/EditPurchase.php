@@ -21,6 +21,11 @@ class EditPurchase extends EditRecord
         ];
     }
 
+    protected function afterSave(): void
+    {
+        $this->record->syncInvoiceToExpense();
+    }
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');

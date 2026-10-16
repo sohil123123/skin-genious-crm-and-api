@@ -31,7 +31,7 @@ class ExpenseCategoryForm
                             ->required()
                             ->maxLength(255)
                             ->prefixIcon('heroicon-o-tag')
-                            ->placeholder('Inventory Purchase'),
+                            ->placeholder('Enter category name, e.g. Inventory Purchase'),
 
                         // TextInput::make('slug')
                         //     ->maxLength(255)
@@ -44,6 +44,13 @@ class ExpenseCategoryForm
                             ->default(ExpenseCategoryType::Variable->value)
                             ->required()
                             ->native(false)
+                            ->placeholder('Select category type')
+                            ->live()
+                            ->helperText(fn ($state): ?string => match ($state instanceof ExpenseCategoryType ? $state->value : $state) {
+                                ExpenseCategoryType::Fixed->value => 'Same amount every month, e.g. rent, salaries.',
+                                ExpenseCategoryType::Variable->value => 'Changes with clinic activity, e.g. purchases, consumables.',
+                                default => null,
+                            })
                             ->prefixIcon('heroicon-o-adjustments-horizontal'),
 
                         // TextInput::make('sort_order')

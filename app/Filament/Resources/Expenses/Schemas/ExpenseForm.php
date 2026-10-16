@@ -4,7 +4,9 @@ namespace App\Filament\Resources\Expenses\Schemas;
 
 use App\Enums\ExpensePaymentMethod;
 use App\Enums\ExpenseReferenceType;
+use App\Models\Expense;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -30,7 +32,8 @@ class ExpenseForm
                     Grid::make(3)->schema([
                         auth()->user()->hasRole('super_admin')
                             ? Select::make('clinic_id')
-                                ->relationship('clinic', 'name')
+                                ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
+                                ->placeholder('Select clinic')
                                 ->searchable()
                                 ->preload()
                                 ->required()
@@ -52,11 +55,13 @@ class ExpenseForm
                             ->preload()
                             ->required()
                             ->native(false)
+                            ->placeholder('Select category')
                             ->prefixIcon('heroicon-o-tag'),
 
                         DatePicker::make('expense_date')
                             ->label('Expense Date')
                             ->default(now())
+                            ->placeholder('Select expense date')
                             ->required()
                             ->prefixIcon('heroicon-o-calendar'),
 
@@ -65,13 +70,14 @@ class ExpenseForm
                             ->required()
                             ->minValue(0.01)
                             ->prefix('Rs.')
-                            ->placeholder('0.00'),
+                            ->placeholder('Enter amount, e.g. 0.00'),
 
                         Select::make('payment_method')
                             ->options(ExpensePaymentMethod::options())
                             ->default(ExpensePaymentMethod::Cash->value)
                             ->required()
                             ->native(false)
+                            ->placeholder('Select payment method')
                             ->prefixIcon('heroicon-o-credit-card'),
 
                         Select::make('reference_type')
@@ -79,11 +85,13 @@ class ExpenseForm
                             ->default(ExpenseReferenceType::Manual->value)
                             ->required()
                             ->native(false)
+                            ->placeholder('Select reference type')
                             ->prefixIcon('heroicon-o-link'),
 
                         TextInput::make('reference_id')
                             ->label('Reference ID')
                             ->numeric()
+                            ->placeholder('Enter reference ID')
                             ->visible(fn ($get) => $get('reference_type') !== ExpenseReferenceType::Manual->value)
                             ->disabled(fn ($record) => $record?->reference_type === ExpenseReferenceType::Purchase->value),
 
@@ -94,10 +102,24 @@ class ExpenseForm
 
                         TextInput::make('vendor_name')
                             ->label('Vendor / Payee')
+                            ->placeholder('Enter vendor or payee name')
                             ->maxLength(255),
 
                         Textarea::make('description')
                             ->rows(4)
+                            ->placeholder('Add notes about this expense')
+                            ->columnSpanFull(),
+
+                        SpatieMediaLibraryFileUpload::make('invoice')
+                            ->label('Invoice')
+                            ->collection(Expense::INVOICE_COLLECTION)
+                            ->disk('public')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                            ->maxSize(5120)
+                            ->openable()
+                            ->downloadable()
+                            ->placeholder('Upload invoice image or PDF')
+                            ->helperText('Optional. JPG, PNG, WEBP or PDF, max 5MB.')
                             ->columnSpanFull(),
                     ]),
                 ])

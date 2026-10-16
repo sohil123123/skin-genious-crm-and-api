@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CallRecordingController;
+use App\Http\Controllers\InvoiceFileController;
 use App\Models\Invoice;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,13 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['web', 'auth'])
     ->get('/calls/recordings/{recording}/stream', [CallRecordingController::class, 'stream'])
     ->name('calls.recordings.stream');
+
+// Uploaded purchase / expense invoice download, behind auth and clinic scoping.
+Route::middleware(['web', 'auth'])
+    ->get('/invoice-files/{type}/{id}/download', [InvoiceFileController::class, 'download'])
+    ->whereIn('type', ['purchases', 'expenses'])
+    ->whereNumber('id')
+    ->name('invoice-files.download');
 
 Route::get('/test_invoice', function () {
     // return view('welcome');
