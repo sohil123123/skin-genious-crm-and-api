@@ -83,6 +83,18 @@ class Clinic extends Model
         $query->where('is_active', true);
     }
 
+    /**
+     * Active clinics for dropdowns, plus the clinic already saved on the record
+     * being edited (even if inactive) so its selection still shows a label.
+     */
+    public function scopeActiveOrCurrent($query, $currentClinicId = null)
+    {
+        $query->where(function ($query) use ($currentClinicId) {
+            $query->where('is_active', true)
+                ->when($currentClinicId, fn ($query) => $query->orWhere($query->qualifyColumn('id'), $currentClinicId));
+        })->orderBy('name');
+    }
+
     protected function name(): Attribute
     {
         return Attribute::make(

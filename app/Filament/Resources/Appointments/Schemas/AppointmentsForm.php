@@ -113,7 +113,7 @@ class AppointmentsForm
             auth()->user()->hasRole('super_admin')
                 ? Select::make('clinic_id')
                     ->label('Clinic')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                     ->searchable()
                     ->preload()
                     ->required()
@@ -130,7 +130,7 @@ class AppointmentsForm
                         return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                     })
                     ->searchable()
-                    ->required()
+                    ->required(fn ($record) => $record?->type?->value !== 'consult')
                     ->placeholder('Select Therapist')
                     ->afterStateUpdated(fn ($state, callable $set) => $set('start_date', null))
                     ->live(),

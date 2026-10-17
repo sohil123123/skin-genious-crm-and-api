@@ -26,7 +26,7 @@ class AvailabilityService
     // Assign it from Shield (Roles → Custom Permissions) or per user (Users → Manage Permissions).
     public const EMERGENCY_OVERRIDE_PERMISSION = 'EmergencyOverride:Appointment';
 
-    public function assertBookable(int $clinicId, int $therapistId, Carbon $start, Carbon $end, string $status = null, ?int $ignoreAppointmentId = null): array
+    public function assertBookable(int $clinicId, ?int $therapistId, Carbon $start, Carbon $end, string $status = null, ?int $ignoreAppointmentId = null): array
     {
         $warning = [];
         $canOverride = $this->canEmergencyOverride();
@@ -41,8 +41,8 @@ class AvailabilityService
             $this->throwAvailabilityError(strtoupper($ex['category']), 'Slot unavailable.', $ex);
         }
 
-        // 3️⃣ Pending limit (strict)
-        if ($status === 'pending') {
+        // 3️⃣ Pending limit (strict) - per therapist, skipped when no therapist assigned
+        if ($status === 'pending' && $therapistId) {
             $pendingCount = $this->countPending(
                 $clinicId,
                 $therapistId,
@@ -100,8 +100,8 @@ class AvailabilityService
             ];
         }
 
-        // 5️⃣ Therapist overlap
-        $overlap = Appointment::query()
+        // 5️⃣ Therapist overlap (skipped when no therapist assigned)
+        $overlap = $therapistId && Appointment::query()
             ->where('clinic_id', $clinicId)
             ->where('therapist_id', $therapistId)
             // ->whereNotIn('status', ['pending', 'cancelled', 'no_show'])
@@ -176,7 +176,7 @@ class AvailabilityService
             }
 
             // 3️⃣ Therapist overlap
-            $overlap = Appointment::query()
+            $overlap = $therapistId && Appointment::query()
                 ->where('clinic_id', $clinicId)
                 ->where('therapist_id', $therapistId)
                 ->where('id', '!=', $appointment->id)
@@ -244,7 +244,7 @@ class AvailabilityService
             ];
         }
 
-        $overlap = Appointment::query()
+        $overlap = $therapistId && Appointment::query()
             ->where('clinic_id', $clinicId)
             ->where('therapist_id', $therapistId)
             ->where('id', '!=', $appointment->id)
@@ -292,7 +292,7 @@ class AvailabilityService
     //         ->exists();
     // }
 
-    private function findBlockingException(int $clinicId, int $therapistId, Carbon $start, Carbon $end): ?array {
+    private function findBlockingException(int $clinicId, ?int $therapistId, Carbon $start, Carbon $end): ?array {
 
         $exceptions = $this->getExceptionsForDate($clinicId, $therapistId, $start);
 
@@ -343,7 +343,7 @@ class AvailabilityService
         return null;
     }
 
-    private function getExceptionsForDate(int $clinicId, int $therapistId, Carbon $day)
+    private function getExceptionsForDate(int $clinicId, ?int $therapistId, Carbon $day)
     {
         // exceptionable polymorph: for therapist, exceptionable_type = User::class & id = therapistId
         // You also have clinic-level exceptions via exceptionable_type = Clinic::class & id = clinicId
@@ -353,10 +353,10 @@ class AvailabilityService
             ->active()
             ->where('clinic_id', $clinicId)
             ->where(function ($q) use ($therapistId, $clinicId) {
-                $q->where(function ($qq) use ($therapistId) {
+                $q->when($therapistId, fn ($q) => $q->where(function ($qq) use ($therapistId) {
                     $qq->where('exceptionable_type', 'App\\Models\\User')
                        ->where('exceptionable_id', $therapistId);
-                })->orWhere(function ($qq) use ($clinicId) {
+                }))->orWhere(function ($qq) use ($clinicId) {
                     $qq->where('exceptionable_type', 'App\\Models\\Clinic')
                        ->where('exceptionable_id', $clinicId);
                 });
@@ -406,7 +406,12 @@ class AvailabilityService
         ];
     }
 
-    private function isWithinEffectiveAvailability(int $clinicId, int $therapistId, Carbon $start, Carbon $end): bool {
+    private function isWithinEffectiveAvailability(int $clinicId, ?int $therapistId, Carbon $start, Carbon $end): bool {
+
+        // No therapist assigned (consult) → only clinic opening hours apply
+        if (!$therapistId) {
+            return $this->isWithinClinicHours($clinicId, $start, $end);
+        }
 
         $date = $start->toDateString();
         $availability = [];
@@ -471,6 +476,18 @@ class AvailabilityService
         }
 
         return false;
+    }
+
+    private function isWithinClinicHours(int $clinicId, Carbon $start, Carbon $end): bool
+    {
+        $clinic = Clinic::select('id', 'start_time', 'end_time')->find($clinicId);
+
+        if (!$clinic || !$clinic->start_time || !$clinic->end_time) {
+            return true;
+        }
+
+        return $start->format('H:i') >= substr($clinic->start_time, 0, 5)
+            && $end->format('H:i') <= substr($clinic->end_time, 0, 5);
     }
 
     private function subtractTimeRange(array $slots, string $blockFrom, string $blockTo): array

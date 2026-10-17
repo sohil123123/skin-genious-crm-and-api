@@ -93,6 +93,14 @@ class AppointmentUpdateRequest extends FormRequest
 
             $therapistId = $this->input('therapist_id');
 
+            // Therapist is optional only for consult appointments
+            $appointment = $this->route('appointment');
+            $type = $this->input('type') ?? $appointment?->type?->value;
+
+            if ($type !== 'consult' && ! $therapistId && ! $appointment?->therapist_id) {
+                $validator->errors()->add('therapist_id', 'The therapist field is required unless type is consult.');
+            }
+
             if ($therapistId) {
                 $therapist = User::find($therapistId);
 

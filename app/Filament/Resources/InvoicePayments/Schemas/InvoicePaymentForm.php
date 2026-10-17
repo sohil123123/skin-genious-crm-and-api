@@ -335,7 +335,7 @@ class InvoicePaymentForm
                                 // ─── Clinic (super_admin only) ───────
                                 Select::make('clinic_id')
                                     ->label('Clinic')
-                                    ->options(Clinic::pluck('name', 'id'))
+                                    ->options(fn (?InvoicePayment $record) => Clinic::activeOrCurrent($record?->invoice?->clinic_id)->pluck('name', 'id'))
                                     ->searchable()
                                     ->preload()
                                     ->placeholder('Select clinic')

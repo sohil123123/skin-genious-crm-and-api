@@ -79,7 +79,7 @@ class AvailabilityExceptionForm
             Grid::make(2)->schema([
                 Select::make('clinic_id')
                     ->label('Clinic')
-                    ->relationship('clinic', 'name')
+                    ->relationship('clinic', 'name', fn ($query, $record) => $query->activeOrCurrent($record?->clinic_id))
                     ->required()
                     ->placeholder('Select Clinic')
                     ->visible(fn ($get) => check_role('super_admin') && $get('exceptionable_type') == User::class)

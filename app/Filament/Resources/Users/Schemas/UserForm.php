@@ -247,7 +247,7 @@ class UserForm
                                         ->relationship(
                                             name: 'clinic',
                                             titleAttribute: 'name',
-                                            modifyQueryUsing: fn(\Illuminate\Database\Eloquent\Builder $query) => auth()->user()->clinic_id ? $query->where('id', auth()->user()->clinic_id) : $query
+                                            modifyQueryUsing: fn(\Illuminate\Database\Eloquent\Builder $query, $record) => auth()->user()->clinic_id ? $query->where('id', auth()->user()->clinic_id) : $query->activeOrCurrent($record?->clinic_id)
                                         )
                                         // ->searchable()
                                         // ->preload()
