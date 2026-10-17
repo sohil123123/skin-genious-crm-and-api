@@ -75,7 +75,7 @@ class EditAppointments extends EditRecord
             // 2️⃣ Call availability service
             $warning = app(AvailabilityService::class)->assertBookable(
                 clinicId: $data['clinic_id'],
-                therapistId: $data['therapist_id'],
+                therapistId: $data['therapist_id'] ?? null,
                 start: Carbon::parse($start),
                 end: Carbon::parse($end),
                 status: $status,
