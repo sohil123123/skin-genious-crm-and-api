@@ -130,7 +130,7 @@ class AppointmentsForm
                         return User::active()->role('therapist')->where('clinic_id', $clinicId)->get()->mapWithKeys(fn ($u) => [$u->id => $u->name]);
                     })
                     ->searchable()
-                    ->required()
+                    ->required(fn ($record) => $record?->type?->value !== 'consult')
                     ->placeholder('Select Therapist')
                     ->afterStateUpdated(fn ($state, callable $set) => $set('start_date', null))
                     ->live(),

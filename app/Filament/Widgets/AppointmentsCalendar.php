@@ -266,7 +266,7 @@ class AppointmentsCalendar extends FullCalendarWidget
                     ->title(
                         "({$appointment->status->getLabel()})"
                         . ($emergencyLabel ? " ({$emergencyLabel})" : '')
-                        . " {$appointment->client->name} w/ {$appointment->therapist->name}."
+                        . " {$appointment->client->name}" . ($appointment->therapist ? " w/ {$appointment->therapist->name}." : '.')
                     )
                     ->start($appointment->start_datetime)
                     ->end($appointment->end_datetime)  // If no end time

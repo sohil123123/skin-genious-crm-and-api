@@ -56,8 +56,9 @@ class AppointmentRequest extends FormRequest
             ],
 
             'therapist_id' => [
-                // Required only for admin / clinic manager
-                $user->hasRole(['therapist']) ? 'nullable' : 'required', 'exists:users,id',
+                // Required only for admin / clinic manager, optional for consult appointments
+                $user->hasRole(['therapist']) ? 'nullable' : 'required_unless:type,consult',
+                'nullable', 'exists:users,id',
                 function($attr, $value, $fail) use ($user) {
 
                     if(!$user->hasRole(['therapist'])){

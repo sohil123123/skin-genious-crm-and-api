@@ -49,7 +49,7 @@ class AppointmentController extends BaseApiController
         $status = $data['status'] ?? 'pending';
         $warning = $availability->assertBookable(
             clinicId: (int)$data['clinic_id'],
-            therapistId: (int)$data['therapist_id'],
+            therapistId: isset($data['therapist_id']) ? (int)$data['therapist_id'] : null,
             start: Carbon::parse($data['start_datetime']),
             end: Carbon::parse($data['end_datetime']),
             status: $status
@@ -135,7 +135,7 @@ class AppointmentController extends BaseApiController
         if ($timeChanging || $therapistChanging || isset($data['clinic_id'])) {
             $warning = $availability->assertBookable(
                 clinicId: (int)$newClinicId,
-                therapistId: (int)$newTherapistId,
+                therapistId: $newTherapistId ? (int)$newTherapistId : null,
                 start: $start,
                 end: $end,
                 // status: 'pending',
